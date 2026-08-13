@@ -271,7 +271,11 @@ const wss = new WebSocketServer({
   // Le refus se fait à la poignée de main, pas après : une socket acceptée
   // puis fermée a déjà consommé un identifiant et déclenché la logique de
   // salon. Ici, la connexion n'existe simplement jamais.
-  verifyClient: ({ origin }) => originAllowed(origin, ALLOWED_ORIGINS, PRODUCTION),
+  // Le type de `verifyClient` est une union de signatures, que TypeScript ne
+  // sait pas propager à un paramètre déstructuré : on l'annote donc à la main,
+  // au plus étroit de ce qu'on lit.
+  verifyClient: ({ origin }: { origin: string }) =>
+    originAllowed(origin, ALLOWED_ORIGINS, PRODUCTION),
   // Le plus gros message légitime est un chat de 140 caractères : quelques
   // centaines d'octets. Le défaut de `ws` est de 100 Mo — de quoi bloquer la
   // boucle d'événements dans JSON.parse, et donc figer tous les salons à la
