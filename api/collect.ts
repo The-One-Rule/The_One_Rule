@@ -1,11 +1,15 @@
 /**
  * Collecteur d'événements — fonction serverless Vercel.
  *
- * Écrit une ligne NDJSON par événement dans les logs. C'est volontairement
- * rustique : à ce stade du projet, un log drain gratuit suffit largement et
- * ne coûte ni base de données ni maintenance. Quand le volume le justifiera,
- * remplacer `sink()` par une écriture Postgres ou KV — c'est la seule
- * fonction à changer.
+ * Une ligne NDJSON par événement, poussée dans une liste Redis (Upstash, API
+ * REST : le runtime edge ne peut pas ouvrir de connexion TCP). Le format de
+ * ligne est exactement celui que `scripts/report.mjs` sait lire — c'est la
+ * raison de ne pas stocker de structure plus savante.
+ *
+ * Les premières versions se contentaient de `console.log`, et c'était un piège :
+ * les logs d'exécution sont éphémères, donc un D7 était impossible à calculer.
+ * Sans Upstash configuré, on retombe sur ce comportement — utilisable en local,
+ * mais sans mémoire.
  *
  * Ne journalise jamais d'IP, d'en-tête d'identification ni de user-agent.
  */
@@ -37,8 +41,56 @@ const ALLOWED = new Set([
 const MAX_BATCH = 50;
 const MAX_BODY = 16_000;
 
-function sink(line: string): void {
-  console.log(line);
+/* ------------------------------------------------------------------ *
+ * Stockage
+ * ------------------------------------------------------------------ */
+
+/** 40 jours : de quoi calculer un D7 avec de la marge, et rien de plus. */
+const TTL_S = 40 * 24 * 60 * 60;
+
+/**
+ * Clé du jour de RÉCEPTION. À ne pas confondre avec le champ `day` d'un
+ * événement, qui est l'âge du joueur en jours : celui-là sert au calcul des
+ * cohortes, celle-ci ne sert qu'à découper le stockage et à le faire expirer.
+ */
+export const dayKey = (at: number): string => `ev:${new Date(at).toISOString().slice(0, 10)}`;
+
+/**
+ * Un seul aller-retour par requête, quel que soit le nombre d'événements :
+ * `RPUSH` accepte toutes les lignes d'un coup, et le pipeline y ajoute
+ * l'expiration. Le quota gratuit se compte en commandes.
+ */
+export async function sink(lines: string[], at: number): Promise<void> {
+  if (!lines.length) return;
+  // Noms injectés tels quels par l'intégration Upstash de Vercel. Lus à chaque
+  // appel plutôt que figés à l'import : c'est ce qui rend la fonction testable
+  // sans réinitialiser le module.
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) {
+    for (const line of lines) console.log(line);
+    return;
+  }
+  const key = dayKey(at);
+  try {
+    const res = await fetch(`${url}/pipeline`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify([
+        ["RPUSH", key, ...lines],
+        ["EXPIRE", key, String(TTL_S)],
+      ]),
+      // Le joueur n'attend pas cette réponse, mais l'instance, elle, la paie :
+      // une panne d'Upstash ne doit pas tenir la fonction ouverte.
+      signal: AbortSignal.timeout(2000),
+    });
+    if (!res.ok) throw new Error(`upstash ${res.status}`);
+  } catch (err) {
+    // Perdre une mesure ne doit jamais casser une partie. On tombe dans les
+    // logs — au moins la soirée en cours reste lisible — et on répond 204.
+    console.log(`collect_sink_error ${String(err)}`);
+    for (const line of lines) console.log(line);
+  }
 }
 
 function clean(v: unknown): unknown {
@@ -70,6 +122,7 @@ export default async function handler(req: Request): Promise<Response> {
   }
 
   const received = Date.now();
+  const lines: string[] = [];
   for (const e of payload.batch.slice(0, MAX_BATCH)) {
     if (!e || typeof e.ev !== "string" || !ALLOWED.has(e.ev)) continue;
     const out: Record<string, unknown> = { id, day, ev: e.ev, at: received };
@@ -78,8 +131,9 @@ export default async function handler(req: Request): Promise<Response> {
       const c = clean(v);
       if (c !== undefined) out[k] = c;
     }
-    sink(JSON.stringify(out));
+    lines.push(JSON.stringify(out));
   }
+  await sink(lines, received);
 
   // 204 : le client n'attend rien et ne doit rien avoir à traiter
   return new Response(null, { status: 204 });

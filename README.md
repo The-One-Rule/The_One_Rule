@@ -132,11 +132,12 @@ Un duel se rejoue à volonté — c'est la même partie, la comparaison reste va
 Quatre chiffres, et rien d'autre : **D1, D7, durée médiane de session, taux de partage**. Ce sont eux qui décident du passage de la Porte 1.
 
 - `src/analytics/` — file d'attente groupée, envoi en `sendBeacon` (le seul qui survive à la fermeture d'onglet), transport injectable pour les tests. Un échec du collecteur ne peut pas remonter dans le jeu : `flush()` avale ses erreurs.
-- `api/collect.ts` — fonction edge Vercel. Écrit une ligne NDJSON par événement dans les logs, valide le nom d'événement contre une liste blanche, tronque les chaînes, plafonne le corps et la taille des lots. Ne journalise ni IP, ni user-agent, ni en-tête d'identification. Pour passer à une vraie base plus tard, seule la fonction `sink()` change.
+- `api/collect.ts` — fonction edge Vercel. Une ligne NDJSON par événement, poussée dans une liste Redis par jour de réception (Upstash en REST : le runtime edge n'ouvre pas de connexion TCP), avec expiration à 40 jours. Valide le nom d'événement contre une liste blanche, tronque les chaînes, plafonne le corps et la taille des lots. Ne journalise ni IP, ni user-agent, ni en-tête d'identification. Sans Redis configuré, retombe sur `console.log` — utilisable en local, mais sans mémoire, et donc sans D7.
+- `scripts/pull.mjs` — ressort le NDJSON brut depuis Redis. Rien d'autre : le rapport n'a pas à savoir où les événements dorment.
 - `scripts/report.mjs` — calcule les quatre chiffres, la courbe de rétention, les causes de mort et la difficulté par règle.
 
 ```bash
-vercel logs --output raw | node scripts/report.mjs
+node scripts/pull.mjs | node scripts/report.mjs
 node scripts/report.mjs events.ndjson
 ```
 
@@ -148,11 +149,14 @@ Le rapport corrige les cohortes : pour Dn, il ne compte que les joueurs dont la 
 
 ## Déploiement
 
+Deux services, et ils ne peuvent pas vivre au même endroit : le front sur Vercel, le serveur de salons WebSocket sur Fly.io ou Railway — une fonction edge ne maintient pas de socket ouverte. `Dockerfile` et `fly.toml` sont dans le dépôt, la marche à suivre complète est dans **[DEPLOIEMENT.md](DEPLOIEMENT.md)**.
+
 ```bash
-vercel                      # détection Vite automatique, api/ pris en charge
-# puis, dans les variables d'environnement du projet :
-VITE_COLLECT_URL=/api/collect
+vercel                      # front : détection Vite automatique, api/ pris en charge
+fly deploy                  # serveur de salons, sonde GET /health
 ```
+
+Variables du front : `VITE_COLLECT_URL=/api/collect` pour la mesure, `VITE_WS_URL=wss://…` pour le multijoueur. Côté serveur de salons, `ALLOWED_ORIGINS` est obligatoire en production : sans lui, toute connexion navigateur est refusée.
 
 ## Phase 2 — le mode classé
 

@@ -12,10 +12,15 @@
  * et des dates.
  *
  * Lancement : npm run server   (PORT=8787 par défaut)
+ *
+ * Exploitation : sonde `GET /health` pour l'hébergeur, et `ALLOWED_ORIGINS`
+ * (liste séparée par des virgules) pour la liste blanche des origines.
  */
 
+import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
+import { originAllowed, parseOrigins } from "./origin";
 import {
   COUNTDOWN_MS,
   DEFAULT_SETTINGS,
@@ -38,6 +43,9 @@ import { windowMs } from "../src/engine/difficulty";
 import { glyphFor, PATTERN_COUNT } from "../src/net/glyph";
 
 const PORT = Number(process.env.PORT) || 8787;
+const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
+const PRODUCTION = process.env.NODE_ENV === "production";
+const STARTED_AT = Date.now();
 
 /* ------------------------------------------------------------------ *
  * État
@@ -230,7 +238,46 @@ function closeRound(room: Room): void {
  * Connexions
  * ------------------------------------------------------------------ */
 
-const wss = new WebSocketServer({ port: PORT });
+/**
+ * Serveur HTTP porteur.
+ *
+ * On ne laisse pas `ws` ouvrir le port lui-même : un `WebSocketServer` créé
+ * avec `port` répond 400 à toute requête non-upgrade. La sonde de l'hébergeur
+ * échouerait donc en boucle, et la machine serait redémarrée sans fin sans
+ * qu'on comprenne pourquoi — le multijoueur, lui, marcherait très bien.
+ */
+const httpServer = createServer((req, res) => {
+  const path = (req.url ?? "").split("?")[0];
+  if (path !== "/health") {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("not found");
+    return;
+  }
+  let players = 0;
+  for (const room of rooms.values()) players += room.clients.size;
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+  res.end(
+    JSON.stringify({
+      ok: true,
+      rooms: rooms.size,
+      players,
+      uptime: Math.round((Date.now() - STARTED_AT) / 1000),
+    }),
+  );
+});
+
+const wss = new WebSocketServer({
+  server: httpServer,
+  // Le refus se fait à la poignée de main, pas après : une socket acceptée
+  // puis fermée a déjà consommé un identifiant et déclenché la logique de
+  // salon. Ici, la connexion n'existe simplement jamais.
+  verifyClient: ({ origin }) => originAllowed(origin, ALLOWED_ORIGINS, PRODUCTION),
+  // Le plus gros message légitime est un chat de 140 caractères : quelques
+  // centaines d'octets. Le défaut de `ws` est de 100 Mo — de quoi bloquer la
+  // boucle d'événements dans JSON.parse, et donc figer tous les salons à la
+  // fois, depuis une seule connexion.
+  maxPayload: 4096,
+});
 
 wss.on("connection", (ws) => {
   const client: Client = {
@@ -469,7 +516,7 @@ function leaveRoom(client: Client): void {
 }
 
 /* Heartbeat : une connexion morte silencieusement ne doit pas geler un salon. */
-setInterval(() => {
+const heartbeat = setInterval(() => {
   for (const room of rooms.values()) {
     for (const c of room.clients.values()) {
       if (!c.alive) {
@@ -482,7 +529,42 @@ setInterval(() => {
   }
 }, 15_000);
 
-console.log(
-  `THE ONE RULE — serveur de salons sur ws://localhost:${PORT}\n` +
-    `${MULTI_RULES.length} règles en rotation · ${MAX_PLAYERS} joueurs max · fenêtre lvl0 ${windowMs(0)} ms`,
-);
+/**
+ * Arrêt propre. L'hébergeur envoie SIGTERM, puis tue le processus au bout d'un
+ * délai de grâce. Sans ce gestionnaire, les sockets meurent sans trame de
+ * fermeture : le client met plusieurs secondes à s'en apercevoir, et le joueur
+ * croit que le jeu a gelé.
+ */
+let closing = false;
+function shutdown(): void {
+  if (closing) return;
+  closing = true;
+  clearInterval(heartbeat);
+  for (const room of rooms.values()) {
+    if (room.timer) clearTimeout(room.timer);
+  }
+  // 1001 « going away » : le code qu'un navigateur lit comme un départ du
+  // serveur, et non comme une erreur de connexion.
+  for (const ws of wss.clients) ws.close(1001, "shutdown");
+  wss.close();
+  httpServer.close(() => process.exit(0));
+  // Filet : une socket récalcitrante ne doit pas nous faire dépasser le délai
+  // de grâce, sinon l'hébergeur nous tue quand même et on n'a rien gagné.
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+
+httpServer.listen(PORT, () => {
+  const origins =
+    ALLOWED_ORIGINS.length > 0
+      ? `origines autorisées : ${ALLOWED_ORIGINS.join(", ")}`
+      : PRODUCTION
+        ? "ATTENTION : ALLOWED_ORIGINS vide en production — toute connexion navigateur sera refusée"
+        : "origines : toutes (hors production)";
+  console.log(
+    `THE ONE RULE — serveur de salons sur ws://localhost:${PORT} · sonde GET /health\n` +
+      `${MULTI_RULES.length} règles en rotation · ${MAX_PLAYERS} joueurs max · fenêtre lvl0 ${windowMs(0)} ms\n` +
+      origins,
+  );
+});

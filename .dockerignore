@@ -1,0 +1,25 @@
+# Le Dockerfile ne copie que ce dont le serveur a besoin, mais le contexte de
+# construction est envoyé au démon Docker EN ENTIER avant que le premier COPY
+# ne s'exécute. Sans ce fichier, chaque construction transfère node_modules et
+# l'historique git pour rien.
+
+node_modules
+dist
+.git
+.github
+
+# Le front et ses tests ne partent jamais dans l'image du serveur.
+src/render
+src/game
+src/ranked
+src/analytics
+tests
+public
+index.html
+vite.config.ts
+e2e.mjs
+
+# Secrets et artefacts locaux : ils n'ont rien à faire dans une image.
+.env
+.env.*
+*.log

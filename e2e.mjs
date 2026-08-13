@@ -129,5 +129,17 @@ ok(
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
 
+// Sonde de l'hébergeur. Elle doit répondre SUR LE MÊME PORT que la WebSocket,
+// sinon la machine est déclarée morte en boucle alors que le jeu tourne.
+const health = await fetch(`http://127.0.0.1:${process.env.PORT}/health`)
+  .then((r) => (r.ok ? r.json() : null))
+  .catch(() => null);
+ok(health?.ok === true, `sonde /health : 200 (rooms=${health?.rooms}, players=${health?.players})`);
+ok(typeof health?.uptime === "number", `sonde /health : uptime présent (${health?.uptime}s)`);
+const notFound = await fetch(`http://127.0.0.1:${process.env.PORT}/`)
+  .then((r) => r.status)
+  .catch(() => 0);
+ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
+
 console.log(fails === 0 ? "E2E OK" : `E2E : ${fails} échec(s)`);
 process.exit(fails === 0 ? 0 : 1);

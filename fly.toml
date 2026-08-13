@@ -1,0 +1,48 @@
+# Déploiement Fly.io du serveur de salons.
+#
+# Vercel ne peut pas héberger ce service : les fonctions edge ne maintiennent
+# pas de connexion WebSocket ouverte. Le front reste sur Vercel, ce serveur vit
+# ici, et Fly fournit le TLS — donc wss:// sans configuration.
+
+app = "the-one-rule-salons"
+primary_region = "cdg"          # Paris : la latence compte, les joueurs sont en France
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "8080"
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true            # une page https ne peut pas ouvrir de ws:// non chiffré
+
+  # Les salons vivent en mémoire : une machine qui s'endort perd les parties en
+  # cours. Tant qu'il n'y a pas de stockage externe, on garde une machine
+  # éveillée en permanence. « off » est bien une chaîne : la forme booléenne
+  # est refusée par les versions actuelles de flyctl.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # UNE SEULE instance. Deux machines = deux jeux de salons disjoints, et un
+  # joueur sur la mauvaise instance ne trouverait jamais le code de son ami.
+  # Passer à plusieurs exige d'abord un stockage partagé des salons.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 400
+
+  # Sans cette sonde, une instance qui a cessé de répondre reste en service.
+  # Elle tape GET /health, servi par le même port que la WebSocket.
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
