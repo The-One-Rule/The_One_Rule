@@ -8,8 +8,15 @@ Il sert de source unique pour rédiger les prompts suivants : chaque lot liste
 les fichiers autorisés et les pièges connus, pour qu'un agent ne parte pas
 réécrire le netcode en croyant améliorer une bordure.
 
-État à la rédaction : `npx tsc --noEmit` silencieux, `npx vitest run` **97
+État au 27/08/2026 : `npx tsc --noEmit` silencieux, `npx vitest run` **124
 verts**, `npx tsx e2e.mjs` **E2E OK**.
+
+> **Ce document a menti une fois.** Le lot 1 y a été décrit comme à faire, avec
+> un bug à corriger, alors que tout son contenu était déjà dans le commit
+> initial (`git log -S` le confirme sur les trois marqueurs). Un plan qui
+> décrit du travail déjà fait coûte plus cher qu'un plan absent : il envoie
+> réécrire du code correct. Avant d'attaquer un lot, **vérifier dans le code
+> qu'il reste à faire**, et corriger cette liste si ce n'est pas le cas.
 
 ---
 
@@ -140,7 +147,7 @@ gelé, le centre est libre, aucune surcharge n'est possible.
 | 7 | HUD spectateur à zéro | partiel — méta `SPECTATEUR · NOM`, pied encore faux |
 | 15 | Silence des interstices | partiel — compte à rebours, `cut` à l'élimination |
 | 1 | Laboratoire, pas un lieu | **non** |
-| 2 | Objet dramatique | **non** — traité autrement, voir lot 1 |
+| 2 | Objet dramatique | **réglé** — `drawTimeFrame` porte le volume (paliers, hachures, battement qui accélère), voir lot 1 |
 | 3 | Chat, kick, mute | **non** |
 | 6 | Métriques de fierté | **non** |
 | 9 | Letterbox 1060 × 720 | **non** |
@@ -151,30 +158,38 @@ gelé, le centre est libre, aucune surcharge n'est possible.
 
 ## 4. Les lots, dans l'ordre
 
-### Lot 1 — Le cadre (plein écran, hit-test, cadre vivant)
+### Lot 1 — Le cadre (plein écran, hit-test, cadre vivant) ✅ déjà livré
 
-Débloque tout le reste du visuel **et corrige un bug réel** : les plaques
-réduisent le canvas sans que `SceneRenderer` soit redimensionné, donc le point
-cliqué ne tombe plus sur la forme visible (« parfois le clic ne passe pas »).
+**Rien à faire. Ce lot était intégralement dans le commit initial**, y compris
+le bug qu'il prétendait corriger et les quatre pièges qu'il listait. Vérifié
+ligne à ligne le 27/08/2026 :
 
-- `#app` en `100vw / 100dvh` (`dvh`, pas `vh` : barre d'URL iOS)
-- échelle **uniforme** dans `draw()` (`min(sx, sy)`, champ centré) — aujourd'hui
-  `sx` et `sy` sont calculés séparément et étirent la scène
-- `ResizeObserver` sur `#stage` → `scene.resize()`
-- `drawTimeFrame` devient l'objet dramatique : épaisseur 4 → 14–18 px,
-  couleur `LINE` → `--rouge` par paliers francs, pulsation dont la fréquence
-  accélère avec `ratio`
+| annoncé comme à faire | où c'est déjà | état |
+|---|---|---|
+| `#app` en `100vw / 100dvh` | `src/style.css` `#app` | `height: 100vh` puis `100dvh` en repli |
+| échelle uniforme, champ centré | `src/render/scene.ts` `resize()` | `Math.min(usableW / FIELD_W, usableH / FIELD_H)`, `offX/offY` centrés — les axes n'ont jamais été calculés séparément |
+| `ResizeObserver` → `scene.resize()` | `src/main.ts` `syncField()` | observe `cv`, plus `window.resize` et `visualViewport.resize` |
+| cadre 4 → 14–18 px | `scene.ts` `drawTimeFrame()` | `band = [0, 9, 16]` + battement jusqu'à +5 |
+| couleur par paliers francs | idem | `#5E1526` puis `#8E1226` — bien plus sombres que la garance `#F74058`, le piège est tenu |
+| pulsation qui accélère | idem | période `1100 − ratio × 700`, dérivée de `ratio`, pas d'horloge interne |
+| pas de dégradé | idem | aplats + hachures à `stage === 2` |
+| `prefers-reduced-motion` | idem | `if (stage > 0 && !this.reduced)` : le battement tombe, épaisseur et couleur restent |
 
-Fichiers : `src/style.css`, `src/render/scene.ts`, `src/main.ts`.
+Et le hit-test a une seconde ceinture que le lot ne mentionnait pas :
+`SceneRenderer.toField()` compare la boîte mesurée à la boîte mémorisée et
+appelle `resize()` avant de projeter. Les plaques sont par ailleurs en
+`pointer-events: none`, donc elles ne peuvent pas manger un clic.
 
-Pièges :
-- la pulsation se dérive de `ratio` (déjà passé à `draw`), **pas** d'une
-  horloge interne au renderer
-- le rouge du cadre doit être **nettement plus sombre que la garance**
-  (`#F74058`) : des consignes disent « CLIQUE LE ROUGE »
-- pas de dégradé : hachures ou segments à arêtes vives, comme `#band`
-- sous `prefers-reduced-motion`, la pulsation tombe, l'épaisseur et la couleur
-  restent — l'information ne dépend jamais de l'animation
+**Ce qui n'a PAS pu être vérifié**, et reste donc ouvert : le comportement à
+l'exécution. Une tentative de mesure dans le navigateur intégré a donné une
+géométrie fausse (backing store 1×1, `--field-h: 0px`) — artefact d'un onglet
+qui ne compose pas : `visibilityState: hidden`, 0 frame de `requestAnimationFrame`
+en 600 ms, donc ni `ResizeObserver` ni boucle de jeu, les deux étant attachés au
+cycle de rendu. **Ce n'est pas une preuve que le code est bon, seulement que ce
+banc-là ne prouve rien.** Si « parfois le clic ne passe pas » est réellement
+observé, il faut le reproduire dans un vrai navigateur visible, en notant taille
+de fenêtre, nombre de joueurs et si `#app` porte `has-gutters` — le code lu ne
+montre pas de défaut, donc sans reproduction il n'y a rien à corriger.
 
 ### Lot 2 — Incarnation
 
