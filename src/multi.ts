@@ -694,7 +694,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   function setEmoteButtonsEnabled(on: boolean): void {
-    for (const btn of emotesEl.querySelectorAll<HTMLButtonElement>("button.chip")) {
+    for (const btn of Array.from(emotesEl.querySelectorAll<HTMLButtonElement>("button.chip"))) {
       btn.disabled = !on;
     }
   }
@@ -1311,6 +1311,23 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   };
 
+  /*
+   * Retour d'arrière-plan (mobile) : le navigateur a probablement tué la
+   * socket pendant l'absence. Plutôt que de laisser l'utilisateur découvrir
+   * des boutons morts, on constate l'état à l'instant où l'onglet revient et
+   * on remet l'interface en position de départ, avec le message qui va bien.
+   */
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (net && !net.connected && roomCode) {
+      roomCode = "";
+      setPlatesVisible(false);
+      clearPlateCols();
+      setJoinErr("CONNEXION PERDUE PENDANT L'ABSENCE — RECRÉE OU REJOINS LE SALON");
+      show("multi-join");
+    }
+  });
+
   async function ensureConnected(): Promise<NetClient | null> {
     if (net?.connected) return net;
     const name = ensurePseudo();
@@ -1320,7 +1337,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     btnMulti.disabled = true;
     btnMulti.textContent = "CONNEXION…";
     try {
-      if (!net) {
+      // Un client déconnecté ne se réutilise pas : socket fermée, horloge et
+      // identifiant périmés. On repart proprement d'une instance neuve —
+      // c'est ce qui rend le retour d'arrière-plan mobile indolore.
+      if (!net || !net.connected) {
+        net?.close();
         net = new NetClient(url);
         unsub?.();
         unsub = net.on(onMsg);
@@ -1492,20 +1513,29 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   });
 
   $("btnMultiCreate").addEventListener("click", () => {
-    sfx.ui();
-    setJoinErr(null);
-    net?.createRoom();
+    void (async () => {
+      sfx.ui();
+      setJoinErr(null);
+      // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
+      // que l'app passe en arrière-plan. Un send() sur socket morte ne fait
+      // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
+      const client = await ensureConnected();
+      client?.createRoom();
+    })();
   });
 
   $("btnMultiJoin").addEventListener("click", () => {
-    sfx.ui();
-    const code = $<HTMLInputElement>("multiCode").value.trim().toUpperCase();
-    if (code.length !== 4) {
-      setJoinErr("CODE À 4 LETTRES");
-      return;
-    }
-    setJoinErr(null);
-    net?.joinRoom(code);
+    void (async () => {
+      sfx.ui();
+      const code = $<HTMLInputElement>("multiCode").value.trim().toUpperCase();
+      if (code.length !== 4) {
+        setJoinErr("CODE À 4 LETTRES");
+        return;
+      }
+      setJoinErr(null);
+      const client = await ensureConnected();
+      client?.joinRoom(code);
+    })();
   });
 
   $("btnMultiJoinBack").addEventListener("click", () => {

@@ -20,7 +20,7 @@
  */
 
 import { hashStr, mulberry32 } from "./rng";
-import { pickInstruction } from "./instructions";
+import { pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
 import { windowMs } from "./difficulty";
 import { compile } from "./round";
@@ -52,7 +52,22 @@ export function draftShared(
   pool?: Instruction[],
 ): SharedRound {
   const rng = sharedRng(seed, idx);
-  const instr = pickInstruction(rng, idx, pool);
+  /*
+   * Le multijoueur tire dans le pool TACTILE, pour tout le monde, toujours.
+   *
+   * La scène est partagée : impossible de donner des consignes différentes
+   * selon l'appareil sans casser le déterminisme. Et un salon mélange par
+   * nature téléphones et PC — on ne sait jamais à l'avance. La règle est donc
+   * celle de l'appareil le moins capable : un joueur PC perd quatre consignes
+   * clavier, un joueur mobile ne perd plus de vies sur des manches qu'il ne
+   * pouvait PAS jouer. Le premier coût est cosmétique, le second tuait des
+   * parties (constaté en bêta : deux vies perdues sur « APPUIE SUR B » puis
+   * « APPUIE SUR K », mort sans avoir pu agir).
+   *
+   * Corollaire traité dans server/match.ts : LA VOYELLE, qui ne piège que
+   * sur des consignes clavier, sort du pool de règles multijoueur.
+   */
+  const instr = pickInstruction(rng, idx, pool ?? TOUCH_INSTRUCTIONS);
   const draft = instr.gen(rng, idx);
   const ents = place(rng, draft.specs);
   const want: Want = draft.wantFrom ? draft.wantFrom(ents) : draft.want;

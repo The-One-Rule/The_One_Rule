@@ -27,11 +27,19 @@ import {
 import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol";
 
 /**
- * Pool multijoueur : LA MAIN GAUCHE en est exclue. Recevoir « garde ESPACE
- * enfoncé » par rotation au milieu d'une manche est injouable — on ne peut
- * pas commencer à tenir une touche qu'on ne tenait pas déjà.
+ * Pool de règles multijoueur.
+ *
+ * Deux exclusions, chacune pour une impossibilité matérielle :
+ *   · LA MAIN GAUCHE (watchRelease) — recevoir « tiens ESPACE » par rotation
+ *     au milieu d'une manche est injouable ;
+ *   · LA VOYELLE — elle ne piège que sur des consignes clavier, or le tirage
+ *     multijoueur est tactile (voir draftShared). La garder donnerait à son
+ *     porteur une règle qui ne peut jamais le piéger : un avantage gratuit
+ *     et invisible, pire qu'une règle dure.
  */
-export const MULTI_RULES: OneRule[] = ONE_RULES.filter((r) => !r.watchRelease);
+export const MULTI_RULES: OneRule[] = ONE_RULES.filter(
+  (r) => !r.watchRelease && r.id !== "voyelle",
+);
 
 export interface SeatStats {
   /** Première réaction de chaque manche réussie. On garde les mesures, pas

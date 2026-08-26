@@ -434,3 +434,56 @@ describe("courbe de tension", () => {
     }
   });
 });
+
+describe("multijoueur jouable au doigt", () => {
+  it("ne tire JAMAIS de consigne clavier dans la scène partagée", async () => {
+    // Constaté en bêta : « APPUIE SUR B » puis « APPUIE SUR K » sur téléphone,
+    // deux vies perdues sans pouvoir agir. La scène étant partagée, le pool
+    // est tactile pour tout le monde — la règle de l'appareil le moins capable.
+    const { draftShared } = await import("../src/engine/multiround");
+    const { INSTRUCTIONS } = await import("../src/engine/instructions");
+    const keyboard = new Set(INSTRUCTIONS.filter((i) => !i.touch).map((i) => i.id));
+    expect(keyboard.size).toBeGreaterThan(0); // le test doit avoir des dents
+    for (let seed = 1; seed <= 5; seed++) {
+      for (let idx = 0; idx < 60; idx++) {
+        const shared = draftShared(seed * 7919, idx);
+        expect(keyboard.has(shared.instructionId), `clavier tiré : ${shared.instructionId}`).toBe(
+          false,
+        );
+      }
+    }
+  });
+
+  it("écarte LA VOYELLE du pool de règles multi", async () => {
+    const { MULTI_RULES: MR } = await import("../server/match");
+    expect(MR.some((r) => r.id === "voyelle")).toBe(false);
+    expect(MR.some((r) => r.watchRelease)).toBe(false);
+  });
+
+  it("garde chaque règle multi capable de piéger sur le pool tactile", async () => {
+    // Une règle qui ne peut jamais piéger son porteur est un avantage gratuit
+    // et invisible — pire qu'une règle dure. Chaque règle piégeante du pool
+    // doit rencontrer au moins un piège sur des manches purement tactiles.
+    const { MULTI_RULES: MR } = await import("../server/match");
+    const { draftShared, applyRule } = await import("../src/engine/multiround");
+    for (const rule of MR.filter((r) => r.traps)) {
+      let trapped = 0;
+      for (let idx = 0; idx < 400 && trapped === 0; idx++) {
+        if (applyRule(draftShared(4242, idx), rule, 4242).trap) trapped++;
+      }
+      expect(trapped, `${rule.name} ne peut plus piéger en multi`).toBeGreaterThan(0);
+    }
+  });
+
+  it("sert encore dix règles distinctes à dix joueurs, marge zéro assumée", async () => {
+    const { MULTI_RULES: MR, MatchLogic: ML } = await import("../server/match");
+    const { MAX_PLAYERS } = await import("../shared/protocol");
+    expect(MR.length).toBeGreaterThanOrEqual(MAX_PLAYERS);
+    const ids = Array.from({ length: MAX_PLAYERS }, (_, i) => `p${i}`);
+    const m = new ML(1, ids);
+    for (const idx of [0, 8, 16]) {
+      const rules = m.rulesAt(idx);
+      expect(new Set([...rules.values()].map((r) => r.id)).size).toBe(MAX_PLAYERS);
+    }
+  });
+});
