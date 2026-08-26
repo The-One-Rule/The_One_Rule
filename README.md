@@ -9,7 +9,7 @@ C'est le seul élément non copiable du jeu. Le reste (cosmétiques, ranked, bou
 ```bash
 npm install
 npm run dev        # serveur local
-npm run test       # 29 tests
+npm run test       # 122 tests
 npm run typecheck
 npm run build      # dist/
 node inline.mjs    # dist/ → the-one-rule-v1.html, un seul fichier autonome
@@ -205,16 +205,18 @@ Le client ne lève jamais : réseau coupé, il retombe sur l'entraînement et le
 
 Modèle BombParty adapté : salon par code de 4 lettres, tout le monde joue **chaque manche simultanément** sur la même scène, mais chacun porte une **règle unique différente, affichée publiquement**. Un piège est personnel — et les autres le voient venir : c'est le spectacle. 3 vies, élimination, **rotation des règles toutes les 8 manches**, dernier en vie gagne.
 
-**Netcode.** Aucune scène ne transite : le serveur envoie `{seed, idx, deadline}` et chaque client reconstruit la manche via `buildMultiRound(seed, idx, rule)` — `draftShared` (scène commune, RNG dérivé par hachage de `seed:idx`, accès direct à la manche N sans rejouer les précédentes) puis `applyRule` (piège + déformations, RNG dérivé de `seed:idx:ruleId`, donc identique chez le client et le serveur qui juge). Le serveur fait **autorité sur le temps** : dates serveur partout, horloge client reconstruite par ping (médiane d'échantillons, `ServerClock`), inputs horodatés côté client et **bornés serveur** (tolérance 120 ms, plancher `now − tolérance` pour empêcher l'antidatage).
+**Netcode.** Aucune scène ne transite : le serveur envoie `{seed, idx, deadline}` et chaque client reconstruit la manche via `buildMultiRound(seed, idx, rule)` — `draftShared` (scène commune, RNG dérivé par hachage de `seed:idx`, accès direct à la manche N sans rejouer les précédentes) puis `applyRule` (piège + déformations, RNG dérivé de `seed:idx:ruleId`, donc identique chez le client et le serveur qui juge).
+
+**Le pool multi est tactile, pour tout le monde, toujours.** La scène étant partagée, on ne peut pas servir des consignes différentes selon l'appareil sans casser le déterminisme — et un salon mélange par nature téléphones et PC. C'est donc la règle de l'appareil le moins capable : un joueur PC perd quatre consignes clavier, un joueur mobile ne perd plus de vies sur des manches qu'il ne pouvait pas jouer. Le premier coût est cosmétique, le second tuait des parties. Le serveur fait **autorité sur le temps** : dates serveur partout, horloge client reconstruite par ping (médiane d'échantillons, `ServerClock`), inputs horodatés côté client et **bornés serveur** (tolérance 120 ms, plancher `now − tolérance` pour empêcher l'antidatage).
 
 - `shared/protocol.ts` — protocole typé unique, importé des deux côtés
-- `server/match.ts` — logique de match **pure** (distribution/rotation des règles, vies, verdicts, forfaits) ; LA MAIN GAUCHE exclue du pool (recevoir « tiens ESPACE » par rotation en pleine manche est injouable)
+- `server/match.ts` — logique de match **pure** (distribution/rotation des règles, vies, verdicts, forfaits) ; deux règles hors pool, chacune pour une impossibilité matérielle : LA MAIN GAUCHE (recevoir « tiens ESPACE » par rotation en pleine manche est injouable) et LA VOYELLE (elle ne piège que sur consignes clavier — voir ci-dessous — donc son porteur aurait une règle incapable de le piéger). Il reste exactement 10 règles pour 10 joueurs : marge zéro, verrouillée par un test
 - `server/index.ts` — serveur ws : salons, ordonnancement des manches, clôture anticipée quand tous ont répondu, heartbeat ; `npm run server`
 - `src/net/client.ts` — `NetClient` + `ServerClock`, zéro DOM
 
 Vérifié par `tests/multi.test.ts` (déterminisme, rotation, match complet simulé, horloge) et **`e2e.mjs`** : serveur réel + trois clients ws réels jouent un match — profils distincts (juste / clique-tout / absent), éliminations, verdicts identiques chez tous. `npx tsx e2e.mjs` → `E2E OK`.
 
-**Reste à assembler : l'interface du mode** (écrans salon, plaques joueurs, boucle de manche branchée sur `NetClient`). Le prompt `PROMPT-CURSOR-MULTI.md` guide cet assemblage lot par lot sans toucher au cœur livré. Déploiement : le serveur ws va sur Fly.io/Railway/VPS — pas Vercel.
+L'interface du mode est assemblée : écrans salon, plaques joueurs, boucle branchée sur `NetClient`, kill-cam à quatre tempos, annonce de duel, emotes, glyphes SVG dérivés de l'identifiant. Ce qui reste — cadre vivant, incarnation des plaques, mise en scène des pauses, chat — est découpé en lots dans **[PLAN-SALON-VIVANT.md](PLAN-SALON-VIVANT.md)**, qui fait aussi office de journal et porte les invariants à rappeler dans chaque prompt. Déploiement : le serveur ws va sur Fly.io/Railway/VPS — pas Vercel.
 
 ## Ce qui n'est pas fait
 
