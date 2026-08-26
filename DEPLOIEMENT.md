@@ -156,12 +156,45 @@ jour de réception, qui expire au bout de 40 jours.
 Redéploie une fois l'intégration branchée — la fonction lit ces variables à
 l'exécution, mais le front, lui, a besoin de `VITE_COLLECT_URL` au build.
 
-Pour lire les chiffres :
+### La séquence, dans cet ordre
+
+L'ordre n'est pas cosmétique : chaque cran rend le suivant vérifiable, et le
+seul cran qu'on ne peut pas rattraper est le temps. Un D7 exige sept jours
+**après** que la collecte soit vivante. Chaque journée passée à croire qu'on
+mesure alors qu'on ne mesure pas est une journée reculée sur la décision.
+
+1. **Storage → Upstash for Redis** dans le projet Vercel.
+2. Variable `VITE_COLLECT_URL=/api/collect` (Production).
+3. **Redéployer.** Pas « sauvegarder la variable » : redéployer. Vite inline
+   cette valeur à la compilation, la poser sans rebuild ne fait strictement rien.
+4. Vérifier le câblage — lecture seule, rien n'est écrit :
+
+```bash
+node scripts/check-deploy.mjs https://ton-app.vercel.app
+```
+
+5. Jouer **un vrai run** sur la production, puis vérifier que le stockage a
+   retenu quelque chose :
 
 ```bash
 vercel env pull .env.local                      # une fois, pour ta machine
 node scripts/pull.mjs | node scripts/report.mjs
 ```
+
+6. Seulement là, inviter la cohorte.
+
+**Le piège que le point 4 attrape.** Sans `VITE_COLLECT_URL` au build, le
+module de mesure est totalement inerte : pas de bandeau, pas de file, aucune
+requête, aucune erreur. Le jeu tourne parfaitement. C'est indistinguable d'un
+déploiement sain tant qu'on ne va pas chercher les chiffres — c'est-à-dire une
+semaine trop tard. Le script lit le bundle servi et dit si l'URL y a été
+inlinée. Vérifié à deux faces : il échoue sur un build sans la variable et
+passe sur un build avec.
+
+Le point 5 n'est pas redondant : le point 4 prouve que le navigateur *enverra*,
+pas que le serveur *retient*. Sans Upstash, `api/collect.ts` retombe sur
+`console.log`, répond 204, et tout a l'air normal — mais les logs d'exécution
+Vercel sont éphémères, donc D7 restera incalculable.
 
 `pull.mjs` ressort le NDJSON brut, `report.mjs` le lit sans rien savoir de
 Redis : c'est la raison pour laquelle rien de plus savant qu'une ligne n'est
