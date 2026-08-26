@@ -12,15 +12,34 @@
  *  - désactivable, et le refus est respecté définitivement
  */
 
-export type EventName =
-  | "first_open"
-  | "day_return"
-  | "visit_end"
-  | "run_start"
-  | "run_end"
-  | "quest_complete"
-  | "share"
-  | "optout";
+/**
+ * Les quatre premiers chiffres mesurent un joueur seul. Les événements
+ * `*_sent` / `*_opened` mesurent l'entonnoir social, qui a sa propre question :
+ * un lien envoyé est une intention, un lien ouvert est une adhésion, et seul
+ * `run_start` qui suit prouve que quelqu'un a joué. Les trois crans se lisent
+ * séparément parce qu'ils échouent pour des raisons différentes — personne
+ * n'envoie, personne n'ouvre, ou personne ne franchit l'écran d'annonce.
+ *
+ * Les deux surfaces sociales sont instrumentées symétriquement : le duel
+ * asynchrone (`duel_*`) et l'invitation au salon (`invite_*`). N'en mesurer
+ * qu'une ferait lire « le social ne prend pas » là où c'est l'autre qui sert.
+ */
+export const EVENT_NAMES = [
+  "first_open",
+  "day_return",
+  "visit_end",
+  "run_start",
+  "run_end",
+  "quest_complete",
+  "share",
+  "duel_sent",
+  "duel_opened",
+  "invite_sent",
+  "invite_opened",
+  "optout",
+] as const;
+
+export type EventName = (typeof EVENT_NAMES)[number];
 
 export interface TrackedEvent {
   ev: EventName;

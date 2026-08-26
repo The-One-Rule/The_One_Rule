@@ -16,10 +16,19 @@ const GATES = { d1: 0.3, d7: 0.12, sessionMs: 4 * 60_000, share: 0.05 };
 const src = process.argv[2] ? createReadStream(process.argv[2]) : process.stdin;
 const rl = createInterface({ input: src, crlfDelay: Infinity });
 
-/** @type {Map<string, {first:number, days:Set<number>, sessions:number[], shares:number, runs:number}>} */
+/** @type {Map<string, {first:number, days:Set<number>, sessions:number[], shares:number, runs:number, sent:number}>} */
 const users = new Map();
 const runs = [];
 let shares = 0;
+
+/**
+ * Entonnoir social. Les trois crans se comptent séparément parce qu'ils
+ * échouent pour des raisons différentes, et que la réparation n'est pas la
+ * même : personne n'envoie (le jeu ne donne pas envie d'être montré),
+ * personne n'ouvre (l'objet partagé est mauvais), personne ne joue après
+ * avoir ouvert (l'écran d'annonce fait fuir).
+ */
+const social = { duelSent: 0, duelOpened: 0, duelPlayed: 0, inviteSent: 0, inviteOpened: 0 };
 
 for await (const line of rl) {
   const start = line.indexOf("{");
@@ -34,7 +43,7 @@ for await (const line of rl) {
 
   let u = users.get(e.id);
   if (!u) {
-    u = { first: e.day, days: new Set(), sessions: [], shares: 0, runs: 0 };
+    u = { first: e.day, days: new Set(), sessions: [], shares: 0, runs: 0, sent: 0 };
     users.set(e.id, u);
   }
   u.first = Math.min(u.first, e.day);
@@ -49,6 +58,18 @@ for await (const line of rl) {
     u.runs++;
     runs.push(e);
   }
+
+  if (e.ev === "duel_sent") {
+    social.duelSent++;
+    u.sent++;
+  }
+  if (e.ev === "duel_opened") social.duelOpened++;
+  if (e.ev === "run_start" && e.duel === true) social.duelPlayed++;
+  if (e.ev === "invite_sent") {
+    social.inviteSent++;
+    u.sent++;
+  }
+  if (e.ev === "invite_opened") social.inviteOpened++;
 }
 
 const pct = (x) => (x * 100).toFixed(1) + " %";
@@ -101,6 +122,51 @@ for (const n of [1, 2, 3, 5, 7, 10, 14]) {
   if (!r.base) continue;
   const bar = "█".repeat(Math.round(r.rate * 40));
   console.log(`  J+${String(n).padStart(2)}  ${pct(r.rate).padStart(7)}  ${bar}`);
+}
+
+/* ---- entonnoir social : décide de ce qu'on construit ensuite ---- */
+const inviters = [...users.values()].filter((u) => u.sent > 0).length;
+const sentTotal = social.duelSent + social.inviteSent;
+const openedTotal = social.duelOpened + social.inviteOpened;
+const ratio = (a, b) => (b ? pct(a / b) : "—");
+
+console.log("\nENTONNOIR SOCIAL");
+console.log(`  envoyé            duel ${String(social.duelSent).padStart(5)}   ·   salon ${String(social.inviteSent).padStart(5)}`);
+console.log(`  ouvert            duel ${String(social.duelOpened).padStart(5)}   ·   salon ${String(social.inviteOpened).padStart(5)}`);
+console.log(`  joué (duel)            ${String(social.duelPlayed).padStart(5)}`);
+console.log("");
+console.log(`  envois / run           ${ratio(sentTotal, runs.length).padStart(7)}`);
+console.log(`  ouverts / envoyés      ${ratio(openedTotal, sentTotal).padStart(7)}`);
+console.log(`  joués / ouverts (duel) ${ratio(social.duelPlayed, social.duelOpened).padStart(7)}`);
+console.log(`  joueurs qui invitent   ${ratio(inviters, users.size).padStart(7)}   (n=${users.size})`);
+console.log("");
+console.log("  'ouverts / envoyés' peut dépasser 100 % sans que ce soit une erreur : un lien");
+console.log("  envoyé une fois peut être ouvert par plusieurs personnes. C'est même le signal");
+console.log("  recherché. 'joueurs qui invitent' est le chiffre à surveiller — la rétention");
+console.log("  d'un groupe est celle de la personne qui envoie le lien, pas la moyenne.");
+
+/**
+ * Règle de décision écrite AVANT de connaître les chiffres. Sans elle, on
+ * construit la table quoi qu'il arrive en rationalisant le résultat après
+ * coup — c'est le mode d'échec normal de ce genre de mesure.
+ */
+console.log("\n  Ce qu'il faut en faire :");
+if (!sentTotal) {
+  console.log("  · Personne n'envoie. Le problème est EN AMONT du social : le jeu ne donne");
+  console.log("    pas envie d'être montré. Une boucle sociale plus riche n'y changera rien.");
+} else if (openedTotal / sentTotal < 0.2) {
+  console.log("  · On envoie mais on n'ouvre pas. Le problème est l'OBJET PARTAGÉ, pas la");
+  console.log("    boucle : partager le piège subi plutôt qu'un score. Quelques heures.");
+} else if (social.duelOpened && social.duelPlayed / social.duelOpened < 0.5) {
+  console.log("  · On ouvre mais on ne joue pas. Le problème est l'écran d'annonce, pas");
+  console.log("    l'envie : trop de lecture entre le clic et la première manche.");
+} else if (d7.rate < GATES.d7) {
+  console.log("  · Les liens circulent ET sont joués, mais le D7 ne suit pas. C'est");
+  console.log("    exactement l'hypothèse de la table asynchrone : l'envie est prouvée,");
+  console.log("    il manque la persistance et le groupe. C'est le moment de la construire.");
+} else {
+  console.log("  · Entonnoir sain et D7 tenu. Ne rien construire de social : finir les");
+  console.log("    lots visuels et élargir la cohorte.");
 }
 
 const byCause = {};

@@ -18,6 +18,7 @@ import { buildMultiRound } from "./engine/multiround";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
+import { track } from "./analytics";
 import { NetClient } from "./net/client";
 import { glyphFor, glyphSvg } from "./net/glyph";
 import type { Hud } from "./render/hud";
@@ -1214,6 +1215,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const link = inviteUrl(roomCode);
     try {
       await navigator.clipboard.writeText(link);
+      // Compté seulement si le presse-papiers a effectivement pris. La branche
+      // de repli affiche le lien en clair : l'utilisateur peut le recopier à la
+      // main, mais on ne saura jamais s'il l'a fait — mieux vaut sous-compter
+      // l'envoi que gonfler le haut d'un entonnoir dont on lit le bas.
+      track("invite_sent", { players: lastPlayers.length });
       $(hintId).textContent = "LIEN COPIÉ";
     } catch {
       $(hintId).textContent = link;
@@ -1655,6 +1661,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     available: true,
     exitToMenu,
     openFromInvite: (code: string) => {
+      track("invite_opened", {});
       void openJoin(code);
     },
     isPlayingMulti,

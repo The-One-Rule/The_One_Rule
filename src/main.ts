@@ -269,7 +269,10 @@ function startRun(): void {
   show(null);
   sfx.runStart();
   musicApi.start();
-  track("run_start", { mode: pendingMode, rule: pendingRule.id, day });
+  // `duel` distingue un défi relevé d'un entraînement ordinaire : les deux
+  // arrivent ici en mode "training", et sans ce drapeau le dernier cran de
+  // l'entonnoir social est illisible.
+  track("run_start", { mode: pendingMode, rule: pendingRule.id, day, duel: !!challenge });
 }
 
 /* ------------------------------------------------------------------ *
@@ -678,6 +681,10 @@ function updateGhost(runMs: number, mine: number): void {
 function loadChallenge(r: Replay): void {
   const rule = ruleOfReplay(r);
   if (!rule) return;
+  // Le cran qui compte : quelqu'un est arrivé PAR un lien de défi. Émis après
+  // le décodage, donc jamais sur un lien trafiqué — un lien mort mesure le
+  // bruit, pas l'adhésion. Le `run_start` qui suit dira s'il a aussi joué.
+  track("duel_opened", { rule: rule.id, target: ghostFinal(r) });
   challenge = r;
   pendingMode = "training";
   pendingRule = rule;
@@ -779,6 +786,10 @@ $("btnDuel").addEventListener("click", async () => {
   try {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
+    // Après le partage, jamais avant : un `navigator.share` annulé lève, et
+    // compter l'intention comme un envoi gonflerait le haut de l'entonnoir
+    // exactement là où on cherche à savoir si le bas se remplit.
+    track("duel_sent", { rule: lastRun.rule.id, score: lastRun.end.score });
     $("btnDuel").textContent = "LIEN COPIÉ ✓";
     setTimeout(() => ($("btnDuel").textContent = "DÉFIER UN AMI"), 1600);
   } catch {

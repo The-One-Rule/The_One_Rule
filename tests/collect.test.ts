@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import handler, { dayKey } from "../api/collect";
+import handler, { ALLOWED, dayKey } from "../api/collect";
+import { EVENT_NAMES } from "../src/analytics";
 
 /* ------------------------------------------------------------------ *
  * Le collecteur d'événements
@@ -84,6 +85,28 @@ describe("collecteur d'événements", () => {
     const res = await handler(post(lot("steal_everything")));
     expect(res.status).toBe(204);
     expect(calls).toHaveLength(0);
+  });
+
+  it("accepte exactement les événements que le client sait émettre", async () => {
+    // La liste blanche est volontairement recopiée ici plutôt qu'importée de
+    // src/ : api/ est compilé pour le runtime edge et ne doit pas tirer le jeu
+    // derrière lui. Le prix de cette duplication, c'est ce test.
+    //
+    // Ce qu'il protège est une panne muette : un nom ajouté à EventName mais
+    // oublié dans ALLOWED part du navigateur, reçoit un 204, et n'arrive
+    // jamais. Ça ne se voit qu'en cherchant les chiffres, une semaine trop tard.
+    expect([...ALLOWED].sort()).toEqual([...EVENT_NAMES].sort());
+  });
+
+  it("laisse passer l'entonnoir social jusqu'au stockage", async () => {
+    // Le bout en bout des quatre événements qui décident du prochain chantier.
+    const calls = upstash();
+    await handler(post(lot("duel_sent", "duel_opened", "invite_sent", "invite_opened")));
+
+    const lignes = bodyOf(calls[0]!)[0]
+      .slice(2)
+      .map((l: string) => JSON.parse(l).ev);
+    expect(lignes).toEqual(["duel_sent", "duel_opened", "invite_sent", "invite_opened"]);
   });
 
   it("répond 204 même quand le stockage tombe", async () => {

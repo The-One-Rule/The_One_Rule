@@ -26,7 +26,14 @@ interface Payload {
   batch: TrackedEvent[];
 }
 
-const ALLOWED = new Set([
+/**
+ * Doit rester synchronisé avec `EventName` dans `src/analytics/index.ts`. Un
+ * nom absent d'ici est rejeté **silencieusement** (voir la boucle de `handler`) :
+ * l'événement part du navigateur, la réponse est 204, et il n'arrive jamais.
+ * C'est la panne la plus coûteuse de cette chaîne, parce qu'elle ne se voit
+ * qu'au moment où l'on cherche les chiffres, une semaine trop tard.
+ */
+export const ALLOWED = new Set([
   "first_open",
   "day_return",
   "visit_end",
@@ -34,6 +41,10 @@ const ALLOWED = new Set([
   "run_end",
   "quest_complete",
   "share",
+  "duel_sent",
+  "duel_opened",
+  "invite_sent",
+  "invite_opened",
   "optout",
 ]);
 
