@@ -19,6 +19,7 @@
 
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
+import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
 import { originAllowed, parseOrigins } from "./origin";
 import {
@@ -77,7 +78,39 @@ interface Room {
 }
 
 const rooms = new Map<string, Room>();
+
+/**
+ * Tous les clients connectés, y compris ceux qui ne sont dans aucun salon.
+ *
+ * Le battement de cœur parcourait `rooms`, donc une socket restée au menu
+ * n'était jamais sondée ni fermée : une connexion morte silencieusement y
+ * vivait indéfiniment, et le descripteur avec elle.
+ */
+const clients = new Set<Client>();
 const now = (): number => Date.now();
+
+/**
+ * Enveloppe un gestionnaire d'événement pour qu'une exception n'emporte pas
+ * le processus.
+ *
+ * `decodeClient` ne valide que la présence d'un `t` : tout le reste du message
+ * est casté sans preuve. Un `{"t":"input","round":0}` sans `action` suffisait
+ * donc à lever un TypeError dans le gestionnaire `message`, et une exception
+ * non capturée dans un écouteur Node termine le processus — c'est-à-dire tous
+ * les salons de l'instance, depuis une seule socket et un seul message.
+ *
+ * Chaque `case` valide ce qu'il lit ; ceci est la ceinture qui couvre aussi
+ * ceux qu'on ajoutera demain sans y penser.
+ */
+const guarded =
+  <A extends unknown[]>(fn: (...a: A) => void) =>
+  (...a: A): void => {
+    try {
+      fn(...a);
+    } catch (err) {
+      console.error(`message_error ${String(err)}`);
+    }
+  };
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sans I/L/O/0/1 : un code se dicte à voix haute
 function newCode(): string {
@@ -297,9 +330,10 @@ wss.on("connection", (ws) => {
   };
   client.glyph = glyphFor(client.id);
 
+  clients.add(client);
   ws.on("pong", () => (client.alive = true));
 
-  ws.on("message", (raw) => {
+  ws.on("message", guarded((raw: RawData) => {
     const msg = decodeClient(raw.toString());
     if (!msg) return;
 
@@ -396,7 +430,10 @@ wss.on("connection", (ws) => {
          déterministe, le spectateur la reconstruit lui-même. On ne fait
          qu'enregistrer son choix pour l'afficher aux autres. */
       case "watch": {
-        client.watching = String(msg.playerId ?? "") || null;
+        // Borné : un identifiant fait 8 caractères, et cette valeur est
+        // retenue par connexion. Sans borne, chaque client pourrait faire
+        // stocker au serveur près de 4 Ko à volonté.
+        client.watching = String(msg.playerId ?? "").slice(0, 16) || null;
         return;
       }
 
@@ -417,12 +454,27 @@ wss.on("connection", (ws) => {
         const at = Math.min(Math.max(Number(msg.at) || 0, floor), room.roundDeadline);
         const elapsed = at - room.roundStartAt;
 
+        // Rien de ce qui suit n'est garanti par `decodeClient` : il ne vérifie
+        // que la présence d'un `t`. Un `action` absent levait ici même.
+        const a = msg.action as Partial<{ k: string; i: unknown; key: unknown }> | undefined;
+        if (!a || (a.k !== "c" && a.k !== "k" && a.k !== "r")) return;
+
+        // `ents[i]` avec un i non entier peut remonter une propriété héritée
+        // (« __proto__ » renvoie un objet, que `?? null` ne rattrape pas).
+        // On n'accepte donc qu'un index entier, ou null pour « rien cliqué ».
+        const i = a.i === null || a.i === undefined ? null : Number(a.i);
+        if (i !== null && !Number.isInteger(i)) return;
+
+        // Une touche est un caractère ou un nom de touche court. Sans borne,
+        // `maxPayload` autoriserait une chaîne de 4 Ko dans chaque input.
+        const key = String(a.key ?? "").slice(0, 16);
+
         const action =
-          msg.action.k === "c"
-            ? { kind: "click" as const, ent: match.entityOf(client.id, msg.action.i), x: 0, y: 0 }
-            : msg.action.k === "k"
-              ? { kind: "key" as const, key: String(msg.action.key) }
-              : { kind: "release" as const, key: String(msg.action.key) };
+          a.k === "c"
+            ? { kind: "click" as const, ent: match.entityOf(client.id, i), x: 0, y: 0 }
+            : a.k === "k"
+              ? { kind: "key" as const, key }
+              : { kind: "release" as const, key };
 
         match.input(client.id, msg.round, action, elapsed);
 
@@ -490,9 +542,12 @@ wss.on("connection", (ws) => {
         leaveRoom(client);
         return;
     }
-  });
+  }));
 
-  ws.on("close", () => leaveRoom(client));
+  ws.on("close", () => {
+    clients.delete(client);
+    leaveRoom(client);
+  });
 });
 
 /** Accès lecture à l'état d'un joueur — évite d'exposer la Map privée. */
@@ -521,15 +576,17 @@ function leaveRoom(client: Client): void {
 
 /* Heartbeat : une connexion morte silencieusement ne doit pas geler un salon. */
 const heartbeat = setInterval(() => {
-  for (const room of rooms.values()) {
-    for (const c of room.clients.values()) {
-      if (!c.alive) {
-        c.ws.terminate();
-        continue;
-      }
-      c.alive = false;
-      c.ws.ping();
+  // Sur `clients`, pas sur `rooms` : une socket restée au menu n'était jamais
+  // sondée, donc jamais fermée. Elle survivait à la coupure réseau du client
+  // et gardait son descripteur pour toujours.
+  for (const c of clients) {
+    if (!c.alive) {
+      clients.delete(c);
+      c.ws.terminate();
+      continue;
     }
+    c.alive = false;
+    c.ws.ping();
   }
 }, 15_000);
 

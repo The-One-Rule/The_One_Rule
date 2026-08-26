@@ -129,6 +129,44 @@ ok(
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
 
+// Messages malformés : le serveur doit survivre.
+//
+// `decodeClient` ne valide que la présence d'un `t`. Un `input` sans `action`
+// levait un TypeError dans le gestionnaire `message`, et une exception non
+// capturée dans un écouteur Node tue le processus — donc TOUS les salons de
+// l'instance, depuis une seule socket. Ce test est la régression : si le
+// serveur meurt ici, plus rien ne répond ensuite et /health tombe avec.
+alice.ws.send(JSON.stringify({ t: "create" }));
+await sleep(150);
+alice.ws.send(JSON.stringify({ t: "start" }));
+await sleep(3200); // COUNTDOWN_MS + marge : il faut une manche OUVERTE pour atteindre le code fautif
+const malformes = [
+  { t: "input", round: 0, at: 0 },                          // action absente : le crasheur
+  { t: "input", round: 0, at: 0, action: null },
+  { t: "input", round: 0, at: 0, action: {} },
+  { t: "input", round: 0, at: 0, action: { k: "c", i: "__proto__" } },
+  { t: "input", round: 0, at: 0, action: { k: "c", i: 1e9 } },
+  { t: "input", round: 0, at: 0, action: { k: "k" } },
+  { t: "settings", settings: "pas un objet" },
+  { t: "emote", k: "beaucoup" },
+  { t: "watch" },
+  { t: "join" },
+  { t: "kick" },
+  { t: "hello", v: 1, glyph: { shape: "banane", color: 999, pattern: -1 } },
+];
+for (const m of malformes) {
+  alice.ws.send(JSON.stringify(m));
+  await sleep(20);
+}
+await sleep(200);
+const surviving = await fetch(`http://127.0.0.1:${process.env.PORT}/health`)
+  .then((r) => (r.ok ? r.json() : null))
+  .catch(() => null);
+ok(surviving?.ok === true, `serveur vivant après ${malformes.length} messages malformés`);
+ok(alice.ws.readyState === WebSocket.OPEN, "socket d'ALICE toujours ouverte après les malformés");
+alice.ws.send(JSON.stringify({ t: "leave" }));
+await sleep(150);
+
 // Sonde de l'hébergeur. Elle doit répondre SUR LE MÊME PORT que la WebSocket,
 // sinon la machine est déclarée morte en boucle alors que le jeu tourne.
 const health = await fetch(`http://127.0.0.1:${process.env.PORT}/health`)

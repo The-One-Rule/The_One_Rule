@@ -25,6 +25,18 @@ if (typeof globalThis.btoa === "undefined") {
 }
 
 describe("duel asynchrone", () => {
+  it("refuse un lien qui annonce un nombre absurde de manches", () => {
+    // Le fragment d'URL accepte des mégaoctets. Sans plafond, un lien forgé
+    // fait construire un tableau immense au destinataire, que ghostLevelAt
+    // parcourt à chaque image : le jeu se fige chez celui qui a cliqué.
+    const enorme = encodeReplay(make(Array.from({ length: 5000 }, (_, i) => (i + 1) * 100)));
+    expect(decodeReplay(enorme)).toBeNull();
+
+    // La borne ne doit pas mordre sur un run réel, même long.
+    const long = encodeReplay(make(Array.from({ length: 400 }, (_, i) => (i + 1) * 100)));
+    expect(decodeReplay(long)?.splits).toHaveLength(400);
+  });
+
   it("survit à un aller-retour d'encodage", () => {
     const r = make([1200, 2400, 3300, 4800], "pierre");
     const back = decodeReplay(encodeReplay(r));

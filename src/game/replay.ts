@@ -31,6 +31,15 @@ export interface Replay {
 
 const B36 = 36;
 
+/**
+ * Plafond de manches dans un lien de défi.
+ *
+ * Le run du jour en fait 40 ; l'entraînement peut aller plus loin, mais pas
+ * de trois ordres de grandeur. 500 laisse toute la marge d'un run réel et
+ * ferme la porte à un lien fabriqué.
+ */
+const MAX_SPLITS = 500;
+
 /* base64url sans dépendance, robuste à l'UTF-8 */
 const toB64 = (s: string): string =>
   btoa(String.fromCharCode(...new TextEncoder().encode(s)))
@@ -71,7 +80,13 @@ export function decodeReplay(payload: string): Replay | null {
 
     const splits: number[] = [];
     let acc = 0;
-    for (const d of parts[4]!.split(".")) {
+    const deltas = parts[4]!.split(".");
+    // Un run honnête ne dépasse pas MAX_SPLITS manches. Le fragment d'URL, lui,
+    // accepte des mégaoctets : sans plafond, un lien forgé fait construire un
+    // tableau immense au destinataire, que `ghostLevelAt` parcourt à CHAQUE
+    // image. Le jeu se fige chez celui qui a cliqué, sans rien avoir fait.
+    if (deltas.length > MAX_SPLITS) return null;
+    for (const d of deltas) {
       if (d === "") continue;
       const n = parseInt(d, B36);
       if (!Number.isFinite(n) || n < 0) return null;

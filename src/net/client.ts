@@ -81,6 +81,20 @@ export class NetClient {
   connect(name: string, glyph?: Glyph): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
+      /** Vrai seulement après un `welcome` : distingue « jamais établie » de
+       *  « perdue en route », qui n'appellent pas le même message. */
+      let established = false;
+      /**
+       * Toute sortie passe par ici. Une promesse de connexion qui ne se règle
+       * jamais est pire qu'un échec : `ensureConnected()` l'attend, donc son
+       * `finally` ne tourne pas, `connecting` reste vrai et le bouton
+       * MULTIJOUEUR reste bloqué sur « CONNEXION… » jusqu'au rechargement.
+       */
+      const fail = (why: string): void => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(why));
+      };
       try {
         this.ws = new WebSocket(this.url);
       } catch (e) {
@@ -88,6 +102,14 @@ export class NetClient {
         return;
       }
       const ws = this.ws;
+
+      // Filet : une socket ouverte dont le `welcome` n'arrive jamais (serveur
+      // figé, poignée de main acceptée puis silence) ne laisserait rien
+      // trancher — ni `onerror`, ni `onclose`.
+      const timeout = setTimeout(() => {
+        fail("connexion sans réponse");
+        ws.close();
+      }, 8000);
 
       ws.onopen = () => {
         this.send({ t: "hello", v: PROTOCOL_VERSION, name, glyph: glyph ?? undefined });
@@ -104,6 +126,8 @@ export class NetClient {
           this.connected = true;
           if (!settled) {
             settled = true;
+            established = true;
+            clearTimeout(timeout);
             resolve();
           }
         }
@@ -113,16 +137,27 @@ export class NetClient {
         for (const h of this.handlers) h(msg);
       };
 
-      ws.onerror = () => {
-        if (!settled) {
-          settled = true;
-          reject(new Error("connexion impossible"));
-        }
-      };
+      ws.onerror = () => fail("connexion impossible");
 
       ws.onclose = () => {
         this.connected = false;
-        if (this.pingTimer) clearInterval(this.pingTimer);
+        clearTimeout(timeout);
+        if (this.pingTimer) {
+          clearInterval(this.pingTimer);
+          this.pingTimer = null;
+        }
+        // Fermeture AVANT le `welcome` : la connexion a échoué, elle n'a pas
+        // été perdue. Le cas réel est un `bad_version` — le serveur répond
+        // puis ferme proprement, donc sans `onerror` pour trancher. C'est ce
+        // qui arrive à un onglet resté ouvert sur l'ancien bundle après un
+        // déploiement, exactement au moment où on en a le plus besoin.
+        //
+        // On n'annonce alors PAS « déconnecté » : le message du serveur est
+        // déjà arrivé et il est plus précis. C'est le rejet qui informe.
+        if (!established) {
+          fail("fermé avant l'établissement");
+          return;
+        }
         for (const h of this.handlers)
           h({ t: "error", code: "room_unknown", detail: "déconnecté" });
       };

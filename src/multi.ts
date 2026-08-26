@@ -377,6 +377,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let net: NetClient | null = null;
   let roomCode = "";
   let connecting = false;
+  /** Le serveur a-t-il expliqué lui-même l'échec de la tentative en cours ? */
+  let errFromServer = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
@@ -1279,6 +1281,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     if (msg.t === "error") {
+      // Le serveur vient de dire précisément ce qui n'allait pas : le rattrapage
+      // générique de ensureConnected() ne doit pas écraser ce message.
+      errFromServer = true;
       if (msg.code === "room_unknown") {
         setJoinErr(msg.detail === "déconnecté" ? "DÉCONNECTÉ" : "SALON INTROUVABLE");
         if (roomCode) {
@@ -1296,7 +1301,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       } else if (msg.code === "in_match") {
         setJoinErr("MATCH EN COURS");
       } else if (msg.code === "bad_version") {
-        setJoinErr("VERSION INCOMPATIBLE");
+        // Cas typique d'un onglet resté ouvert sur l'ancien bundle après un
+        // déploiement. Le geste qui répare est le rechargement : le dire.
+        setJoinErr("VERSION INCOMPATIBLE — RECHARGE LA PAGE");
       } else if (msg.code === "kicked") {
         setJoinErr("EXCLU DU SALON");
         roomCode = "";
@@ -1340,6 +1347,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!name) return null;
     if (connecting) return null;
     connecting = true;
+    errFromServer = false;
     btnMulti.disabled = true;
     btnMulti.textContent = "CONNEXION…";
     try {
@@ -1355,7 +1363,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       await net.connect(name, glyphFor(name));
       return net;
     } catch {
-      setJoinErr("CONNEXION IMPOSSIBLE");
+      if (!errFromServer) setJoinErr("CONNEXION IMPOSSIBLE");
       show("multi-join");
       return null;
     } finally {
