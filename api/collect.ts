@@ -73,11 +73,19 @@ export const dayKey = (at: number): string => `ev:${new Date(at).toISOString().s
  */
 export async function sink(lines: string[], at: number): Promise<void> {
   if (!lines.length) return;
-  // Noms injectés tels quels par l'intégration Upstash de Vercel. Lus à chaque
-  // appel plutôt que figés à l'import : c'est ce qui rend la fonction testable
-  // sans réinitialiser le module.
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Lus à chaque appel plutôt que figés à l'import : c'est ce qui rend la
+  // fonction testable sans réinitialiser le module.
+  //
+  // DEUX jeux de noms, parce que Vercel n'injecte pas les mêmes selon le
+  // chemin d'installation : l'intégration Marketplace « Upstash for Redis »
+  // pose KV_REST_API_URL / KV_REST_API_TOKEN, l'intégration Upstash directe
+  // pose UPSTASH_REDIS_REST_*. Même API REST derrière, seuls les noms changent.
+  //
+  // N'en lire qu'un seul était une panne muette de plus : sans correspondance,
+  // on retombe sur console.log, la fonction répond 204, et il n'y a jamais de
+  // D7 — ce qui ne se découvre qu'une semaine trop tard.
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
   if (!url || !token) {
     for (const line of lines) console.log(line);
     return;

@@ -118,6 +118,27 @@ describe("collecteur d'événements", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("accepte les DEUX conventions de nommage Upstash", async () => {
+    // Vercel n'injecte pas les mêmes noms selon le chemin d'installation :
+    // l'intégration Marketplace « Upstash for Redis » pose KV_REST_API_*,
+    // l'intégration Upstash directe pose UPSTASH_REDIS_REST_*. N'en lire
+    // qu'un seul produit une panne muette — 204 rendu, rien stocké, D7
+    // incalculable, et ça ne se voit qu'en cherchant les chiffres.
+    vi.stubEnv("KV_REST_API_URL", "https://marketplace.test");
+    vi.stubEnv("KV_REST_API_TOKEN", "jeton-kv");
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      calls.push({ url, init });
+      return Promise.resolve(new Response("[]", { status: 200 }));
+    });
+
+    const res = await handler(post(lot("first_open")));
+    expect(res.status).toBe(204);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.url).toBe("https://marketplace.test/pipeline");
+    expect(calls[0]!.init.headers).toMatchObject({ Authorization: "Bearer jeton-kv" });
+  });
+
   it("retombe sur les logs quand Upstash n'est pas configuré", async () => {
     // Le cas du développement local : la collecte reste utilisable, sans mémoire.
     const log = vi.spyOn(console, "log").mockImplementation(() => {});

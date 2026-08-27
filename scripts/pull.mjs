@@ -16,7 +16,7 @@
  * l'environnement.
  */
 
-if (!process.env.UPSTASH_REDIS_REST_URL) {
+if (!process.env.UPSTASH_REDIS_REST_URL && !process.env.KV_REST_API_URL) {
   try {
     process.loadEnvFile(".env.local");
   } catch {
@@ -24,12 +24,17 @@ if (!process.env.UPSTASH_REDIS_REST_URL) {
   }
 }
 
-const URL_BASE = process.env.UPSTASH_REDIS_REST_URL;
-const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+// Deux jeux de noms selon le chemin d'installation dans Vercel : l'intégration
+// Marketplace « Upstash for Redis » pose KV_REST_API_*, l'intégration Upstash
+// directe pose UPSTASH_REDIS_REST_*. Même API REST, seuls les noms diffèrent.
+const URL_BASE = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+const TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
 
 if (!URL_BASE || !TOKEN) {
   console.error(
-    "UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN sont requis.\n" +
+    "Identifiants Upstash absents. Il faut, au choix :\n" +
+      "  KV_REST_API_URL + KV_REST_API_TOKEN                 (intégration Marketplace)\n" +
+      "  UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN   (intégration directe)\n" +
       "  vercel env pull .env.local     puis relancer",
   );
   process.exit(1);

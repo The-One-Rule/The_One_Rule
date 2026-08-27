@@ -165,10 +165,18 @@ Puis, dans l'ordre :
 éphémères et les *log drains* sont payants, donc D1 se lirait à l'œil pendant la
 soirée et D7 serait tout simplement incalculable.
 
-Dans Vercel, onglet **Storage → Upstash for Redis** (offre gratuite). L'intégration
-injecte `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN` dans le projet,
-et il n'y a rien d'autre à configurer : les événements partent dans une liste par
-jour de réception, qui expire au bout de 40 jours.
+Dans Vercel, onglet **Storage → Upstash for Redis** (offre gratuite). Rien
+d'autre à configurer : les événements partent dans une liste par jour de
+réception, qui expire au bout de 40 jours.
+
+**Les noms de variables dépendent du chemin d'installation**, et c'est un piège
+qui a coûté un aller-retour : l'intégration **Marketplace** injecte
+`KV_REST_API_URL` / `KV_REST_API_TOKEN`, l'intégration **Upstash directe**
+injecte `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`. Même API REST
+derrière. `api/collect.ts` et `scripts/pull.mjs` acceptent désormais les deux —
+mais si tu vois `KV_URL` et `REDIS_URL` dans `vercel env ls` sans jumeau
+`*_REST_API_*`, c'est que l'intégration n'a pas exposé l'API REST, et le runtime
+edge ne peut pas ouvrir de connexion TCP : il lui faut la variante REST.
 
 Redéploie une fois l'intégration branchée — la fonction lit ces variables à
 l'exécution, mais le front, lui, a besoin de `VITE_COLLECT_URL` au build.
