@@ -233,15 +233,19 @@ function renderHome(): void {
    * L'état va dans `.card__state`, jamais dans le textContent de la carte :
    * l'écrire sur le bouton effacerait son titre et sa description.
    */
+  // L'accroche taquine la règle du jour ; l'état dit ce qui est en jeu.
+  $("cardDailyDesc").textContent = s.daily.played
+    ? "C'est fait pour aujourd'hui."
+    : teaserDuJour(rule.id, day);
   $("cardDailyState").textContent = s.daily.played
-    ? `DÉJÀ JOUÉ AUJOURD'HUI · ${s.daily.score} MANCHES · REVIENS DEMAIN`
-    : `AUJOURD'HUI · ${rule.name}`;
+    ? `${s.daily.score} MANCHES · REVIENS DEMAIN`
+    : "UN SEUL ESSAI";
   $("cardTrainingState").textContent = neuf
     ? "COMMENCE ICI · TU NE PERDS RIEN"
     : `RECORD · ${s.bestTraining} MANCHES`;
   $("cardMultiState").textContent = multi.available
     ? "DE 2 À 10 JOUEURS"
-    : "INDISPONIBLE — SERVEUR DE SALONS HORS LIGNE";
+    : "SERVEUR DE SALONS HORS LIGNE";
   $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
   /*
@@ -349,6 +353,37 @@ function renderCodex(): void {
   }
   show("codex");
 }
+
+/**
+ * Accroches du run du jour, par règle.
+ *
+ * Une carte doit donner envie, pas expliquer : « 40 manches, un seul essai,
+ * même partie pour tout le monde » se lit comme une notice. Ces lignes
+ * taquinent la contrainte du jour sans la révéler — le nom de la règle, lui,
+ * reste caché jusqu'à l'écran d'annonce.
+ *
+ * Deux par règle, choisies par l'index du jour : tout le monde voit la même,
+ * et elle change d'un jour à l'autre.
+ */
+const TEASERS: Record<string, [string, string]> = {
+  sang: ["Aujourd'hui, évite de voir rouge.", "Le rouge ne te veut aucun bien."],
+  pointe: ["Méfie-toi de ce qui pique.", "Les angles ne sont pas tes amis."],
+  voyelle: ["Certaines lettres se retiennent.", "L'alphabet a ses interdits."],
+  colosse: ["La taille, ça compte. En mal.", "Les gros ennuis sont les plus visibles."],
+  gaucher: ["La gauche est un terrain miné.", "Un côté de l'écran te déteste."],
+  seconde: ["La patience paie. Littéralement.", "Ne te précipite surtout pas."],
+  eclair: ["Lis vite. Très vite.", "Ça passe, et c'est parti."],
+  menteur: ["Ne crois pas tout ce que tu lis.", "Quelqu'un te raconte des histoires."],
+  daltonien: ["Fais confiance aux mots, pas à tes yeux.", "Tes yeux vont te trahir."],
+  jumeau: ["Une fois ne suffira pas.", "Tout est à refaire. Deux fois."],
+  acceleration: ["Prends une inspiration avant.", "Ce sera plus court que prévu."],
+  mainGauche: ["Prévois une main de libre.", "Tu vas tenir quelque chose."],
+};
+
+const teaserDuJour = (ruleId: string, jour: number): string => {
+  const paire = TEASERS[ruleId];
+  return paire ? paire[jour % 2 === 0 ? 0 : 1] : "Une règle t'attend.";
+};
 
 /**
  * N'a jamais terminé un run.

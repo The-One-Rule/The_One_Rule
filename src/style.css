@@ -1074,10 +1074,26 @@ body {
   z-index: 10;
   background: var(--ink);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /*
+   * PAS `align-items: center`.
+   *
+   * Sur un contenu plus haut que l'écran, le centrage flex pousse le DÉBUT de
+   * l'élément au-dessus de l'origine de défilement — et cette partie devient
+   * inatteignable. Mesuré sur 375x812 après l'ajout des cartes : le logo
+   * tombait à top = -196, avec 1203 px de contenu pour 812 de hauteur et
+   * seulement 220 px de défilement disponibles. Il avait purement disparu.
+   *
+   * `margin: auto` sur l'enfant centre quand il y a la place, et laisse le
+   * contenu commencer en haut quand il n'y en a pas — tout reste accessible.
+   */
+  align-items: flex-start;
+  justify-content: flex-start;
   padding: 24px;
   overflow-y: auto;
+}
+
+.screen > * {
+  margin: auto;
 }
 
 .screen.hidden {
@@ -1220,6 +1236,69 @@ body {
     grid-template-columns: 1fr 1fr;
     align-items: start;
     gap: 52px;
+  }
+}
+
+/*
+ * Accueil : le logo coiffe, les réglages referment.
+ *
+ * Sur téléphone, tout s'empile — et l'ordre change : les cartes passent AVANT
+ * l'état du jour. On ne fait pas défiler quelqu'un à travers ses quêtes pour
+ * atteindre le bouton qui lance une partie.
+ */
+.home__brand,
+.home__foot {
+  text-align: center;
+}
+
+.home__brand {
+  order: 1;
+}
+.home__cards {
+  order: 2;
+}
+.home__state {
+  order: 3;
+}
+.home__foot {
+  order: 4;
+}
+
+@media (min-width: 900px) {
+  .home {
+    gap: 26px 52px;
+  }
+
+  .home__brand,
+  .home__foot {
+    grid-column: 1 / -1;
+  }
+
+  /* En deux colonnes, c'est l'ordre du document qui place : état à gauche,
+     cartes à droite, le logo au-dessus et les réglages en dessous. */
+  .home__brand,
+  .home__state,
+  .home__cards,
+  .home__foot {
+    order: 0;
+  }
+
+  .home__brand .lede {
+    max-width: 68ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .home__foot {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+
+  /* Le filet appartient au bandeau, pas aux réglages : sinon on en a deux. */
+  .home__foot .prefs {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
   }
 }
 
