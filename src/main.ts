@@ -225,9 +225,15 @@ function renderHome(): void {
     list.appendChild(row);
   }
 
+  const neuf = s.recent.length === 0;
   const btn = $<HTMLButtonElement>("btnDaily");
   btn.disabled = s.daily.played;
-  btn.textContent = s.daily.played ? `RUN DU JOUR · FAIT (${s.daily.score})` : "RUN DU JOUR";
+  // L'enjeu sur le bouton, pas dans un écran suivant : c'est là qu'on décide.
+  btn.textContent = s.daily.played
+    ? `RUN DU JOUR · FAIT (${s.daily.score})`
+    : neuf
+      ? "RUN DU JOUR · UN SEUL ESSAI"
+      : "RUN DU JOUR";
 
   /*
    * Un écran a UNE action évidente, et elle ne peut pas être un bouton mort.
@@ -236,11 +242,25 @@ function renderHome(): void {
    * vers le seul bouton désactivé de la page, et rien ne disait quoi faire
    * ensuite. L'accent passe donc au premier mode encore disponible.
    */
-  const suivant = s.daily.played
-    ? multi.available
-      ? "btnMulti"
-      : "btnTraining"
-    : "btnDaily";
+  /*
+   * Un nouveau venu ne doit PAS voir le run du jour comme action évidente.
+   *
+   * C'est le seul mode irréversible du jeu — un essai par jour — et il suppose
+   * de connaître la mécanique. Le mettre en avant à quelqu'un qui arrive, c'est
+   * lui tendre un piège : constaté sur un vrai testeur, qui l'a brûlé en
+   * quinze secondes sans avoir compris la règle unique.
+   *
+   * L'accent va donc à l'entraînement, qui pardonne et qui enseigne. Le run du
+   * jour reste accessible, il cesse seulement d'être ce vers quoi l'œil est
+   * appelé.
+   */
+  const suivant = neuf
+    ? "btnTraining"
+    : s.daily.played
+      ? multi.available
+        ? "btnMulti"
+        : "btnTraining"
+      : "btnDaily";
   for (const id of ["btnDaily", "btnMulti", "btnTraining"]) {
     $(id).classList.toggle("btn--primary", id === suivant);
   }
@@ -320,6 +340,16 @@ function renderCodex(): void {
   show("codex");
 }
 
+/**
+ * N'a jamais terminé un run.
+ *
+ * `recent` reçoit le score de CHAQUE run achevé, quel qu'en soit le mode :
+ * une liste vide veut donc dire « ce joueur n'a encore rien joué jusqu'au
+ * bout ». C'est le signal le plus proche de ce qu'on veut savoir, et il ne
+ * demande aucun champ de plus.
+ */
+const jamaisJoue = (): boolean => P.load().recent.length === 0;
+
 /* ------------------------------------------------------------------ *
  * Lancement d'un run
  * ------------------------------------------------------------------ */
@@ -352,7 +382,30 @@ function openBrief(mode: Mode): void {
   warn.textContent = lines.join(" · ");
   warn.classList.toggle("hidden", lines.length === 0);
 
-  $("btnGo").textContent = hold ? "MAINTIENS ESPACE" : "COMMENCER";
+  /*
+   * Un nouveau venu qui choisit le run du jour le perd en quinze secondes.
+   *
+   * Constaté sur un vrai testeur : il a cliqué RUN DU JOUR en arrivant, n'a
+   * rien lu, et a brûlé son unique essai avant d'avoir compris la mécanique.
+   * L'avertissement existait DÉJÀ sur cet écran — il ne l'a pas lu. En ajouter
+   * un deuxième ne répare rien : un texte qu'on ne lit pas ne devient pas
+   * lisible parce qu'on le répète.
+   *
+   * On ne bloque donc pas, on OFFRE l'autre chemin au moment exact du choix,
+   * et on met l'enjeu sur le bouton lui-même plutôt que dans une ligne au
+   * -dessus. Pour tous les autres, l'écran ne change pas d'un pixel.
+   */
+  const neuf = mode === "daily" && jamaisJoue();
+  const btnTry = $<HTMLButtonElement>("btnBriefTraining");
+  btnTry.classList.toggle("hidden", !neuf);
+  $("btnGo").textContent = hold
+    ? "MAINTIENS ESPACE"
+    : neuf
+      ? "COMMENCER · UN SEUL ESSAI"
+      : "COMMENCER";
+  $("btnGo").classList.toggle("btn--primary", !neuf);
+  btnTry.classList.toggle("btn--primary", neuf);
+
   renderPace();
   show("brief");
 }
@@ -904,6 +957,10 @@ $("btnRanked").addEventListener("click", () => {
   void openRanked();
 });
 $("btnGo").addEventListener("click", () => startRun());
+$("btnBriefTraining").addEventListener("click", () => {
+  sfx.ui();
+  openBrief("training");
+});
 $("btnBack").addEventListener("click", () => backHome());
 $("btnAgain").addEventListener("click", () => replay());
 $("btnHome").addEventListener("click", () => backHome());
