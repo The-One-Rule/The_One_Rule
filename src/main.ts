@@ -342,13 +342,26 @@ function renderCodex(): void {
     const rec = s.encountered[r.id];
     const row = document.createElement("div");
     row.className = "codexrow" + (rec ? (rec.cleared ? " is-cleared" : "") : " is-locked");
-    row.innerHTML = `<span class="codexrow__name"></span><span class="codexrow__score"></span>`;
+    row.innerHTML =
+      `<span class="codexrow__head">` +
+      `<span class="codexrow__name"></span>` +
+      `<span class="codexrow__score"></span>` +
+      `</span>` +
+      `<span class="codexrow__brief"></span>`;
     row.querySelector<HTMLElement>(".codexrow__name")!.textContent = rec ? r.name : "— — — — —";
     row.querySelector<HTMLElement>(".codexrow__score")!.textContent = rec
       ? rec.cleared
         ? `TENU · ${rec.best}`
         : `MEILLEUR ${rec.best}`
       : "JAMAIS RENCONTRÉE";
+    /*
+     * L'explication n'apparaît QUE pour une règle déjà rencontrée.
+     *
+     * Le carnet sert à réviser ce qu'on a affronté — pas à lire d'avance ce
+     * qui nous attend. La surprise du run du jour est le seul contenu neuf du
+     * jeu, et la brûler ici la brûlerait partout.
+     */
+    row.querySelector<HTMLElement>(".codexrow__brief")!.textContent = rec ? r.brief : "";
     list.appendChild(row);
   }
   show("codex");

@@ -2010,12 +2010,37 @@ button.chip:active:not(:disabled) {
   border-top: 1px solid var(--line);
 }
 
+/*
+ * Une entrée de carnet porte deux lignes : le nom et le résultat, puis
+ * l'explication de la règle. Elle ne servait qu'à cocher ce qu'on avait
+ * rencontré ; elle sert maintenant à s'en souvenir.
+ */
 .codexrow {
+  display: block;
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.codexrow__head {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 11px 2px;
-  border-bottom: 1px solid var(--line);
+}
+
+.codexrow__brief {
+  display: block;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--paper-dim);
+  max-width: 62ch;
+}
+
+.codexrow__brief:not(:empty) {
+  margin-top: 5px;
 }
 
 .codexrow__name {
