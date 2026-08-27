@@ -392,6 +392,25 @@ export class SceneRenderer {
     const dt = this.lastT ? Math.min(0.05, (now - this.lastT) / 1000) : 0;
     this.lastT = now;
 
+    /*
+     * Le rendu se resynchronise seul, exactement comme toField() le fait déjà
+     * avant de projeter un clic.
+     *
+     * resize() dépend d'un ResizeObserver, et un observateur peut ne jamais
+     * livrer : boîte nulle au moment de l'observation, notifications
+     * abandonnées après une boucle de mise en page, onglet qui ne compose pas.
+     * La géométrie reste alors figée sur une valeur périmée et les pièces sont
+     * dessinées hors champ — un champ vide, sans la moindre erreur nulle part.
+     *
+     * clientWidth/clientHeight sont des entiers arrondis, d'où le seuil à 1 px :
+     * comparer à la fraction près re-mesurerait à chaque image.
+     */
+    const bw = this.canvas.clientWidth;
+    const bh = this.canvas.clientHeight;
+    if (bw > 0 && bh > 0 && (Math.abs(bw - this.cssW) > 1 || Math.abs(bh - this.cssH) > 1)) {
+      this.resize();
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     // secousse : appliquée à la transformation, donc gratuite

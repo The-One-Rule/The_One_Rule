@@ -52,6 +52,9 @@ const scene = new SceneRenderer(cv);
 const appEl = $("app");
 let gutters = false;
 let lastKey = "";
+/** Verrou anti-oscillation de la mise en page — voir syncField(). */
+let lastGutterToggle = -Infinity;
+const GUTTER_LOCK_MS = 450;
 /**
  * Recalcule la transformation, puis publie le champ pour le CSS.
  *
@@ -75,11 +78,27 @@ function syncField(): void {
   appEl.style.setProperty("--field-w", `${Math.round(f.w)}px`);
   appEl.style.setProperty("--field-h", `${Math.round(f.h)}px`);
   appEl.style.setProperty("--gutter-w", `${gw}px`);
-  // Hystérésis. Passer en colonnes sort les plaques du flux, ce qui agrandit
-  // la scène, ce qui peut re-déclencher le test : sans marge, la mise en page
-  // clignote.
-  const next = gutters ? gw >= 110 : gw >= 132;
-  if (next !== gutters) {
+  /*
+   * Passer en colonnes sort les plaques du flux, ce qui agrandit la scène,
+   * ce qui rétrécit la gouttière — c'est-à-dire la grandeur même sur laquelle
+   * on vient de décider. La décision se mord la queue.
+   *
+   * L'hystérésis seule ne suffit pas : il existe des tailles de fenêtre où les
+   * deux états produisent des gouttières de part et d'autre de la bande. Le
+   * ResizeObserver se rappelle alors sans fin, le navigateur finit par
+   * abandonner des notifications, et la géométrie RESTE FIGÉE SUR UNE VALEUR
+   * FAUSSE — les pièces sont alors dessinées hors champ, donc invisibles,
+   * pendant que la mise en page clignote. Constaté en salon à ~1750×960, où
+   * la gouttière tombe pile sur l'ancien seuil de 110.
+   *
+   * Deux verrous : une bande beaucoup plus large, et un délai minimal entre
+   * deux bascules. Le second est ce qui garantit la terminaison, quelle que
+   * soit la taille de fenêtre — une bascule ne peut plus en déclencher une
+   * autre dans la même rafale de mesures.
+   */
+  const next = gutters ? gw >= 96 : gw >= 168;
+  if (next !== gutters && performance.now() - lastGutterToggle >= GUTTER_LOCK_MS) {
+    lastGutterToggle = performance.now();
     gutters = next;
     appEl.classList.toggle("has-gutters", next);
   }
