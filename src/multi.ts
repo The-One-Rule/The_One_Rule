@@ -21,6 +21,7 @@ import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
 import { track } from "./analytics";
+import { cleanEnv } from "./env";
 import { NetClient } from "./net/client";
 import { glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
@@ -362,7 +363,9 @@ function mergePlayers(prev: PlayerPublic[], next: PlayerPublic[]): PlayerPublic[
 }
 
 export function initMulti(show: ShowFn, hud: Hud): MultiApi {
-  const wsUrl = import.meta.env.VITE_WS_URL as string | undefined;
+  // Même nettoyage que pour le collecteur : une URL avec un BOM devant donne
+  // une socket qui ne s'ouvre jamais, sans message lisible.
+  const wsUrl = cleanEnv(import.meta.env.VITE_WS_URL as string | undefined);
   const btnMulti = $<HTMLButtonElement>("btnMulti");
   const platesEl = $("plates");
   const platesL = $("platesL");

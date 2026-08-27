@@ -45,14 +45,35 @@ if (!srcs.length) {
 const bundles = await Promise.all(srcs.map((s) => get(new URL(s, base + "/").href)));
 const code = bundles.join("\n");
 
+/*
+ * Une variable d'environnement peut arriver SOUILLÉE : espace, retour ligne,
+ * ou BOM UTF-8 collé devant — Windows PowerShell en ajoute un quand il encode
+ * une valeur passée par un tube.
+ *
+ * C'est arrivé, et ce test-ci passait quand même : il cherchait la sous-chaîne
+ * `/api/collect`, que "﻿/api/collect" contient. L'endpoint réel était
+ * `/%EF%BB%BF/api/collect`, chaque envoi partait en 404, et le vérificateur
+ * annonçait un déploiement sain. On regarde donc le caractère qui PRÉCÈDE.
+ */
+const SALES = /[﻿​ \s]/;
+const iCollect = code.indexOf("/api/collect");
+const avantCollect = iCollect > 0 ? code[iCollect - 1] : "";
+const collectSouille = iCollect >= 0 && SALES.test(avantCollect);
+
 const checks = [
   {
     nom: "collecteur branché (VITE_COLLECT_URL)",
-    ok: code.includes("/api/collect"),
-    quoi:
-      "Le bundle ne contient pas l'URL du collecteur : la mesure est INERTE.\n" +
-      "     Poser VITE_COLLECT_URL=/api/collect dans Vercel, puis REDÉPLOYER\n" +
-      "     (la reposer sans rebuild ne change rien).",
+    ok: iCollect >= 0 && !collectSouille,
+    quoi: collectSouille
+      ? "L'URL du collecteur est SOUILLÉE : un caractère invisible " +
+        `(U+${avantCollect.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}) ` +
+        "la précède.\n" +
+        "     Chaque envoi part donc en 404 et rien n'est collecté, alors que le\n" +
+        "     jeu tourne normalement. Reposer la variable SANS BOM ni espace,\n" +
+        "     puis REDÉPLOYER."
+      : "Le bundle ne contient pas l'URL du collecteur : la mesure est INERTE.\n" +
+        "     Poser VITE_COLLECT_URL=/api/collect dans Vercel, puis REDÉPLOYER\n" +
+        "     (la reposer sans rebuild ne change rien).",
   },
   {
     nom: "multijoueur branché (VITE_WS_URL)",

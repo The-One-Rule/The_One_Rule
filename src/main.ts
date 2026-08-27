@@ -34,6 +34,7 @@ import type { Opponent } from "./ranked/client";
 import { Hud } from "./render/hud";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
+import { cleanEnv } from "./env";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -1065,7 +1066,20 @@ const visitStart = performance.now();
 
 function setupAnalytics(): void {
   const s = P.load();
-  const endpoint = import.meta.env.VITE_COLLECT_URL as string | undefined;
+  /*
+   * L'URL est NETTOYÉE avant usage.
+   *
+   * Une variable d'environnement traverse des mains et des shells : elle
+   * arrive avec un espace, un retour ligne, ou — vécu en production — un BOM
+   * UTF-8 collé devant, parce que Windows PowerShell en ajoute un quand il
+   * encode une valeur passée par un tube. Le résultat est indétectable :
+   * l'endpoint devient "﻿/api/collect", chaque envoi part en 404, le jeu
+   * tourne parfaitement et la mesure ne collecte rien pendant des jours.
+   *
+   * Le bon endroit pour s'en protéger est ici, une fois, plutôt que dans
+   * chaque procédure de déploiement.
+   */
+  const endpoint = cleanEnv(import.meta.env.VITE_COLLECT_URL as string | undefined);
 
   initAnalytics({
     id: s.anonId,
