@@ -129,6 +129,43 @@ ok(
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
 
+// Spectateur : rejoindre PENDANT une partie doit donner de quoi la suivre.
+//
+// Toute l'interface de spectateur existe — barre de cibles, pied « JE REGARDE
+// X », reconstruction locale de la scène — mais elle est conditionnee a un etat
+// de match que seul `match_start` cree. Le serveur ne l'envoyait qu'au
+// lancement : quelqu'un qui arrivait en cours de partie n'obtenait donc RIEN et
+// attendait devant un salon fige jusqu'a la fin.
+{
+  const joueur = await client("JOUEUR", "cle-joueur");
+  joueur.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(200);
+  const code = joueur.room.code;
+  joueur.ws.send(JSON.stringify({ t: "start" }));
+  await sleep(3600); // compte a rebours + une manche entamee
+
+  const curieux = await client("CURIEUX", "cle-curieux");
+  curieux.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(500);
+
+  ok(curieux.seed !== 0, "le spectateur recoit la graine du match en cours");
+  ok(curieux.seed === joueur.seed, "meme graine que le joueur : scene partagee");
+  ok(!curieux.rules[curieux.id], "il n'a PAS de regle a lui (pas de siege)");
+  ok(
+    Object.keys(curieux.rules).length > 0,
+    "mais il recoit l'attribution des autres, de quoi reconstruire leur vue",
+  );
+  const vu = curieux.room?.players?.find((p) => p.name === "CURIEUX");
+  ok(vu?.spectator === true, "il est bien marque spectateur");
+
+  const avant = curieux.verdicts.length;
+  await sleep(3000);
+  ok(curieux.verdicts.length > avant, "il suit les verdicts des manches en direct");
+
+  for (const c of [joueur, curieux]) c.ws.close();
+  await sleep(200);
+}
+
 // Accueil du débutant : une vie de plus, annoncée à tout le salon.
 {
   const ancien = await client("ANCIEN", "cle-ancien", false);

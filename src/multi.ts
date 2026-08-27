@@ -629,7 +629,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const current = viewTargetId();
     for (const p of match.players) {
       if (p.lives <= 0 && p.id !== current) continue;
-      if (p.id === net.myId && match.lives <= 0) continue;
+      /*
+       * On ne se propose jamais soi-même comme cible.
+       *
+       * Le filtre ne visait que le joueur ÉLIMINÉ (`lives <= 0`) — mais un
+       * spectateur arrivé en cours de partie n'a pas de siège, donc pas de
+       * vies décomptées : il se retrouvait dans sa propre liste de cibles,
+       * proposé de se regarder lui-même alors qu'il ne joue pas. C'est
+       * `isSpectating()` qui décide, pas le nombre de vies.
+       */
+      if (p.id === net.myId) continue;
       const chip = document.createElement("button");
       chip.type = "button";
       chip.className = "chip" + (p.id === current ? " is-on" : "");
@@ -997,8 +1006,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function beginMatch(msg: Extract<ServerMsg, { t: "match_start" }>): void {
     if (!net) return;
-    const ruleId = msg.rules[net.myId];
+    /*
+     * Un SPECTATEUR n'a pas de règle à lui — il n'a pas de siège.
+     *
+     * Sortir ici le privait de tout état de match, donc de la barre de cibles,
+     * du pied « JE REGARDE X » et de la scène : il restait devant un salon figé
+     * jusqu'à la fin de la partie. On reconstruit donc sa vue à partir de la
+     * règle du joueur qu'il va observer — c'est exactement ce que fait
+     * `rebuildViewRound()` ensuite, et ça ne coûte rien au serveur puisque la
+     * scène est déterministe.
+     */
+    const cible = lastPlayers.find((p) => p.lives > 0 && p.id !== net!.myId);
+    const ruleId = msg.rules[net.myId] ?? (cible ? msg.rules[cible.id] : undefined);
     const rule = ruleId ? ruleById(ruleId) : undefined;
+    // Plus personne d'observable : il n'y a vraiment rien à montrer.
     if (!rule) return;
 
     endScreenOpen = false;
@@ -1698,8 +1719,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       musicApi.lobby();
       const left = net.clock.toLocal(match.firstRoundAt) - Date.now();
       const sec = Math.max(0, Math.ceil(left / 1000));
-      // Panneau posé une seule fois ; seul le décompte se réécrit.
-      if (match.drama !== "rule" && match.rule) showRuleReveal(match.rule);
+      /*
+       * Panneau posé une seule fois ; seul le décompte se réécrit.
+       *
+       * Jamais pour un spectateur : la règle affichée serait celle d'un autre,
+       * et l'annoncer « TA RÈGLE UNIQUE » serait un mensonge. Le pied lui dit
+       * déjà qui il regarde.
+       */
+      if (match.drama !== "rule" && match.rule && !isSpectating()) {
+        showRuleReveal(match.rule);
+      }
       dramaExtra.textContent = sec > 0 ? `DÉPART · ${sec}` : "…";
       // Le décompte est dans le panneau : le répéter en méta ferait deux
       // endroits à surveiller pour une seule information.

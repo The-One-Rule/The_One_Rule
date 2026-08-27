@@ -490,19 +490,26 @@ wss.on("connection", (ws) => {
         broadcast(room, roomState(room));
 
         /*
-         * Reprise en cours de match : renvoyer de quoi se reconstruire.
+         * Arrivée en cours de match : renvoyer de quoi se reconstruire.
          *
-         * Le client détruit tout son état de match quand il est coupé, et il ne
-         * le rebâtit que sur `match_start`. Sans ce renvoi, `beginRound()` sort
-         * immédiatement — le joueur récupérait bien son siège côté serveur, mais
-         * son écran restait au salon jusqu'à la fin de la partie. C'était le
-         * « je dois attendre que tout le monde ait fini pour jouer ».
+         * Le client détruit tout son état de match quand il est coupé, et ne le
+         * rebâtit que sur `match_start`. Sans ce renvoi, `beginRound()` sort
+         * immédiatement.
+         *
+         * Envoyé à TOUT arrivant, pas seulement à qui reprend un siège :
+         *   · celui qui revient d'une coupure récupérait sa place mais restait
+         *     bloqué au salon jusqu'à la fin de la partie ;
+         *   · et un vrai SPECTATEUR — quelqu'un qui rejoint pendant qu'on joue —
+         *     n'obtenait rien du tout. Toute l'interface de spectateur existe
+         *     (barre de cibles, pied « JE REGARDE X », reconstruction locale de
+         *     la scène) mais elle est conditionnée à un état de match qu'il ne
+         *     recevait jamais. Il attendait devant un salon figé.
          *
          * Envoyé APRÈS roomState : beginMatch lit les vies et le statut dans la
          * liste de joueurs qu'il vient de recevoir.
          */
         const m = room.match;
-        if (m && m.seats.some((s) => s.id === client.id)) {
+        if (m) {
           const rules: Record<string, string> = {};
           for (const [id, rule] of m.rulesAt(Math.max(0, m.roundIdx))) rules[id] = rule.id;
           send(client, {
