@@ -460,6 +460,33 @@ wss.on("connection", (ws) => {
         // Arrivée en cours de match : spectateur jusqu'à la manche d'après —
         // c'est le modèle BombParty, on ne bloque jamais la porte.
         broadcast(room, roomState(room));
+
+        /*
+         * Reprise en cours de match : renvoyer de quoi se reconstruire.
+         *
+         * Le client détruit tout son état de match quand il est coupé, et il ne
+         * le rebâtit que sur `match_start`. Sans ce renvoi, `beginRound()` sort
+         * immédiatement — le joueur récupérait bien son siège côté serveur, mais
+         * son écran restait au salon jusqu'à la fin de la partie. C'était le
+         * « je dois attendre que tout le monde ait fini pour jouer ».
+         *
+         * Envoyé APRÈS roomState : beginMatch lit les vies et le statut dans la
+         * liste de joueurs qu'il vient de recevoir.
+         */
+        const m = room.match;
+        if (m && m.seats.some((s) => s.id === client.id)) {
+          const rules: Record<string, string> = {};
+          for (const [id, rule] of m.rulesAt(Math.max(0, m.roundIdx))) rules[id] = rule.id;
+          send(client, {
+            t: "match_start",
+            seed: m.seed,
+            rules,
+            // La manche en cours ne lui est pas ouverte : il reprend à la
+            // suivante, et le message `round` fixera les vraies dates.
+            firstRoundAt: now(),
+            settings: room.settings,
+          });
+        }
         return;
       }
 

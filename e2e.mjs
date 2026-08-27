@@ -161,6 +161,16 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const emil2 = await client("EMIL", "cle-stable-emil");
   emil2.ws.send(JSON.stringify({ t: "join", code }));
   await sleep(400);
+  // Le client détruit son état de match quand il est coupé et ne le rebâtit
+  // que sur `match_start`. Sans ce renvoi, beginRound() sort immédiatement :
+  // le joueur récupérait son siège mais restait bloqué au salon jusqu'à la fin
+  // — le « je dois attendre que tout le monde ait fini pour jouer ».
+  ok(emil2.seed !== 0, "match_start renvoyé à la reprise (le client peut rejouer)");
+  ok(emil2.seed === dora.seed, "même graine que les autres : scène partagée intacte");
+  ok(!!emil2.rules[emil2.id], "sa règle unique lui est réattribuée");
+  const verdictsAvant = emil2.verdicts.length;
+  await sleep(3000);
+  ok(emil2.verdicts.length > verdictsAvant, "il reçoit à nouveau les verdicts des manches");
   ok(emil2.id === idAvant, `siège repris : même identifiant (${idAvant} → ${emil2.id})`);
   const apres = emil2.room?.players?.find((p) => p.id === emil2.id);
   ok(apres?.spectator === false, "EMIL rejoue, il n'est PAS spectateur");

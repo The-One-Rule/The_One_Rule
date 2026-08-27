@@ -379,6 +379,15 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let connecting = false;
   /** Le serveur a-t-il expliqué lui-même l'échec de la tentative en cours ? */
   let errFromServer = false;
+  /**
+   * Dernier salon fréquenté, CONSERVÉ à travers les coupures.
+   *
+   * `roomCode` est remis à zéro dès qu'on quitte l'écran de jeu ; il ne peut
+   * donc pas servir à revenir. Celui-ci n'est effacé que sur un départ
+   * volontaire — quitter, être exclu, revenir au menu.
+   */
+  let lastRoomCode = "";
+  let rejoining = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
@@ -1248,6 +1257,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const onMsg = (msg: ServerMsg): void => {
     if (msg.t === "room") {
       roomCode = msg.code;
+      lastRoomCode = msg.code;
       roomSettings = msg.settings ?? roomSettings;
       lobbyInMatch = msg.inMatch;
       lastPlayers = mergePlayers(lastPlayers, msg.players);
@@ -1303,10 +1313,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       errFromServer = true;
       if (msg.code === "room_unknown") {
         const coupe = msg.detail === "déconnecté";
-        // Le siège est gardé quelques secondes côté serveur : on pré-remplit le
-        // code pour que revenir soit UN geste. Vider le champ obligeait à
-        // retrouver le code pendant que le sursis s'écoulait.
-        if (coupe && roomCode) $<HTMLInputElement>("multiCode").value = roomCode;
+        /*
+         * Coupure : on ne démonte RIEN et on tente de revenir seul.
+         *
+         * Renvoyer tout de suite à l'écran de saisie était vécu comme une
+         * expulsion, alors que le siège est gardé côté serveur — et le joueur
+         * perdait le temps du sursis à chercher son code. attemptRejoin rend
+         * la main s'il échoue vraiment.
+         */
+        if (coupe && lastRoomCode) {
+          void attemptRejoin();
+          return;
+        }
         setJoinErr(coupe ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE" : "SALON INTROUVABLE");
         if (roomCode) {
           roomCode = "";
@@ -1328,6 +1346,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         setJoinErr("VERSION INCOMPATIBLE — RECHARGE LA PAGE");
       } else if (msg.code === "kicked") {
         setJoinErr("EXCLU DU SALON");
+        // Départ subi mais définitif : surtout ne pas revenir tout seul.
+        lastRoomCode = "";
         roomCode = "";
         lastPlayers = [];
         endScreenOpen = false;
@@ -1354,15 +1374,51 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    */
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
-    if (net && !net.connected && roomCode) {
-      $<HTMLInputElement>("multiCode").value = roomCode;
-      roomCode = "";
+    // Le navigateur mobile a probablement tué la socket pendant l'absence.
+    // On tente de reprendre la place plutôt que de renvoyer l'utilisateur à
+    // l'écran de saisie : c'est exactement le cas que le sursis serveur existe
+    // pour couvrir.
+    if (net && !net.connected && lastRoomCode) void attemptRejoin();
+  });
+
+  /**
+   * Revenir tout seul après une coupure.
+   *
+   * Sans ça, la moindre micro-coupure renvoyait à l'écran de saisie du code —
+   * vécu comme une expulsion, alors que le siège est gardé côté serveur. On
+   * retente donc en silence, et on ne rend la main à l'utilisateur que si ça
+   * échoue vraiment.
+   *
+   * Trois essais espacés : le sursis serveur dure 25 s, il n'y a aucune raison
+   * de marteler, et une boucle sans fin sur un serveur éteint serait pire que
+   * le problème d'origine.
+   */
+  async function attemptRejoin(): Promise<void> {
+    if (!lastRoomCode || rejoining) return;
+    rejoining = true;
+    setJoinErr(null);
+    hud.setMeta("RECONNEXION…");
+    try {
+      for (let essai = 0; essai < 3; essai++) {
+        const client = await ensureConnected();
+        if (client) {
+          client.joinRoom(lastRoomCode);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+      // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
+      $<HTMLInputElement>("multiCode").value = lastRoomCode;
+      setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
       setPlatesVisible(false);
       clearPlateCols();
-      setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
+      clearMatch();
       show("multi-join");
+    } finally {
+      rejoining = false;
+      hud.setMeta("");
     }
-  });
+  }
 
   async function ensureConnected(): Promise<NetClient | null> {
     if (net?.connected) return net;
@@ -1390,7 +1446,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return net;
     } catch {
       if (!errFromServer) setJoinErr("CONNEXION IMPOSSIBLE");
-      show("multi-join");
+      // Pendant une reprise automatique, c'est attemptRejoin qui décide s'il
+      // faut rendre la main : basculer d'écran ici couperait la tentative en
+      // cours et redonnerait la sensation d'expulsion qu'on veut supprimer.
+      if (!rejoining) show("multi-join");
       return null;
     } finally {
       connecting = false;
@@ -1413,6 +1472,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function exitToMenu(): void {
     endScreenOpen = false;
     if (net?.connected) net.leave();
+    // Partir est volontaire : la reprise automatique ne doit pas y ramener.
+    lastRoomCode = "";
     roomCode = "";
     lastPlayers = [];
     muted.clear();
