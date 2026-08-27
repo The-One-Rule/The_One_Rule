@@ -202,9 +202,38 @@ node scripts/check-deploy.mjs https://ton-app.vercel.app
    retenu quelque chose :
 
 ```bash
-vercel env pull .env.local                      # une fois, pour ta machine
 node scripts/pull.mjs | node scripts/report.mjs
 ```
+
+**`vercel env pull` ne suffit PAS pour ça, et c'est un piège.** Deux raisons
+cumulées :
+
+- sans argument, il télécharge l'environnement **`development`**, où les
+  variables Upstash n'existent pas — elles sont sur *Production, Preview* ;
+- et même avec `--environment production`, l'intégration marque ses variables
+  comme **sensibles** : Vercel les renvoie **vides**, par conception.
+
+Les identifiants se copient donc **à la main**, une fois, dans `.env.local` :
+tableau de bord Upstash → ta base → l'encart `.env.local`. Il te faut
+`KV_REST_API_URL` et `KV_REST_API_TOKEN` (les variantes REST : le runtime edge
+n'ouvre pas de connexion TCP, donc `KV_URL` et `REDIS_URL` ne servent à rien
+ici).
+
+> ⚠️ `vercel env pull .env.local` **écrase** le fichier. Si tu l'utilises pour
+> autre chose, remets ensuite ton `VITE_WS_URL=ws://localhost:8787` de dev et
+> tes identifiants Upstash.
+
+**Vérifier sans aucun identifiant.** `vercel logs <url>` diffuse les logs
+d'exécution, et `api/collect.ts` a trois comportements distincts :
+
+| état | ce qu'on voit dans les logs |
+|---|---|
+| Upstash OK | **rien** — les événements partent en Redis, silencieusement |
+| Upstash absent | **une ligne JSON par événement** (repli `console.log`) |
+| Upstash en échec | `collect_sink_error …` puis les lignes |
+
+Laisser le flux ouvert, ouvrir le jeu dans un onglet, et lire. Le silence est
+la bonne réponse.
 
 6. Seulement là, inviter la cohorte.
 

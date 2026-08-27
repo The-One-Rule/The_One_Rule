@@ -187,6 +187,10 @@ Le rapport corrige les cohortes : pour Dn, il ne compte que les joueurs dont la 
 
 > Les noms de variables Upstash dépendent du chemin d'installation : l'intégration **Marketplace** pose `KV_REST_API_URL` / `KV_REST_API_TOKEN`, l'intégration **directe** pose `UPSTASH_REDIS_REST_*`. Les deux sont acceptés. Ne lire qu'un seul jeu de noms était une panne muette de plus.
 
+> **`vercel env pull` ne récupère pas ces identifiants**, pour deux raisons cumulées : sans argument il télécharge l'environnement `development`, où ils n'existent pas ; et l'intégration les marque *sensibles*, donc Vercel les renvoie vides même avec `--environment production`. Ils se copient à la main depuis le tableau de bord Upstash, une fois. Voir [DEPLOIEMENT.md](DEPLOIEMENT.md) §5, qui donne aussi une vérification **sans aucun identifiant**, par les logs d'exécution.
+
+> **Et les valeurs sont nettoyées à la lecture** ([src/env.ts](src/env.ts)). Une variable traverse des mains, des interfaces web et des shells : `VITE_COLLECT_URL` est arrivée en production avec un **BOM UTF-8** collé devant, ajouté par Windows PowerShell en encodant une valeur passée par un tube. Chaque envoi partait sur `/%EF%BB%BF/api/collect` et recevait un 404 — jeu parfaitement fonctionnel, bandeau affiché, aucune erreur, et rien de collecté. Le vérificateur de déploiement passait même au vert, parce qu'il cherchait la sous-chaîne `/api/collect` que la valeur souillée contient.
+
 **Vie privée.** Identifiant aléatoire local, aucun compte, aucun cookie, aucune donnée personnelle, aucun service tiers. Un bandeau court explique ce qui est mesuré et pourquoi ; le refus est persistant et coupe tout. Sans `VITE_COLLECT_URL`, le module est totalement inerte — pas de bandeau, pas de file, pas d'appel réseau. C'est le cas du fichier HTML autonome.
 
 ## Déploiement

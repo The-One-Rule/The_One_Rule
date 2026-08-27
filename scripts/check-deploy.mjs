@@ -60,20 +60,27 @@ const iCollect = code.indexOf("/api/collect");
 const avantCollect = iCollect > 0 ? code[iCollect - 1] : "";
 const collectSouille = iCollect >= 0 && SALES.test(avantCollect);
 
+/*
+ * `cleanEnv()` retire BOM et blancs À LA LECTURE, côté client. Une valeur
+ * souillée n'est donc plus une panne — mais elle reste une saleté qu'on veut
+ * voir et nettoyer à la source. On la signale sans faire échouer : un
+ * vérificateur qui crie sur un état que le code gère apprend à être ignoré,
+ * et le jour où il criera pour de bon, personne ne l'écoutera.
+ */
 const checks = [
   {
     nom: "collecteur branché (VITE_COLLECT_URL)",
-    ok: iCollect >= 0 && !collectSouille,
-    quoi: collectSouille
-      ? "L'URL du collecteur est SOUILLÉE : un caractère invisible " +
+    ok: iCollect >= 0,
+    quoi:
+      "Le bundle ne contient pas l'URL du collecteur : la mesure est INERTE.\n" +
+      "     Poser VITE_COLLECT_URL=/api/collect dans Vercel, puis REDÉPLOYER\n" +
+      "     (la reposer sans rebuild ne change rien).",
+    note: collectSouille
+      ? "valeur souillée par un caractère invisible " +
         `(U+${avantCollect.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")}) ` +
-        "la précède.\n" +
-        "     Chaque envoi part donc en 404 et rien n'est collecté, alors que le\n" +
-        "     jeu tourne normalement. Reposer la variable SANS BOM ni espace,\n" +
-        "     puis REDÉPLOYER."
-      : "Le bundle ne contient pas l'URL du collecteur : la mesure est INERTE.\n" +
-        "     Poser VITE_COLLECT_URL=/api/collect dans Vercel, puis REDÉPLOYER\n" +
-        "     (la reposer sans rebuild ne change rien).",
+        "— neutralisé\n" +
+        "     à l'exécution par cleanEnv(), mais à reposer proprement quand tu y toucheras."
+      : null,
   },
   {
     nom: "multijoueur branché (VITE_WS_URL)",
@@ -120,6 +127,8 @@ for (const c of checks) {
   } else if (!c.ok) {
     console.log(`     ${c.quoi}`);
     if (c.nom.startsWith("collecteur")) dur = true;
+  } else if (c.note) {
+    console.log(`     NOTE · ${c.note}`);
   }
 }
 
