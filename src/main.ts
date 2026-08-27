@@ -221,6 +221,22 @@ function renderHome(): void {
   btn.disabled = s.daily.played;
   btn.textContent = s.daily.played ? `RUN DU JOUR · FAIT (${s.daily.score})` : "RUN DU JOUR";
 
+  /*
+   * Un écran a UNE action évidente, et elle ne peut pas être un bouton mort.
+   *
+   * Le run du jour gardait l'accent même une fois joué : l'œil était appelé
+   * vers le seul bouton désactivé de la page, et rien ne disait quoi faire
+   * ensuite. L'accent passe donc au premier mode encore disponible.
+   */
+  const suivant = s.daily.played
+    ? multi.available
+      ? "btnMulti"
+      : "btnTraining"
+    : "btnDaily";
+  for (const id of ["btnDaily", "btnMulti", "btnTraining"]) {
+    $(id).classList.toggle("btn--primary", id === suivant);
+  }
+
   $("btnRanked").classList.toggle("hidden", !rankedAvailable());
   $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
   $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;

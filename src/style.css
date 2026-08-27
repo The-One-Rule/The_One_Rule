@@ -1165,6 +1165,33 @@ body {
   display: none;
 }
 
+/*
+ * Réglages.
+ *
+ * Ils étaient dans la même rangée que « CARNET DES RÈGLES », donc au même
+ * poids qu'un contenu à découvrir, lui-même au même poids qu'un mode de jeu.
+ * Un écran où huit boutons se ressemblent ne dit plus lequel choisir.
+ *
+ * On les sépare par un filet et on les rétrécit — mais la surface tactile
+ * reste entière : la discrétion se joue sur le contraste, jamais sur la cible.
+ */
+.prefs {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn--pref {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--paper-dim);
+  opacity: 0.85;
+}
+
 /* Puces d'état */
 .strip {
   display: flex;

@@ -103,20 +103,27 @@
 
           <div class="strip" id="homeStreak"></div>
 
-          <div class="btnrow">
+          <!-- Jouer. MULTIJOUEUR en deuxième : c'est le cœur du jeu, il ne
+               peut pas être en quatrième position derrière un mode masqué. -->
+          <div class="btnrow" aria-label="Modes de jeu">
             <button class="btn btn--primary" id="btnDaily">RUN DU JOUR</button>
+            <button class="btn" id="btnMulti">MULTIJOUEUR</button>
             <button class="btn" id="btnTraining">ENTRAÎNEMENT</button>
             <button class="btn" id="btnRanked">CLASSÉ</button>
-            <button class="btn" id="btnMulti">MULTIJOUEUR</button>
           </div>
 
           <div id="homeQuests" class="quests"></div>
 
           <div class="btnrow btnrow--tight">
             <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
-            <button class="btn btn--ghost" id="btnMusic">MUSIQUE : ON</button>
-            <button class="btn btn--ghost" id="btnSound">SON : ON</button>
-            <button class="btn btn--ghost" id="btnMetrics">MESURE : ON</button>
+          </div>
+
+          <!-- Réglages : séparés des modes, parce qu'on ne choisit pas
+               « MUSIQUE : ON » comme on choisit une partie. -->
+          <div class="prefs" aria-label="Réglages">
+            <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
+            <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
+            <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
           </div>
           <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
         </div>
