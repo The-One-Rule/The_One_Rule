@@ -415,6 +415,20 @@ wss.on("connection", (ws) => {
          * fermée : sinon deux onglets du même navigateur, qui partagent la
          * clé, se voleraient mutuellement leur place.
          */
+        /*
+         * Déjà dans ce salon : rejoindre à nouveau ne doit RIEN casser.
+         *
+         * Sans ce garde, le chemin normal passait par leaveRoom(), donc par
+         * forfeit() : cliquer REJOINDRE en étant encore connecté s'éliminait
+         * soi-même — et à deux joueurs, ça terminait le match pour tout le
+         * monde. Rejoindre là où l'on est déjà est une demande d'état, pas un
+         * départ.
+         */
+        if (client.room === room) {
+          send(client, roomState(room));
+          return;
+        }
+
         // AVANT toute reprise d'identifiant : leaveRoom retire l'entrée sous
         // la clé `client.id`, donc il doit tourner tant que celle-ci vaut
         // encore l'ancienne. L'appeler après laisserait une entrée morte dans
@@ -432,6 +446,8 @@ wss.on("connection", (ws) => {
           fantome.room = null;
           room.clients.delete(fantome.id);
           client.id = fantome.id;
+          // De retour : le siège rejoue dès la manche suivante.
+          room.match?.setAway(client.id, false);
           // L'identifiant vient de changer : le client doit le réapprendre,
           // sinon il ne se reconnaît pas dans les verdicts ni sur les plaques.
           send(client, { t: "welcome", id: client.id });
@@ -614,6 +630,10 @@ wss.on("connection", (ws) => {
     const seatVivant =
       !!room?.match && room.match.seats.some((s) => s.id === client.id && !s.eliminated);
     if (room && seatVivant && client.key) {
+      // Absent : plus aucune manche ne lui est ouverte, donc plus de vie
+      // perdue par timeout. Sans ça le sursis ne servait à rien — il était
+      // éliminé bien avant d'avoir pu revenir.
+      room.match?.setAway(client.id, true);
       client.graceTimer = setTimeout(() => {
         client.graceTimer = null;
         leaveRoom(client);

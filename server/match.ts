@@ -57,6 +57,17 @@ export interface Seat {
   /** index dans l'ordre des sièges — la rotation tourne sur cet ordre */
   seat: number;
   eliminated: boolean;
+  /**
+   * Coupé, siège gardé le temps du sursis de reconnexion.
+   *
+   * Un absent ne joue AUCUNE manche : sans ça, il perdait une vie par timeout
+   * toutes les ~1,5 s et se trouvait éliminé en cinq secondes, donc bien avant
+   * d'avoir pu revenir — et à deux joueurs son élimination terminait le match
+   * pour tout le monde. Le sursis ne servait alors strictement à rien.
+   *
+   * Absent n'est pas battu : c'est une pause, pas un verdict.
+   */
+  away: boolean;
   stats: SeatStats;
 }
 
@@ -100,6 +111,7 @@ export class MatchLogic {
       score: 0,
       seat: i,
       eliminated: false,
+      away: false,
       stats: emptySeatStats(),
     }));
   }
@@ -167,6 +179,10 @@ export class MatchLogic {
     this.states.clear();
     const rules = this.rulesAt(this.roundIdx);
     for (const s of this.alive) {
+      // Un absent n'a pas d'état : closeRound le verra donc « idle », sans
+      // perte de vie ni rupture de série. C'est ce qui rend le sursis de
+      // reconnexion réellement utile.
+      if (s.away) continue;
       const round = applyRule(this.shared, rules.get(s.id)!, this.seed);
       this.states.set(s.id, { round, progress: { step: 0 }, outcome: null, firstInputMs: null });
     }
@@ -325,6 +341,19 @@ export class MatchLogic {
       (a, b) => Number(b.eliminated === false) - Number(a.eliminated === false) || b.lives - a.lives || b.score - a.score,
     );
     return ranked[0]?.id ?? null;
+  }
+
+  /**
+   * Marque un siège absent (coupure) ou de retour.
+   *
+   * Le serveur est seul à savoir qui est connecté ; MatchLogic reste pure et
+   * se contente d'obéir. Un siège absent est sauté à l'ouverture des manches,
+   * mais il compte toujours parmi les vivants : une coupure ne doit pas
+   * déclencher la fin de match par « dernier survivant ».
+   */
+  setAway(playerId: string, away: boolean): void {
+    const s = this.seats.find((x) => x.id === playerId);
+    if (s && !s.eliminated) s.away = away;
   }
 
   /** Départ anticipé : le siège reste (les règles ne re-tournent pas), la vie s'arrête. */

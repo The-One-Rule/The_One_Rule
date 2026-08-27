@@ -148,7 +148,11 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const avant = emil.room?.players?.find((p) => p.name === "EMIL");
   const idAvant = emil.id;
   emil.ws.close();
-  await sleep(400);
+  // Assez long pour que plusieurs manches passent : un absent ne doit PAS
+  // perdre de vie par timeout, sinon il est éliminé avant d'avoir pu revenir
+  // et, à deux joueurs, son élimination termine le match pour tout le monde.
+  await sleep(6000);
+  ok(!dora.ended, "le match continue pendant l'absence (il ne s'annule pas)");
 
   const vuParDora = dora.room?.players?.find((p) => p.name === "EMIL");
   ok(!!vuParDora, "siège gardé pendant la coupure (EMIL toujours listé)");
@@ -161,8 +165,20 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const apres = emil2.room?.players?.find((p) => p.id === emil2.id);
   ok(apres?.spectator === false, "EMIL rejoue, il n'est PAS spectateur");
   ok(
-    apres && avant && apres.lives <= avant.lives && apres.lives > 0,
-    `vies conservées (${avant?.lives} → ${apres?.lives})`,
+    apres && avant && apres.lives === avant.lives,
+    `vies INTACTES malgré 6 s d'absence (${avant?.lives} → ${apres?.lives})`,
+  );
+
+  // Rejoindre un salon où l'on est déjà ne doit rien casser : ce chemin passait
+  // par leaveRoom(), donc par forfeit(), et annulait la partie pour tout le monde.
+  const doraAvant = dora.room?.players?.find((p) => p.name === "DORA");
+  dora.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(400);
+  const doraApres = dora.room?.players?.find((p) => p.name === "DORA");
+  ok(!dora.ended, "REJOINDRE en étant déjà dans le salon n'annule pas le match");
+  ok(
+    doraApres && doraAvant && doraApres.lives === doraAvant.lives,
+    `REJOINDRE ne coûte aucune vie (${doraAvant?.lives} → ${doraApres?.lives})`,
   );
 
   // Une clé différente ne doit RIEN pouvoir reprendre.
