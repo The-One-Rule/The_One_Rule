@@ -114,6 +114,8 @@ type MatchState = {
   camRule: OneRule | null;
   /** Relancer la musique après cut() d'élimination. */
   musicNeedsRestart: boolean;
+  /** Règle qui prend effet à la manche suivante, à annoncer pendant la pause. */
+  rotationRule: OneRule | null;
   /**
    * Rapport entre MA fenêtre et celle diffusée à tout le salon.
    *
@@ -280,6 +282,13 @@ function renderLobby(
 function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean): void {
   const box = $("multiSettings");
   box.classList.toggle("is-guest", !isHost);
+  // Dire qui décide, plutôt que de laisser un invité cliquer sans effet et
+  // conclure que l'interface est cassée.
+  $("settingsHint").textContent = locked
+    ? "RÉGLAGES VERROUILLÉS PENDANT UN MATCH"
+    : isHost
+      ? "TU DÉCIDES POUR TOUT LE SALON · TOUCHE UNE OPTION POUR LA CHANGER"
+      : "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES";
   box.classList.toggle("is-locked", locked);
 
   const fill = (
@@ -486,7 +495,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function hideDrama(): void {
     dramaEl.classList.add("hidden");
-    dramaEl.classList.remove("drama--kill", "drama--elim", "drama--duel", "drama--rule");
+    dramaEl.classList.remove(
+      "drama--kill",
+      "drama--elim",
+      "drama--duel",
+      "drama--rule",
+      "drama--rotation",
+    );
     dramaEl.setAttribute("aria-hidden", "true");
     dramaEyebrow.textContent = "";
     dramaNames.textContent = "";
@@ -553,15 +568,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * pendant la pause, le centre fait le spectacle. On réutilise donc le même
    * panneau — pas un mécanisme de plus à entretenir.
    */
-  function showRuleReveal(rule: OneRule): void {
+  function showRuleReveal(rule: OneRule, rotation = false): void {
     if (!match) return;
     match.drama = "rule";
     match.camRound = null;
     match.camRule = null;
     dramaEl.classList.remove("hidden", "drama--kill", "drama--elim", "drama--duel");
     dramaEl.classList.add("drama--rule");
+    dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = "TA RÈGLE UNIQUE";
+    dramaEyebrow.textContent = rotation ? "TA RÈGLE CHANGE" : "TA RÈGLE UNIQUE";
     dramaNames.textContent = rule.name;
     // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
     // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
@@ -1120,6 +1136,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       camRound: null,
       camRule: null,
       musicNeedsRestart: false,
+      rotationRule: null,
       spanFactor: 1,
     };
 
@@ -1168,6 +1185,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     match.phase = "round";
     match.nextRoundAt = null;
     match.pauseMs = 0;
+    // L'annonce a fait son office : la règle est désormais en vigueur.
+    match.rotationRule = null;
     platePulse.clear();
     clearPulseTimers();
     hud.hideStamp();
@@ -1212,6 +1231,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     renderPlates();
     syncFooter();
+
+    /*
+     * Rotation annoncée PENDANT la pause, en plein cadre.
+     *
+     * Elle arrivait avec la manche suivante, donc pendant qu'il fallait jouer,
+     * et se réduisait à un changement de texte en haut à gauche. Deux tiers
+     * des pertes de vies venaient de là. Le serveur allonge maintenant
+     * l'interlude et joint les règles à venir : on a le temps de lire.
+     */
+    if (msg.nextRules && net) {
+      match.rules = { ...msg.nextRules };
+      const mienne = ruleById(msg.nextRules[net.myId] ?? "");
+      // On MÉMORISE, on n'affiche pas encore : une kill-cam peut occuper le
+      // centre. syncFrame passera de l'une à l'autre au bon moment.
+      match.rotationRule = mienne && !isSpectating() ? mienne : null;
+    }
 
     // Pas d'interlude UI si le match se termine (nextRoundAt null).
     if (msg.nextRoundAt == null) {
@@ -1348,8 +1383,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * Trois corrections : un rang chiffré, des vies en points comme partout
      * ailleurs dans le jeu, et une unité écrite sur le score.
      */
-    const sorted = [...players].sort((a, b) => b.lives - a.lives || b.score - a.score);
-    const maxLives = Math.max(roomSettings.lives, ...players.map((p) => p.lives), 1);
+    /*
+     * Les spectateurs ne sont pas classés — ils n'ont pas joué.
+     *
+     * Ils étaient triés avec les autres, et comme le tri se fait sur les vies,
+     * quelqu'un arrivé en cours de partie se retrouvait en tête du classement
+     * sans avoir joué une seule manche. Ils apparaissent désormais à part, en
+     * fin de liste, sans rang.
+     */
+    const joueurs = players.filter((p) => !p.spectator);
+    const spectateurs = players.filter((p) => p.spectator);
+    const sorted = [...joueurs].sort((a, b) => b.lives - a.lives || b.score - a.score);
+    const maxLives = Math.max(roomSettings.lives, ...joueurs.map((p) => p.lives), 1);
     const list = $("multiPodium");
     list.innerHTML = "";
     sorted.forEach((p, rang) => {
@@ -1384,6 +1429,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__rounds">${p.score} MANCHES</span>`;
       list.appendChild(row);
     });
+
+    for (const p of spectateurs) {
+      const row = document.createElement("div");
+      row.className = "lobbyrow is-off" + (p.id === net?.myId ? " is-host" : "");
+      row.innerHTML =
+        `<span class="lobbyrow__name">` +
+        `<span class="lobbyrow__rank">—</span>` +
+        `<span class="lobbyrow__glyph"></span>` +
+        `<span class="lobbyrow__name-text"></span>` +
+        `</span>` +
+        `<span class="lobbyrow__rule">SPECTATEUR</span>` +
+        `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">A REGARDÉ</span></span>`;
+      row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
+      row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
+      list.appendChild(row);
+    }
   }
 
   function endMatch(msg: Extract<ServerMsg, { t: "match_end" }>): void {
@@ -1808,6 +1869,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return { round: null, rule: match.rule, reveal: false };
     }
 
+    /*
+     * L'annonce de rotation prend le centre à la fin de la pause.
+     *
+     * S'il y a eu une mort, la kill-cam parle d'abord — c'est le spectacle et
+     * il est collectif. Mais le changement de règle est vital pour MOI, donc il
+     * a le dernier mot : on bascule quand il reste assez de temps pour lire,
+     * et immédiatement s'il n'y a aucune kill-cam à jouer.
+     *
+     * Piloté par la frame et non par un setTimeout, comme tout ce qui dépend du
+     * tempo dans ce fichier.
+     */
+    if (match.rotationRule && match.drama !== "rule") {
+      const restant =
+        match.nextRoundAt != null ? net.clock.toLocal(match.nextRoundAt) - Date.now() : 0;
+      if (match.drama !== "killcam" || restant <= 2200) {
+        showRuleReveal(match.rotationRule, true);
+        sfx.resumeSting();
+      }
+    }
+
     const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
     if (rotating) {
       hud.setMeta(`LES RÈGLES TOURNENT · ${match.rule?.name ?? ""}`);
@@ -1914,6 +1995,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     sfx.ui();
     apresIdentite = null;
     show(savedName() ? "multi-join" : "home");
+  });
+
+  $("multiLobbyCode").addEventListener("click", () => {
+    if (!roomCode) return;
+    sfx.ui();
+    const hint = $("multiLobbyCodeHint");
+    void navigator.clipboard
+      .writeText(roomCode)
+      .then(() => {
+        hint.textContent = `CODE ${roomCode} COPIÉ`;
+      })
+      .catch(() => {
+        // Presse-papiers refusé : le code reste lisible à l'écran, c'est
+        // justement ce qu'on vient de rendre impossible à manquer.
+        hint.textContent = "DICTE-LE : IL EST JUSTE AU-DESSUS";
+      });
   });
 
   $("btnMultiIdentity").addEventListener("click", () => {

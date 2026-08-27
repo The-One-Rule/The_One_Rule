@@ -23,6 +23,7 @@ import {
   MAX_ROUND_MS,
   MIN_ROUND_MS,
   ROOKIE_BONUS_LIVES,
+  ROTATION_GRACE_FACTOR,
   STATS_MIN_SAMPLES,
 } from "../shared/protocol";
 import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol";
@@ -174,7 +175,16 @@ export class MatchLogic {
     const seats = this.seats.length;
     const alive = this.alive.length;
     const eliminated = seats - alive;
-    if (alive === 2 && eliminated > 0) return 0.55;
+    /*
+     * Duel : resserré, mais plus étranglé.
+     *
+     * 0,55 poussait la fenêtre au plancher — et le plancher lui-même était à
+     * 520 ms, sous le seuil de 700 ms que ce projet reconnaît comme celui du
+     * jouable. Rapporté en soirée : « les joueurs ont à peine le temps de lire
+     * et comprendre leur règle avant que la situation soit terminée ». Une
+     * apnée doit se sentir, pas rendre la manche illisible.
+     */
+    if (alive === 2 && eliminated > 0) return 0.7;
     const warm = Math.max(0.9, 1.45 - idx * 0.02);
     // Diviseur `seats - 3` et non `seats - 2` : le terme doit atteindre son
     // maximum au dernier état AVANT le duel, soit 3 vivants. Calé sur 2
@@ -206,11 +216,22 @@ export class MatchLogic {
     // Plancher d'abord, plafond ensuite ; comme MIN < MAX, l'ordre est sans
     // effet, il est fixé pour la lecture.
     // input() borne sur roundDurationMs — même fenêtre pour juger et afficher.
+    /*
+     * La première manche sous une règle NEUVE respire.
+     *
+     * Lire un nom de règle ne suffit pas, il faut l'appliquer — et cette
+     * manche-là demandait le même effort conscient qu'à un débutant, souvent
+     * au plancher de vitesse. C'est la cause principale des pertes de vies
+     * relevées en soirée.
+     */
+    const grace = this.rotationJustHappened(this.roundIdx) ? ROTATION_GRACE_FACTOR : 1;
     this.roundDurationMs = Math.min(
       MAX_ROUND_MS,
       Math.max(
         MIN_ROUND_MS,
-        Math.round(this.shared.durationMs * this.settings.speed * this.tensionAt(this.roundIdx)),
+        Math.round(
+          this.shared.durationMs * this.settings.speed * this.tensionAt(this.roundIdx) * grace,
+        ),
       ),
     );
     return { idx: this.roundIdx, durationMs: this.roundDurationMs };

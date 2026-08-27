@@ -251,7 +251,12 @@
       <!-- MULTI — SALON -->
       <section class="screen hidden" id="multi-lobby">
         <div class="screen__scroll">
-          <p class="eyebrow">SALON <b id="multiLobbyCode">————</b></p>
+          <!-- Le code se dicte à voix haute autant qu'il se partage par lien :
+               c'est l'élément le plus utile du salon, il doit être le plus
+               visible. -->
+          <p class="eyebrow">CODE DU SALON</p>
+          <button class="roomcode" id="multiLobbyCode" title="Copier le code">————</button>
+          <p class="fineprint" id="multiLobbyCodeHint">TOUCHE LE CODE POUR LE COPIER</p>
           <h2 class="rulename" id="multiLobbyTitle">EN ATTENTE</h2>
           <div class="lobby" id="multiPlayers"></div>
           <div class="settings" id="multiSettings" aria-label="Réglages du salon">
@@ -267,6 +272,7 @@
               <span class="settings__label">ROTATION</span>
               <div class="settings__opts" id="optRotation"></div>
             </div>
+            <p class="settings__hint" id="settingsHint"></p>
           </div>
           <div class="btnrow">
             <button class="btn btn--primary hidden" id="btnMultiStart">LANCER</button>

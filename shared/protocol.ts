@@ -24,7 +24,7 @@ export const INPUT_TOLERANCE_MS = 120;
  * Conséquence assumée : en fin de match, les réglages hôte 0.8 et 0.65
  * convergent vers cette même valeur. Le plancher prime sur le réglage.
  */
-export const MIN_ROUND_MS = 520;
+export const MIN_ROUND_MS = 700;
 
 /**
  * Plafond d'une manche. Le solo a été recalibré de 2400 à 1500 ms parce que
@@ -43,6 +43,30 @@ export const INTERLUDE_LIFE_MS = 2400;
 export const INTERLUDE_ELIM_MS = 4200;
 /** Duel (≤2 vivants) : apnée, aucune kill-cam. */
 export const INTERLUDE_DUEL_MS = 500;
+/**
+ * Pause AVANT une manche de rotation, pour annoncer la nouvelle règle.
+ *
+ * Mesuré en soirée de test : environ deux tiers des pertes de vies venaient de
+ * rotations que les joueurs n'avaient pas vues. La règle changeait par une
+ * ligne de texte en haut à gauche, en pleine vision périphérique, pendant
+ * qu'ils balayaient la grille — donc ils mouraient sans savoir que leur
+ * contrainte avait changé.
+ *
+ * On ne peut pas l'annoncer PENDANT la manche : elle est jouée. On allonge donc
+ * l'interlude qui la précède, comme on le fait déjà pour une élimination, et
+ * on y affiche la nouvelle règle en plein cadre.
+ */
+export const INTERLUDE_ROTATION_MS = 3400;
+
+/**
+ * Fenêtre élargie sur la PREMIÈRE manche après une rotation.
+ *
+ * Lire un nom de règle ne suffit pas : il faut l'appliquer. La première manche
+ * sous une contrainte neuve demande le même effort conscient qu'un débutant, et
+ * elle tombait à la vitesse du moment — souvent au plancher, en duel.
+ */
+export const ROTATION_GRACE_FACTOR = 1.5;
+
 /** Compte à rebours avant la première manche d'un match. */
 export const COUNTDOWN_MS = 3000;
 /** Rotation des règles entre joueurs (défaut salon). */
@@ -252,6 +276,15 @@ export type ServerMsg =
       outcomes: Record<string, RoundOutcome>;
       players: PlayerPublic[];
       nextRoundAt: number | null;
+      /**
+       * Attribution des règles de la manche SUIVANTE, présente uniquement
+       * quand une rotation s'y produit.
+       *
+       * Envoyée avec le verdict et non avec la manche : il faut pouvoir
+       * annoncer le changement PENDANT la pause, avant que le joueur ait à
+       * jouer sous une contrainte qu'il ne connaît pas encore.
+       */
+      nextRules?: Record<string, string>;
     }
   | {
       t: "match_end";

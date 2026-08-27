@@ -10,6 +10,7 @@ import {
   MAX_ROUND_MS,
   MIN_ROUND_MS,
   ROTATION_EVERY,
+  SPEED_CHOICES,
   START_LIVES,
   STATS_MIN_SAMPLES,
 } from "../shared/protocol";
@@ -389,18 +390,64 @@ describe("courbe de tension", () => {
     }
   });
 
-  it("bascule en duel à ×0,55 après éliminations", () => {
+  it("bascule en duel à ×0,7 après éliminations", () => {
+    // Était 0,55, ramené après soirée de test : « les joueurs ont à peine le
+    // temps de lire et comprendre leur règle avant que la situation soit
+    // terminée ». Une apnée doit se sentir, pas rendre la manche illisible.
     const m = new MatchLogic(1, ["a", "b", "c", "d", "e", "f"]);
     for (const id of ["a", "b", "c", "d"]) m.forfeit(id);
     expect(m.alive.length).toBe(2);
-    expect(m.tensionAt(0)).toBe(0.55);
+    expect(m.tensionAt(0)).toBe(0.7);
   });
 
   it("salon de 3 : duel dès la première élimination", () => {
     const m = new MatchLogic(1, ["a", "b", "c"]);
     m.forfeit("a");
     expect(m.alive.length).toBe(2);
-    expect(m.tensionAt(0)).toBe(0.55);
+    expect(m.tensionAt(0)).toBe(0.7);
+  });
+
+  it("aucune fenêtre ne descend sous le seuil du jouable", () => {
+    /*
+     * La propriété qui compte, plus que le chiffre exact de la tension.
+     *
+     * Le projet pose lui-même que ~700 ms sont nécessaires pour lire et
+     * cliquer — or le plancher valait 520 ms, donc SOUS son propre seuil, et
+     * le duel y poussait systématiquement. On vérifie ici qu'aucune
+     * combinaison de vitesse, de tension et de manche ne produit une fenêtre
+     * injouable, quel que soit l'effectif.
+     */
+    for (const speed of SPEED_CHOICES) {
+      for (const seats of [2, 3, 6, 10]) {
+        const ids = Array.from({ length: seats }, (_, i) => `p${i}`);
+        for (const morts of [0, seats - 2]) {
+          const m = new MatchLogic(1, ids, { speed, lives: 3, rotationEvery: 8 });
+          for (let i = 0; i < morts; i++) m.forfeit(ids[i]!);
+          for (let idx = 0; idx < 60; idx++) {
+            const { durationMs } = m.openRound();
+            expect(
+              durationMs,
+              `${seats} sièges, ${morts} morts, vitesse ${speed}, manche ${idx}`,
+            ).toBeGreaterThanOrEqual(MIN_ROUND_MS);
+            expect(MIN_ROUND_MS, "le plancher doit rester jouable").toBeGreaterThanOrEqual(700);
+          }
+        }
+      }
+    }
+  });
+
+  it("la manche qui suit une rotation respire", () => {
+    // Lire un nom de règle ne suffit pas : il faut l'appliquer. Cette manche
+    // demande le même effort conscient qu'à un débutant.
+    const ids = Array.from({ length: 4 }, (_, i) => `p${i}`);
+    const m = new MatchLogic(1, ids, { speed: 1, lives: 3, rotationEvery: 8 });
+    const durees = [];
+    for (let idx = 0; idx <= 8; idx++) durees.push(m.openRound().durationMs);
+    // La manche 8 est la première d'une nouvelle attribution.
+    expect(m.rotationJustHappened(8)).toBe(true);
+    expect(durees[8]!, "la manche de rotation doit être plus large que la précédente").toBeGreaterThan(
+      durees[7]!,
+    );
   });
 
   it("1v1 pur accélère par l'index, sans bascule duel", () => {

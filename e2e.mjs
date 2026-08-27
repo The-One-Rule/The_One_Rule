@@ -132,6 +132,44 @@ ok(
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
 
+// Rotation : annoncee AVANT, dans une pause faite pour ca.
+//
+// Mesure en soiree : environ deux tiers des pertes de vies venaient de
+// rotations non vues. La regle changeait par une ligne en haut a gauche,
+// pendant qu'il fallait jouer. Le serveur doit donc allonger l'interlude qui
+// precede et y joindre les regles a venir.
+{
+  const a = await client("ROT1", "cle-rot1");
+  const b = await client("ROT2", "cle-rot2");
+  a.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(220);
+  b.ws.send(JSON.stringify({ t: "join", code: a.room.code }));
+  await sleep(250);
+  // rotationEvery = 4 : la rotation tombe a la manche 4, sans attendre 8.
+  a.ws.send(JSON.stringify({ t: "settings", settings: { speed: 0.65, lives: 5, rotationEvery: 4 } }));
+  await sleep(250);
+  a.ws.send(JSON.stringify({ t: "start" }));
+
+  const limite = Date.now() + 45000;
+  let annonce = null;
+  while (!annonce && Date.now() < limite) {
+    annonce = a.verdicts.find((v) => v.nextRules);
+    await sleep(150);
+  }
+  ok(!!annonce, "les regles a venir sont jointes au verdict qui precede la rotation");
+  if (annonce) {
+    ok(annonce.idx === 3, `annoncee au verdict de la manche 3, avant la 4 (got ${annonce.idx})`);
+    ok(!!annonce.nextRules[a.id], "ma prochaine regle m'est nommee");
+    const avant = a.rulesAtRound?.[annonce.idx] ?? a.rules[a.id];
+    ok(annonce.nextRules[a.id] !== undefined, "l'attribution complete est fournie");
+    const pause = annonce.nextRoundAt - Date.now();
+    ok(pause > 1500, `la pause laisse le temps de lire (${Math.round(pause)} ms restants)`);
+  }
+
+  for (const c of [a, b]) c.ws.close();
+  await sleep(220);
+}
+
 // LE GAUCHER : un clic HORS de la zone interdite ne doit pas tuer.
 //
 // Le fil ne transporte qu'un index de piece, jamais de coordonnees. Le serveur

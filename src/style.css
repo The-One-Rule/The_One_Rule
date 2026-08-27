@@ -428,6 +428,26 @@ body {
   color: var(--signal-pale);
 }
 
+/*
+ * Rotation : le même panneau, mais il doit se distinguer du départ de match.
+ *
+ * C'est le moment le plus meurtrier du jeu — deux tiers des pertes de vies
+ * venaient d'un changement de règle non vu. Le cadre passe donc en accent
+ * plein, pour qu'on ne puisse pas le confondre avec l'annonce initiale ni le
+ * prendre pour un simple interlude.
+ */
+.drama--rotation .drama__panel {
+  border-color: var(--signal-pale);
+  border-width: 6px;
+}
+
+.drama--rotation .drama__eyebrow {
+  color: var(--ink);
+  background: var(--signal-pale);
+  display: inline-block;
+  padding: 3px 10px;
+}
+
 #timer.is-recharge #timerFill {
   background: var(--signal);
 }
@@ -927,6 +947,40 @@ body {
 #foot b {
   color: var(--paper);
   font-weight: 400;
+}
+
+/*
+ * Le code du salon.
+ *
+ * Il était en petit, à l'intérieur d'une ligne de surtitre. Rapporté en
+ * soirée : « trop petit, difficile à trouver, insuffisamment mis en avant » —
+ * alors que c'est l'information qu'on dicte à voix haute pour faire venir
+ * quelqu'un. C'est donc l'élément le plus utile de cet écran, et il doit en
+ * être le plus visible.
+ *
+ * Cliquable : le copier est le geste qui suit, immédiatement.
+ */
+.roomcode {
+  display: block;
+  margin: 6px auto 2px;
+  font-family: var(--mono);
+  font-size: clamp(44px, 11vw, 84px);
+  line-height: 1;
+  letter-spacing: 0.22em;
+  /* Compense l'interlettrage, qui décale le bloc vers la droite. */
+  text-indent: 0.22em;
+  color: var(--paper);
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  min-height: var(--tap);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.roomcode:hover,
+.roomcode:focus-visible {
+  color: var(--signal-pale);
 }
 
 /* Rang au classement de fin : chiffré, aligné, en chasse fixe. */
@@ -1528,9 +1582,10 @@ button.chip:active:not(:disabled) {
 
 .settings__label {
   flex: 0 0 9ch;
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--paper-dim);
+  /* 10 px : le nom du réglage était moins lisible que ses options. */
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--paper);
 }
 
 .settings__opts {
@@ -1540,23 +1595,48 @@ button.chip:active:not(:disabled) {
   gap: 6px;
 }
 
+/*
+ * Réglages du salon : lisibles, et le choix courant sans ambiguïté.
+ *
+ * Retour le plus récurrent de la soirée : « trois joueurs sur quatre qui
+ * voulaient créer un salon ne savaient pas comment modifier la vitesse, ni
+ * même quelle vitesse était sélectionnée ». Ce n'était pas un problème de
+ * goût — l'interface empêchait réellement de comprendre les paramètres.
+ *
+ * Deux causes : l'état sélectionné ne changeait qu'une couleur de bordure et de
+ * texte, et les options d'un invité tombaient à 45 % d'opacité, donc sous le
+ * seuil de lecture. On inverse le choix courant — fond plein, comme un bouton
+ * pressé — et on cesse d'effacer ce qu'on veut faire lire.
+ */
 .settings__opts .chip {
   cursor: pointer;
-}
-
-.settings__opts .chip.is-on {
-  border-color: var(--paper);
   color: var(--paper);
 }
 
-.settings.is-locked .chip {
-  cursor: default;
-  opacity: 0.55;
+.settings__opts .chip.is-on {
+  background: var(--paper);
+  border-color: var(--paper);
+  color: var(--ink);
 }
 
+/* Verrouillé ou invité : on ne peut pas agir, mais on doit toujours LIRE. */
+.settings.is-locked .chip,
 .settings.is-guest .chip:not(.is-on) {
-  opacity: 0.45;
   cursor: default;
+  opacity: 0.75;
+}
+
+.settings.is-locked .chip.is-on,
+.settings.is-guest .chip.is-on {
+  opacity: 1;
+}
+
+/* Dit qui décide, plutôt que de laisser deviner pourquoi rien ne réagit. */
+.settings__hint {
+  margin-top: 8px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
 }
 
 .lobbyrow__name {

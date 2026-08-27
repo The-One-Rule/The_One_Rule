@@ -32,6 +32,7 @@ import {
   CHAT_MAX_LEN,
   INPUT_TOLERANCE_MS,
   INTERLUDE_MS,
+  INTERLUDE_ROTATION_MS,
   MAX_PLAYERS,
   MAX_ROUNDS,
   PROTOCOL_VERSION,
@@ -186,7 +187,19 @@ function publicPlayers(room: Room): PlayerPublic[] {
       id: c.id,
       name: c.name,
       ruleId: rules?.get(c.id)?.id ?? "",
-      lives: seat?.lives ?? room.settings.lives,
+      /*
+       * Sans siège PENDANT un match, on n'a pas de vies : on ne joue pas.
+       *
+       * La valeur retombait sur le réglage du salon, donc un spectateur arrivé
+       * en cours de partie affichait trois vies pleines — et le classement de
+       * fin, qui trie par vies décroissantes, le plaçait PREMIER avec zéro
+       * manche jouée. Rapporté en soirée : « il est automatiquement considéré
+       * comme étant en position de gagner ».
+       *
+       * Hors match, le réglage reste la bonne réponse : c'est ce qu'on aura en
+       * commençant.
+       */
+      lives: seat ? seat.lives : room.match ? 0 : room.settings.lives,
       score: seat?.score ?? 0,
       host: c.id === room.hostId,
       spectator: room.match !== null && !seat,
@@ -289,16 +302,38 @@ function closeRound(room: Room): void {
 
   const reachedCap = match.roundIdx + 1 >= MAX_ROUNDS;
   const over = matchOver || reachedCap;
-  const pause = interludeMs > 0 ? interludeMs : INTERLUDE_MS;
+
+  /*
+   * Une rotation s'annonce AVANT, dans une pause faite pour ça.
+   *
+   * Deux tiers des pertes de vies venaient de rotations non vues : la règle
+   * changeait par une ligne en haut à gauche, pendant que le joueur balayait
+   * la grille. On ne peut pas l'annoncer en pleine manche — elle est jouée —
+   * donc on allonge l'interlude qui la précède et on y joint les nouvelles
+   * règles, pour que le client les montre en plein cadre.
+   *
+   * Le maximum et non le remplacement : une élimination reste plus longue
+   * qu'une rotation, et cumuler les deux ne doit pas raccourcir la pause.
+   */
+  const prochaineIdx = match.roundIdx + 1;
+  const rotation = !over && match.rotationJustHappened(prochaineIdx);
+  const base = interludeMs > 0 ? interludeMs : INTERLUDE_MS;
+  const pause = rotation ? Math.max(base, INTERLUDE_ROTATION_MS) : base;
   const nextRoundAt = over ? null : now() + pause;
 
-  broadcast(room, {
+  const verdict: ServerMsg = {
     t: "verdict",
     idx: match.roundIdx,
     outcomes: out,
     players: publicPlayers(room),
     nextRoundAt,
-  });
+  };
+  if (rotation) {
+    const suivantes: Record<string, string> = {};
+    for (const [id, rule] of match.rulesAt(prochaineIdx)) suivantes[id] = rule.id;
+    verdict.nextRules = suivantes;
+  }
+  broadcast(room, verdict);
 
   if (over) {
     broadcast(room, {
