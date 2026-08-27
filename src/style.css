@@ -1302,6 +1302,68 @@ body {
   }
 }
 
+/*
+ * Fin de run : le résultat à gauche, ce qu'il a fait avancer à droite.
+ *
+ * Même raisonnement que l'accueil, et même découpe : deux contenus de natures
+ * différentes plutôt qu'un texte élargi. À gauche ce qui vient de se passer
+ * (le compte, la bande de manches) ; à droite ce que ça change (quêtes,
+ * récompense, classement, la suite). Le verdict coiffe les deux, les actions
+ * les referment — un joueur ne cherche pas REJOUER dans une colonne.
+ *
+ * Sur téléphone, tout s'empile — et les BOUTONS remontent avant les quêtes.
+ * Empilée telle quelle, la colonne de droite poussait REJOUER à 693 px du
+ * haut sur un écran de 812 : l'action évidente de l'écran passait sous la
+ * ligne de flottaison pour laisser la place à une liste qu'on peut lire
+ * après. Ce que le run a rapporté reste au-dessus, avec le score.
+ */
+.over__head,
+.over__foot {
+  text-align: center;
+}
+
+.over__head {
+  order: 1;
+}
+.over__result {
+  order: 2;
+}
+.over__foot {
+  order: 3;
+}
+.over__next {
+  order: 4;
+}
+
+@media (min-width: 900px) {
+  .over {
+    gap: 26px 52px;
+  }
+
+  .over__head,
+  .over__foot {
+    grid-column: 1 / -1;
+  }
+
+  /* En deux colonnes, c'est l'ordre du document qui place. */
+  .over__head,
+  .over__result,
+  .over__next,
+  .over__foot {
+    order: 0;
+  }
+
+  .over__foot {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+
+  /* Le filet sépare déjà : la rangée n'a plus à s'écarter d'elle-même. */
+  .over__foot .btnrow {
+    margin-top: 0;
+  }
+}
+
 .logo {
   font-family: var(--display);
   font-weight: 600;
@@ -1329,6 +1391,30 @@ body {
   line-height: 1;
   letter-spacing: -0.03em;
   color: var(--signal-pale);
+}
+
+/*
+ * L'annonce de la règle unique.
+ *
+ * Le brief est le seul écran qu'on ne relit pas : il passe une fois, et ce
+ * qu'il annonce gouverne les quarante manches suivantes. Au format commun,
+ * le nom de la règle occupait 46 px au milieu de 1280 — la même taille qu'un
+ * titre de sous-écran. Il ne s'élargit pas pour autant : une annonce se
+ * grandit, elle ne s'étale pas.
+ */
+/*
+ * Le plafond est mesuré, pas choisi : la colonne fait 560 px et le nom le plus
+ * long du catalogue (LA MAIN GAUCHE) en occupe 499 à cette taille. À 64 px il
+ * en prenait 532 — ça tenait, avec 28 px de marge pour toute la suite du
+ * catalogue. Un nom qui déborde ne se coupe pas, il sort de l'écran.
+ */
+.rulename--hero {
+  margin-top: 10px;
+  font-size: clamp(34px, 6.4vw, 60px);
+}
+
+.brief .lede {
+  margin-top: 24px;
 }
 
 .lede {
@@ -1782,12 +1868,42 @@ button.chip:active:not(:disabled) {
   padding-top: 10px;
 }
 
+/*
+ * Il n'existe pas de `.hidden` générique dans cette feuille : chaque composant
+ * porte la sienne, parce qu'une règle unique perdrait la cascade contre les
+ * `display: flex` des composants. Celles-ci manquaient.
+ *
+ * Conséquence mesurée : sur le brief du RUN DU JOUR, `#briefPace` portait
+ * `hidden` et s'affichait quand même — 43 px de filet et le mot ALLURE
+ * au-dessus d'une rangée d'options VIDE, puisque `renderPace` sort avant de
+ * la remplir. Un réglage mort sur l'écran du seul mode où l'allure ne
+ * s'applique pas, et rien ne disait qu'il ne servait à rien.
+ */
+.settings.hidden,
+.settings__hint.hidden {
+  display: none;
+}
+
 .settings__row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
+}
+
+/*
+ * Un réglage qui ferme un écran, et non un tableau de réglages.
+ *
+ * Le filet du haut suffit à le détacher : la ligne unique n'a pas besoin de
+ * son propre soulignement, qui donnerait deux traits pour un seul choix.
+ */
+.settings--foot {
+  margin-top: 30px;
+}
+
+.settings--foot .settings__row {
+  border-bottom: none;
 }
 
 .settings__label {
@@ -1910,6 +2026,19 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * Validée par le run qu'on vient de terminer.
+ *
+ * Elle est `is-done`, donc barrée et grise comme les quêtes déjà encaissées
+ * hier — exactement le traitement qu'il ne faut pas lui donner sur l'écran où
+ * l'on annonce les pièces qu'elle vient de rapporter.
+ */
+.quest.is-fresh .quest__label,
+.quest.is-fresh .quest__val {
+  color: var(--signal-pale);
+  text-decoration: none;
+}
+
 /* Verdict */
 .verdict {
   font-family: var(--display);
@@ -1954,6 +2083,12 @@ button.chip:active:not(:disabled) {
   font-size: 10px;
   letter-spacing: 0.16em;
   color: var(--signal-pale);
+}
+
+/* Elle n'existait pas : la ligne était vidée de son texte mais gardait ses
+   18 px de marge. Voir la note sur `.settings.hidden`. */
+.reward.hidden {
+  display: none;
 }
 
 .rank {

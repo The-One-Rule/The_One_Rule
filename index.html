@@ -164,19 +164,13 @@
 
       <!-- BRIEF -->
       <section class="screen hidden" id="brief">
-        <div class="screen__scroll">
+        <!-- Volontairement étroit et centré, à contre-courant des autres
+             écrans : c'est une annonce, pas un tableau de bord. Le nom de la
+             règle est la seule chose que le joueur doit emporter en partie. -->
+        <div class="screen__scroll brief">
           <p class="eyebrow" id="briefEyebrow">TA RÈGLE UNIQUE</p>
-          <h2 class="rulename" id="briefName"></h2>
+          <h2 class="rulename rulename--hero" id="briefName"></h2>
           <p class="lede" id="briefText"></p>
-          <!-- Allure : entraînement uniquement. Le run du jour et le classé
-               doivent rester identiques pour tout le monde. -->
-          <div class="settings hidden" id="briefPace" aria-label="Allure">
-            <div class="settings__row">
-              <span class="settings__label">ALLURE</span>
-              <div class="settings__opts" id="optPace"></div>
-            </div>
-          </div>
-          <p class="fineprint hidden" id="briefPaceHint"></p>
           <p class="warn hidden" id="briefWarn"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnGo">COMMENCER</button>
@@ -185,25 +179,64 @@
             <button class="btn hidden" id="btnBriefTraining">D'ABORD S'ENTRAÎNER</button>
             <button class="btn btn--ghost" id="btnBack">RETOUR</button>
           </div>
+          <!-- Allure : entraînement uniquement. Le run du jour et le classé
+               doivent rester identiques pour tout le monde.
+
+               Elle FERME l'écran, sous un filet, au même titre que les
+               réglages de l'accueil : on ne choisit pas une allure comme on
+               lance une partie, et elle s'intercalait entre la règle et le
+               bouton — le seul endroit où l'annonce devait respirer. Le
+               défaut (DÉCOUVERTE) est déjà celui dont un débutant a besoin,
+               donc personne n'a à la trouver pour bien commencer. -->
+          <div class="settings settings--foot hidden" id="briefPace" aria-label="Allure">
+            <div class="settings__row">
+              <span class="settings__label">ALLURE</span>
+              <div class="settings__opts" id="optPace"></div>
+            </div>
+            <p class="settings__hint hidden" id="briefPaceHint"></p>
+          </div>
         </div>
       </section>
 
       <!-- FIN DE RUN -->
       <section class="screen hidden" id="over">
-        <div class="screen__scroll">
-          <h2 class="verdict" id="verdict">ÉLIMINÉ</h2>
-          <p class="because" id="because"></p>
-          <div class="tally" id="tally">0</div>
-          <p class="eyebrow" id="tallyLabel">MANCHES TENUES</p>
-          <div class="marks" id="marks"></div>
-          <div class="reward hidden" id="reward"></div>
-          <div class="rank hidden" id="rankResult"></div>
-          <div class="teaser" id="teaser"></div>
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnAgain">REJOUER · R</button>
-            <button class="btn" id="btnShare">PARTAGER</button>
-            <button class="btn" id="btnDuel">DÉFIER UN AMI</button>
-            <button class="btn btn--ghost" id="btnHome">MENU</button>
+        <!-- Deux natures de contenu, donc deux colonnes : à gauche ce qui vient
+             de se passer, à droite ce que ça a fait avancer. Le verdict coiffe,
+             les actions referment. -->
+        <div class="screen__scroll screen__scroll--wide over">
+          <div class="over__head">
+            <h2 class="verdict" id="verdict">ÉLIMINÉ</h2>
+            <p class="because" id="because"></p>
+          </div>
+
+          <!-- Ce que le run a donné : le compte, la bande de manches, et ce
+               qu'il a rapporté. La récompense reste ici et non en face — c'est
+               un résultat, pas une projection, et sur téléphone elle doit se
+               lire dans la foulée du score. -->
+          <div class="col over__result">
+            <div class="tally" id="tally">0</div>
+            <p class="eyebrow" id="tallyLabel">MANCHES TENUES</p>
+            <div class="marks" id="marks"></div>
+            <div class="reward hidden" id="reward"></div>
+            <div class="rank hidden" id="rankResult"></div>
+          </div>
+
+          <div class="col over__next">
+            <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
+                 seule page qui les montrait était l'accueil, qu'on ne revoit
+                 qu'en quittant. La liste vit ici, au moment où elle bouge. -->
+            <p class="eyebrow">QUÊTES DU JOUR</p>
+            <div class="quests" id="overQuests"></div>
+            <div class="teaser" id="teaser"></div>
+          </div>
+
+          <div class="over__foot">
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnAgain">REJOUER · R</button>
+              <button class="btn" id="btnShare">PARTAGER</button>
+              <button class="btn" id="btnDuel">DÉFIER UN AMI</button>
+              <button class="btn btn--ghost" id="btnHome">MENU</button>
+            </div>
           </div>
         </div>
       </section>

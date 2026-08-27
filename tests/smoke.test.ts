@@ -110,6 +110,10 @@ describe("application", () => {
     expect(document.getElementById("because")!.textContent!.length).toBeGreaterThan(3);
     expect(Number(document.getElementById("tally")!.textContent)).toBeGreaterThanOrEqual(0);
     expect(document.getElementById("marks")!.textContent).toContain("🟥");
+    // L'écran de fin porte la même liste de quêtes que l'accueil : c'est là
+    // qu'elle bouge, et « QUÊTES VALIDÉES · +N PIÈCES » ne désigne rien sans
+    // elle.
+    expect(document.querySelectorAll("#overQuests .quest").length).toBe(3);
     expect(errors).toEqual([]);
   });
 

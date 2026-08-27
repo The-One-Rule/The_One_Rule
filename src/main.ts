@@ -213,17 +213,7 @@ function renderHome(): void {
   if (s.daily.played) chip(`JOUR ${day} <b>FAIT</b>`);
   else chip(`AUJOURD'HUI <b>${rule.name}</b>`);
 
-  const list = $("homeQuests");
-  list.innerHTML = "";
-  for (const q of viewQuests(s, day)) {
-    const row = document.createElement("div");
-    row.className = "quest" + (q.done ? " is-done" : "");
-    row.innerHTML =
-      `<span class="quest__box"></span><span class="quest__label"></span>` +
-      `<span class="quest__val">${Math.min(q.value, q.target)}/${q.target} · +${q.reward}</span>`;
-    row.querySelector<HTMLElement>(".quest__label")!.textContent = q.label;
-    list.appendChild(row);
-  }
+  renderQuests("homeQuests");
 
   const neuf = s.recent.length === 0;
   const btn = $<HTMLButtonElement>("btnDaily");
@@ -287,6 +277,30 @@ function renderHome(): void {
 }
 
 /**
+ * Liste des quêtes du jour, dans le conteneur demandé.
+ *
+ * Deux écrans l'affichent : l'accueil, où elle dit ce qu'il reste à faire, et
+ * la fin de run, où elle dit ce que le run vient de faire bouger. `fresh`
+ * porte les quêtes validées à l'instant — sans elles, « QUÊTES VALIDÉES ·
+ * +30 PIÈCES » ne désigne rien.
+ */
+function renderQuests(hostId: string, fresh: readonly string[] = []): void {
+  const s = P.load();
+  const list = $(hostId);
+  list.innerHTML = "";
+  for (const q of viewQuests(s, day)) {
+    const row = document.createElement("div");
+    row.className =
+      "quest" + (q.done ? " is-done" : "") + (fresh.includes(q.id) ? " is-fresh" : "");
+    row.innerHTML =
+      `<span class="quest__box"></span><span class="quest__label"></span>` +
+      `<span class="quest__val">${Math.min(q.value, q.target)}/${q.target} · +${q.reward}</span>`;
+    row.querySelector<HTMLElement>(".quest__label")!.textContent = q.label;
+    list.appendChild(row);
+  }
+}
+
+/**
  * Choix de l'allure, sur l'écran d'annonce et pour l'ENTRAÎNEMENT seulement.
  *
  * La courbe de difficulté suppose un joueur qui a automatisé la vérification
@@ -328,9 +342,11 @@ function renderPace(): void {
   }
 
   const fenetre = Math.round(windowMs(10) * current);
+  // Une seule ligne : en capitales espacées, la version longue en faisait deux
+  // et se lisait comme une notice au moment où l'écran doit annoncer.
   hint.textContent =
     current === PACE_DEFAULT
-      ? `ALLURE DE RÉFÉRENCE · SEULE CELLE QUI INSCRIT UN RECORD · ${fenetre} MS À LA MANCHE 10`
+      ? `${fenetre} MS À LA MANCHE 10 · SEULE ALLURE QUI INSCRIT UN RECORD`
       : `${fenetre} MS À LA MANCHE 10 · LE RECORD NE S'INSCRIT QU'EN NORMAL`;
 }
 
@@ -668,7 +684,9 @@ function finishRun(): void {
   const claimedBefore = P.load().quests.claimed.length;
   const gained = claimGains();
   const claimedAfter = P.load().quests.claimed;
-  for (const id of claimedAfter.slice(claimedBefore)) track("quest_complete", { quest: id });
+  const fraiches = claimedAfter.slice(claimedBefore);
+  for (const id of fraiches) track("quest_complete", { quest: id });
+  renderQuests("overQuests", fraiches);
 
   const verdict = $("verdict");
   verdict.textContent = end.cleared
