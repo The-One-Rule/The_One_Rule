@@ -26,6 +26,7 @@ import type { Opponent } from "./ranked/client";
 
 import { Hud } from "./render/hud";
 import { colorHex, SceneRenderer } from "./render/scene";
+import { stableGutter, wantsColumns } from "./render/layout";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -80,34 +81,28 @@ function syncField(): void {
   appEl.style.setProperty("--field-h", `${Math.round(f.h)}px`);
   appEl.style.setProperty("--gutter-w", `${gw}px`);
   /*
-   * Passer en colonnes sort les plaques du flux, ce qui agrandit la scène,
-   * ce qui rétrécit la gouttière — c'est-à-dire la grandeur même sur laquelle
-   * on vient de décider. La décision se mord la queue.
+   * La décision « colonnes latérales ou bandeau du bas » ne doit PAS se prendre
+   * sur la gouttière courante.
    *
-   * L'hystérésis seule ne suffit pas : il existe des tailles de fenêtre où les
-   * deux états produisent des gouttières de part et d'autre de la bande. Le
-   * ResizeObserver se rappelle alors sans fin, le navigateur finit par
-   * abandonner des notifications, et la géométrie RESTE FIGÉE SUR UNE VALEUR
-   * FAUSSE — les pièces sont alors dessinées hors champ, donc invisibles,
-   * pendant que la mise en page clignote. Constaté en salon à ~1750×960, où
-   * la gouttière tombe pile sur l'ancien seuil de 110.
+   * En bandeau, les plaques sont dans le flux : elles prennent de la hauteur,
+   * la scène rétrécit, la gouttière s'élargit. En colonnes, elles sortent du
+   * flux : la scène grandit, la gouttière se réduit. Décider sur cette
+   * grandeur, c'est mesurer ce que la décision vient de changer — les deux
+   * états se répondent, la mise en page clignote, et le navigateur finit par
+   * abandonner des notifications de redimensionnement en laissant la géométrie
+   * figée sur une valeur fausse. C'est ce qui rendait les pièces invisibles,
+   * puis les plaques tantôt sur les côtés, tantôt en bas, sans logique visible.
    *
-   * Deux verrous : une bande beaucoup plus large, et un délai minimal entre
-   * deux bascules. Le second est ce qui garantit la terminaison, quelle que
-   * soit la taille de fenêtre — une bascule ne peut plus en déclencher une
-   * autre dans la même rafale de mesures.
+   * Élargir la bande ou temporiser ne faisait qu'amortir une boucle qui n'a pas
+   * lieu d'exister. On calcule donc la gouttière que produirait TOUJOURS le mode
+   * colonnes, en reconstituant la hauteur de scène plaques hors flux. Cette
+   * grandeur est la même dans les deux états : la boucle est rompue par
+   * construction, plus par tempérament.
    */
-  /*
-   * Les seuils sortent de la CSS, ils ne sont pas choisis à l'estime :
-   * `.plate` a min-width 108 px et `.plates__col` ajoute padding 0 10px, donc
-   * une colonne sous 128 px ROGNE la plaque (la colonne est en overflow
-   * hidden). Descendre le seuil de maintien sous cette valeur produisait des
-   * plaques coupées ; c'est ce qu'on voyait après la correction précédente.
-   *
-   * 132 laisse quatre pixels de marge, et l'entrée à 190 garde une bande
-   * assez large pour que les deux états ne se répondent pas.
-   */
-  const next = gutters ? gw >= 132 : gw >= 190;
+  const platesEl = $("plates");
+  const dansLeFlux = !gutters && !platesEl.classList.contains("hidden");
+  const hHorsFlux = cv.clientHeight + (dansLeFlux ? platesEl.offsetHeight : 0);
+  const next = wantsColumns(stableGutter(cv.clientWidth, hHorsFlux), gutters);
   if (next === gutters) return;
 
   /*

@@ -1,0 +1,60 @@
+/**
+ * Où vont les plaques joueurs : colonnes latérales, ou bandeau du bas.
+ *
+ * Pur, sans DOM — parce que la propriété qui compte ici n'est pas esthétique,
+ * elle est mathématique, et elle se teste.
+ *
+ * LE PIÈGE. Les deux dispositions ne laissent pas la même place à la scène :
+ * en bandeau les plaques sont dans le flux et lui prennent de la hauteur ; en
+ * colonnes elles en sortent et la scène grandit. Or plus la scène est haute,
+ * plus le champ est large (son rapport est fixe), donc plus la gouttière
+ * latérale est ÉTROITE. Décider sur la gouttière courante, c'est donc mesurer
+ * ce que la décision vient de changer : les deux états se répondent, la mise en
+ * page oscille, le navigateur finit par abandonner des notifications de
+ * redimensionnement, et la géométrie reste figée sur une valeur fausse.
+ *
+ * Constaté en production : pièces invisibles, puis plaques tantôt sur les
+ * côtés tantôt en bas d'une manche à l'autre, sans logique visible.
+ *
+ * LA SORTIE. On ne décide jamais sur la gouttière courante, mais sur celle que
+ * produirait TOUJOURS le mode colonnes — donc sur une grandeur identique dans
+ * les deux états. La boucle n'est pas amortie, elle n'existe plus.
+ */
+
+import { FIELD_H, FIELD_W } from "../engine/types";
+import { FIELD_GUTTER } from "./scene";
+
+/**
+ * Sous cette largeur, une colonne rogne la plaque : `.plate` a min-width 108 px
+ * et `.plates__col` ajoute 10 px de marge de chaque côté, le tout en
+ * `overflow: hidden`. Le seuil sort de la CSS, il n'est pas choisi à l'estime.
+ */
+export const COLUMN_MIN = 132;
+
+/**
+ * Entrée en colonnes. Nettement au-dessus de COLUMN_MIN : la bande sépare les
+ * deux décisions quand la fenêtre est traînée lentement. Elle n'est plus ce qui
+ * garantit la terminaison — `stableGutter` s'en charge — seulement ce qui évite
+ * de basculer sur un pixel.
+ */
+export const COLUMN_ENTER = 190;
+
+/**
+ * Gouttière latérale que produirait le mode colonnes.
+ *
+ * `stageHeightNoPlates` est la hauteur de scène AVEC les plaques hors du flux :
+ * l'appelant la reconstitue en rajoutant la hauteur du bandeau quand il est
+ * encore dans le flux. C'est ce qui rend le résultat indépendant de l'état.
+ */
+export function stableGutter(canvasW: number, stageHeightNoPlates: number): number {
+  const usableW = canvasW - FIELD_GUTTER * 2;
+  const usableH = stageHeightNoPlates - FIELD_GUTTER * 2;
+  if (usableW <= 0 || usableH <= 0) return 0;
+  const scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
+  return Math.max(0, Math.round((canvasW - FIELD_W * scale) / 2));
+}
+
+/** Hystérésis : on entre haut, on sort bas. */
+export function wantsColumns(gutter: number, current: boolean): boolean {
+  return current ? gutter >= COLUMN_MIN : gutter >= COLUMN_ENTER;
+}

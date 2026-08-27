@@ -41,6 +41,15 @@ export const colorHex = (c: ColorId): string => HEX[c];
 /** Hitbox 22 % plus large que le visuel. Rater un clic de 3 px fait désinstaller. */
 const HIT = 1.22;
 
+/**
+ * Gouttière réservée au cadre de temps, de chaque côté du champ.
+ *
+ * Exportée parce que la mise en page en dépend : main.ts doit pouvoir calculer
+ * la même géométrie que le renderer pour décider où placer les plaques. Deux
+ * copies de ce nombre divergeraient au premier réglage.
+ */
+export const FIELD_GUTTER = 24;
+
 export class SceneRenderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -57,7 +66,7 @@ export class SceneRenderer {
    * pièces débordent du champ. Sans marge réservée, un liseré épais
    * recouvrirait une cible cliquable.
    */
-  private static readonly GUTTER = 24;
+  private static readonly GUTTER = FIELD_GUTTER;
   /** Lu une fois : le rendu n'a pas à interroger le média à chaque frame. */
   private reduced =
     typeof matchMedia !== "undefined" &&
