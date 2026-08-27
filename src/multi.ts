@@ -319,6 +319,26 @@ function toWire(
   return { k: "r", key: action.key };
 }
 
+/**
+ * L'action TELLE QUE LE SERVEUR LA VERRA.
+ *
+ * Le fil ne transporte qu'un index de pièce : le serveur reconstruit donc la
+ * position à partir de l'entité, pas du point cliqué. Si le client prévisualise
+ * avec les coordonnées du clic, les deux peuvent diverger — cliquer le bord
+ * droit d'une pièce centrée juste dans la zone interdite de LE GAUCHER donnerait
+ * un aperçu « tenu » suivi d'un verdict « infraction ».
+ *
+ * Un aperçu qui contredit le verdict, c'est exactement « le jeu triche » : le
+ * seul risque que le projet considère comme fatal. On juge donc localement sur
+ * la même chose que le serveur.
+ */
+function vueServeur(action: Action): Action {
+  if (action.kind !== "click") return action;
+  return action.ent
+    ? { ...action, x: action.ent.x, y: action.ent.y }
+    : { ...action, x: Number.NaN, y: Number.NaN };
+}
+
 function previewLabel(o: Outcome): string {
   if (o.kind === "survive") return o.trap ? "PIÈGE DÉJOUÉ…" : "TENU…";
   if (o.kind === "death") return o.reason;
@@ -504,8 +524,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaExtra.textContent =
       elim && aliveCount > 0 ? `ILS NE SONT PLUS QUE ${aliveCount}` : "";
     timerEl.classList.add("is-recharge");
+    /*
+     * Le tampon ne s'abat que sur MA mort.
+     *
+     * Il tombait aussi quand quelqu'un d'autre mourait : un « INFRACTION »
+     * plein écran chez un joueur qui, lui, venait de réussir sa manche.
+     * Rapporté en soirée — « lorsqu'un joueur meurt, l'information s'affiche
+     * pour tout le monde », et les notifications se superposaient.
+     *
+     * La kill-cam, elle, reste collective : c'est le spectacle, et elle NOMME
+     * le mort. Le tampon, lui, est un verdict personnel.
+     */
     const meVictim = victims.find((v) => v.player.id === net?.myId);
-    hud.showStamp(stampForReason((meVictim ?? primary).reason));
+    if (meVictim) hud.showStamp(stampForReason(meVictim.reason));
+    else hud.hideStamp();
   }
 
   /**
@@ -669,12 +701,29 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     emoteTimers.clear();
   }
 
-  function chatAvailable(): boolean {
-    return !!roomCode && !!net?.connected;
-  }
-
   function screenOpen(): boolean {
     return uiScreen !== null;
+  }
+
+  /**
+   * Le chat n'existe PAS pendant une manche.
+   *
+   * Il était disponible en permanence, replié par-dessus l'aire de jeu.
+   * Constaté en soirée : il ne s'affichait que partiellement, mangeait une
+   * partie de l'écran, les messages n'apparaissaient qu'en envoyant des « . »,
+   * et on ne pouvait pas les faire défiler. Un canal de discussion à moitié
+   * fonctionnel pendant une fenêtre d'une seconde et demie ne rend service à
+   * personne — il gêne.
+   *
+   * Il ne vit donc plus que là où un écran est ouvert : salon d'attente et fin
+   * de match. Les messages reçus pendant la partie ne sont pas perdus, ils
+   * s'affichent à la reprise.
+   *
+   * Conséquence heureuse : le piège du clavier disparaît. `Entrée` ne peut plus
+   * détourner les touches de jeu, puisqu'il n'y a rien à ouvrir en manche.
+   */
+  function chatAvailable(): boolean {
+    return !!roomCode && !!net?.connected && screenOpen();
   }
 
   function chatExpanded(): boolean {
@@ -865,7 +914,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     setPlatesVisible(true);
     const myId = net.myId;
-    const compact = match.players.length > 6;
+    // Compact aussi sur petit écran, quel que soit l'effectif : à deux plaques
+    // par rangée sur un téléphone, six joueurs mangeaient déjà un tiers de la
+    // hauteur. Le signe passe à 24 px, comme à effectif nombreux.
+    const compact = match.players.length > 6 || window.innerWidth <= 720;
     platesEl.classList.toggle("plates--compact", compact);
     const existing = new Map<string, HTMLElement>();
     for (const col of [platesL, platesR]) {
@@ -1285,34 +1337,53 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   function renderPodium(players: PlayerPublic[]): void {
+    /*
+     * Le classement doit se lire d'un coup d'œil.
+     *
+     * Il affichait « ♥3 · 12 » sans dire ce qu'était 12, sans numéro de rang,
+     * et marquait « EN VIE » des joueurs alors que le match était fini.
+     * Rapporté en soirée : « peu clair, certaines informations ne sont pas
+     * suffisamment explicites ».
+     *
+     * Trois corrections : un rang chiffré, des vies en points comme partout
+     * ailleurs dans le jeu, et une unité écrite sur le score.
+     */
     const sorted = [...players].sort((a, b) => b.lives - a.lives || b.score - a.score);
+    const maxLives = Math.max(roomSettings.lives, ...players.map((p) => p.lives), 1);
     const list = $("multiPodium");
     list.innerHTML = "";
-    for (const p of sorted) {
+    sorted.forEach((p, rang) => {
       const row = document.createElement("div");
-      const isWinner = sorted[0] === p && p.lives > 0;
+      const isWinner = rang === 0 && p.lives > 0;
       row.className =
         "lobbyrow" +
         (p.id === net?.myId ? " is-host" : "") +
         (p.lives <= 0 ? " is-off" : "");
       row.innerHTML =
         `<span class="lobbyrow__name">` +
+        `<span class="lobbyrow__rank"></span>` +
         `<span class="lobbyrow__glyph"></span>` +
         `<span class="lobbyrow__name-text"></span>` +
         `</span>` +
         `<span class="lobbyrow__rule"></span>` +
         `<span class="lobbyrow__meta"></span>`;
+      row.querySelector<HTMLElement>(".lobbyrow__rank")!.textContent = `${rang + 1}`;
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent = isWinner
         ? "VAINQUEUR"
         : p.lives <= 0
           ? "ÉLIMINÉ"
-          : "EN VIE";
-      row.querySelector<HTMLElement>(".lobbyrow__meta")!.textContent =
-        `♥${p.lives} · ${p.score}`;
+          : `${rang + 1}ᵉ`;
+      // Vies en points, comme sur les plaques et au pied : une seule grammaire
+      // visuelle pour une même information.
+      // `livesDots` rend des <i> NUS : sans le conteneur `.lifedots`, la CSS
+      // ne les atteint pas et les points restent invisibles.
+      row.querySelector<HTMLElement>(".lobbyrow__meta")!.innerHTML =
+        `<span class="lifedots">${livesDots(Math.max(0, p.lives), maxLives)}</span>` +
+        `<span class="lobbyrow__rounds">${p.score} MANCHES</span>`;
       list.appendChild(row);
-    }
+    });
   }
 
   function endMatch(msg: Extract<ServerMsg, { t: "match_end" }>): void {
@@ -1694,7 +1765,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const { outcome, progress } = resolveAction(
       match.round!,
       match.progress,
-      action,
+      vueServeur(action),
       elapsed,
       match.rule!.judge,
     );
@@ -1765,7 +1836,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         const left = Math.max(0, net.clock.toLocal(match.nextRoundAt) - Date.now());
         ratio = clamp01(left / Math.max(1, match.pauseMs));
       }
-      hud.setRule(match.camRule);
+      /*
+       * Le bandeau garde MA règle, toujours.
+       *
+       * Il affichait celle du mort pendant la kill-cam. Rapporté en soirée :
+       * « lorsqu'un joueur meurt, sa règle s'affiche à la place de la règle du
+       * joueur, ce qui crée de la confusion ». C'est exact — le bandeau est le
+       * seul endroit stable où l'on vérifie sa propre contrainte, et le voir
+       * changer sans raison fait douter de ce qu'on porte.
+       *
+       * Le panneau de kill-cam nomme déjà le mort ET sa règle : l'information
+       * est là, à sa place, sans usurper celle du bandeau.
+       */
+      if (match.rule) hud.setRule(match.rule);
       hud.updateRound(match.camRound, match.camRound.durationMs, ratio);
       return {
         round: match.camRound,

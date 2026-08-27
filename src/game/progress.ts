@@ -58,7 +58,18 @@ const fresh = (): Save => ({
   sound: true,
   music: true,
   bestTraining: 0,
-  trainingPace: 1,
+  /*
+   * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.
+   *
+   * Il est la rampe d'accès : sa raison d'être est qu'on y apprenne, et le
+   * réglage ne sert à rien si personne ne le trouve. Rapporté en soirée : « le
+   * mode entraînement est plutôt difficile actuellement », alors que l'allure
+   * existait déjà — elle n'était simplement pas celle par défaut.
+   *
+   * Le joueur accélère quand il veut, et `bestTraining` ne s'inscrit qu'à
+   * l'allure de référence : le record reste comparable.
+   */
+  trainingPace: 1.5,
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
 });
 

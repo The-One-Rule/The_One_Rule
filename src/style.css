@@ -929,6 +929,88 @@ body {
   font-weight: 400;
 }
 
+/* Rang au classement de fin : chiffré, aligné, en chasse fixe. */
+.lobbyrow__rank {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper-dim);
+  text-align: right;
+}
+
+.lobbyrow:first-child .lobbyrow__rank {
+  color: var(--paper);
+}
+
+.lobbyrow__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lobbyrow__rounds {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.1em;
+}
+
+/*
+ * Plaques sur petit écran.
+ *
+ * Mesuré sur un 375×812 : à six joueurs elles occupaient 261 px, soit 32 % de
+ * la hauteur, en deux plaques par rangée. À dix joueurs c'était cinq rangées —
+ * plus de la moitié de l'écran, et le champ de jeu réduit à une bande. Rapporté
+ * en soirée : « les plaques peuvent prendre la totalité de l'écran, les joueurs
+ * ne peuvent tout simplement plus jouer ».
+ *
+ * Sur un téléphone, une plaque n'a besoin que de trois choses : le signe, un
+ * nom, des vies. La règle unique de l'adversaire — le spectacle — n'a pas la
+ * place, et elle était déjà masquée en mode compact ; c'est un arbitrage
+ * assumé, jouer prime sur regarder.
+ *
+ * Le plafond de hauteur est un filet de dernier recours : mieux vaut faire
+ * défiler une liste de plaques que rogner l'aire de jeu.
+ */
+@media (max-width: 720px) {
+  .plates {
+    gap: 6px;
+    padding: 6px 10px;
+    max-height: 26vh;
+    overflow-y: auto;
+  }
+
+  .plates .plate {
+    flex: 1 1 78px;
+    min-width: 70px;
+    max-width: none;
+    padding: 5px 7px;
+    gap: 2px;
+  }
+
+  /* Pas la place, et l'information vit déjà dans le bandeau du haut. */
+  .plates .plate__rule,
+  .plates .plate__react,
+  .plates .plate__streak {
+    display: none;
+  }
+
+  .plates .plate__name {
+    font-size: 11px;
+  }
+
+  .plates .plate__lives i {
+    width: 7px;
+    height: 7px;
+  }
+
+  .plates .plate--rookie::before {
+    content: "1RE";
+    font-size: 8px;
+    padding: 1px 4px;
+  }
+}
+
 /* ------------------------------------------------------------------
    Écrans
    ------------------------------------------------------------------ */
