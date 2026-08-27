@@ -54,6 +54,7 @@ let gutters = false;
 let lastKey = "";
 /** Verrou anti-oscillation de la mise en page — voir syncField(). */
 let lastGutterToggle = -Infinity;
+let gutterRecheck: ReturnType<typeof setTimeout> | null = null;
 const GUTTER_LOCK_MS = 450;
 /**
  * Recalcule la transformation, puis publie le champ pour le CSS.
@@ -96,12 +97,46 @@ function syncField(): void {
    * soit la taille de fenêtre — une bascule ne peut plus en déclencher une
    * autre dans la même rafale de mesures.
    */
-  const next = gutters ? gw >= 96 : gw >= 168;
-  if (next !== gutters && performance.now() - lastGutterToggle >= GUTTER_LOCK_MS) {
-    lastGutterToggle = performance.now();
-    gutters = next;
-    appEl.classList.toggle("has-gutters", next);
+  /*
+   * Les seuils sortent de la CSS, ils ne sont pas choisis à l'estime :
+   * `.plate` a min-width 108 px et `.plates__col` ajoute padding 0 10px, donc
+   * une colonne sous 128 px ROGNE la plaque (la colonne est en overflow
+   * hidden). Descendre le seuil de maintien sous cette valeur produisait des
+   * plaques coupées ; c'est ce qu'on voyait après la correction précédente.
+   *
+   * 132 laisse quatre pixels de marge, et l'entrée à 190 garde une bande
+   * assez large pour que les deux états ne se répondent pas.
+   */
+  const next = gutters ? gw >= 132 : gw >= 190;
+  if (next === gutters) return;
+
+  /*
+   * Bascule DIFFÉRÉE, jamais abandonnée.
+   *
+   * Première version de ce verrou : on jetait la bascule quand elle arrivait
+   * trop tôt. Or syncField() ne tourne que sur événement — ResizeObserver ou
+   * resize de fenêtre. Une bascule jetée n'était donc reprise par personne, et
+   * la mise en page restait coincée dans le mauvais état : colonnes latérales
+   * conservées alors que la gouttière était retombée à ~10 px, donc plaques
+   * rognées par l'`overflow: hidden` de la colonne.
+   *
+   * On réarme donc une vérification pour la fin du verrou. La terminaison est
+   * toujours garantie — une bascule ne peut pas en déclencher une autre dans
+   * la même rafale de mesures — mais aucune transition n'est perdue.
+   */
+  const attente = GUTTER_LOCK_MS - (performance.now() - lastGutterToggle);
+  if (attente > 0) {
+    if (gutterRecheck === null) {
+      gutterRecheck = setTimeout(() => {
+        gutterRecheck = null;
+        syncField();
+      }, attente);
+    }
+    return;
   }
+  lastGutterToggle = performance.now();
+  gutters = next;
+  appEl.classList.toggle("has-gutters", next);
 }
 
 const SCREENS = ["home", "brief", "over", "codex", "multi-join", "multi-lobby", "multi-end"] as const;

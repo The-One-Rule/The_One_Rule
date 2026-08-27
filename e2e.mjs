@@ -10,9 +10,9 @@ await import("./server/index.ts");
 const { buildMultiRound } = await import("./src/engine/multiround.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 
-function client(name) {
+function client(name, key) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, ws, id: "", room: null, seed: 0, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
+  const c = { name, key, ws, id: "", room: null, seed: 0, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
@@ -42,7 +42,7 @@ function client(name) {
     if (m.t === "chat") c.chats.push(m);
     if (m.t === "error") c.errors.push(m);
   });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -128,6 +128,52 @@ ok(
   "hôte exclut CHLOÉ : connexion fermée",
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
+
+// Reprise de siège après coupure — le cas NORMAL sur mobile.
+//
+// Avant : l'identifiant était attribué par connexion, donc ws.close()
+// déclenchait forfeit() et revenir donnait une identité neuve, c'est-à-dire un
+// siège de spectateur. Une bascule d'application éliminait définitivement.
+{
+  const dora = await client("DORA", "cle-stable-dora");
+  dora.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(200);
+  const code = dora.room.code;
+  const emil = await client("EMIL", "cle-stable-emil");
+  emil.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(200);
+  dora.ws.send(JSON.stringify({ t: "start" }));
+  await sleep(3600); // compte à rebours + une manche entamée
+
+  const avant = emil.room?.players?.find((p) => p.name === "EMIL");
+  const idAvant = emil.id;
+  emil.ws.close();
+  await sleep(400);
+
+  const vuParDora = dora.room?.players?.find((p) => p.name === "EMIL");
+  ok(!!vuParDora, "siège gardé pendant la coupure (EMIL toujours listé)");
+  ok(vuParDora?.connected === false, "EMIL apparaît déconnecté aux autres");
+
+  const emil2 = await client("EMIL", "cle-stable-emil");
+  emil2.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(400);
+  ok(emil2.id === idAvant, `siège repris : même identifiant (${idAvant} → ${emil2.id})`);
+  const apres = emil2.room?.players?.find((p) => p.id === emil2.id);
+  ok(apres?.spectator === false, "EMIL rejoue, il n'est PAS spectateur");
+  ok(
+    apres && avant && apres.lives <= avant.lives && apres.lives > 0,
+    `vies conservées (${avant?.lives} → ${apres?.lives})`,
+  );
+
+  // Une clé différente ne doit RIEN pouvoir reprendre.
+  const voleur = await client("VOLEUR", "cle-inconnue");
+  voleur.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(300);
+  ok(voleur.id !== idAvant, "une autre clé ne reprend pas le siège d'EMIL");
+
+  for (const c of [dora, emil2, voleur]) c.ws.close();
+  await sleep(200);
+}
 
 // Messages malformés : le serveur doit survivre.
 //

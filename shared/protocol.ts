@@ -150,8 +150,24 @@ export type RoundOutcome =
  * Client → serveur
  * ------------------------------------------------------------------ */
 
+/**
+ * Délai pendant lequel un siège est gardé après une coupure.
+ *
+ * Les identifiants étaient attribués par connexion : une micro-coupure
+ * éliminait donc définitivement, et se reconnecter donnait une identité neuve,
+ * donc un siège de spectateur. Sur mobile — bascule d'application, tunnel,
+ * changement de cellule — c'est le cas NORMAL, pas le cas rare.
+ *
+ * 25 s couvre une coupure réelle sans immobiliser un salon : le joueur absent
+ * continue de perdre des vies par timeout pendant ce temps, il ne gagne rien
+ * à partir.
+ */
+export const RECONNECT_GRACE_MS = 25_000;
+
 export type ClientMsg =
-  | { t: "hello"; v: number; name: string; glyph?: Glyph }
+  /** `key` est un identifiant local stable : c'est lui qui permet de
+   *  retrouver son siège après une coupure. Absent = joueur éphémère. */
+  | { t: "hello"; v: number; name: string; glyph?: Glyph; key?: string }
   | { t: "create" }
   | { t: "join"; code: string }
   | { t: "leave" }

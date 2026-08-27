@@ -513,7 +513,24 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const viewId = viewTargetId();
     const rid = match.rules[viewId] ?? match.rules[net.myId];
     const rule = rid ? ruleById(rid) : match.rule;
-    if (!rule) return;
+    if (!rule) {
+      /*
+       * Aucune règle résoluble. Le cas concret est un décalage de versions :
+       * le front (Vercel) et le serveur de salons (Fly) se déploient
+       * séparément, donc le serveur peut nommer une règle que ce bundle ne
+       * connaît pas. PROTOCOL_VERSION protège le protocole, pas la table des
+       * règles.
+       *
+       * Sortir en `return` laissait `match.round` sur la manche PRÉCÉDENTE,
+       * alors que beginRound a déjà avancé match.idx : le joueur voyait et
+       * cliquait la scène N−1 pendant que le serveur jugeait la N. Verdicts
+       * incompréhensibles, et aucune erreur nulle part.
+       *
+       * Un champ vide est un mauvais moment ; une scène fausse est un mensonge.
+       */
+      match.round = null;
+      return;
+    }
     match.rule = rule;
     match.round = buildMultiRound(match.seed, match.idx, rule);
     hud.setRule(rule);
@@ -1285,7 +1302,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // générique de ensureConnected() ne doit pas écraser ce message.
       errFromServer = true;
       if (msg.code === "room_unknown") {
-        setJoinErr(msg.detail === "déconnecté" ? "DÉCONNECTÉ" : "SALON INTROUVABLE");
+        const coupe = msg.detail === "déconnecté";
+        // Le siège est gardé quelques secondes côté serveur : on pré-remplit le
+        // code pour que revenir soit UN geste. Vider le champ obligeait à
+        // retrouver le code pendant que le sursis s'écoulait.
+        if (coupe && roomCode) $<HTMLInputElement>("multiCode").value = roomCode;
+        setJoinErr(coupe ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE" : "SALON INTROUVABLE");
         if (roomCode) {
           roomCode = "";
           endScreenOpen = false;
@@ -1333,10 +1355,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
     if (net && !net.connected && roomCode) {
+      $<HTMLInputElement>("multiCode").value = roomCode;
       roomCode = "";
       setPlatesVisible(false);
       clearPlateCols();
-      setJoinErr("CONNEXION PERDUE PENDANT L'ABSENCE — RECRÉE OU REJOINS LE SALON");
+      setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
       show("multi-join");
     }
   });
@@ -1360,7 +1383,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         unsub?.();
         unsub = net.on(onMsg);
       }
-      await net.connect(name, glyphFor(name));
+      // anonId est déjà l'identifiant local persistant du joueur. Le réutiliser
+      // évite d'en inventer un second qui pourrait diverger — et c'est lui qui
+      // permet de reprendre son siège après une coupure.
+      await net.connect(name, glyphFor(name), P.load().anonId);
       return net;
     } catch {
       if (!errFromServer) setJoinErr("CONNEXION IMPOSSIBLE");

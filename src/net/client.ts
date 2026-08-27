@@ -78,7 +78,13 @@ export class NetClient {
     return () => this.handlers.delete(h);
   }
 
-  connect(name: string, glyph?: Glyph): Promise<void> {
+  /**
+   * `key` est un identifiant local stable. Le serveur s'en sert pour rendre
+   * son siège à un joueur coupé en pleine partie, au lieu de le faire revenir
+   * en spectateur avec une identité neuve. Sans clé, tout fonctionne — on perd
+   * seulement la reprise après coupure.
+   */
+  connect(name: string, glyph?: Glyph, key?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
       /** Vrai seulement après un `welcome` : distingue « jamais établie » de
@@ -112,7 +118,7 @@ export class NetClient {
       }, 8000);
 
       ws.onopen = () => {
-        this.send({ t: "hello", v: PROTOCOL_VERSION, name, glyph: glyph ?? undefined });
+        this.send({ t: "hello", v: PROTOCOL_VERSION, name, glyph: glyph ?? undefined, key });
         // rafale initiale : l'horloge doit être prête avant la première manche
         for (let i = 0; i < 5; i++) setTimeout(() => this.ping(), i * 120);
         this.pingTimer = setInterval(() => this.ping(), 5000);

@@ -35,6 +35,7 @@ import {
   MAX_PLAYERS,
   MAX_ROUNDS,
   PROTOCOL_VERSION,
+  RECONNECT_GRACE_MS,
   decodeClient,
   encode,
   sanitizeSettings,
@@ -77,6 +78,10 @@ interface Client {
   watching: string | null;
   lastEmoteAt: number;
   lastChatAt: number;
+  /** Identifiant local stable du joueur — sert à retrouver son siège. */
+  key: string;
+  /** Armé à la coupure : abandonne le siège si personne ne le réclame. */
+  graceTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface Room {
@@ -343,6 +348,8 @@ wss.on("connection", (ws) => {
     watching: null,
     lastEmoteAt: 0,
     lastChatAt: 0,
+    key: "",
+    graceTimer: null,
   };
   client.glyph = glyphFor(client.id);
 
@@ -361,6 +368,7 @@ wss.on("connection", (ws) => {
           return;
         }
         client.name = String(msg.name ?? "").slice(0, 14).toUpperCase() || "ANONYME";
+        client.key = String(msg.key ?? "").slice(0, 32);
         client.glyph = parseGlyph(msg.glyph, client.id);
         send(client, { t: "welcome", id: client.id });
         return;
@@ -397,11 +405,40 @@ wss.on("connection", (ws) => {
           send(client, { t: "error", code: "room_unknown" });
           return;
         }
-        if (room.clients.size >= MAX_PLAYERS) {
+        /*
+         * Reprise de siège. Un joueur coupé reste dans le salon, socket
+         * fermée, pendant RECONNECT_GRACE_MS. S'il revient avec la même clé
+         * locale, il REPREND son identifiant — donc son siège, ses vies et
+         * son score — au lieu d'entrer en spectateur avec une identité neuve.
+         *
+         * On n'accepte la reprise que si l'ancienne socket est effectivement
+         * fermée : sinon deux onglets du même navigateur, qui partagent la
+         * clé, se voleraient mutuellement leur place.
+         */
+        // AVANT toute reprise d'identifiant : leaveRoom retire l'entrée sous
+        // la clé `client.id`, donc il doit tourner tant que celle-ci vaut
+        // encore l'ancienne. L'appeler après laisserait une entrée morte dans
+        // le salon précédent, introuvable et jamais nettoyée.
+        leaveRoom(client);
+
+        const fantome = client.key
+          ? [...room.clients.values()].find(
+              (c) => c.key === client.key && c.ws.readyState !== WebSocket.OPEN,
+            )
+          : undefined;
+        if (fantome) {
+          if (fantome.graceTimer) clearTimeout(fantome.graceTimer);
+          fantome.graceTimer = null;
+          fantome.room = null;
+          room.clients.delete(fantome.id);
+          client.id = fantome.id;
+          // L'identifiant vient de changer : le client doit le réapprendre,
+          // sinon il ne se reconnaît pas dans les verdicts ni sur les plaques.
+          send(client, { t: "welcome", id: client.id });
+        } else if (room.clients.size >= MAX_PLAYERS) {
           send(client, { t: "error", code: "room_full" });
           return;
         }
-        leaveRoom(client);
         room.clients.set(client.id, client);
         client.room = room;
         // Arrivée en cours de match : spectateur jusqu'à la manche d'après —
@@ -562,6 +599,28 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     clients.delete(client);
+
+    /*
+     * Coupure pendant un match : on GARDE le siège au lieu de déclarer forfait.
+     *
+     * Sans ça, une bascule d'application sur téléphone élimine définitivement —
+     * et c'est le comportement normal d'un navigateur mobile, pas un incident
+     * rare. Le joueur absent continue de perdre des vies par timeout, donc il
+     * ne gagne rien à disparaître ; il peut simplement revenir.
+     *
+     * Un `leave` explicite ne passe pas par ici : partir reste immédiat.
+     */
+    const room = client.room;
+    const seatVivant =
+      !!room?.match && room.match.seats.some((s) => s.id === client.id && !s.eliminated);
+    if (room && seatVivant && client.key) {
+      client.graceTimer = setTimeout(() => {
+        client.graceTimer = null;
+        leaveRoom(client);
+      }, RECONNECT_GRACE_MS);
+      broadcast(room, roomState(room)); // les plaques montrent « déconnecté »
+      return;
+    }
     leaveRoom(client);
   });
 });
@@ -574,6 +633,13 @@ function matchState(match: MatchLogic, id: string): { outcome: RoundOutcome | nu
 function leaveRoom(client: Client): void {
   const room = client.room;
   if (!room) return;
+  // Un siège en sursis qu'on abandonne pour de bon : le compteur ne doit pas
+  // survivre au départ, sinon il rappellera leaveRoom sur un client qui n'est
+  // plus nulle part.
+  if (client.graceTimer) {
+    clearTimeout(client.graceTimer);
+    client.graceTimer = null;
+  }
   room.clients.delete(client.id);
   client.room = null;
 
@@ -619,6 +685,11 @@ function shutdown(): void {
   clearInterval(heartbeat);
   for (const room of rooms.values()) {
     if (room.timer) clearTimeout(room.timer);
+    // Les sursis de reconnexion aussi : un timer encore armé retiendrait la
+    // boucle d'événements et ferait dépasser le délai de grâce de l'hébergeur.
+    for (const c of room.clients.values()) {
+      if (c.graceTimer) clearTimeout(c.graceTimer);
+    }
   }
   // 1001 « going away » : le code qu'un navigateur lit comme un départ du
   // serveur, et non comme une erreur de connexion.
