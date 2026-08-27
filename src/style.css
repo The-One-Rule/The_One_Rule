@@ -36,6 +36,35 @@
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --gap: 18px;
+
+  /*
+   * Cible tactile minimale. 44 px est le plancher au-dessous duquel un pouce
+   * rate régulièrement — et le multijoueur est un mode conçu POUR le pouce :
+   * les emotes sont la seule expression disponible pendant un match sur
+   * téléphone. Elles faisaient 28 px.
+   *
+   * N'est appliqué qu'aux éléments réellement actionnables. Les puces d'état
+   * de l'accueil, qui ne se cliquent pas, restent compactes : agrandir ce qui
+   * ne se touche pas ne fait que diluer ce qui se touche.
+   */
+  --tap: 44px;
+}
+
+/*
+ * Focus visible, partout et sans exception.
+ *
+ * Il n'existait que trois règles `:focus` dans toute la feuille, et aucune sur
+ * `.chip` — donc naviguer au clavier dans les emotes, les réglages du salon ou
+ * la barre spectateur se faisait à l'aveugle.
+ *
+ * L'anneau est en `--paper` et non en `--signal` : l'accent est réservé à la
+ * règle unique, et lui faire désigner autre chose l'affaiblirait. `:where`
+ * garde une spécificité nulle, donc un composant peut toujours renforcer ce
+ * traitement sans avoir à le combattre.
+ */
+:where(button, a[href], input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
 }
 
 * {
@@ -479,8 +508,9 @@ body {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px var(--gap);
+  /* 8 px minimum entre deux cibles : en dessous, un pouce en active deux. */
+  gap: 8px;
+  padding: 8px var(--gap);
   border-top: 1px solid var(--line);
 }
 
@@ -494,7 +524,7 @@ body {
 }
 
 .watchbar__label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   color: var(--paper-dim);
 }
@@ -502,7 +532,7 @@ body {
 .watchbar__targets {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .watchbar__targets .chip {
@@ -923,10 +953,12 @@ body {
   background: var(--ink-2);
   color: var(--paper);
   font-family: var(--mono);
-  font-size: 12px;
+  /* 16 px : en dessous, iOS zoome de force à la mise au point, ce qui décale
+     toute la mise en page en plein match. Le rendu reste dense grâce au mono. */
+  font-size: 16px;
   letter-spacing: 0.06em;
-  padding: 8px 10px;
-  outline: none;
+  padding: 10px 12px;
+  min-height: var(--tap);
 }
 
 .chat__input:focus {
@@ -1025,25 +1057,48 @@ body {
 
 .btn {
   font-family: var(--mono);
-  font-size: 11px;
+  /* 11 px en capitales espacées de 0,2em : lisible de près, pas au pouce. */
+  font-size: 13px;
   letter-spacing: 0.2em;
   color: var(--paper);
   background: none;
   border: 1px solid var(--line);
-  padding: 13px 20px;
+  padding: 12px 20px;
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  /* Supprime le délai de 300 ms et le zoom au double-tap sur mobile. */
+  touch-action: manipulation;
   transition:
     background 120ms linear,
     color 120ms linear,
     border-color 120ms linear;
 }
 
+/*
+ * Retour au doigt. Le surlignage natif est désactivé globalement
+ * (-webkit-tap-highlight-color), donc sans cet état un appui ne produit
+ * strictement rien tant que l'action n'a pas abouti — et l'utilisateur
+ * ré-appuie, croyant avoir raté.
+ */
+.btn:active {
+  background: var(--line);
+}
+
+/*
+ * Le focus clavier ne doit pas se confondre avec le survol. Les deux
+ * inversent le bouton, mais seul le focus porte l'anneau — sinon un joueur au
+ * clavier ne peut pas distinguer « ma souris passe dessus » de « c'est ici que
+ * ma touche Entrée va agir ». L'`outline: none` d'origine annulait justement
+ * la seule marque qui les séparait.
+ */
 .btn:hover,
 .btn:focus-visible {
   background: var(--paper);
   border-color: var(--paper);
   color: var(--ink);
-  outline: none;
 }
 
 .btn--primary {
@@ -1054,6 +1109,15 @@ body {
   color: var(--paper-dim);
   border-color: transparent;
   padding: 11px 14px;
+}
+
+/*
+ * Un bouton discret reste un bouton : « MUSIQUE : ON » se touche autant que
+ * « RUN DU JOUR ». La discrétion est une affaire de contraste, jamais de
+ * surface tactile.
+ */
+.btn--ghost {
+  min-height: var(--tap);
 }
 
 .btn:disabled {
@@ -1083,9 +1147,38 @@ body {
 .chip {
   border: 1px solid var(--line);
   padding: 7px 12px;
-  font-size: 10px;
+  /* 10 px avec 0,16em d'interlettrage : sous le seuil de lisibilité. */
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--paper-dim);
+}
+
+/*
+ * Les puces ACTIONNABLES seulement.
+ *
+ * `.chip` sert aussi aux puces d'état de l'accueil (série, quêtes), qui ne se
+ * cliquent pas : les agrandir toutes gonflerait l'écran d'accueil sans rien
+ * rendre plus atteignable. Tous les chips interactifs du projet sont des
+ * `<button>` — emotes, réglages du salon, cibles spectateur, sourdine,
+ * exclusion — donc le sélecteur les couvre exactement, sans liste à tenir.
+ */
+button.chip {
+  min-height: var(--tap);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    border-color 120ms linear,
+    color 120ms linear,
+    background 120ms linear;
+}
+
+button.chip:active:not(:disabled) {
+  background: var(--line);
 }
 
 .chip b {
@@ -1120,7 +1213,9 @@ body {
   background: var(--ink-2);
   border: 1px solid var(--line);
   padding: 12px 8px 12px 14px;
-  outline: none;
+  min-height: var(--tap);
+  /* Pas d'`outline: none` : c'est le champ où l'on tape le code d'un salon,
+     donc exactement celui qu'il ne faut pas perdre au clavier. */
 }
 
 .field:focus {
