@@ -100,11 +100,28 @@ beaucoup au premier vu du navigateur : la socket est refusée à la poignée de
 main. La différence se voit dans les logs du serveur, qui annoncent au démarrage
 que toute connexion sera refusée.
 
-**Une seule instance.** Les salons vivent en mémoire : deux machines = deux jeux
-de salons disjoints, et un joueur sur la mauvaise instance ne trouvera jamais le
-code de son ami. `fly.toml` fixe donc `auto_stop_machines = "off"` et
-`min_machines_running = 1`. Ne monte pas en échelle sans stockage partagé
-d'abord.
+**Une seule instance — et `fly.toml` ne suffit PAS à l'obtenir.** Les salons
+vivent en mémoire : deux machines = deux jeux de salons disjoints, et un joueur
+routé sur la mauvaise ne trouvera jamais le code de son ami.
+
+`min_machines_running = 1` est un **minimum, pas un plafond**. Fly provisionne
+deux machines par défaut pour la haute disponibilité, et ce réglage ne l'en
+empêche pas. C'est arrivé en production le 27/08/2026 : deux machines, toutes
+deux en `cdg` — donc même pas une histoire de distance, juste de répartition de
+charge. Symptôme côté joueur : **« SALON INTROUVABLE » à chaque tentative**, ce
+qui ressemble à une faute de frappe sur le code. Aucune erreur nulle part, les
+deux joueurs voient un serveur qui répond parfaitement.
+
+```bash
+fly scale count 1 --app the-one-rule-salons
+node scripts/check-salons.mjs https://the-one-rule-salons.fly.dev
+```
+
+Le sondage compare le champ `instance` de `/health` sur quatorze appels. **À
+relancer après chaque `fly deploy`** : le nombre de machines est une décision de
+jeu ici, pas une décision d'exploitation, et rien dans le dépôt ne peut
+l'imposer à ta place. Ne remonte pas en échelle tant que les salons ne sont pas
+dans un stockage partagé.
 
 **Redémarrage = parties perdues.** Un déploiement coupe les salons en cours. Le
 serveur ferme proprement ses sockets sur SIGTERM (code 1001, « going away »),

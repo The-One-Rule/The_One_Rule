@@ -18,6 +18,14 @@ primary_region = 'cdg'
   force_https = true
   auto_stop_machines = 'off'
   auto_start_machines = true
+  # ATTENTION : c'est un MINIMUM, pas un plafond. Fly provisionne deux machines
+  # par défaut pour la haute disponibilité, et ce réglage ne l'en empêche pas.
+  # Les salons vivant en mémoire, deux machines = deux jeux de salons disjoints
+  # et un « SALON INTROUVABLE » systématique entre amis. C'est arrivé en
+  # production le 27/08/2026, les deux machines étant dans la même région.
+  # Le nombre d'instances se fixe hors de ce fichier, et ne remonte pas :
+  #     fly scale count 1 --app the-one-rule-salons
+  #     node scripts/check-salons.mjs https://the-one-rule-salons.fly.dev
   min_machines_running = 1
 
   [http_service.concurrency]

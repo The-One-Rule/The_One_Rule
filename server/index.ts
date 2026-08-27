@@ -48,6 +48,21 @@ const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
 const PRODUCTION = process.env.NODE_ENV === "production";
 const STARTED_AT = Date.now();
 
+/**
+ * Identifiant de PROCESSUS, tiré au démarrage.
+ *
+ * Les salons vivent en mémoire : deux instances = deux jeux de salons
+ * disjoints, et le joueur routé sur la mauvaise ne trouvera jamais le code de
+ * son ami. C'est arrivé en production — Fly provisionne deux machines par
+ * défaut pour la haute disponibilité, et `min_machines_running = 1` est un
+ * minimum, pas un plafond.
+ *
+ * La panne est invisible depuis le jeu : chacun voit un serveur qui répond,
+ * et « SALON INTROUVABLE » ressemble à une faute de frappe sur le code. Ce
+ * champ la rend décidable en une commande (scripts/check-salons.mjs).
+ */
+const INSTANCE = Math.random().toString(36).slice(2, 10);
+
 /* ------------------------------------------------------------------ *
  * État
  * ------------------------------------------------------------------ */
@@ -292,6 +307,7 @@ const httpServer = createServer((req, res) => {
   res.end(
     JSON.stringify({
       ok: true,
+      instance: INSTANCE,
       rooms: rooms.size,
       players,
       uptime: Math.round((Date.now() - STARTED_AT) / 1000),
