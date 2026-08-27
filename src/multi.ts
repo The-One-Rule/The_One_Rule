@@ -10,6 +10,7 @@ import {
   EMPTY_STATS,
   EMOTE_COOLDOWN_MS,
   LIVES_CHOICES,
+  MAX_PLAYERS,
   ROTATION_CHOICES,
   SPEED_CHOICES,
 } from "../shared/protocol";
@@ -254,6 +255,22 @@ function renderLobby(
     }
     list.appendChild(row);
   }
+
+  /*
+   * État vide du salon.
+   *
+   * Seul dans un salon, l'écran affichait « EN ATTENTE » et un bouton LANCER
+   * en évidence : il proposait de démarrer une partie multijoueur à un joueur,
+   * et reléguait au second plan la seule action qui a du sens — inviter.
+   * L'écran doit dire ce qu'il faut faire, pas seulement ce qui se passe.
+   */
+  const seul = players.length <= 1;
+  $("multiLobbyTitle").textContent = seul ? "INVITE QUELQU'UN" : "EN ATTENTE";
+  $("multiInviteHint").textContent = seul
+    ? "ENVOIE LE LIEN — LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE"
+    : `${players.length} JOUEURS · LIEN D'INVITATION EN UN CLIC`;
+  $("btnMultiInvite").classList.toggle("btn--primary", seul);
+  $("btnMultiStart").classList.toggle("btn--primary", !seul);
 
   renderSettings(settings, !!me?.host, inMatch);
 }
@@ -1364,7 +1381,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           void attemptRejoin();
           return;
         }
-        setJoinErr(coupe ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE" : "SALON INTROUVABLE");
+        setJoinErr(
+          coupe
+            ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE"
+            : "AUCUN SALON À CE CODE — VÉRIFIE LES 4 LETTRES, OU CRÉE LE TIEN",
+        );
         if (roomCode) {
           roomCode = "";
           endScreenOpen = false;
@@ -1374,17 +1395,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           show("multi-join");
         }
       } else if (msg.code === "room_full") {
-        setJoinErr("SALON PLEIN");
+        setJoinErr(`SALON COMPLET (${MAX_PLAYERS} JOUEURS) — CRÉE-EN UN AUTRE`);
       } else if (msg.code === "not_host") {
-        setJoinErr("SEUL L'HÔTE PEUT LANCER");
+        setJoinErr("SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI");
       } else if (msg.code === "in_match") {
-        setJoinErr("MATCH EN COURS");
+        setJoinErr("MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE");
       } else if (msg.code === "bad_version") {
         // Cas typique d'un onglet resté ouvert sur l'ancien bundle après un
         // déploiement. Le geste qui répare est le rechargement : le dire.
         setJoinErr("VERSION INCOMPATIBLE — RECHARGE LA PAGE");
       } else if (msg.code === "kicked") {
-        setJoinErr("EXCLU DU SALON");
+        setJoinErr("TU AS ÉTÉ SORTI DU SALON — TU PEUX EN CRÉER UN À TOI");
         // Départ subi mais définitif : surtout ne pas revenir tout seul.
         lastRoomCode = "";
         roomCode = "";
@@ -1539,7 +1560,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       await net.connect(name, myGlyph(), P.load().anonId, P.load().multi.matches === 0);
       return net;
     } catch {
-      if (!errFromServer) setJoinErr("CONNEXION IMPOSSIBLE");
+      if (!errFromServer) {
+        setJoinErr("SERVEUR INJOIGNABLE — VÉRIFIE TA CONNEXION, PUIS RÉESSAIE");
+      }
       // Pendant une reprise automatique, c'est attemptRejoin qui décide s'il
       // faut rendre la main : basculer d'écran ici couperait la tentative en
       // cours et redonnerait la sensation d'expulsion qu'on veut supprimer.
@@ -1767,7 +1790,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       sfx.ui();
       const code = $<HTMLInputElement>("multiCode").value.trim().toUpperCase();
       if (code.length !== 4) {
-        setJoinErr("CODE À 4 LETTRES");
+        setJoinErr("UN CODE DE SALON FAIT EXACTEMENT 4 LETTRES");
         return;
       }
       setJoinErr(null);

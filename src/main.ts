@@ -867,7 +867,7 @@ $("btnDuel").addEventListener("click", async () => {
   // Ouvert depuis un fichier local, il n'y a pas d'origine partageable :
   // mieux vaut le dire que produire un lien mort.
   if (location.protocol === "file:") {
-    $("btnDuel").textContent = "HORS LIGNE : LIEN IMPOSSIBLE";
+    $("btnDuel").textContent = "OUVRE LE JEU EN LIGNE POUR DÉFIER";
     setTimeout(() => ($("btnDuel").textContent = "DÉFIER UN AMI"), 2200);
     return;
   }
