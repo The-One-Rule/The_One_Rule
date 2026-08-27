@@ -55,10 +55,11 @@ describe("placement des plaques", () => {
   });
 
   it("n'affiche jamais une colonne trop étroite pour une plaque", () => {
-    // `.plate` a min-width 108 px, `.plates__col` ajoute 10 px de chaque côté,
-    // et la colonne est en overflow hidden : sous 128 px, la plaque est rognée.
-    // C'est exactement ce qu'on a vu en production.
-    expect(COLUMN_MIN).toBeGreaterThanOrEqual(128);
+    // `.plate` a min-width 150 px, `.plates__col` ajoute 10 px de chaque côté,
+    // et la colonne est en overflow hidden : sous 170 px, la plaque est rognée.
+    // C'est exactement ce qu'on a vu en production, à l'époque où la plaque
+    // était plus étroite — le seuil doit suivre la typographie des plaques.
+    expect(COLUMN_MIN).toBeGreaterThanOrEqual(170);
     expect(COLUMN_ENTER).toBeGreaterThan(COLUMN_MIN);
 
     for (let g = 0; g < COLUMN_MIN; g++) {

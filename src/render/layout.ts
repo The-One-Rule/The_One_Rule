@@ -25,11 +25,18 @@ import { FIELD_H, FIELD_W } from "../engine/types";
 import { FIELD_GUTTER } from "./scene";
 
 /**
- * Sous cette largeur, une colonne rogne la plaque : `.plate` a min-width 108 px
- * et `.plates__col` ajoute 10 px de marge de chaque côté, le tout en
+ * Sous cette largeur, une colonne rogne la plaque : `.plate` a min-width
+ * 150 px et `.plates__col` ajoute 10 px de marge de chaque côté, le tout en
  * `overflow: hidden`. Le seuil sort de la CSS, il n'est pas choisi à l'estime.
+ *
+ * Relevé en même temps que la typographie des plaques : le nom de règle d'un
+ * adversaire est passé de 9 à 12 px. Le dimensionnement est calé sur le PIRE
+ * nom du pool multi, mesuré dans un navigateur — « L'ACCÉLÉRATION », 124 px —
+ * et non sur celui qu'on croyait le plus long.
+ *
+ * **Si tu touches `.plate { min-width }`, touche ce nombre.**
  */
-export const COLUMN_MIN = 132;
+export const COLUMN_MIN = 176;
 
 /**
  * Entrée en colonnes. Nettement au-dessus de COLUMN_MIN : la bande sépare les
@@ -37,7 +44,7 @@ export const COLUMN_MIN = 132;
  * garantit la terminaison — `stableGutter` s'en charge — seulement ce qui évite
  * de basculer sur un pixel.
  */
-export const COLUMN_ENTER = 190;
+export const COLUMN_ENTER = 232;
 
 /**
  * Gouttière latérale que produirait le mode colonnes.

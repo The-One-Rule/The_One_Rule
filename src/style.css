@@ -433,10 +433,10 @@ body {
 }
 
 .plates--compact .plate {
-  flex: 1 1 72px;
-  min-width: 64px;
-  max-width: 110px;
-  padding: 6px 7px;
+  flex: 1 1 84px;
+  min-width: 76px;
+  max-width: 132px;
+  padding: 6px 8px;
 }
 
 #app:not(.has-gutters) .plates--compact .plate__rule {
@@ -444,7 +444,7 @@ body {
 }
 
 .plates--compact .plate__name {
-  font-size: 10px;
+  font-size: 12px;
 }
 
 #app.has-gutters .plates {
@@ -565,9 +565,19 @@ body {
 
 .plate {
   position: relative;
-  flex: 1 1 118px;
-  min-width: 108px;
-  max-width: 200px;
+  flex: 1 1 150px;
+  /*
+   * Suit la typographie, et calé sur le PIRE nom de règle du pool multi —
+   * mesuré, pas estimé : « L'ACCÉLÉRATION » occupe 124 px à 12 px avec
+   * 0,14em d'interlettrage, plus 20 px de marge intérieure. 150 laisse six
+   * pixels. « LE DALTONIEN », qui semblait le cas limite, n'en fait que 107.
+   *
+   * ATTENTION — cette valeur est lue par src/render/layout.ts : une colonne
+   * plus étroite que `min-width + 20` rogne la plaque, puisque la colonne est
+   * en overflow hidden. Les deux nombres doivent bouger ensemble.
+   */
+  min-width: 150px;
+  max-width: 210px;
   border: 1px solid var(--line);
   padding: 8px 10px;
   display: flex;
@@ -665,14 +675,22 @@ body {
 .plate__name {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.08em;
   color: inherit;
 }
 
+/*
+ * La règle unique de l'adversaire.
+ *
+ * C'est LE spectacle du mode : « un piège est personnel, et les autres le
+ * voient venir ». Elle était à 9 px avec 0,18em d'interlettrage, à lire en
+ * vision périphérique pendant qu'on balaie une grille en une seconde et demie.
+ * Autant ne pas l'afficher.
+ */
 .plate__rule {
-  font-size: 9px;
-  letter-spacing: 0.18em;
+  font-size: 12px;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   min-height: 1.2em;
   color: var(--signal-pale);
@@ -712,8 +730,8 @@ body {
 
 .plate__lives i,
 .lifedots i {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border: 1px solid currentColor;
   display: block;
 }
@@ -725,13 +743,13 @@ body {
 
 .plate__score {
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.12em;
 }
 
 .plate__streak {
   font-variant-numeric: tabular-nums;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.1em;
   color: var(--signal-pale);
   min-width: 0;
@@ -874,8 +892,9 @@ body {
   gap: 10px;
   padding: 9px var(--gap);
   border-top: 1px solid var(--line);
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  /* Manche, vies et mode : lus d'un coup d'œil sans quitter la grille. */
+  font-size: 13px;
+  letter-spacing: 0.14em;
   color: var(--paper-dim);
   font-variant-numeric: tabular-nums;
 }
