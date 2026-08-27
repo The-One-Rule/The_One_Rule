@@ -1188,6 +1188,41 @@ body {
   text-align: center;
 }
 
+/*
+ * Écrans à deux colonnes.
+ *
+ * Retour le plus récurrent de la soirée : « pourquoi tout est si concentré au
+ * centre ? ». Les six écrans partageaient la même colonne de 560 px, soit 33 %
+ * d'un `#app` plafonné à 1680.
+ *
+ * Mais « utiliser l'espace » ne veut PAS dire élargir le texte : une ligne de
+ * 180 caractères est illisible. Ce qui gagne de la place, c'est de poser côte à
+ * côte des contenus de NATURES différentes — ici, où l'on en est à gauche, ce
+ * qu'on peut faire à droite. Le texte, lui, garde sa mesure.
+ *
+ * Sous 900 px, on retombe sur une colonne unique : c'est déjà la bonne réponse
+ * sur téléphone, et elle vient d'être réglée.
+ */
+.screen__scroll--wide {
+  max-width: 1080px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  text-align: center;
+}
+
+.screen__scroll--wide .col {
+  min-width: 0;
+}
+
+@media (min-width: 900px) {
+  .screen__scroll--wide {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 52px;
+  }
+}
+
 .logo {
   font-family: var(--display);
   font-weight: 600;
@@ -1342,6 +1377,102 @@ body {
 }
 
 .btn.hidden {
+  display: none;
+}
+
+/*
+ * Cartes de mode.
+ *
+ * Un bouton disait « RUN DU JOUR » sans dire qu'il s'agissait d'un essai
+ * unique : un nouveau venu l'a cliqué en arrivant et a brûlé sa journée sans
+ * comprendre. Une carte porte le nom, ce que le mode engage, et son état du
+ * moment — trois choses qu'un libellé ne peut pas tenir.
+ *
+ * Alignées à gauche : ce sont des phrases, et une phrase centrée sur trois
+ * lignes se lit mal. Le reste de l'écran garde la signalétique centrée.
+ */
+.cards {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.card {
+  display: block;
+  width: 100%;
+  background: none;
+  border: 1px solid var(--line);
+  padding: 14px 16px;
+  min-height: var(--tap);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    border-color 120ms linear,
+    background 120ms linear;
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--paper);
+}
+
+.card:active:not(:disabled) {
+  background: var(--ink-2);
+}
+
+/* L'action évidente du moment. Une seule à la fois — voir renderHome(). */
+.card--primary {
+  border-color: var(--paper);
+}
+
+.card__title {
+  display: block;
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  color: var(--paper);
+}
+
+.card__desc {
+  display: block;
+  margin-top: 7px;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: 0;
+  color: var(--paper-dim);
+  /* La mesure de lecture, quelle que soit la largeur disponible. */
+  max-width: 48ch;
+}
+
+.card__desc b {
+  color: var(--paper);
+  font-weight: 600;
+}
+
+.card__state {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--signal-pale);
+}
+
+.card__state:not(:empty) {
+  margin-top: 9px;
+}
+
+.card:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.card:disabled:hover {
+  border-color: var(--line);
+}
+
+.card.hidden {
   display: none;
 }
 

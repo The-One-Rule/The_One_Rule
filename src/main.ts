@@ -228,12 +228,21 @@ function renderHome(): void {
   const neuf = s.recent.length === 0;
   const btn = $<HTMLButtonElement>("btnDaily");
   btn.disabled = s.daily.played;
-  // L'enjeu sur le bouton, pas dans un écran suivant : c'est là qu'on décide.
-  btn.textContent = s.daily.played
-    ? `RUN DU JOUR · FAIT (${s.daily.score})`
-    : neuf
-      ? "RUN DU JOUR · UN SEUL ESSAI"
-      : "RUN DU JOUR";
+
+  /*
+   * L'état va dans `.card__state`, jamais dans le textContent de la carte :
+   * l'écrire sur le bouton effacerait son titre et sa description.
+   */
+  $("cardDailyState").textContent = s.daily.played
+    ? `DÉJÀ JOUÉ AUJOURD'HUI · ${s.daily.score} MANCHES · REVIENS DEMAIN`
+    : `AUJOURD'HUI · ${rule.name}`;
+  $("cardTrainingState").textContent = neuf
+    ? "COMMENCE ICI · TU NE PERDS RIEN"
+    : `RECORD · ${s.bestTraining} MANCHES`;
+  $("cardMultiState").textContent = multi.available
+    ? "DE 2 À 10 JOUEURS"
+    : "INDISPONIBLE — SERVEUR DE SALONS HORS LIGNE";
+  $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
   /*
    * Un écran a UNE action évidente, et elle ne peut pas être un bouton mort.
@@ -262,10 +271,11 @@ function renderHome(): void {
         : "btnTraining"
       : "btnDaily";
   for (const id of ["btnDaily", "btnMulti", "btnTraining"]) {
-    $(id).classList.toggle("btn--primary", id === suivant);
+    $(id).classList.toggle("card--primary", id === suivant);
   }
 
   $("btnRanked").classList.toggle("hidden", !rankedAvailable());
+  $("cardRankedState").textContent = `${divisionOf(s.ranked.rating).name} · ${s.ranked.rating}`;
   $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
   $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
   setEnabled(s.sound);

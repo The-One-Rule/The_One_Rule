@@ -92,40 +92,78 @@
 
       <!-- ACCUEIL -->
       <section class="screen" id="home">
-        <div class="screen__scroll">
-          <h1 class="logo">THE<br />ONE <em>RULE</em></h1>
-          <p class="lede">
-            Une <b>règle unique</b> est tirée pour toute la partie et reste affichée en haut.
-            Par-dessus, une consigne change toutes les deux secondes.
-            Quand la consigne te demande d'enfreindre la règle unique,
-            la bonne réponse est de <b>ne rien faire</b>.
-          </p>
+        <!-- Deux colonnes au-dessus de 900 px, empilées en dessous : à gauche
+             qui l'on est et où l'on en est, à droite ce qu'on peut faire. -->
+        <div class="screen__scroll screen__scroll--wide">
+          <div class="col">
+            <h1 class="logo">THE<br />ONE <em>RULE</em></h1>
+            <p class="lede">
+              Une <b>règle unique</b> est tirée pour toute la partie et reste affichée en haut.
+              Par-dessus, une consigne change toutes les deux secondes.
+              Quand la consigne te demande d'enfreindre la règle unique,
+              la bonne réponse est de <b>ne rien faire</b>.
+            </p>
 
-          <div class="strip" id="homeStreak"></div>
-
-          <!-- Jouer. MULTIJOUEUR en deuxième : c'est le cœur du jeu, il ne
-               peut pas être en quatrième position derrière un mode masqué. -->
-          <div class="btnrow" aria-label="Modes de jeu">
-            <button class="btn btn--primary" id="btnDaily">RUN DU JOUR</button>
-            <button class="btn" id="btnMulti">MULTIJOUEUR</button>
-            <button class="btn" id="btnTraining">ENTRAÎNEMENT</button>
-            <button class="btn" id="btnRanked">CLASSÉ</button>
+            <div class="strip" id="homeStreak"></div>
+            <div id="homeQuests" class="quests"></div>
           </div>
 
-          <div id="homeQuests" class="quests"></div>
+          <div class="col">
+            <!-- Chaque mode dit ce qu'il engage. Un nouveau venu ne pouvait pas
+                 deviner qu'un run du jour se joue une seule fois — c'est ce qui
+                 le lui faisait brûler. -->
+            <div class="cards" aria-label="Modes de jeu">
+              <button class="card" id="btnDaily">
+                <span class="card__title">RUN DU JOUR</span>
+                <span class="card__desc">
+                  40 manches, <b>un seul essai par jour</b>. Même règle et même partie
+                  pour tout le monde : c'est le score qui se compare.
+                </span>
+                <span class="card__state" id="cardDailyState"></span>
+              </button>
 
-          <div class="btnrow btnrow--tight">
-            <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
-          </div>
+              <button class="card" id="btnMulti">
+                <span class="card__title">MULTIJOUEUR</span>
+                <span class="card__desc">
+                  Un salon, un code de 4 lettres. Tout le monde joue la même scène
+                  en même temps, mais <b>chacun porte une règle différente</b> — et les
+                  autres la voient.
+                </span>
+                <span class="card__state" id="cardMultiState"></span>
+              </button>
 
-          <!-- Réglages : séparés des modes, parce qu'on ne choisit pas
-               « MUSIQUE : ON » comme on choisit une partie. -->
-          <div class="prefs" aria-label="Réglages">
-            <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
-            <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
-            <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
+              <button class="card" id="btnTraining">
+                <span class="card__title">ENTRAÎNEMENT</span>
+                <span class="card__desc">
+                  Illimité, sans enjeu, à l'allure que tu choisis. Uniquement les
+                  règles déjà rencontrées.
+                </span>
+                <span class="card__state" id="cardTrainingState"></span>
+              </button>
+
+              <button class="card hidden" id="btnRanked">
+                <span class="card__title">CLASSÉ</span>
+                <span class="card__desc">
+                  Un adversaire de niveau voisin, la même graine que lui. Ton run est
+                  rejoué par le serveur pour valider le score.
+                </span>
+                <span class="card__state" id="cardRankedState"></span>
+              </button>
+            </div>
+
+            <div class="btnrow btnrow--tight">
+              <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
+            </div>
+
+            <!-- Réglages : séparés des modes, parce qu'on ne choisit pas
+                 « MUSIQUE : ON » comme on choisit une partie. -->
+            <div class="prefs" aria-label="Réglages">
+              <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
+              <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
+              <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
+            </div>
+            <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
           </div>
-          <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
         </div>
       </section>
 
