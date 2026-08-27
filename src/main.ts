@@ -560,6 +560,21 @@ function marksToString(marks: string[]): string {
  */
 function react(outcome: Outcome, comboBefore: number): void {
   if (!session) return;
+  /*
+   * Un pas intermédiaire ne renvoyait RIEN — ni son, ni particule.
+   *
+   * Une consigne en plusieurs temps (séquence, ou n'importe quelle consigne
+   * portée par LE JUMEAU, qui double toutes les étapes) laissait donc le
+   * joueur sans le moindre accusé de réception après son premier geste. Dans
+   * une fenêtre d'une seconde et demie, on ne distingue pas « c'est pris » de
+   * « le jeu ne m'a pas entendu » : on en conclut que la consigne ne se valide
+   * pas alors qu'on la respecte.
+   */
+  if (outcome.kind === "pending") {
+    sfx.step();
+    scene.burst(lastClick.x, lastClick.y, lastClick.color, 4, 110);
+    return;
+  }
   if (outcome.kind === "survive") {
     if (outcome.trap) {
       const t = performance.now();
@@ -603,6 +618,12 @@ function sendOrMulti(action: Action): void {
   if (!multi.isPlayingMulti()) return;
   const r = multi.trySendMultiAction(action);
   if (!r.consumed || !r.feel) return;
+  // Même accusé de réception qu'en solo : voir react().
+  if (r.feel.kind === "pending") {
+    sfx.step();
+    scene.burst(lastClick.x, lastClick.y, lastClick.color, 4, 110);
+    return;
+  }
   if (r.feel.kind === "survive") {
     const now = performance.now();
     if (r.feel.trap) {

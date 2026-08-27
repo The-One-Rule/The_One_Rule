@@ -215,7 +215,7 @@ export class MatchLogic {
     if (roundIdx !== this.roundIdx || !this.shared) return null;
     const st = this.states.get(playerId);
     if (!st || st.outcome) return null;
-    if (elapsedMs < 0 || elapsedMs > this.roundDurationMs) return null;
+    if (elapsedMs < 0 || elapsedMs > this.durationFor(st)) return null;
 
     // Le temps de réaction, c'est le PREMIER geste de la manche. Sur une
     // séquence, l'horodatage du dernier pas mesure l'exécution, pas le réflexe.
@@ -232,6 +232,28 @@ export class MatchLogic {
       st.outcome = { kind: "death", reason: res.outcome.reason };
     }
     return st.outcome;
+  }
+
+  /**
+   * Fenêtre RÉELLE d'un joueur, sa règle comprise.
+   *
+   * `roundDurationMs` part de la manche partagée et vaut donc pour tout le
+   * monde — c'est elle qui fixe l'échéance diffusée. Mais une règle peut
+   * déformer la durée : L'ACCÉLÉRATION retranche 30 % dans `applyRule`, et
+   * cette déformation n'était lue nulle part côté serveur. Son porteur avait
+   * donc une règle qui ne pouvait jamais l'atteindre — un avantage gratuit et
+   * invisible, exactement ce qui avait fait sortir LA VOYELLE du pool.
+   *
+   * On rejoue la même formule que `openRound`, mais sur la durée personnelle.
+   */
+  private durationFor(st: PlayerRoundState): number {
+    return Math.min(
+      MAX_ROUND_MS,
+      Math.max(
+        MIN_ROUND_MS,
+        Math.round(st.round.durationMs * this.settings.speed * this.tensionAt(this.roundIdx)),
+      ),
+    );
   }
 
   /** Reconstruit une entité par index — le fil ne transporte jamais de scène. */

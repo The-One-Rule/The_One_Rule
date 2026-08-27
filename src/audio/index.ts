@@ -314,6 +314,26 @@ export const musicApi = {
 const COMBO_STEPS = [0, 3, 5, 7, 10, 12, 15, 17, 19, 22, 24];
 
 export const sfx = {
+  /**
+   * Pas intermédiaire d'une séquence : « enregistré, continue ».
+   *
+   * Sans lui, un premier clic sur une consigne en deux temps — LE JUMEAU
+   * double toutes les étapes — ne produisait STRICTEMENT rien : ni son, ni
+   * particule. Dans une fenêtre d'une seconde et demie, le joueur ne peut pas
+   * distinguer « c'est pris, continue » de « le jeu ne m'a pas entendu », et
+   * il conclut que la consigne ne se valide pas.
+   *
+   * Volontairement sec et discret : c'est un accusé de réception, pas une
+   * félicitation. La réussite doit rester le seul moment qui chante.
+   */
+  step(): void {
+    if (!ac || !sfxBus) return;
+    safely(() => {
+      const t = ac!.currentTime;
+      voice(sfxBus!, t, midi(45), 0.035, "square", 0.025);
+    });
+  },
+
   /** Réussite : monte avec la série en cours. */
   success(combo: number): void {
     if (!ac || !sfxBus) return;

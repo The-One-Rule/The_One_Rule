@@ -15,6 +15,7 @@ import {
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { buildMultiRound } from "./engine/multiround";
+import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
@@ -111,6 +112,16 @@ type MatchState = {
   camRule: OneRule | null;
   /** Relancer la musique après cut() d'élimination. */
   musicNeedsRestart: boolean;
+  /**
+   * Rapport entre MA fenêtre et celle diffusée à tout le salon.
+   *
+   * L'échéance envoyée par le serveur vaut pour la manche partagée, mais une
+   * règle peut raccourcir la fenêtre personnelle — L'ACCÉLÉRATION retranche
+   * 30 %. Sans ce facteur, la barre montrait du temps restant alors que le
+   * serveur avait déjà fermé la fenêtre : le joueur respectait la consigne et
+   * rien ne se validait.
+   */
+  spanFactor: number;
 };
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
@@ -967,6 +978,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       camRound: null,
       camRule: null,
       musicNeedsRestart: false,
+      spanFactor: 1,
     };
 
     if (match.watchingId) net.watch(match.watchingId);
@@ -1019,6 +1031,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     rebuildViewRound();
+    // La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
+    // sinon elle promet du temps que le serveur ne donne pas.
+    const base = windowMs(match.idx);
+    match.spanFactor = match.round && base > 0 ? match.round.durationMs / base : 1;
     renderPlates();
     syncFooter();
   }
@@ -1526,7 +1542,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     );
     match.progress = progress;
 
-    if (outcome.kind === "pending") return { consumed: true };
+    // Le pas intermédiaire remonte désormais : sans lui, main.ts n'avait rien à
+    // afficher entre le premier et le dernier geste d'une séquence.
+    if (outcome.kind === "pending") return { consumed: true, feel: outcome };
 
     match.preview = outcome;
     match.localDone = true;
@@ -1586,7 +1604,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       };
     }
 
-    const span = Math.max(1, match.deadline - match.startAt);
+    // Fenêtre PERSONNELLE : l'échéance diffusée vaut pour la manche partagée,
+    // le facteur porte la déformation de ma règle.
+    const span = Math.max(1, (match.deadline - match.startAt) * match.spanFactor);
     const ratio = clamp01((net.clock.now() - match.startAt) / span);
     const elapsed = Math.max(0, net.clock.now() - match.startAt);
 

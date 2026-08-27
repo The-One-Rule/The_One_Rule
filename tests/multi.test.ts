@@ -435,6 +435,97 @@ describe("courbe de tension", () => {
   });
 });
 
+describe("retour au joueur", () => {
+  it("aucune règle multi ne reste sans effet sur son porteur", async () => {
+    // Une règle qui ne peut jamais atteindre celui qui la porte est un avantage
+    // gratuit et invisible. C'est le raisonnement qui a sorti LA VOYELLE du
+    // pool ; L'ACCÉLÉRATION était dans le même cas sans qu'on le voie, parce
+    // que sa déformation porte sur la DURÉE et que le serveur calculait la
+    // fenêtre depuis la manche partagée, donc sans elle.
+    const { MULTI_RULES: MR } = await import("../server/match");
+    const { draftShared, applyRule } = await import("../src/engine/multiround");
+
+    // Règle témoin : aucun levier. Toute différence avec elle est un effet.
+    const NEUTRE = {
+      id: "neutre",
+      name: "NEUTRE",
+      brief: "",
+      traps: false,
+      forbids: () => false,
+      judge: () => null,
+    } as unknown as (typeof MR)[number];
+
+    for (const rule of MR) {
+      let effet = false;
+      for (let idx = 0; idx < 200 && !effet; idx++) {
+        const shared = draftShared(31337, idx);
+        const mien = applyRule(shared, rule, 31337);
+        const temoin = applyRule(shared, NEUTRE, 31337);
+
+        // Effet sur la MANCHE : piège, durée, nombre d'étapes, présentation.
+        const surLaManche =
+          mien.trap !== temoin.trap ||
+          mien.durationMs !== temoin.durationMs ||
+          mien.steps.length !== temoin.steps.length ||
+          mien.hideTextAtMs !== temoin.hideTextAtMs ||
+          mien.falseText !== temoin.falseText ||
+          mien.inkColor !== temoin.inkColor;
+
+        // Effet par le JUGE : certaines règles ne déforment rien et se
+        // contentent de sanctionner un geste (LA SECONDE, LA MAIN GAUCHE).
+        const ctx = { round: mien, elapsedMs: 300 };
+        const gestes = [
+          ...mien.ents.map((e) => ({ kind: "click" as const, ent: e, x: e.x, y: e.y })),
+          { kind: "click" as const, ent: null, x: 0, y: 0 },
+          { kind: "key" as const, key: "A" },
+          { kind: "release" as const, key: " " },
+        ];
+        const parLeJuge = gestes.some((g) => rule.judge(g, ctx) !== null);
+
+        effet = surLaManche || parLeJuge;
+      }
+      expect(effet, `${rule.name} n'a aucun effet observable sur son porteur`).toBe(true);
+    }
+  });
+
+  it("la fenêtre jugée par le serveur suit la règle du joueur", async () => {
+    // L'ACCÉLÉRATION retranche 30 % à la durée. Si le serveur juge sur la durée
+    // partagée, son porteur dispose en réalité de la fenêtre pleine — et
+    // symétriquement, si le client affiche la fenêtre pleine alors que le
+    // serveur a déjà fermé la sienne, le joueur respecte la consigne et rien
+    // ne se valide. Les deux doivent lire la même durée.
+    const { MatchLogic: ML, MULTI_RULES: MR } = await import("../server/match");
+    const accel = MR.find((r) => r.id === "acceleration");
+    expect(accel, "L'ACCÉLÉRATION doit être dans le pool multi").toBeTruthy();
+
+    // Table pleine : l'attribution donne une règle distincte par siège, donc
+    // quelqu'un porte forcément L'ACCÉLÉRATION. Avec deux sièges seulement,
+    // elle n'était jamais distribuée et le test ne prouvait rien.
+    const ids = Array.from({ length: MR.length }, (_, i) => `p${i}`);
+    const m = new ML(4242, ids);
+    const { durationMs } = m.openRound();
+
+    const rules = m.rulesAt(0);
+    const porteur = [...rules.entries()].find(([, r]) => r.id === "acceleration")?.[0];
+    expect(porteur, "à table pleine, quelqu'un porte L'ACCÉLÉRATION").toBeTruthy();
+    const autre = [...rules.entries()].find(([, r]) => r.id !== "acceleration")?.[0];
+    expect(autre).toBeTruthy();
+
+    // Un geste à 85 % de la fenêtre partagée : hors de la fenêtre personnelle
+    // du porteur (70 %), mais dans celle de tous les autres.
+    const tardif = Math.round(durationMs * 0.85);
+    const clic = { kind: "click" as const, ent: null, x: 0, y: 0 };
+    expect(
+      m.input(porteur!, 0, clic, tardif),
+      "L'ACCÉLÉRATION : action hors fenêtre personnelle, le serveur ne juge pas",
+    ).toBeNull();
+    expect(
+      m.input(autre!, 0, clic, tardif),
+      "même instant, sans la règle : le serveur juge normalement",
+    ).not.toBeNull();
+  });
+});
+
 describe("multijoueur jouable au doigt", () => {
   it("ne tire JAMAIS de consigne clavier dans la scène partagée", async () => {
     // Constaté en bêta : « APPUIE SUR B » puis « APPUIE SUR K » sur téléphone,
