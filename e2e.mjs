@@ -12,7 +12,7 @@ const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 
 function client(name, key, rookie = false) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
+  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
@@ -20,6 +20,9 @@ function client(name, key, rookie = false) {
     if (m.t === "room") c.room = m;
     if (m.t === "match_start") { c.seed = m.seed; c.rules = m.rules; }
     if (m.t === "round") {
+      // Index de la manche EN COURS, lu et non deduit : le deviner depuis le
+      // nombre de verdicts recus rendait les tests dependants du minutage.
+      c.roundIdx = m.idx;
       if (m.rules) c.rules = m.rules;
       const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
       if (!rule || name === "CHLOE") return;
@@ -128,6 +131,84 @@ ok(
   "hôte exclut CHLOÉ : connexion fermée",
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
+
+// LE GAUCHER : un clic HORS de la zone interdite ne doit pas tuer.
+//
+// Le fil ne transporte qu'un index de piece, jamais de coordonnees. Le serveur
+// posait donc x:0 en dur, et LE GAUCHER (qui interdit x < 200) declarait une
+// infraction a CHAQUE clic. Constate en soiree : « des qu'un joueur l'obtient,
+// il est assure de perdre ». On rejoue ici le chemin complet — vrai serveur,
+// vrai client ws — sur une piece situee hors de la zone.
+{
+  const { MatchLogic: ML } = await import("./server/match.ts");
+  const { draftShared, applyRule } = await import("./src/engine/multiround.ts");
+  const { ONE_RULES: RULES } = await import("./src/engine/rules/index.ts");
+  const gaucher = RULES.find((r) => r.id === "gaucher");
+
+  // L'ordre des sieges suit l'ordre d'arrivee, et rulesAt(0) distribue
+  // MULTI_RULES dans l'ordre : le QUATRIEME arrivant porte LE GAUCHER des la
+  // manche 0. Aucune attente de rotation, donc aucun aleatoire.
+  const rangGaucher = new ML(1, ["a", "b", "c", "d"]);
+  const porteur = [...rangGaucher.rulesAt(0).entries()].find(([, r]) => r.id === "gaucher")?.[0];
+  ok(porteur === "d", `le 4e siege porte LE GAUCHER des la manche 0 (got ${porteur})`);
+
+  const eq = [];
+  for (const n of ["G1", "G2", "G3", "GAUCHER"]) eq.push(await client(n, "cle-" + n));
+  eq[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = eq[0].room.code;
+  for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(180); }
+  await sleep(300);
+  eq[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(3400);
+
+  const cible = eq[3];
+  ok(cible.rules[cible.id] === "gaucher", "le 4e client porte bien LE GAUCHER");
+
+  // Il clique la piece la PLUS A DROITE a chaque manche. Ce sera souvent la
+  // mauvaise cible — peu importe : on verifie seulement que le motif de mort
+  // n'est JAMAIS « zone interdite », qui etait le verdict systematique avant.
+  const motifs = [];
+  let vus = 0;
+  let dernier = -1;
+  const limite = Date.now() + 30000;
+  while (vus < 5 && Date.now() < limite) {
+    // On agit sur la manche que le serveur vient d'ouvrir, jamais sur une
+    // manche devinee : sinon l'input est rejete et le test ne prouve rien.
+    if (cible.roundIdx === dernier || cible.roundIdx < 0 || !cible.seed) {
+      await sleep(80);
+      continue;
+    }
+    const idx = cible.roundIdx;
+    dernier = idx;
+    const round = applyRule(draftShared(cible.seed, idx), gaucher, cible.seed);
+    let plusADroite = -1;
+    let maxX = -1;
+    round.ents.forEach((e, i) => { if (e.x > maxX) { maxX = e.x; plusADroite = i; } });
+    if (plusADroite < 0 || maxX < 260) continue;
+
+    vus++;
+    cible.ws.send(JSON.stringify({ t: "input", round: idx, at: Date.now() + cible.offset, action: { k: "c", i: plusADroite } }));
+    if (process.env.DIAG) {
+      console.log(`  diag: idx=${idx} i=${plusADroite} x=${Math.round(maxX)} trap=${round.trap} steps=${round.steps.length}`);
+    }
+    // On attend le verdict de CETTE manche, pas une duree arbitraire.
+    const fin = Date.now() + 8000;
+    while (!cible.verdicts.some((v) => v.idx === idx) && Date.now() < fin) await sleep(60);
+    const mien = cible.verdicts.find((v) => v.idx === idx)?.outcomes?.[cible.id];
+    if (process.env.DIAG) console.log(`  diag: verdict[${idx}] =`, JSON.stringify(mien));
+    if (mien?.kind === "death") motifs.push(String(mien.reason));
+  }
+  ok(vus > 0, `des manches ont pu etre testees sous LE GAUCHER (${vus})`);
+
+  const zone = motifs.filter((m) => m.includes("ZONE INTERDITE"));
+  ok(
+    zone.length === 0,
+    `aucun clic hors zone n'est declare infraction (motifs vus : ${motifs.join(" | ") || "aucune mort"})`,
+  );
+  for (const c of eq) c.ws.close();
+  await sleep(250);
+}
 
 // Spectateur : rejoindre PENDANT une partie doit donner de quoi la suivre.
 //
@@ -275,9 +356,17 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   await sleep(400);
   const doraApres = dora.room?.players?.find((p) => p.name === "DORA");
   ok(!dora.ended, "REJOINDRE en étant déjà dans le salon n'annule pas le match");
+  /*
+   * On vérifie qu'il n'y a pas eu FORFAIT, pas que le compteur de vies est
+   * figé. Le match tourne pendant la mesure : DORA peut perdre une vie
+   * légitimement entre les deux lectures, selon la règle qu'elle porte. Une
+   * égalité stricte rendait donc le test dépendant du hasard — constaté, il
+   * tombait une fois sur trois. Le forfait, lui, met les vies à zéro et
+   * élimine : c'est ça, et seulement ça, que le chemin cassé produisait.
+   */
   ok(
-    doraApres && doraAvant && doraApres.lives === doraAvant.lives,
-    `REJOINDRE ne coûte aucune vie (${doraAvant?.lives} → ${doraApres?.lives})`,
+    doraApres && doraApres.lives > 0 && doraApres.spectator === false,
+    `REJOINDRE ne déclare pas forfait (vies ${doraAvant?.lives} → ${doraApres?.lives}, spectateur ${doraApres?.spectator})`,
   );
 
   // Une clé différente ne doit RIEN pouvoir reprendre.

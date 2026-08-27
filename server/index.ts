@@ -600,9 +600,38 @@ wss.on("connection", (ws) => {
         // `maxPayload` autoriserait une chaîne de 4 Ko dans chaque input.
         const key = String(a.key ?? "").slice(0, 16);
 
+        /*
+         * La position du clic vient de l'ENTITÉ, reconstruite par le serveur.
+         *
+         * Elle valait `x: 0` en dur, parce que le fil ne transporte qu'un index
+         * — décision volontaire de l'anti-triche : le serveur ne doit rien
+         * croire du client, et il n'a aucune idée de sa résolution.
+         *
+         * Mais une règle JUGE sur cette position. LE GAUCHER interdit la
+         * première colonne (`a.x < 200`), donc avec x = 0 elle déclarait une
+         * infraction à CHAQUE clic, où qu'on clique. Constaté en soirée de
+         * test : « dès qu'un joueur l'obtient, il est assuré de perdre ». Le
+         * solo n'était pas touché — main.ts, lui, envoie les vraies
+         * coordonnées de champ.
+         *
+         * Le serveur a l'information : il reconstruit la scène, donc il connaît
+         * `ent.x`. On juge là-dessus — autorité conservée, sans rien demander
+         * au client.
+         *
+         * Clic dans le vide : on ne sait pas où, et prétendre « en (0,0) »
+         * ferait mentir la règle. NaN ne satisfait aucune comparaison, donc
+         * aucune règle de zone ne se déclenche et le verdict honnête —
+         * « TU AS CLIQUÉ DANS LE VIDE » — reprend la main.
+         */
+        const ent = a.k === "c" ? match.entityOf(client.id, i) : null;
         const action =
           a.k === "c"
-            ? { kind: "click" as const, ent: match.entityOf(client.id, i), x: 0, y: 0 }
+            ? {
+                kind: "click" as const,
+                ent,
+                x: ent ? ent.x : Number.NaN,
+                y: ent ? ent.y : Number.NaN,
+              }
             : a.k === "k"
               ? { kind: "key" as const, key }
               : { kind: "release" as const, key };

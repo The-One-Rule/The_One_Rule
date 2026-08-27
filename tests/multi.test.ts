@@ -435,6 +435,62 @@ describe("courbe de tension", () => {
   });
 });
 
+describe("les règles jugent sur la bonne position", () => {
+  it("LE GAUCHER ne punit QUE la première colonne", async () => {
+    /*
+     * Le fil ne transporte qu'un index de pièce, jamais de coordonnées. Le
+     * serveur posait donc `x: 0` en dur — et LE GAUCHER, qui interdit
+     * `a.x < 200`, déclarait une infraction à CHAQUE clic, où qu'on clique.
+     * Constaté en soirée : « dès qu'un joueur l'obtient, il est assuré de
+     * perdre ». Le solo n'était pas touché, d'où l'invisibilité du défaut.
+     *
+     * On rejoue ici ce que fait le serveur : juger avec la position de
+     * l'entité qu'il a lui-même reconstruite.
+     */
+    const { ONE_RULES: RULES } = await import("../src/engine/rules");
+    const { draftShared, applyRule } = await import("../src/engine/multiround");
+    const gaucher = RULES.find((r) => r.id === "gaucher")!;
+
+    let dehors = 0;
+    let dedans = 0;
+    for (let idx = 0; idx < 120; idx++) {
+      const round = applyRule(draftShared(9182, idx), gaucher, 9182);
+      for (const e of round.ents) {
+        const verdict = gaucher.judge(
+          { kind: "click", ent: e, x: e.x, y: e.y },
+          { round, elapsedMs: 300 },
+        );
+        if (e.x < 200) {
+          dedans++;
+          expect(verdict, `pièce en x=${e.x} : l'infraction doit tomber`).not.toBeNull();
+        } else {
+          dehors++;
+          expect(verdict, `pièce en x=${e.x} : AUCUNE infraction ne doit tomber`).toBeNull();
+        }
+      }
+    }
+    // Le balayage doit avoir vu les deux cas, sinon il ne prouve rien.
+    expect(dehors).toBeGreaterThan(50);
+    expect(dedans).toBeGreaterThan(0);
+  });
+
+  it("une position inconnue ne déclenche aucune règle de zone", async () => {
+    // Clic dans le vide : le serveur envoie NaN plutôt que (0,0), sinon la
+    // règle mentirait en annonçant la zone interdite au lieu du vrai motif.
+    const { ONE_RULES: RULES } = await import("../src/engine/rules");
+    const { draftShared, applyRule } = await import("../src/engine/multiround");
+    const gaucher = RULES.find((r) => r.id === "gaucher")!;
+    const round = applyRule(draftShared(1, 0), gaucher, 1);
+
+    expect(
+      gaucher.judge(
+        { kind: "click", ent: null, x: Number.NaN, y: Number.NaN },
+        { round, elapsedMs: 300 },
+      ),
+    ).toBeNull();
+  });
+});
+
 describe("accueil du débutant", () => {
   it("donne une vie de plus, et à lui seul", async () => {
     const { MatchLogic: ML } = await import("../server/match");
