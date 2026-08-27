@@ -82,6 +82,8 @@ interface Client {
   key: string;
   /** Armé à la coupure : abandonne le siège si personne ne le réclame. */
   graceTimer: ReturnType<typeof setTimeout> | null;
+  /** Se déclare en première partie — annoncé publiquement, voir startMatch. */
+  rookie: boolean;
 }
 
 interface Room {
@@ -190,6 +192,9 @@ function publicPlayers(room: Room): PlayerPublic[] {
       spectator: room.match !== null && !seat,
       connected: c.ws.readyState === WebSocket.OPEN,
       glyph: c.glyph,
+      // Hors match, on montre son intention ; en match, ce que le siège porte
+      // réellement — sinon un joueur pourrait s'annoncer débutant après coup.
+      rookie: seat ? seat.rookie : c.rookie,
       // Un joueur au-delà de INPUT_TOLERANCE_MS de latence voit ses temps
       // gonflés : le serveur refuse d'horodater plus de 120 ms dans le passé
       // (anti-triche). La médiane limite le bruit sans corriger ce biais —
@@ -214,10 +219,31 @@ const roomState = (room: Room): ServerMsg => ({
 function startMatch(room: Room): void {
   const ids = [...room.clients.keys()];
   const seed = (Math.random() * 2 ** 31) | 0;
-  room.match = new MatchLogic(seed, ids, room.settings);
+  /*
+   * Accueil du débutant. Le serveur n'a aucune mémoire entre les salons : il
+   * ne peut donc pas VÉRIFIER qu'un joueur est nouveau, seulement le croire.
+   * La garantie contre l'abus n'est pas technique, elle est sociale — le
+   * statut s'affiche sur la plaque, tout le salon le voit. Entre amis, ça
+   * suffit ; et le jour où un classement comptera, il ne passera pas par ici.
+   */
+  const rookies = new Set(
+    [...room.clients.values()].filter((c) => c.rookie).map((c) => c.id),
+  );
+  room.match = new MatchLogic(seed, ids, room.settings, rookies);
 
   const rules: Record<string, string> = {};
   for (const [id, rule] of room.match.rulesAt(0)) rules[id] = rule.id;
+
+  /*
+   * État du salon AVANT match_start, et l'ordre compte.
+   *
+   * `publicPlayers` lit les vies dans les sièges ; tant que le match n'existait
+   * pas, il retombait sur le réglage du salon. Les clients gardaient donc les
+   * vies de réglage pendant tout le compte à rebours, et ne les corrigeaient
+   * qu'au premier verdict — un débutant affichait 3 vies au lieu de 4 devant
+   * tout le monde. `beginMatch` lit cette liste : elle doit arriver d'abord.
+   */
+  broadcast(room, roomState(room));
 
   const firstRoundAt = now() + COUNTDOWN_MS;
   broadcast(room, { t: "match_start", seed, rules, firstRoundAt, settings: room.settings });
@@ -350,6 +376,7 @@ wss.on("connection", (ws) => {
     lastChatAt: 0,
     key: "",
     graceTimer: null,
+    rookie: false,
   };
   client.glyph = glyphFor(client.id);
 
@@ -369,6 +396,7 @@ wss.on("connection", (ws) => {
         }
         client.name = String(msg.name ?? "").slice(0, 14).toUpperCase() || "ANONYME";
         client.key = String(msg.key ?? "").slice(0, 32);
+        client.rookie = msg.rookie === true;
         client.glyph = parseGlyph(msg.glyph, client.id);
         send(client, { t: "welcome", id: client.id });
         return;

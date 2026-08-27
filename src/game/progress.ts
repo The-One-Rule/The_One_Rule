@@ -20,6 +20,15 @@ export interface Save {
   coins: number;
   /** identité du classé : pseudo court et dernier classement connu */
   ranked: { name: string; rating: number; games: number };
+  /**
+   * Identité multijoueur.
+   *
+   * `glyph` est la variante de signe choisie par le joueur — le vocabulaire
+   * en compte 144, et aucun n'était jusqu'ici montré ni choisi. `matches`
+   * compte les parties terminées : à zéro, on est nouveau, et c'est ce qui
+   * déclenche l'accueil du débutant.
+   */
+  multi: { glyph: number; matches: number };
   sound: boolean;
   music: boolean;
   bestTraining: number;
@@ -37,6 +46,7 @@ const fresh = (): Save => ({
   quests: { day: -1, state: {}, claimed: [] },
   coins: 0,
   ranked: { name: "", rating: 1000, games: 0 },
+  multi: { glyph: 0, matches: 0 },
   sound: true,
   music: true,
   bestTraining: 0,

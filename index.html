@@ -168,6 +168,36 @@
         </div>
       </section>
 
+      <!-- MULTI — IDENTITÉ -->
+      <section class="screen hidden" id="multi-id">
+        <div class="screen__scroll">
+          <p class="eyebrow">MULTIJOUEUR</p>
+          <h2 class="rulename">TON SIGNE</h2>
+          <p class="lede">
+            Ton nom et ton signe te suivent dans tous les salons.
+            C'est à ça que les autres te reconnaissent.
+          </p>
+          <div class="fieldrow">
+            <input
+              class="field field--name"
+              id="idName"
+              type="text"
+              maxlength="14"
+              spellcheck="false"
+              autocomplete="off"
+              placeholder="TON NOM"
+              aria-label="Ton nom"
+            />
+          </div>
+          <div class="glyphpick" id="idGlyphs" role="radiogroup" aria-label="Ton signe"></div>
+          <p class="warn hidden" id="idErr"></p>
+          <div class="btnrow">
+            <button class="btn btn--primary" id="btnIdOk">CONTINUER</button>
+            <button class="btn btn--ghost" id="btnIdBack">RETOUR</button>
+          </div>
+        </div>
+      </section>
+
       <!-- MULTI — REJOINDRE -->
       <section class="screen hidden" id="multi-join">
         <div class="screen__scroll">
@@ -193,6 +223,7 @@
           <div class="btnrow">
             <button class="btn btn--primary" id="btnMultiCreate">CRÉER UN SALON</button>
             <button class="btn" id="btnMultiJoin">REJOINDRE</button>
+            <button class="btn btn--ghost" id="btnMultiIdentity">CHANGER DE SIGNE</button>
             <button class="btn btn--ghost" id="btnMultiJoinBack">RETOUR</button>
           </div>
         </div>

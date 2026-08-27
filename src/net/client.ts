@@ -84,7 +84,7 @@ export class NetClient {
    * en spectateur avec une identité neuve. Sans clé, tout fonctionne — on perd
    * seulement la reprise après coupure.
    */
-  connect(name: string, glyph?: Glyph, key?: string): Promise<void> {
+  connect(name: string, glyph?: Glyph, key?: string, rookie = false): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
       /** Vrai seulement après un `welcome` : distingue « jamais établie » de
@@ -118,7 +118,7 @@ export class NetClient {
       }, 8000);
 
       ws.onopen = () => {
-        this.send({ t: "hello", v: PROTOCOL_VERSION, name, glyph: glyph ?? undefined, key });
+        this.send({ t: "hello", v: PROTOCOL_VERSION, name, glyph: glyph ?? undefined, key, rookie });
         // rafale initiale : l'horloge doit être prête avant la première manche
         for (let i = 0; i < 5; i++) setTimeout(() => this.ping(), i * 120);
         this.pingTimer = setInterval(() => this.ping(), 5000);

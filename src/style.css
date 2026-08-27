@@ -741,6 +741,36 @@ body {
   display: none;
 }
 
+/*
+ * Première partie, annoncée.
+ *
+ * Un handicap caché se découvre, et il transforme alors une victoire en
+ * fraude. Affiché, il fait l'inverse : il dit au salon « celui-là débute »,
+ * ce qui change la lecture de ses erreurs — et c'est aussi la seule protection
+ * contre l'abus, le serveur n'ayant aucun moyen de vérifier la déclaration.
+ */
+.plate--rookie {
+  border-color: var(--signal);
+}
+
+.plate--rookie::before {
+  content: "1RE PARTIE";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  padding: 2px 6px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  background: var(--signal);
+}
+
+/* En colonnes serrées, la mention mangerait le nom : le liseré suffit. */
+.plates--compact .plate--rookie::before {
+  content: "1RE";
+}
+
 #app:not(.has-gutters) .plates--compact .plate__react {
   display: none;
 }
@@ -1216,6 +1246,70 @@ button.chip:active:not(:disabled) {
   min-height: var(--tap);
   /* Pas d'`outline: none` : c'est le champ où l'on tape le code d'un salon,
      donc exactement celui qu'il ne faut pas perdre au clavier. */
+}
+
+/*
+ * Champ de NOM : même famille que le champ de code, mais un nom se lit, il ne
+ * s'épelle pas. On enlève donc l'interlettrage de dictée et on laisse la place
+ * aux 14 caractères autorisés.
+ */
+.field--name {
+  width: min(100%, 18ch);
+  font-size: 18px;
+  letter-spacing: 0.12em;
+  padding: 12px 14px;
+}
+
+/*
+ * Choix du signe.
+ *
+ * Le vocabulaire compte 144 signes et aucun n'était montré au joueur : chacun
+ * héritait du sien sans le savoir ni pouvoir en changer. On en propose huit,
+ * dérivés du même identifiant local — c'est assez pour que le choix existe,
+ * assez peu pour qu'il se fasse en trois secondes.
+ *
+ * Pas de téléversement d'image, pour la raison écrite dans net/glyph.ts : sans
+ * compte ni modération, un salon partagé finit toujours de la même façon.
+ */
+.glyphpick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px 0 4px;
+}
+
+.glyphpick__opt {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: border-color 120ms linear;
+}
+
+.glyphpick__opt[aria-checked="true"] {
+  border-color: var(--paper);
+}
+
+/* Le signe choisi ne doit pas dépendre de la seule couleur de bordure :
+   un second canal, comme les motifs des signes eux-mêmes. */
+.glyphpick__opt[aria-checked="true"]::after {
+  content: "";
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--paper);
+  transform: translate(3px, 3px);
+  pointer-events: none;
+}
+
+.glyphpick__opt {
+  position: relative;
 }
 
 .field:focus {

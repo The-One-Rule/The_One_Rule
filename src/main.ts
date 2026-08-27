@@ -134,7 +134,16 @@ function syncField(): void {
   appEl.classList.toggle("has-gutters", next);
 }
 
-const SCREENS = ["home", "brief", "over", "codex", "multi-join", "multi-lobby", "multi-end"] as const;
+const SCREENS = [
+  "home",
+  "brief",
+  "over",
+  "codex",
+  "multi-id",
+  "multi-join",
+  "multi-lobby",
+  "multi-end",
+] as const;
 type ScreenId = (typeof SCREENS)[number] | null;
 
 let screen: ScreenId = "home";

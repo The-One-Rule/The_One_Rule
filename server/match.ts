@@ -22,6 +22,7 @@ import {
   INTERLUDE_MS,
   MAX_ROUND_MS,
   MIN_ROUND_MS,
+  ROOKIE_BONUS_LIVES,
   STATS_MIN_SAMPLES,
 } from "../shared/protocol";
 import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol";
@@ -68,6 +69,8 @@ export interface Seat {
    * Absent n'est pas battu : c'est une pause, pas un verdict.
    */
   away: boolean;
+  /** Première partie : une vie de plus, annoncée publiquement. */
+  rookie: boolean;
   stats: SeatStats;
 }
 
@@ -102,18 +105,28 @@ export class MatchLogic {
   private shared: SharedRound | null = null;
   private states = new Map<string, PlayerRoundState>();
 
-  constructor(seed: number, playerIds: string[], settings: RoomSettings = DEFAULT_SETTINGS) {
+  constructor(
+    seed: number,
+    playerIds: string[],
+    settings: RoomSettings = DEFAULT_SETTINGS,
+    /** Sièges qui jouent leur première partie — une vie de plus chacun. */
+    rookies: ReadonlySet<string> = new Set(),
+  ) {
     this.seed = seed;
     this.settings = settings;
-    this.seats = playerIds.map((id, i) => ({
-      id,
-      lives: settings.lives,
-      score: 0,
-      seat: i,
-      eliminated: false,
-      away: false,
-      stats: emptySeatStats(),
-    }));
+    this.seats = playerIds.map((id, i) => {
+      const rookie = rookies.has(id);
+      return {
+        id,
+        lives: settings.lives + (rookie ? ROOKIE_BONUS_LIVES : 0),
+        score: 0,
+        seat: i,
+        eliminated: false,
+        away: false,
+        rookie,
+        stats: emptySeatStats(),
+      };
+    });
   }
 
   /**

@@ -10,9 +10,9 @@ await import("./server/index.ts");
 const { buildMultiRound } = await import("./src/engine/multiround.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 
-function client(name, key) {
+function client(name, key, rookie = false) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, key, ws, id: "", room: null, seed: 0, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
+  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
@@ -42,7 +42,7 @@ function client(name, key) {
     if (m.t === "chat") c.chats.push(m);
     if (m.t === "error") c.errors.push(m);
   });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -129,6 +129,45 @@ ok(
 );
 ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : absente du room suivant");
 
+// Accueil du débutant : une vie de plus, annoncée à tout le salon.
+{
+  const ancien = await client("ANCIEN", "cle-ancien", false);
+  ancien.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(200);
+  const code = ancien.room.code;
+  const bleu = await client("BLEU", "cle-bleu", true);
+  bleu.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(250);
+  // Le statut circule dès le salon...
+  const auSalon = ancien.room?.players ?? [];
+  ok(
+    auSalon.find((p) => p.name === "BLEU")?.rookie === true,
+    "le débutant est annoncé aux autres dès le salon (statut public)",
+  );
+  ok(
+    auSalon.find((p) => p.name === "ANCIEN")?.rookie === false,
+    "l'habitué n'est pas marqué débutant",
+  );
+
+  ancien.ws.send(JSON.stringify({ t: "start" }));
+  // Les vies de SIÈGE sont publiées dès le lancement : startMatch rediffuse
+  // l'état du salon avant match_start. On les lit donc AVANT qu'une manche
+  // soit jouée — sinon une mort légitime en manche 0 rendrait le test
+  // dépendant de la règle tirée, donc du hasard.
+  await sleep(300);
+  const enJeu = ancien.room?.players ?? [];
+  const pBleu = enJeu.find((p) => p.name === "BLEU");
+  const pAncien = enJeu.find((p) => p.name === "ANCIEN");
+  ok(!!pBleu && !!pAncien, "état des sièges publié dès le lancement");
+  ok(
+    pBleu && pAncien && pBleu.lives === pAncien.lives + 1,
+    `le débutant a une vie de plus (${pAncien?.lives} → ${pBleu?.lives})`,
+  );
+
+  for (const c of [ancien, bleu]) c.ws.close();
+  await sleep(200);
+}
+
 // Reprise de siège après coupure — le cas NORMAL sur mobile.
 //
 // Avant : l'identifiant était attribué par connexion, donc ws.close()
@@ -145,7 +184,20 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   dora.ws.send(JSON.stringify({ t: "start" }));
   await sleep(3600); // compte à rebours + une manche entamée
 
-  const avant = emil.room?.players?.find((p) => p.name === "EMIL");
+  /*
+   * Référence prise sur le DERNIER VERDICT, pas sur le dernier message `room`.
+   *
+   * Les messages `room` d'avant le lancement annoncent les vies de réglage, pas
+   * celles du siège. Comparer à cette valeur rendait le test dépendant du
+   * hasard : selon la règle unique tirée, EMIL peut mourir légitimement pendant
+   * la manche qui précède la coupure, et l'écart constaté n'aurait alors plus
+   * rien à voir avec son absence. Les verdicts, eux, portent l'état réel.
+   */
+  const t0v = Date.now();
+  while (emil.verdicts.length === 0 && Date.now() - t0v < 12000) await sleep(150);
+  const dernier = emil.verdicts[emil.verdicts.length - 1];
+  const avant = dernier?.players?.find((p) => p.name === "EMIL");
+  ok(!!avant, "état d'EMIL relevé sur un verdict avant la coupure");
   const idAvant = emil.id;
   emil.ws.close();
   // Assez long pour que plusieurs manches passent : un absent ne doit PAS

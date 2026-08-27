@@ -435,6 +435,42 @@ describe("courbe de tension", () => {
   });
 });
 
+describe("accueil du débutant", () => {
+  it("donne une vie de plus, et à lui seul", async () => {
+    const { MatchLogic: ML } = await import("../server/match");
+    const { DEFAULT_SETTINGS, ROOKIE_BONUS_LIVES } = await import("../shared/protocol");
+
+    const m = new ML(7, ["neuf", "habitue"], DEFAULT_SETTINGS, new Set(["neuf"]));
+    const neuf = m.seats.find((s) => s.id === "neuf")!;
+    const habitue = m.seats.find((s) => s.id === "habitue")!;
+
+    expect(neuf.lives).toBe(DEFAULT_SETTINGS.lives + ROOKIE_BONUS_LIVES);
+    expect(habitue.lives).toBe(DEFAULT_SETTINGS.lives);
+    expect(neuf.rookie).toBe(true);
+    expect(habitue.rookie).toBe(false);
+  });
+
+  it("respecte le réglage de vies du salon", async () => {
+    // Le bonus s'AJOUTE au réglage de l'hôte, il ne le remplace pas : un salon
+    // à une vie reste un salon à une vie, avec un débutant à deux.
+    const { MatchLogic: ML } = await import("../server/match");
+    const { ROOKIE_BONUS_LIVES } = await import("../shared/protocol");
+    for (const lives of [1, 3, 5]) {
+      const m = new ML(7, ["n"], { speed: 1, lives, rotationEvery: 8 }, new Set(["n"]));
+      expect(m.seats[0]!.lives).toBe(lives + ROOKIE_BONUS_LIVES);
+    }
+  });
+
+  it("sans déclaration, personne n'a de bonus", async () => {
+    const { MatchLogic: ML, MULTI_RULES: MR } = await import("../server/match");
+    const { DEFAULT_SETTINGS } = await import("../shared/protocol");
+    const ids = Array.from({ length: MR.length }, (_, i) => `p${i}`);
+    const m = new ML(7, ids, DEFAULT_SETTINGS);
+    expect(m.seats.every((s) => s.lives === DEFAULT_SETTINGS.lives)).toBe(true);
+    expect(m.seats.some((s) => s.rookie)).toBe(false);
+  });
+});
+
 describe("retour au joueur", () => {
   it("aucune règle multi ne reste sans effet sur son porteur", async () => {
     // Une règle qui ne peut jamais atteindre celui qui la porte est un avantage

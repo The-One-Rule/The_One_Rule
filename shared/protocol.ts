@@ -138,6 +138,8 @@ export interface PlayerPublic {
   spectator: boolean;
   connected: boolean;
   glyph: Glyph;
+  /** Première partie : porte une vie de plus, et tout le salon le voit. */
+  rookie: boolean;
   stats: PlayerStats;
 }
 
@@ -164,10 +166,25 @@ export type RoundOutcome =
  */
 export const RECONNECT_GRACE_MS = 25_000;
 
+/**
+ * Vie supplémentaire pour une première partie.
+ *
+ * Un nouveau invité par un ami meurt en trois manches devant cinq personnes,
+ * et ne revient pas. La vie de plus ne le fait pas gagner — elle lui laisse le
+ * temps de comprendre que la règle unique existe.
+ *
+ * Le statut est ANNONCÉ sur la plaque, et ce n'est pas décoratif : le serveur
+ * ne peut pas vérifier qu'un joueur est nouveau (il n'a aucune mémoire entre
+ * les salons), donc la seule garantie contre l'abus est que tout le monde le
+ * voie. Entre amis, c'est amplement suffisant ; et le jour où le classement
+ * comptera vraiment, ce mode-là n'en fera pas partie.
+ */
+export const ROOKIE_BONUS_LIVES = 1;
+
 export type ClientMsg =
   /** `key` est un identifiant local stable : c'est lui qui permet de
    *  retrouver son siège après une coupure. Absent = joueur éphémère. */
-  | { t: "hello"; v: number; name: string; glyph?: Glyph; key?: string }
+  | { t: "hello"; v: number; name: string; glyph?: Glyph; key?: string; rookie?: boolean }
   | { t: "create" }
   | { t: "join"; code: string }
   | { t: "leave" }

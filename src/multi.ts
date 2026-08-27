@@ -21,7 +21,7 @@ import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
 import { track } from "./analytics";
 import { NetClient } from "./net/client";
-import { glyphFor, glyphSvg } from "./net/glyph";
+import { glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
 import { musicApi, sfx, unlock } from "./audio";
@@ -31,7 +31,7 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 /** Libellés d'interface uniquement — le fil ne transporte que l'index. */
 const EMOTE_LABELS = ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"] as const;
 
-export type MultiScreen = "multi-join" | "multi-lobby" | "multi-end";
+export type MultiScreen = "multi-id" | "multi-join" | "multi-lobby" | "multi-end";
 
 export type ShowFn = (id: MultiScreen | "home" | null) => void;
 
@@ -145,16 +145,25 @@ function inviteUrl(code: string): string {
   return `${base}#j=${code}`;
 }
 
-function ensurePseudo(): string | null {
+/**
+ * Nom enregistré, ou null.
+ *
+ * Ne demande plus rien : la saisie passe par l'écran d'identité. Un `prompt()`
+ * natif ouvrait une boîte système au milieu du jeu — hors identité visuelle,
+ * bloquante, et sur téléphone elle recouvre l'écran sans prévenir. C'était la
+ * toute première chose que rencontrait un joueur invité par un ami.
+ */
+function savedName(): string | null {
+  return P.load().ranked.name || null;
+}
+
+/** Nombre de signes proposés au choix. Assez pour choisir, pas pour hésiter. */
+const GLYPH_CHOICES = 8;
+
+/** Le signe du joueur : la variante qu'il a retenue de son identifiant local. */
+function myGlyph(): Glyph {
   const s = P.load();
-  if (s.ranked.name) return s.ranked.name;
-  const asked = prompt("Ton pseudo (14 caractères max) :", "")?.trim();
-  if (!asked) return null;
-  const name = asked.slice(0, 14).toUpperCase();
-  P.mutate((st) => {
-    st.ranked.name = name;
-  });
-  return name;
+  return glyphVariant(s.anonId, s.multi.glyph);
 }
 
 function setJoinErr(msg: string | null): void {
@@ -836,6 +845,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       const classes = ["plate"];
       if (p.id === myId) classes.push("plate--me");
       if (p.lives <= 0) classes.push("plate--out");
+      // Le statut de débutant est PUBLIC, et c'est tout l'intérêt : il change
+      // le regard des autres sur ses erreurs, et c'est la seule chose qui
+      // empêche d'en abuser puisque le serveur ne peut pas le vérifier.
+      if (p.rookie) classes.push("plate--rookie");
       else if (pulse) classes.push(`plate--${pulse}`);
       else if (match!.phase === "round") classes.push("plate--live");
       el.className = classes.join(" ");
@@ -970,7 +983,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       spectator: !!me?.spectator,
       players: lastPlayers.slice(),
       watchingId: spectating ? (firstAlive?.id ?? null) : null,
-      maxLives: roomSettings.lives,
+      // Un débutant porte une vie de plus : borner au réglage du salon
+      // afficherait 4 points dans une jauge qui n'en prévoit que 3. L'état du
+      // salon arrive maintenant AVANT match_start, donc ces vies sont réelles.
+      maxLives: Math.max(roomSettings.lives, ...lastPlayers.map((p) => p.lives), 1),
       nextRoundAt: null,
       pauseMs: 0,
       duelAnnounced: false,
@@ -1228,6 +1244,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function endMatch(msg: Extract<ServerMsg, { t: "match_end" }>): void {
     if (!net) return;
 
+    // Une partie terminée, quel qu'en soit le résultat : on n'est plus
+    // nouveau. Compté à la FIN et non au lancement, pour qu'un salon quitté
+    // pendant le compte à rebours ne consomme pas l'accueil.
+    P.mutate((st) => {
+      st.multi.matches++;
+    });
+
     hideDrama();
     musicApi.stop();
     lastPlayers = mergePlayers(lastPlayers, msg.players);
@@ -1397,6 +1420,61 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (net && !net.connected && lastRoomCode) void attemptRejoin();
   });
 
+  /* ------------------------------------------------------------------ *
+   * Identité
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Ce qu'on voulait faire avant que l'identité manque.
+   *
+   * Volontairement une fonction en attente plutôt qu'une promesse : une
+   * promesse non résolue — écran quitté autrement que par les deux boutons —
+   * laisserait `ensureConnected` bloqué et le bouton MULTIJOUEUR mort jusqu'au
+   * rechargement. On a déjà payé ce bug une fois, on ne le réintroduit pas.
+   */
+  let apresIdentite: (() => void) | null = null;
+  let glyphChoisi = P.load().multi.glyph;
+
+  function renderGlyphPicker(): void {
+    const hote = $("idGlyphs");
+    hote.innerHTML = "";
+    const anon = P.load().anonId;
+    for (let n = 0; n < GLYPH_CHOICES; n++) {
+      const opt = document.createElement("button");
+      opt.type = "button";
+      opt.className = "glyphpick__opt";
+      opt.setAttribute("role", "radio");
+      opt.setAttribute("aria-checked", String(n === glyphChoisi));
+      opt.setAttribute("aria-label", `Signe ${n + 1} sur ${GLYPH_CHOICES}`);
+      opt.innerHTML = glyphSvg(glyphVariant(anon, n), 30);
+      opt.addEventListener("click", () => {
+        glyphChoisi = n;
+        sfx.ui();
+        renderGlyphPicker();
+      });
+      hote.appendChild(opt);
+    }
+  }
+
+  function openIdentity(): void {
+    glyphChoisi = P.load().multi.glyph;
+    $<HTMLInputElement>("idName").value = savedName() ?? "";
+    $("idErr").classList.add("hidden");
+    renderGlyphPicker();
+    show("multi-id");
+  }
+
+  /**
+   * Exige une identité avant d'agir. Retourne vrai si l'écran a été ouvert —
+   * l'appelant s'arrête alors, et `suite` reprendra après CONTINUER.
+   */
+  function needIdentity(suite: () => void): boolean {
+    if (savedName()) return false;
+    apresIdentite = suite;
+    openIdentity();
+    return true;
+  }
+
   /**
    * Revenir tout seul après une coupure.
    *
@@ -1438,7 +1516,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   async function ensureConnected(): Promise<NetClient | null> {
     if (net?.connected) return net;
-    const name = ensurePseudo();
+    const name = savedName();
     if (!name) return null;
     if (connecting) return null;
     connecting = true;
@@ -1458,7 +1536,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // anonId est déjà l'identifiant local persistant du joueur. Le réutiliser
       // évite d'en inventer un second qui pourrait diverger — et c'est lui qui
       // permet de reprendre son siège après une coupure.
-      await net.connect(name, glyphFor(name), P.load().anonId);
+      await net.connect(name, myGlyph(), P.load().anonId, P.load().multi.matches === 0);
       return net;
     } catch {
       if (!errFromServer) setJoinErr("CONNEXION IMPOSSIBLE");
@@ -1629,7 +1707,46 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     };
   }
 
+  $("btnIdOk").addEventListener("click", () => {
+    const brut = $<HTMLInputElement>("idName").value.trim();
+    if (!brut) {
+      $("idErr").textContent = "IL FAUT UN NOM POUR QUE LES AUTRES TE VOIENT";
+      $("idErr").classList.remove("hidden");
+      $<HTMLInputElement>("idName").focus();
+      return;
+    }
+    sfx.ui();
+    const nom = brut.slice(0, 14).toUpperCase();
+    P.mutate((st) => {
+      st.ranked.name = nom;
+      st.multi.glyph = glyphChoisi;
+    });
+    // Le signe part au serveur au prochain `hello` ; si la socket est déjà
+    // ouverte, elle porte encore l'ancien — d'où la fermeture, qui force une
+    // reconnexion propre plutôt qu'une identité qui diverge d'un écran à l'autre.
+    if (net?.connected && !roomCode) {
+      net.close();
+      net = null;
+    }
+    const suite = apresIdentite;
+    apresIdentite = null;
+    if (suite) suite();
+    else show("multi-join");
+  });
+
+  $("btnIdBack").addEventListener("click", () => {
+    sfx.ui();
+    apresIdentite = null;
+    show(savedName() ? "multi-join" : "home");
+  });
+
+  $("btnMultiIdentity").addEventListener("click", () => {
+    sfx.ui();
+    openIdentity();
+  });
+
   btnMulti.addEventListener("click", () => {
+    if (needIdentity(() => void openJoin())) return;
     void openJoin();
   });
 
@@ -1777,6 +1894,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     exitToMenu,
     openFromInvite: (code: string) => {
       track("invite_opened", {});
+      // Arrivée par un lien d'ami : c'est le cas où l'identité manque le plus
+      // souvent, et celui où l'accueil compte le plus.
+      if (needIdentity(() => void openJoin(code))) return;
       void openJoin(code);
     },
     isPlayingMulti,
