@@ -1,6 +1,13 @@
 import "./style.css";
 
-import { DAILY_LENGTH, TIER_NAMES } from "./engine/difficulty";
+import {
+  DAILY_LENGTH,
+  PACE_CHOICES,
+  PACE_DEFAULT,
+  PACE_LABELS,
+  TIER_NAMES,
+  windowMs,
+} from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { ONE_RULES } from "./engine/rules";
 import type { Action, OneRule, Outcome } from "./engine/types";
@@ -244,6 +251,54 @@ function renderHome(): void {
   setMusicEnabled(s.music);
 }
 
+/**
+ * Choix de l'allure, sur l'écran d'annonce et pour l'ENTRAÎNEMENT seulement.
+ *
+ * La courbe de difficulté suppose un joueur qui a automatisé la vérification
+ * de sa règle unique ; un débutant ne l'a pas encore, et il meurt avant de
+ * l'acquérir. L'entraînement est l'endroit prévu pour combler ce trou — et le
+ * seul : le run du jour reste identique pour tout le monde.
+ */
+function renderPace(): void {
+  const box = $("briefPace");
+  const hint = $("briefPaceHint");
+  /*
+   * Pas d'allure sur un DUEL, même s'il passe par le mode entraînement.
+   *
+   * Un duel se compare aux temps de passage d'un fantôme : élargir sa fenêtre
+   * rendrait la comparaison fausse sans que personne ne le voie. Le lien de
+   * défi n'aurait plus le même sens des deux côtés.
+   */
+  const isTraining = pendingMode === "training" && !challenge;
+  box.classList.toggle("hidden", !isTraining);
+  hint.classList.toggle("hidden", !isTraining);
+  if (!isTraining) return;
+
+  const current = P.load().trainingPace;
+  const opts = $("optPace");
+  opts.innerHTML = "";
+  for (const v of PACE_CHOICES) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip" + (v === current ? " is-on" : "");
+    chip.textContent = PACE_LABELS[v] ?? String(v);
+    chip.addEventListener("click", () => {
+      sfx.ui();
+      P.mutate((st) => {
+        st.trainingPace = v;
+      });
+      renderPace();
+    });
+    opts.appendChild(chip);
+  }
+
+  const fenetre = Math.round(windowMs(10) * current);
+  hint.textContent =
+    current === PACE_DEFAULT
+      ? `ALLURE DE RÉFÉRENCE · SEULE CELLE QUI INSCRIT UN RECORD · ${fenetre} MS À LA MANCHE 10`
+      : `${fenetre} MS À LA MANCHE 10 · LE RECORD NE S'INSCRIT QU'EN NORMAL`;
+}
+
 function renderCodex(): void {
   const s = P.load();
   const list = $("codexList");
@@ -297,6 +352,7 @@ function openBrief(mode: Mode): void {
   warn.classList.toggle("hidden", lines.length === 0);
 
   $("btnGo").textContent = hold ? "MAINTIENS ESPACE" : "COMMENCER";
+  renderPace();
   show("brief");
 }
 
@@ -330,6 +386,9 @@ function startRun(): void {
     now: performance.now(),
     seed,
     touchOnly: TOUCH_ONLY,
+    // Un duel rejoue la partie d'un adversaire et se compare à ses temps de
+    // passage : il garde l'allure de référence, quoi qu'ait choisi le joueur.
+    pace: challenge ? PACE_DEFAULT : s.trainingPace,
   });
   hud.setRule(pendingRule);
   hud.hideStamp();
@@ -401,6 +460,7 @@ async function openRanked(): Promise<void> {
     : "AUCUN ADVERSAIRE DISPONIBLE · CE RUN SERVIRA D'ÉTALON AUX SUIVANTS";
   warn.classList.remove("hidden");
   $("btnGo").textContent = rule.watchRelease === " " ? "MAINTIENS ESPACE" : "ENTRER EN LICE";
+  renderPace();
   show("brief");
 }
 
@@ -454,6 +514,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
 function finishRun(): void {
   if (!session?.end) return;
   const { end, rule, mode } = session;
+  const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
 
   const s = P.mutate((st) => {
@@ -475,7 +536,10 @@ function finishRun(): void {
       st.daily = { day, played: true, score: end.score, cleared: end.cleared };
       if (end.cleared) bump(st, "dailyCleared", 1);
       P.touchStreak(st, day);
-    } else {
+    } else if (pace === PACE_DEFAULT) {
+      // Un record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu en
+      // RAPIDE. Un chiffre qui mélange les allures ne veut plus rien dire, donc
+      // seule l'allure de référence l'inscrit.
       st.bestTraining = Math.max(st.bestTraining, end.score);
     }
   });
@@ -790,6 +854,7 @@ function loadChallenge(r: Replay): void {
   warn.textContent = `MÊME PARTIE, MÊME ORDRE · L'ADVERSAIRE A TENU ${ghostFinal(r)} MANCHES`;
   warn.classList.remove("hidden");
   $("btnGo").textContent = rule.watchRelease === " " ? "MAINTIENS ESPACE" : "RELEVER LE DÉFI";
+  renderPace();
   show("brief");
 }
 

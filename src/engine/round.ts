@@ -36,6 +36,14 @@ export function buildRound(
   level: number,
   rule: OneRule,
   pool?: Instruction[],
+  /**
+   * Multiplicateur d'allure — ENTRAÎNEMENT uniquement.
+   *
+   * Posé APRÈS `place()`, donc il ne touche pas au flux du RNG : deux allures
+   * produisent exactement les mêmes scènes, seule la fenêtre change. C'est ce
+   * qui permet de l'ajouter sans invalider un rejeu ni une graine du jour.
+   */
+  pace = 1,
 ): Round {
   /*
    * Piège garanti sur les manches d'ouverture.
@@ -77,7 +85,7 @@ export function buildRound(
     steps: trap ? [] : compile(want),
     trap,
     originalWant: trap ? want : undefined,
-    durationMs: windowMs(level),
+    durationMs: Math.round(windowMs(level) * pace),
   };
 
   if (rule.transform) round = rule.transform(round, rng, level);

@@ -135,6 +135,15 @@
           <p class="eyebrow" id="briefEyebrow">TA RÈGLE UNIQUE</p>
           <h2 class="rulename" id="briefName"></h2>
           <p class="lede" id="briefText"></p>
+          <!-- Allure : entraînement uniquement. Le run du jour et le classé
+               doivent rester identiques pour tout le monde. -->
+          <div class="settings hidden" id="briefPace" aria-label="Allure">
+            <div class="settings__row">
+              <span class="settings__label">ALLURE</span>
+              <div class="settings__opts" id="optPace"></div>
+            </div>
+          </div>
+          <p class="fineprint hidden" id="briefPaceHint"></p>
           <p class="warn hidden" id="briefWarn"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnGo">COMMENCER</button>

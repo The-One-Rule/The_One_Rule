@@ -26,6 +26,34 @@ export function windowMs(level: number): number {
   return Math.max(760, 996 - (level - 12) * 9);
 }
 
+/**
+ * Allures de l'ENTRAÎNEMENT — et de lui seul.
+ *
+ * La courbe ci-dessus suppose un joueur qui a AUTOMATISÉ la vérification de sa
+ * règle unique. Un débutant fait encore trois gestes conscients par manche :
+ * lire la consigne, la confronter à sa règle, chercher la cible dans quinze
+ * formes. Le deuxième coûte 300 à 500 ms tant qu'il n'est pas réflexe — donc à
+ * la manche 10, où la fenêtre vaut 1080 ms, il est déjà au bord.
+ *
+ * On ne peut pas attendre que le geste devienne réflexe si le joueur meurt
+ * avant. L'entraînement est l'endroit prévu pour ça, et c'est le seul : le run
+ * du jour doit rester identique pour tout le monde, sinon un score ne se
+ * compare plus à rien, et les liens de défi déjà partagés ne veulent plus rien
+ * dire.
+ *
+ * Le facteur multiplie la FENÊTRE, jamais le tirage : `place()` consomme le
+ * RNG avant que la durée soit posée, donc deux allures produisent exactement
+ * les mêmes scènes. Seul le temps disponible change.
+ */
+export const PACE_CHOICES = [1.5, 1, 0.8] as const;
+export const PACE_LABELS: Record<number, string> = {
+  1.5: "DÉCOUVERTE",
+  1: "NORMAL",
+  0.8: "RAPIDE",
+};
+/** L'allure de référence : la seule qui inscrit un record. */
+export const PACE_DEFAULT = 1;
+
 /** Nombre de manches d'un run quotidien. */
 export const DAILY_LENGTH = 40;
 

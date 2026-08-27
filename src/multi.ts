@@ -179,6 +179,7 @@ function setJoinErr(msg: string | null): void {
 }
 
 const SPEED_LABEL: Record<number, string> = {
+  1.7: "DÉCOUVERTE",
   1.3: "LENT",
   1: "NORMAL",
   0.8: "VITE",

@@ -100,7 +100,19 @@ export interface RoomSettings {
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = { speed: 1, lives: 3, rotationEvery: 8 };
-export const SPEED_CHOICES = [1.3, 1, 0.8, 0.65] as const;
+/**
+ * Vitesses de salon, du plus lent au plus vif.
+ *
+ * 1.7 « DÉCOUVERTE » a été ajouté après un test réel : même en « LENT », la
+ * fenêtre tombe à 1261 ms à la manche 20 et 976 ms à la manche 30, alors qu'un
+ * débutant a besoin de 1000 à 1300 ms tant que la vérification de sa règle
+ * unique n'est pas devenue réflexe. « LENT » ne supprimait pas le mur, il le
+ * déplaçait de dix manches.
+ *
+ * Les premières manches ne changent pas : elles sont déjà au plafond
+ * `MAX_ROUND_MS`. Le réglage n'agit donc que là où le mur se trouve.
+ */
+export const SPEED_CHOICES = [1.7, 1.3, 1, 0.8, 0.65] as const;
 export const LIVES_CHOICES = [1, 3, 5] as const;
 export const ROTATION_CHOICES = [4, 8, 16, 999] as const;
 

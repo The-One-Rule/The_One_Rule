@@ -32,6 +32,14 @@ export interface Save {
   sound: boolean;
   music: boolean;
   bestTraining: number;
+  /**
+   * Allure choisie pour l'entraînement (voir PACE_CHOICES).
+   *
+   * Le record `bestTraining` n'est inscrit qu'à l'allure de référence : un
+   * record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu en
+   * RAPIDE, et un chiffre qui mélange les deux ne veut plus rien dire.
+   */
+  trainingPace: number;
   /** mesure d'usage : consentement, jour de première ouverture, jours vus */
   metrics: { on: boolean; asked: boolean; firstDay: number; lastDay: number };
 }
@@ -50,6 +58,7 @@ const fresh = (): Save => ({
   sound: true,
   music: true,
   bestTraining: 0,
+  trainingPace: 1,
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
 });
 

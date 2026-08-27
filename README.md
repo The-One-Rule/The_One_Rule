@@ -145,7 +145,15 @@ Un duel se rejoue à volonté — c'est la même partie, la comparaison reste va
 ## Rétention
 
 - **Run du jour** : 40 manches, un seul essai, seed déterministe. Les 3 premières manches ne tuent pas.
-- **Entraînement** : illimité, mais uniquement les règles déjà rencontrées. La surprise du run du jour est le seul contenu neuf, il ne faut pas la brûler.
+- **Entraînement** : illimité, uniquement les règles déjà rencontrées, **échauffement inclus** et **allure réglable** (DÉCOUVERTE / NORMAL / RAPIDE). La surprise du run du jour est le seul contenu neuf, il ne faut pas la brûler.
+
+> **Pourquoi une allure, et pourquoi seulement là.** La courbe suppose un joueur ayant automatisé la vérification de sa règle unique. Un débutant fait encore trois gestes conscients par manche — lire, confronter à sa règle, chercher la cible — et le deuxième coûte 300 à 500 ms tant qu'il n'est pas réflexe. À la manche 10 la fenêtre vaut 1080 ms pour un besoin réel de 1000 à 1300 : il est au bord, ce qu'un test réel a confirmé. On ne peut pas attendre que le geste devienne réflexe si le joueur meurt avant.
+>
+> L'allure multiplie la **fenêtre**, jamais le tirage : `place()` consomme le RNG avant que la durée soit posée, donc deux allures produisent **exactement les mêmes scènes**. C'est ce qui permet de l'ajouter sans invalider une graine du jour ni un lien de défi — verrouillé par `tests/pace.test.ts`, qui compare les manches 0 à 44 champ par champ.
+>
+> Elle ne s'applique **qu'à l'entraînement**, et pas aux duels, qui passent pourtant par ce mode : un duel se compare aux temps de passage d'un fantôme, élargir sa fenêtre rendrait la comparaison fausse sans que personne ne le voie. Et `bestTraining` ne s'inscrit qu'à l'allure de référence — un record qui mélange les allures ne veut plus rien dire.
+>
+> L'échauffement, lui, était à **zéro en entraînement** contre trois dans le run du jour : le mode censé servir à apprendre tuait à la première faute, alors que l'épreuve pardonnait. C'était inversé.
 - **3 quêtes** : présence (toujours faisable), exploration, et performance **calée sur la moyenne des 5 derniers runs**. Jamais un seuil fixe : « atteindre 30 » est un mur pour un débutant et une formalité pour un bon joueur.
 - **Série avec un jour de grâce par semaine.** Non négociable : sans lui, le premier jour manqué détruit la série et le joueur ne revient jamais.
 - **Teaser** : `DEMAIN · LE MENTEUR`, juste le nom. C'est le déclencheur de retour, placé au moment où l'émotion est maximale.
@@ -238,6 +246,8 @@ Le client ne lève jamais : réseau coupé, il retombe sur l'entraînement et le
 ## Multijoueur — salons simultanés (pivot .io)
 
 Modèle BombParty adapté : salon par code de 4 lettres, tout le monde joue **chaque manche simultanément** sur la même scène, mais chacun porte une **règle unique différente, affichée publiquement**. Un piège est personnel — et les autres le voient venir : c'est le spectacle. 3 vies, élimination, **rotation des règles toutes les 8 manches**, dernier en vie gagne.
+
+Cinq vitesses, décidées par l'hôte pour tout le salon — un réglage par joueur casserait la simultanéité, qui est tout le spectacle. `DÉCOUVERTE` (1,7) a été ajouté après un test réel : même en `LENT`, la fenêtre tombe à 1261 ms à la manche 20 et 976 à la manche 30. `LENT` ne supprimait pas le mur, il le déplaçait de dix manches. Les premières manches ne bougent pas — elles sont déjà au plafond `MAX_ROUND_MS` — donc le réglage n'agit que là où le mur se trouve : **+388 ms à la manche 20, +300 à la manche 30**.
 
 **Netcode.** Aucune scène ne transite : le serveur envoie `{seed, idx, deadline}` et chaque client reconstruit la manche via `buildMultiRound(seed, idx, rule)` — `draftShared` (scène commune, RNG dérivé par hachage de `seed:idx`, accès direct à la manche N sans rejouer les précédentes) puis `applyRule` (piège + déformations, RNG dérivé de `seed:idx:ruleId`, donc identique chez le client et le serveur qui juge).
 

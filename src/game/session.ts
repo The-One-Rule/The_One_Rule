@@ -53,6 +53,8 @@ export class Session {
   private lastDeath: { cause: SessionEnd["cause"]; reason: string } = { cause: "wrong", reason: "" };
   /** manches d'échauffement restantes : elles ne tuent pas */
   private grace: number;
+  /** Multiplicateur de fenêtre — 1 hors entraînement, toujours. */
+  readonly pace: number;
 
   private runStart: number;
 
@@ -63,13 +65,28 @@ export class Session {
     now: number;
     seed: number;
     touchOnly?: boolean;
+    /** Allure — n'a d'effet qu'en entraînement, voir PACE_CHOICES. */
+    pace?: number;
   }) {
     this.mode = opts.mode;
     this.rule = opts.rule;
     this.rng = opts.rng;
     this.seed = opts.seed;
     this.runStart = opts.now;
-    this.grace = opts.mode === "training" ? 0 : GRACE_ROUNDS;
+    // L'allure ne s'applique qu'à l'entraînement : le run du jour et le classé
+    // doivent rester identiques pour tout le monde, sinon un score ne se
+    // compare plus à rien.
+    this.pace = opts.mode === "training" ? (opts.pace ?? 1) : 1;
+    /*
+     * L'échauffement vaut AUSSI pour l'entraînement.
+     *
+     * Il était à zéro : le mode censé servir à apprendre tuait à la première
+     * faute, alors que le run du jour offrait trois manches de grâce. Le bac à
+     * sable était donc strictement plus punitif que l'épreuve — inversé, et
+     * c'est ce qui bloquait les débutants avant qu'ils aient pu automatiser la
+     * vérification de leur règle unique.
+     */
+    this.grace = GRACE_ROUNDS;
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
     this.nextRound(opts.now);
   }
@@ -98,7 +115,7 @@ export class Session {
   }
 
   private nextRound(now: number): void {
-    this.round = buildRound(this.rng, this.level, this.rule, this.pool);
+    this.round = buildRound(this.rng, this.level, this.rule, this.pool, this.pace);
     this.progress = { step: 0 };
     this.roundStart = now;
   }
