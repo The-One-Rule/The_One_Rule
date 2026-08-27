@@ -103,8 +103,19 @@ const verdict = (ok) => (ok ? "OK  " : "SOUS");
 const line = (label, value, ok, base) =>
   `  ${verdict(ok)} ${label.padEnd(24)} ${String(value).padStart(12)}${base ? `   (n=${base})` : ""}`;
 
+/*
+ * `maxDay` est un INDEX de jour (jours écoulés depuis l'origine du jeu), pas
+ * une durée. L'afficher comme « jours couverts » annonçait « 238 jours » pour
+ * un seul joueur vu aujourd'hui. Il reste le bon repère pour l'éligibilité des
+ * cohortes — on ne le change pas là — mais pas pour un affichage.
+ */
+const minDay = Math.min(...[...users.values()].map((u) => u.first), maxDay);
+const couverts = users.size ? maxDay - minDay + 1 : 0;
+
 console.log(`\nTHE ONE RULE — rapport de rétention`);
-console.log(`joueurs uniques : ${users.size}   ·   runs : ${runs.length}   ·   jours couverts : ${maxDay}\n`);
+console.log(
+  `joueurs uniques : ${users.size}   ·   runs : ${runs.length}   ·   jours couverts : ${couverts}\n`,
+);
 
 console.log("PORTE 1");
 console.log(line("D1", Number.isNaN(d1.rate) ? "—" : pct(d1.rate), d1.rate >= GATES.d1, d1.base));
@@ -150,8 +161,26 @@ console.log("  d'un groupe est celle de la personne qui envoie le lien, pas la m
  * construit la table quoi qu'il arrive en rationalisant le résultat après
  * coup — c'est le mode d'échec normal de ce genre de mesure.
  */
+/*
+ * La règle ne se prononce pas sur un échantillon qui ne peut rien dire.
+ *
+ * Sur un seul visiteur, elle affirmait « personne n'envoie, le jeu ne donne
+ * pas envie d'être montré » — une conclusion tirée de n=1. Une règle de
+ * décision qui parle trop tôt est pire que pas de règle : elle habille du
+ * bruit en signal, et elle le fait précisément au moment où l'on regarde le
+ * rapport pour la première fois.
+ *
+ * 30 joueurs est le plancher en dessous duquel un taux d'envoi n'a pas de
+ * sens ; il faut de toute façon 150 à 200 pour un D1 lisible.
+ */
+const MIN_ECHANTILLON = 30;
+
 console.log("\n  Ce qu'il faut en faire :");
-if (!sentTotal) {
+if (users.size < MIN_ECHANTILLON) {
+  console.log(`  · Échantillon trop faible pour conclure (${users.size} joueur(s),`);
+  console.log(`    il en faut au moins ${MIN_ECHANTILLON} pour l'entonnoir et 150 à 200 pour un D1).`);
+  console.log("    La chaîne fonctionne, c'est déjà ce qu'on voulait savoir : laisse-la tourner.");
+} else if (!sentTotal) {
   console.log("  · Personne n'envoie. Le problème est EN AMONT du social : le jeu ne donne");
   console.log("    pas envie d'être montré. Une boucle sociale plus riche n'y changera rien.");
 } else if (openedTotal / sentTotal < 0.2) {
