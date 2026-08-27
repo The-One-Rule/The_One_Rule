@@ -9,7 +9,7 @@ C'est le seul élément non copiable du jeu. Le reste (cosmétiques, ranked, bou
 ```bash
 npm install
 npm run dev        # serveur local
-npm run test       # 122 tests
+npm run test       # 137 tests
 npm run typecheck
 npm run build      # dist/
 node inline.mjs    # dist/ → the-one-rule-v1.html, un seul fichier autonome
@@ -20,17 +20,31 @@ Aucune dépendance runtime. Vite, TypeScript et Vitest sont en dev uniquement.
 ## Architecture
 
 ```
+shared/
+  protocol     protocole client↔serveur, source unique, importé des deux côtés
+server/
+  match        logique de match PURE — règles, vies, verdicts, forfaits
+  index        serveur ws : salons, ordonnancement, heartbeat, arrêt propre
+  origin       liste blanche des origines (refus à la poignée de main)
 src/
   engine/      PUR — aucun DOM, aucune horloge, aucun Math.random()
     rng        mulberry32 + helpers
     scene      placement sur grille 5×3, chevauchement impossible par construction
-    instructions/  19 consignes paramétriques
+    instructions/  19 consignes paramétriques, dont 15 tactiles (pool multi)
     rules/     12 règles uniques nommées
     round      assemblage + détection du conflit macro↔micro
+    multiround draftShared (scène commune) + applyRule (piège et déformations)
     resolve    verdict d'une action
-  game/        orchestration — daily, session, quests, progress
-  render/      canvas + HUD, lit l'état, ne le modifie jamais
+    verify     rejeu serveur d'un run — la raison d'être de la pureté
+    difficulty courbe de fenêtre, paliers, pièges forcés (solo uniquement)
+  game/        orchestration — daily, session, quests, progress, replay
+  net/         NetClient + ServerClock + glyphes de joueur, zéro DOM
+  render/      canvas, HUD, et layout (placement des plaques, PUR et testé)
+  ranked/      elo, antibot, client du mode classé
+  analytics/   file groupée, sendBeacon, transport injectable
   audio/       WebAudio synthétisé, aucun fichier
+api/           fonctions edge Vercel — collect, ranked
+scripts/       pull, report, check-deploy, check-salons
 ```
 
 **La contrainte structurante : `engine/` est pur.** Il reçoit un `Rng` seedé et des timestamps en paramètre. Ça paraît pédant aujourd'hui, mais c'est ce qui permettra en Phase 2 de rejouer une partie côté serveur pour valider un score. Un moteur qui touche au DOM rend l'anti-triche impossible sans réécriture.
@@ -63,6 +77,15 @@ Deux d'entre eux protègent le seul risque fatal du projet — que le joueur pen
 Taux actuels : LE SANG 15,9 % · LA POINTE 20,1 % · LE GAUCHER 13,8 % · LE COLOSSE 8,3 % · LA VOYELLE 5,8 %.
 
 Le troisième fichier monte l'application réelle dans un DOM simulé, déroule la boucle de jeu image par image et vérifie qu'un run va jusqu'à l'écran de fin.
+
+Quatre autres protègent des pannes qui ne se voient pas :
+
+- **Le serveur survit aux messages malformés.** `decodeClient` ne valide que la présence d'un `t` : un `input` sans `action` levait une exception non capturée qui **terminait le processus**, donc tous les salons, depuis une seule socket non authentifiée.
+- **Aucune règle du pool multi n'est inerte** sur son porteur — comparaison à une règle témoin sans levier, plus un sondage du juge, puisque certaines règles ne déforment rien et se contentent de sanctionner un geste.
+- **La mise en page ne peut pas osciller** : 8 100 tailles de fenêtre, aucune ne doit posséder de cycle. L'ancienne règle en avait 407.
+- **La liste blanche du collecteur suit `EventName`** : un nom oublié partirait du navigateur, recevrait un 204, et n'arriverait jamais.
+
+> **Attention aux tests qui prennent leur référence au mauvais endroit.** Deux tests e2e comparaient des vies lues dans un message antérieur au match, donc les vies de *réglage* : selon la règle unique tirée — donc selon le hasard — un joueur peut mourir légitimement avant la mesure, et l'écart constaté n'avait plus rien à voir avec ce que le test prétendait vérifier. Ils passaient par chance.
 
 ## Identité visuelle
 
@@ -126,6 +149,9 @@ Un duel se rejoue à volonté — c'est la même partie, la comparaison reste va
 - **3 quêtes** : présence (toujours faisable), exploration, et performance **calée sur la moyenne des 5 derniers runs**. Jamais un seuil fixe : « atteindre 30 » est un mur pour un débutant et une formalité pour un bon joueur.
 - **Série avec un jour de grâce par semaine.** Non négociable : sans lui, le premier jour manqué détruit la série et le joueur ne revient jamais.
 - **Teaser** : `DEMAIN · LE MENTEUR`, juste le nom. C'est le déclencheur de retour, placé au moment où l'émotion est maximale.
+- **Accueil du débutant, en multijoueur** : une vie de plus pour une première partie, et le statut est affiché sur la plaque. Un nouveau invité par un ami meurt en trois manches devant cinq personnes et ne revient pas ; la vie de plus ne le fait pas gagner, elle lui laisse le temps de comprendre que la règle unique existe. Un handicap caché se découvre et transforme une victoire en fraude — affiché, il fait l'inverse, et c'est aussi la seule protection contre l'abus puisque le serveur ne peut pas vérifier la déclaration.
+
+**Ce qui n'est pas mesuré ne compte pas.** Tout ce qui précède est une hypothèse, pas un résultat : la chaîne de mesure n'a jamais produit un événement stocké (voir § Mesure et § Ce qui n'est pas fait).
 
 ## Mesure
 
@@ -134,16 +160,24 @@ Quatre chiffres, et rien d'autre : **D1, D7, durée médiane de session, taux de
 - `src/analytics/` — file d'attente groupée, envoi en `sendBeacon` (le seul qui survive à la fermeture d'onglet), transport injectable pour les tests. Un échec du collecteur ne peut pas remonter dans le jeu : `flush()` avale ses erreurs.
 - `api/collect.ts` — fonction edge Vercel. Une ligne NDJSON par événement, poussée dans une liste Redis par jour de réception (Upstash en REST : le runtime edge n'ouvre pas de connexion TCP), avec expiration à 40 jours. Valide le nom d'événement contre une liste blanche, tronque les chaînes, plafonne le corps et la taille des lots. Ne journalise ni IP, ni user-agent, ni en-tête d'identification. Sans Redis configuré, retombe sur `console.log` — utilisable en local, mais sans mémoire, et donc sans D7.
 - `scripts/pull.mjs` — ressort le NDJSON brut depuis Redis. Rien d'autre : le rapport n'a pas à savoir où les événements dorment.
-- `scripts/report.mjs` — calcule les quatre chiffres, la courbe de rétention, les causes de mort et la difficulté par règle.
+- `scripts/report.mjs` — calcule les quatre chiffres, la courbe de rétention, les causes de mort, la difficulté par règle, **l'entonnoir social**, et il porte une **règle de décision écrite avant de connaître les chiffres** : sans elle, on construit ce qu'on avait envie de construire en rationalisant le résultat après coup.
+- `scripts/check-deploy.mjs` — vérifie qu'un déploiement mesure vraiment. `VITE_COLLECT_URL` est lu par Vite **à la compilation** : la poser dans Vercel sans redéployer ne fait rien, et l'état résultant est indiscernable d'un déploiement sain — le jeu tourne, aucun bandeau, aucune requête, aucune erreur. Ça ne se découvre qu'en cherchant les chiffres, une semaine trop tard. C'est arrivé : la production a mesuré le vide pendant treize jours.
 
 ```bash
 node scripts/pull.mjs | node scripts/report.mjs
 node scripts/report.mjs events.ndjson
+node scripts/check-deploy.mjs https://ton-app.vercel.app
 ```
 
 Le rapport corrige les cohortes : pour Dn, il ne compte que les joueurs dont la cohorte a eu le temps d'atteindre le jour n. Sans ce filtre, les inscrits récents écrasent le chiffre vers le bas et le résultat ne veut rien dire.
 
-Événements : `first_open`, `day_return`, `visit_end`, `run_start`, `run_end`, `quest_complete`, `share`, `optout`.
+Événements : `first_open`, `day_return`, `visit_end`, `run_start`, `run_end`, `quest_complete`, `share`, `duel_sent`, `duel_opened`, `invite_sent`, `invite_opened`, `optout`.
+
+**L'entonnoir social se lit en trois crans**, comptés séparément parce qu'ils échouent pour des raisons différentes et que la réparation n'est pas la même : *envoyé* (le jeu donne-t-il envie d'être montré), *ouvert* (l'objet partagé donne-t-il envie de cliquer), *joué* (`run_start` porte un drapeau `duel`, sans lequel un défi relevé est indiscernable d'un entraînement). Les deux surfaces — duel asynchrone et invitation au salon — sont instrumentées symétriquement : n'en mesurer qu'une ferait lire « le social ne prend pas » là où c'est l'autre qui sert.
+
+> La liste blanche de `api/collect.ts` est volontairement recopiée plutôt qu'importée de `src/` : le runtime edge ne doit pas tirer le jeu dans son bundle. Le prix de cette duplication est un test qui verrouille les deux listes — un nom oublié partirait du navigateur, recevrait un 204, et n'arriverait jamais.
+
+> Les noms de variables Upstash dépendent du chemin d'installation : l'intégration **Marketplace** pose `KV_REST_API_URL` / `KV_REST_API_TOKEN`, l'intégration **directe** pose `UPSTASH_REDIS_REST_*`. Les deux sont acceptés. Ne lire qu'un seul jeu de noms était une panne muette de plus.
 
 **Vie privée.** Identifiant aléatoire local, aucun compte, aucun cookie, aucune donnée personnelle, aucun service tiers. Un bandeau court explique ce qui est mesuré et pourquoi ; le refus est persistant et coupe tout. Sans `VITE_COLLECT_URL`, le module est totalement inerte — pas de bandeau, pas de file, pas d'appel réseau. C'est le cas du fichier HTML autonome.
 
@@ -214,18 +248,42 @@ Modèle BombParty adapté : salon par code de 4 lettres, tout le monde joue **ch
 - `server/index.ts` — serveur ws : salons, ordonnancement des manches, clôture anticipée quand tous ont répondu, heartbeat ; `npm run server`
 - `src/net/client.ts` — `NetClient` + `ServerClock`, zéro DOM
 
-Vérifié par `tests/multi.test.ts` (déterminisme, rotation, match complet simulé, horloge) et **`e2e.mjs`** : serveur réel + trois clients ws réels jouent un match — profils distincts (juste / clique-tout / absent), éliminations, verdicts identiques chez tous. `npx tsx e2e.mjs` → `E2E OK`.
+**Une règle du pool ne doit jamais être sans effet sur son porteur.** Une règle qui ne peut pas l'atteindre est un avantage gratuit et invisible — pire qu'une règle dure. LA VOYELLE en est sortie pour ça. L'ACCÉLÉRATION y était sans qu'on le voie : sa déformation porte sur la **durée**, et le serveur calculait la fenêtre depuis la manche partagée, donc sans elle. Il juge maintenant chaque geste sur la fenêtre **personnelle**, et la barre de temps du client porte le même facteur — sinon on corrige le serveur en transformant le symptôme en « je clique dans les temps affichés et ça ne compte pas », ce qui est pire. Un test vérifie qu'aucune règle du pool n'est inerte.
 
-L'interface du mode est assemblée : écrans salon, plaques joueurs, boucle branchée sur `NetClient`, kill-cam à quatre tempos, annonce de duel, emotes, glyphes SVG dérivés de l'identifiant. Ce qui reste — cadre vivant, incarnation des plaques, mise en scène des pauses, chat — est découpé en lots dans **[PLAN-SALON-VIVANT.md](PLAN-SALON-VIVANT.md)**, qui fait aussi office de journal et porte les invariants à rappeler dans chaque prompt. Déploiement : le serveur ws va sur Fly.io/Railway/VPS — pas Vercel.
+**Une coupure n'est pas une défaite.** Les identifiants étaient attribués par connexion : une micro-coupure éliminait définitivement, et revenir donnait un siège de spectateur. Sur mobile — bascule d'application, tunnel, changement de cellule — c'est le cas normal. Le siège est désormais gardé 25 s (`RECONNECT_GRACE_MS`), l'absent ne joue **aucune** manche (`Seat.away`, sinon il était éliminé en cinq secondes, bien avant de pouvoir revenir), il reprend son identifiant par sa clé locale stable, et le serveur lui **renvoie un `match_start`** pour qu'il puisse se reconstruire — sans quoi il récupérait son siège mais restait bloqué au salon jusqu'à la fin. Côté client, la reprise est automatique : trois essais espacés, sans rien démonter.
+
+**Accueil du débutant.** Une vie de plus pour une première partie, et le statut est **annoncé sur la plaque**. Ce n'est pas décoratif : le serveur n'a aucune mémoire entre les salons, il ne peut donc pas vérifier la déclaration — la seule garantie contre l'abus est que tout le salon le voie.
+
+Vérifié par `tests/multi.test.ts` (déterminisme, rotation, match complet simulé, horloge, fenêtre personnelle, accueil du débutant) et **`e2e.mjs`** : serveur réel et clients ws réels — un match à trois profils distincts (juste / clique-tout / absent), la reprise de siège après coupure, l'accueil du débutant, et **douze messages malformés** que le serveur doit survivre. Ce dernier bloc est une régression : un `{"t":"input","round":0}` sans `action` levait une exception non capturée dans le gestionnaire `message`, ce qui **terminait le processus** — donc tous les salons de l'instance, depuis une seule socket. `npx tsx e2e.mjs` → `E2E OK`.
+
+L'interface du mode est complète : écrans salon et identité, plaques, kill-cam à quatre tempos, annonce de duel, emotes, chat et modération, statistiques de fierté et titres de fin. Le découpage historique et les invariants vivent dans **[PLAN-SALON-VIVANT.md](PLAN-SALON-VIVANT.md)** — **plus aucun lot n'y est en attente**, il ne reste que des dettes et une décision suspendue aux chiffres.
+
+Déploiement : le serveur ws va sur Fly.io/Railway/VPS — pas Vercel. **Une seule instance, obligatoirement** : les salons vivent en mémoire, donc deux machines = deux jeux de salons disjoints et un « SALON INTROUVABLE » systématique entre amis. `min_machines_running = 1` dans `fly.toml` est un *minimum*, pas un plafond, et Fly en provisionne deux par défaut — c'est arrivé en production. `node scripts/check-salons.mjs <url>` le vérifie en dix secondes, **à relancer après chaque `fly deploy`**.
+
+## Interface
+
+Deux principes tenus, et une contrainte.
+
+**Toute cible actionnable fait au moins 44 px** (`--tap`), et la règle ne s'applique **qu'à ce qui s'actionne** : les puces d'état de l'accueil, qui ne se cliquent pas, restent compactes — agrandir ce qui ne se touche pas dilue ce qui se touche. Tous les chips interactifs étant des `<button>`, le sélecteur `button.chip` les couvre exactement, sans liste à tenir.
+
+**Le focus clavier est visible partout**, par une règle unique en `:where()` donc de spécificité nulle. L'anneau est en `--paper` et non en `--signal` : l'accent est réservé à la règle unique, lui faire désigner autre chose l'affaiblirait. Il ne doit jamais être annulé — `.btn:focus-visible { outline: none }` supprimait la seule marque qui distinguait le focus clavier du survol souris.
+
+**La contrainte** : l'identité Nocturne ne bouge pas. Pas de dégradés, pas d'arrondis hors pièces de jeu, capitales, `prefers-reduced-motion` respecté. Les écarts au document d'identité sont ceux listés plus haut, et ils ont tous une raison mécanique.
+
+> Un couplage à connaître : `.plate { min-width }` détermine `COLUMN_MIN` dans `src/render/layout.ts`. Une colonne plus étroite que `min-width + 20` **rogne** la plaque, qui est en `overflow: hidden`. Les deux nombres bougent ensemble. Le dimensionnement est calé sur le pire nom de règle du pool, mesuré — `L'ACCÉLÉRATION`, 124 px — et non sur celui qu'on croyait le plus long.
+
+> Et un principe qui a coûté cher : **rien ne se décide sur une grandeur que la décision modifie.** La place des plaques se calculait sur la gouttière courante, que la bascule change — 407 tailles de fenêtre sur 8 100 oscillaient sans fin, le navigateur abandonnait des notifications de redimensionnement, et la géométrie restait figée sur une valeur fausse : pièces invisibles, plaques qui changent de côté. `layout.ts` calcule désormais la gouttière que produirait **toujours** le mode colonnes, donc une grandeur identique dans les deux états. La boucle n'est pas amortie, elle n'existe plus. Un test balaie 8 100 tailles et vérifie qu'aucune ne possède de cycle.
+
+Aucun test automatique ne protège les tailles : jsdom ne calcule pas de mise en page. Les mesures ont été prises dans un vrai navigateur, mais **rien n'attrapera la prochaine régression** — un `padding` réduit repassera sous 44 px en silence.
 
 ## Ce qui n'est pas fait
 
-Pas de comptes véritables : l'identité classée repose sur l'identifiant anonyme local, donc un joueur qui change de navigateur perd son classement. C'est le prochain vrai chantier (lien magique ou OAuth), et il conditionne toute persistance sérieuse du classement.
+Pas de comptes véritables : l'identité repose sur l'identifiant anonyme local, donc un joueur qui change de navigateur perd son classement — et, en multijoueur, sa capacité à reprendre un siège. C'est le prochain vrai chantier (lien magique ou OAuth), et il conditionne toute persistance sérieuse.
 
-Le stockage en mémoire ne survit pas à un redémarrage d'instance ni à plusieurs régions. Utilisable pour tester le mode avec un petit groupe, pas pour un lancement public.
+Le stockage en mémoire ne survit pas à un redémarrage d'instance ni à plusieurs régions. Un `fly deploy` tue les parties en cours ; le serveur ferme proprement (code 1001) pour que les clients le voient tout de suite, mais la partie est perdue. Ne pas déployer pendant une soirée de test.
 
 Pas de boutique, pas de duo à réanimation.
 
-**La Porte 1 n'a toujours pas de chiffres.** La Phase 2 a été construite sans données de rétention. C'est un pari assumé sur une seule chose : la validation serveur est impossible à ajouter après coup, alors que le reste du classé peut attendre.
+**La Porte 1 n'a toujours pas de chiffres, et c'est désormais le seul vrai blocage.** Le carnet de commandes du plan est vide, la Phase 2 a été construite sans données de rétention, et la chaîne de mesure n'a jamais produit un événement stocké. Tant que `node scripts/pull.mjs | node scripts/report.mjs` ne sort rien, chaque fonctionnalité ajoutée est un pari de plus posé sur un empilement de paris.
 
 Les sons ne sont pas encore calés sur un BPM. Ils fonctionnent, mais ils ne produisent pas la sensation de flow qui fait passer le jeu de « test de réflexes » à « rythme ».

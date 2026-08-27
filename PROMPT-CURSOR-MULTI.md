@@ -1,3 +1,25 @@
+# ⛔ PÉRIMÉ — conservé comme archive, à NE PAS exécuter
+
+> **Ce prompt a été entièrement réalisé.** Ses quatre lots — écrans réseau,
+> boucle de manche, plaques joueurs, fin de match — sont livrés depuis
+> longtemps, et l'interface a beaucoup dépassé ce qu'il décrit : identité et
+> choix du signe, kill-cam à quatre tempos, emotes, chat et modération,
+> statistiques de fierté, reprise de siège après coupure, accueil du débutant.
+>
+> Le faire tourner aujourd'hui reviendrait à demander la réécriture d'un mode
+> qui fonctionne. C'est exactement le piège que ce dépôt a déjà payé trois fois
+> : un document qui décrit du travail déjà fait coûte plus cher qu'un document
+> absent.
+>
+> **Pour l'état réel du mode, lire [README.md](README.md) § « Multijoueur » et
+> [PLAN-SALON-VIVANT.md](PLAN-SALON-VIVANT.md)** — ce dernier porte les
+> invariants et la liste de ce qui reste, qui ne contient plus aucun lot.
+>
+> Il n'est conservé que pour la trace de la méthode. Il peut être supprimé
+> sans rien perdre : git garde l'historique.
+
+---
+
 # Prompt Cursor — THE ONE RULE Multijoueur, assemblage de l'interface
 
 > **Contexte pour toi (pas pour Cursor).** Le cœur multijoueur est LIVRÉ et TESTÉ

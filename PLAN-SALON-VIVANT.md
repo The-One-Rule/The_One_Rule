@@ -8,15 +8,21 @@ Il sert de source unique pour rédiger les prompts suivants : chaque lot liste
 les fichiers autorisés et les pièges connus, pour qu'un agent ne parte pas
 réécrire le netcode en croyant améliorer une bordure.
 
-État au 27/08/2026 : `npx tsc --noEmit` silencieux, `npx vitest run` **124
-verts**, `npx tsx e2e.mjs` **E2E OK**.
+État au 27/08/2026 : `npx tsc --noEmit` silencieux, `npx vitest run` **137
+verts**, `npx tsx e2e.mjs` **E2E OK**, `npx vite build` OK.
 
-> **Ce document a menti une fois.** Le lot 1 y a été décrit comme à faire, avec
-> un bug à corriger, alors que tout son contenu était déjà dans le commit
-> initial (`git log -S` le confirme sur les trois marqueurs). Un plan qui
-> décrit du travail déjà fait coûte plus cher qu'un plan absent : il envoie
-> réécrire du code correct. Avant d'attaquer un lot, **vérifier dans le code
-> qu'il reste à faire**, et corriger cette liste si ce n'est pas le cas.
+> **Ce document a menti trois fois.** Le lot 1 y a été décrit comme à faire
+> alors que tout son contenu était dans le commit initial. Puis les lots 3, 4,
+> 5 et 6 y sont restés listés comme à faire longtemps après avoir été livrés.
+>
+> Un plan qui décrit du travail déjà fait coûte plus cher qu'un plan absent :
+> il envoie réécrire du code correct. **Avant d'attaquer un lot, vérifier dans
+> le code qu'il reste à faire** — un `git grep` sur les symboles annoncés suffit
+> — et corriger cette liste si ce n'est pas le cas. Le coût de la correction est
+> de dix minutes ; celui de la croyance, d'une demi-journée.
+>
+> **Il n'y a plus de lot en attente.** Ce qui reste est en section 6, et ce ne
+> sont pas des fonctionnalités.
 
 ---
 
@@ -138,21 +144,23 @@ gelé, le centre est libre, aucune surcharge n'est possible.
 
 | # | Point | État |
 |---|---|---|
+| 2 | Objet dramatique | **réglé** — `drawTimeFrame` porte le volume (paliers, hachures, battement qui accélère) |
+| 3 | Chat, kick, mute | **réglé** — `chatForm`, `kick` hôte, sourdine locale jamais transmise |
+| 4 | Respirations / rythme social | **réglé** — pauses, kill-cam, duel |
 | 5 | Fin immédiate au dernier vivant | **réglé** |
-| 4 | Respirations / rythme social | **réglé** (pauses + kill-cam + duel) |
-| 8 | Plaques illisibles | partiel — glyphe, vies, pulses ; encore petites |
-| 10 | Vies en chiffre | partiel — points sur les plaques, `VIES n` au pied |
-| 14 | Identité timide | partiel — glyphes 14–16 px, pas de variantes ni d'emotes |
-| 13 | Rien ne célèbre | partiel — burst, pulse violet, kill-cam |
-| 7 | HUD spectateur à zéro | partiel — méta `SPECTATEUR · NOM`, pied encore faux |
-| 15 | Silence des interstices | partiel — compte à rebours, `cut` à l'élimination |
-| 1 | Laboratoire, pas un lieu | **non** |
-| 2 | Objet dramatique | **réglé** — `drawTimeFrame` porte le volume (paliers, hachures, battement qui accélère), voir lot 1 |
-| 3 | Chat, kick, mute | **non** |
-| 6 | Métriques de fierté | **non** |
-| 9 | Letterbox 1060 × 720 | **non** |
+| 6 | Métriques de fierté | **réglé** — réaction médiane, pièges déjoués, série, plus les titres de fin (`RÉFLEXE DU MATCH`) |
+| 7 | HUD spectateur à zéro | **réglé** — `setFooterLives` publie score, vies et manche du joueur OBSERVÉ |
+| 8 | Plaques illisibles | **réglé** — nom 13 px, règle unique 12 px (était 9), vies 9 px |
+| 10 | Vies en chiffre | **réglé** — points partout, `livesDots` sur plaques et au pied |
 | 11 | Formes petites et inertes | **réglé** — naissance 120 ms + respiration ±1,5 % |
 | 12 | Scène vide | **réglé** — `fillCount` densifie le décor (3 → 6 en moyenne, 11 au pire) |
+| 13 | Rien ne célèbre | **réglé** — gerbe, voile violet, tampon, kill-cam, titres de fin |
+| 14 | Identité timide | **réglé** — signe CHOISI parmi 8 variantes (écran `multi-id`), 40 px sur la plaque, plus les emotes |
+| 15 | Silence des interstices | **réglé** — compte à rebours, `cut` à l'élimination, `resumeSting` à la reprise |
+| 1 | Laboratoire, pas un lieu | **non** — et c'est le seul point de décor qui reste |
+| 9 | Letterbox 1060 × 720 | **sans objet** — le champ est letterboxé par `fieldRect()`, les gouttières servent les plaques ; la dimension fixe n'a jamais eu de raison d'être |
+
+Quatorze points sur quinze. Le diagnostic initial est **épuisé**.
 
 ---
 
@@ -191,66 +199,47 @@ observé, il faut le reproduire dans un vrai navigateur visible, en notant taill
 de fenêtre, nombre de joueurs et si `#app` porte `has-gutters` — le code lu ne
 montre pas de défaut, donc sans reproduction il n'y a rien à corriger.
 
-### Lot 2 — Incarnation
+### Lot 2 — Incarnation ✅ livré
 
-- plaques **autour** de l'aire de jeu (colonnes jusqu'à 6 joueurs)
-- glyphe en 48–64 px, plus le choix parmi quelques `glyphVariant(id, n)`
-  (déjà écrit dans `glyph.ts`, jamais utilisé)
-- vies en symboles dégradés **partout**, y compris au pied de page
-- chute incarnée : à un verdict `death`, le glyphe tombe ou se barre
-- HUD spectateur : `setFooter` doit montrer les vies, le score et la manche du
-  **joueur observé** (point 7)
+Plaques en colonnes latérales quand la place existe (`src/render/layout.ts`),
+sinon en bandeau ; signe **choisi** parmi 8 variantes via l'écran `multi-id`,
+rendu à 40 px sur la plaque (24 en compact) ; vies en points partout, plaques
+et pied ; HUD spectateur qui publie le score, les vies et la manche du joueur
+observé.
 
-Fichiers : `src/multi.ts`, `index.html`, `src/style.css`, `src/render/hud.ts`.
+Non fait, et assumé : la « chute incarnée » (le glyphe qui tombe à la mort).
+La kill-cam joue déjà ce rôle, et plus fort.
 
-### Lot 3 — Mise en scène des pauses
+### Lot 3 — Mise en scène des pauses ✅ livré
 
-Le centre est libre pendant la kill-cam : c'est là que va le théâtre.
+Tampon (`hud.showStamp`), gerbe à l'échelle de l'écran et voile violet sur un
+piège déjoué (`burstScreen`, `flashViolet`), secousse dosée selon la cause,
+`sfx.resumeSting()` à la reprise après une pause longue, `musicApi.cut()` à
+l'élimination puis relance.
 
-- tampon `INFRACTION` qui s'abat en plein cadre
-- piège déjoué : gerbe à l'échelle de l'écran, flash violet, secousse légère
-- sting sonore à la reprise, ambiance de salon basse intensité entre les
-  parties (le `Music` sait déjà moduler par `intensity`)
+### Lot 4 — Emotes ✅ livré
 
-Fichiers : `src/multi.ts`, `src/render/scene.ts`, `src/style.css`,
-`src/audio/index.ts`.
+Six réactions, débit borné côté serveur (`EMOTE_COOLDOWN_MS`), rediffusion à
+tous, bulle au-dessus de la plaque. Les boutons font désormais 44 px : ils
+étaient à 28, alors que ce lot les décrit comme « jouables au pouce ».
 
-### Lot 4 — Emotes
+### Lot 5 — Fierté ✅ livré
 
-La voix la moins chère, jouable au pouce, sans modération à écrire.
+Réaction médiane, pièges déjoués, série et meilleure série par siège, affichés
+en direct sur la plaque ; titres de fin de match (`RÉFLEXE DU MATCH`, …).
 
-- `{ t: "emote", k: 0..5 }`, limite ~1 / 1,5 s côté serveur, rediffusion à tous
-- rendu : un grand signe qui pop au-dessus de la plaque, ~800 ms
-- six signes suffisent (rire, choc, applaudissement, « vu venir », salut, ptdr)
+Piège toujours valable : un joueur au-delà de `INPUT_TOLERANCE_MS` de latence
+voit ses temps gonflés (anti-triche) ; la médiane limite le bruit sans corriger
+ce biais.
 
-Fichiers : `shared/protocol.ts`, `server/index.ts`, `src/net/client.ts`,
-`src/multi.ts`, `index.html`, `src/style.css`.
+Toujours reporté : les records du salon persistants — ils demandent un état
+dans `Room`, une politique de remise à zéro et une surface d'affichage.
 
-### Lot 5 — Fierté
+### Lot 6 — Chat et modération ✅ livré
 
-Le serveur reçoit déjà l'horodatage de chaque input et calcule `elapsed` : il
-jette une donnée qu'il suffit de conserver.
-
-- par siège : temps de réaction (**médiane**), pièges déjoués, plus longue série
-- affichage **en direct** sur la plaque : c'est ce qui rend le skill lisible
-- titres de fin de match (« RÉFLEXE DU MATCH : 187 ms — PIERRE »)
-- ~~records du salon, persistants tant que la room existe~~ **reporté** : demande
-  un état dans `Room`, une politique de remise à zéro, et une surface d'affichage
-  au salon — terrain du lot suivant (après chat / scène)
-
-Piège : un joueur au-delà de `INPUT_TOLERANCE_MS` de latence voit ses temps
-gonflés (anti-triche) ; la médiane limite le bruit sans corriger ce biais.
-
-### Lot 6 — Chat et modération
-
-- `{ t: "chat", text }` → 140 caractères max, ~3 messages / 2 s, rediffusion
-- `{ t: "kick", playerId }` réservé à l'hôte, plus un mute local
-- trois messages en surimpression pendant le match, panneau complet au salon
-
-**Piège majeur** : le clavier est un input de jeu (`typeLetter`, `typeShown`,
-`arrow`). `Entrée` ouvre le chat et **suspend le routage des inputs**, `Échap`
-referme ; hors focus, aucune touche n'est capturée. Sur mobile, chat au salon
-et pendant les pauses seulement — en match, les emotes suffisent.
+Chat 140 caractères, débit borné, exclusion réservée à l'hôte, sourdine locale
+**jamais transmise ni persistée**. Le piège du clavier a été tenu : `Entrée`
+ouvre le chat et suspend le routage des inputs de jeu, `Échap` referme.
 
 ### Lot 7 — Scène vivante ✅
 
@@ -311,5 +300,68 @@ Fichiers : `src/engine/scene.ts`, `src/engine/instructions/index.ts`,
    `multiround.ts` casserait la scène partagée du multijoueur.
 7. Signalétique stricte : pas de dégradés, pas d'arrondis hors pièces de jeu,
    capitales, et les animations respectent `prefers-reduced-motion`.
-8. Vérification de fin de lot : `npx tsc --noEmit`, `npx vitest run`,
-   `npx tsx e2e.mjs`, `npx vite build`.
+8. **Aucune règle du pool multi ne doit être sans effet sur son porteur.** Une
+   règle qui ne peut pas atteindre celui qui la porte est un avantage gratuit
+   et invisible. LA VOYELLE en est sortie pour ça ; L'ACCÉLÉRATION y était sans
+   qu'on le voie, parce que sa déformation portait sur la durée et que le
+   serveur jugeait sur la manche partagée. Verrouillé par un test.
+9. **Rien ne se décide sur une grandeur que la décision modifie.** La place des
+   plaques se calculait sur la gouttière courante, que la bascule change : 407
+   tailles de fenêtre sur 8 100 oscillaient sans fin. Voir `render/layout.ts`.
+10. **Le multijoueur tire dans le pool TACTILE, pour tout le monde.** La scène
+    est partagée, donc on applique la règle de l'appareil le moins capable.
+11. **Une coupure n'est pas une défaite.** Le siège est gardé, le joueur absent
+    ne joue aucune manche (`Seat.away`), et il reprend son identifiant par sa
+    clé locale. Un `leave` explicite, lui, reste immédiat.
+12. Vérification de fin de lot : `npx tsc --noEmit`, `npx vitest run`,
+    `npx tsx e2e.mjs`, `npx vite build`. Et pour le serveur de salons,
+    `node scripts/check-salons.mjs <url>` après chaque `fly deploy`.
+
+---
+
+## 6. Ce qui reste — et ce ne sont pas des fonctionnalités
+
+Le carnet de commandes du diagnostic est vide. Ce qui suit sont des **dettes**
+et une **décision en attente de données**, dans l'ordre où elles comptent.
+
+### La mesure, qui n'a jamais tourné
+
+`VITE_COLLECT_URL` a été posée et le front redéployé, mais le stockage Upstash
+n'est pas confirmé — et les jetons de la base ont été exposés, donc à
+régénérer. **Le compteur des sept jours n'a pas démarré.** Tant que
+`node scripts/pull.mjs | node scripts/report.mjs` ne sort pas d'événements
+réels, aucune décision produit ne repose sur autre chose que des intuitions.
+
+`scripts/report.mjs` porte une **règle de décision écrite avant les chiffres**,
+qui tranche entre construire la boucle sociale et finir autre chose. Elle n'a
+de valeur que si on la lit avant de choisir.
+
+### Avant toute cohorte : une vraie soirée
+
+Quatre questions qui ne demandent aucune instrumentation, et qui valent plus
+que n'importe quel D1 (elles sont aussi dans `DEPLOIEMENT.md` §5) :
+
+- relancent-ils une partie **sans qu'on le demande** ?
+- le chat vit-il **pendant les kill-cams** ? c'est le pari de tout le pivot
+- quelqu'un **rit-il à voix haute** en voyant un autre se faire piéger ?
+- le chat sert-il pendant les premières manches ? sinon `tensionAt` doit
+  descendre de 1,45 vers 1,15
+
+### Dettes techniques, aucune ne bloque une soirée de test
+
+| Dette | Conséquence | Quand ça mord |
+|---|---|---|
+| Salons en mémoire | un `fly deploy` tue les parties en cours | dès qu'on déploie en soirée |
+| Une seule instance obligatoire | deux machines = deux jeux de salons disjoints, « SALON INTROUVABLE » | à la moindre montée en charge |
+| Pas de comptes | l'identité meurt avec le navigateur | dès qu'un classement doit persister |
+| `api/ranked.ts` en `MemoryStore` | classement effacé à chaque démarrage à froid | le mode est masqué en production |
+| Version de génération absente sur les runs stockés | un run vérifié hier devient invérifiable après un réglage de densité | le jour où `Store` passe sur Postgres |
+| Aucun filet sur la mise en page | jsdom ne calcule pas de layout : rien n'attrape un `padding` qui repasse sous 44 px | à la prochaine régression CSS |
+
+### Ce qui n'est pas une dette mais un plafond
+
+Douze règles, dont dix jouables en multi. Un joueur qui les a toutes vues a vu
+le jeu. Les trois leviers (`forbids`, `judge`, `transform`) étant **cumulables**
+par construction, deux règles simultanées donnent 45 combinaisons pour dix
+règles — un contenu combinatoire que l'architecture supporte déjà. À garder
+pour le jour où les chiffres diront que la profondeur manque, pas avant.
