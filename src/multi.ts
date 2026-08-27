@@ -106,8 +106,8 @@ type MatchState = {
   pauseMs: number;
   /** Une seule annonce DUEL par match. */
   duelAnnounced: boolean;
-  /** Overlay tempo : kill-cam ou duel. */
-  drama: "off" | "killcam" | "duel";
+  /** Overlay tempo : révélation de règle, kill-cam ou duel. */
+  drama: "off" | "rule" | "killcam" | "duel";
   /** Scène du mort (kill-cam) — révélation post-mortem. */
   camRound: Round | null;
   camRule: OneRule | null;
@@ -463,7 +463,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function hideDrama(): void {
     dramaEl.classList.add("hidden");
-    dramaEl.classList.remove("drama--kill", "drama--elim", "drama--duel");
+    dramaEl.classList.remove("drama--kill", "drama--elim", "drama--duel", "drama--rule");
     dramaEl.setAttribute("aria-hidden", "true");
     dramaEyebrow.textContent = "";
     dramaNames.textContent = "";
@@ -503,6 +503,38 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     timerEl.classList.add("is-recharge");
     const meVictim = victims.find((v) => v.player.id === net?.myId);
     hud.showStamp(stampForReason((meVictim ?? primary).reason));
+  }
+
+  /**
+   * Révélation de la règle unique, en plein cadre, pendant le compte à rebours.
+   *
+   * La règle unique EST le jeu : un joueur qui ne l'a pas lue joue en aveugle.
+   * En solo elle a un écran entier ; en multijoueur elle n'était qu'une ligne
+   * dans le bandeau du haut, posée en même temps que dix autres choses — donc
+   * personne ne la lisait, et on découvrait sa contrainte en mourant.
+   *
+   * Le compte à rebours dure trois secondes pendant lesquelles le centre est
+   * libre et le jeu ne demande rien. C'est le même principe que la kill-cam :
+   * pendant la pause, le centre fait le spectacle. On réutilise donc le même
+   * panneau — pas un mécanisme de plus à entretenir.
+   */
+  function showRuleReveal(rule: OneRule): void {
+    if (!match) return;
+    match.drama = "rule";
+    match.camRound = null;
+    match.camRule = null;
+    dramaEl.classList.remove("hidden", "drama--kill", "drama--elim", "drama--duel");
+    dramaEl.classList.add("drama--rule");
+    dramaEl.setAttribute("aria-hidden", "false");
+    dramaEyebrow.textContent = "TA RÈGLE UNIQUE";
+    dramaNames.textContent = rule.name;
+    // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
+    // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
+    dramaReason.textContent = rule.brief;
+    dramaRule.textContent = "";
+    dramaExtra.textContent = "";
+    timerEl.classList.remove("is-recharge");
+    hud.hideStamp();
   }
 
   function showDuel(a: PlayerPublic, b: PlayerPublic): void {
@@ -1663,7 +1695,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       musicApi.lobby();
       const left = net.clock.toLocal(match.firstRoundAt) - Date.now();
       const sec = Math.max(0, Math.ceil(left / 1000));
-      hud.setMeta(sec > 0 ? `DÉPART · ${sec}` : "…");
+      // Panneau posé une seule fois ; seul le décompte se réécrit.
+      if (match.drama !== "rule" && match.rule) showRuleReveal(match.rule);
+      dramaExtra.textContent = sec > 0 ? `DÉPART · ${sec}` : "…";
+      // Le décompte est dans le panneau : le répéter en méta ferait deux
+      // endroits à surveiller pour une seule information.
+      hud.setMeta("");
       hud.clearRound();
       return { round: null, rule: match.rule, reveal: false };
     }

@@ -403,6 +403,31 @@ body {
   display: none;
 }
 
+/*
+ * Révélation de la règle unique, pendant le compte à rebours.
+ *
+ * Le brief est une PHRASE, pas un titre : il garde donc une taille de lecture
+ * et une longueur de ligne tenable, là où `.drama__reason` sert normalement à
+ * jeter trois mots en gros ("MAUVAISE CIBLE"). Sans cette reprise, une phrase
+ * de vingt mots s'afficherait en 40 px et deviendrait illisible — l'inverse de
+ * ce qu'on cherche.
+ */
+.drama--rule .drama__reason {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(15px, 2.1vw, 20px);
+  letter-spacing: 0;
+  line-height: 1.45;
+  color: var(--paper);
+  max-width: 46ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.drama--rule .drama__extra {
+  color: var(--signal-pale);
+}
+
 #timer.is-recharge #timerFill {
   background: var(--signal);
 }
