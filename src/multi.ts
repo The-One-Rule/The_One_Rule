@@ -1,6 +1,6 @@
-﻿/**
- * Interface du mode multijoueur â€” salon + boucle de match cliente.
- * Aucune scÃ¨ne sur le fil : reconstruction locale via buildMultiRound.
+/**
+ * Interface du mode multijoueur — salon + boucle de match cliente.
+ * Aucune scène sur le fil : reconstruction locale via buildMultiRound.
  */
 
 import type { Glyph, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg } from "../shared/protocol";
@@ -33,8 +33,8 @@ import { musicApi, sfx, unlock } from "./audio";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-/** LibellÃ©s d'interface uniquement â€” le fil ne transporte que l'index. */
-const EMOTE_LABELS = ["SALUT", "BRAVO", "HA !", "AÃE", "VU VENIR", "NONâ€¦"] as const;
+/** Libellés d'interface uniquement — le fil ne transporte que l'index. */
+const EMOTE_LABELS = ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"] as const;
 
 export type MultiScreen = "multi-id" | "multi-join" | "multi-lobby" | "multi-end";
 
@@ -49,7 +49,7 @@ export type MultiDraw = {
   reveal: boolean;
 };
 
-/** Effets scÃ¨ne consommÃ©s une fois par main (gerbe / flash / kick). */
+/** Effets scène consommés une fois par main (gerbe / flash / kick). */
 export type MultiFx = {
   burstScreen?: boolean;
   flashViolet?: boolean;
@@ -65,15 +65,15 @@ export type MultiApi = {
   /** Manche locale courante (pour hit-test), sans effet de bord HUD. */
   peekRound: () => Round | null;
   trySendMultiAction: (action: Action) => MultiFeel;
-  /** Met Ã  jour HUD / compte Ã  rebours ; retourne l'Ã©tat de dessin ou null. */
+  /** Met à jour HUD / compte à rebours ; retourne l'état de dessin ou null. */
   syncFrame: () => MultiDraw | null;
-  /** Consomme les effets scÃ¨ne en attente (appelÃ© par main aprÃ¨s syncFrame). */
+  /** Consomme les effets scène en attente (appelé par main après syncFrame). */
   takeFx: () => MultiFx | null;
-  /** Vrai uniquement quand un salon est rejoint â€” Enter ouvre alors le chat. */
+  /** Vrai uniquement quand un salon est rejoint — Enter ouvre alors le chat. */
   chatAvailable: () => boolean;
   focusChat: () => void;
   blurChat: () => void;
-  /** Synchronise le dÃ©ploiement du chat (Ã©cran ouvert vs manche). */
+  /** Synchronise le déploiement du chat (écran ouvert vs manche). */
   onScreen: (id: string | null) => void;
 };
 
@@ -88,7 +88,7 @@ type MatchState = {
   round: Round | null;
   rule: OneRule | null;
   progress: RoundProgress;
-  /** EntrÃ©es locales coupÃ©es jusqu'au prochain "round" (verdict ou anticipÃ© terminal). */
+  /** Entrées locales coupées jusqu'au prochain "round" (verdict ou anticipé terminal). */
   localDone: boolean;
   preview: Outcome | null;
   authority: RoundOutcome | null;
@@ -98,31 +98,31 @@ type MatchState = {
   score: number;
   spectator: boolean;
   players: PlayerPublic[];
-  /** Joueur dont on reconstruit la scÃ¨ne (soi ou cible watch). */
+  /** Joueur dont on reconstruit la scène (soi ou cible watch). */
   watchingId: string | null;
   maxLives: number;
-  /** Date serveur de reprise (verdict) â€” null si fin de match. */
+  /** Date serveur de reprise (verdict) — null si fin de match. */
   nextRoundAt: number | null;
-  /** Pause mesurÃ©e Ã  la rÃ©ception du verdict (ms). */
+  /** Pause mesurée à la réception du verdict (ms). */
   pauseMs: number;
   /** Une seule annonce DUEL par match. */
   duelAnnounced: boolean;
-  /** Overlay tempo : rÃ©vÃ©lation de rÃ¨gle, kill-cam ou duel. */
+  /** Overlay tempo : révélation de règle, kill-cam ou duel. */
   drama: "off" | "rule" | "killcam" | "duel";
-  /** ScÃ¨ne du mort (kill-cam) â€” rÃ©vÃ©lation post-mortem. */
+  /** Scène du mort (kill-cam) — révélation post-mortem. */
   camRound: Round | null;
   camRule: OneRule | null;
-  /** Relancer la musique aprÃ¨s cut() d'Ã©limination. */
+  /** Relancer la musique après cut() d'élimination. */
   musicNeedsRestart: boolean;
-  /** RÃ¨gle qui prend effet Ã  la manche suivante, Ã  annoncer pendant la pause. */
+  /** Règle qui prend effet à la manche suivante, à annoncer pendant la pause. */
   rotationRule: OneRule | null;
   /**
-   * Rapport entre MA fenÃªtre et celle diffusÃ©e Ã  tout le salon.
+   * Rapport entre MA fenêtre et celle diffusée à tout le salon.
    *
-   * L'Ã©chÃ©ance envoyÃ©e par le serveur vaut pour la manche partagÃ©e, mais une
-   * rÃ¨gle peut raccourcir la fenÃªtre personnelle â€” L'ACCÃ‰LÃ‰RATION retranche
+   * L'échéance envoyée par le serveur vaut pour la manche partagée, mais une
+   * règle peut raccourcir la fenêtre personnelle — L'ACCÉLÉRATION retranche
    * 30 %. Sans ce facteur, la barre montrait du temps restant alors que le
-   * serveur avait dÃ©jÃ  fermÃ© la fenÃªtre : le joueur respectait la consigne et
+   * serveur avait déjà fermé la fenêtre : le joueur respectait la consigne et
    * rien ne se validait.
    */
   spanFactor: number;
@@ -150,18 +150,18 @@ function inviteUrl(code: string): string {
 }
 
 /**
- * Nom enregistrÃ©, ou null.
+ * Nom enregistré, ou null.
  *
- * Ne demande plus rien : la saisie passe par l'Ã©cran d'identitÃ©. Un `prompt()`
- * natif ouvrait une boÃ®te systÃ¨me au milieu du jeu â€” hors identitÃ© visuelle,
- * bloquante, et sur tÃ©lÃ©phone elle recouvre l'Ã©cran sans prÃ©venir. C'Ã©tait la
- * toute premiÃ¨re chose que rencontrait un joueur invitÃ© par un ami.
+ * Ne demande plus rien : la saisie passe par l'écran d'identité. Un `prompt()`
+ * natif ouvrait une boîte système au milieu du jeu — hors identité visuelle,
+ * bloquante, et sur téléphone elle recouvre l'écran sans prévenir. C'était la
+ * toute première chose que rencontrait un joueur invité par un ami.
  */
 function savedName(): string | null {
   return P.load().ranked.name || null;
 }
 
-/** Nombre de signes proposÃ©s au choix. Assez pour choisir, pas pour hÃ©siter. */
+/** Nombre de signes proposés au choix. Assez pour choisir, pas pour hésiter. */
 const GLYPH_CHOICES = 8;
 
 /** Le signe du joueur : la variante qu'il a retenue de son identifiant local. */
@@ -182,16 +182,16 @@ function setJoinErr(msg: string | null): void {
 }
 
 const SPEED_LABEL: Record<number, string> = {
-  1.7: "DÃ‰COUVERTE",
+  1.7: "DÉCOUVERTE",
   1.3: "LENT",
   1: "NORMAL",
   0.8: "VITE",
-  0.65: "Ã‰CLAIR",
+  0.65: "ÉCLAIR",
 };
 const ROTATION_LABEL: Record<number, string> = {
-  4: "Ã—4",
-  8: "Ã—8",
-  16: "Ã—16",
+  4: "×4",
+  8: "×8",
+  16: "×16",
   999: "JAMAIS",
 };
 
@@ -221,7 +221,7 @@ function renderLobby(
       "lobbyrow" +
       (p.host ? " is-host" : "") +
       (!p.connected ? " is-off" : "");
-    const ruleName = ruleById(p.ruleId)?.name ?? (p.ruleId || "â€”");
+    const ruleName = ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
     row.innerHTML =
       `<span class="lobbyrow__name">` +
       `<span class="lobbyrow__glyph"></span>` +
@@ -233,11 +233,11 @@ function renderLobby(
     row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
     row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent = ruleName;
     const meta: string[] = [];
-    if (p.host) meta.push("HÃ”TE");
+    if (p.host) meta.push("HÔTE");
     if (p.spectator) meta.push("SPECT.");
     if (!p.connected) meta.push("HORS LIGNE");
-    meta.push(`â™¥${p.lives}`);
-    row.querySelector<HTMLElement>(".lobbyrow__meta")!.textContent = meta.join(" Â· ");
+    meta.push(`♥${p.lives}`);
+    row.querySelector<HTMLElement>(".lobbyrow__meta")!.textContent = meta.join(" · ");
     if (p.id !== myId) {
       const acts = document.createElement("div");
       acts.className = "lobbyrow__acts";
@@ -261,18 +261,18 @@ function renderLobby(
   }
 
   /*
-   * Ã‰tat vide du salon.
+   * État vide du salon.
    *
-   * Seul dans un salon, l'Ã©cran affichait Â« EN ATTENTE Â» et un bouton LANCER
-   * en Ã©vidence : il proposait de dÃ©marrer une partie multijoueur Ã  un joueur,
-   * et relÃ©guait au second plan la seule action qui a du sens â€” inviter.
-   * L'Ã©cran doit dire ce qu'il faut faire, pas seulement ce qui se passe.
+   * Seul dans un salon, l'écran affichait « EN ATTENTE » et un bouton LANCER
+   * en évidence : il proposait de démarrer une partie multijoueur à un joueur,
+   * et reléguait au second plan la seule action qui a du sens — inviter.
+   * L'écran doit dire ce qu'il faut faire, pas seulement ce qui se passe.
    */
   const seul = players.length <= 1;
   $("multiLobbyTitle").textContent = seul ? "INVITE QUELQU'UN" : "EN ATTENTE";
   $("multiInviteHint").textContent = seul
-    ? "ENVOIE LE LIEN â€” LA PARTIE SE LANCE DÃˆS QUE QUELQU'UN ARRIVE"
-    : `${players.length} JOUEURS Â· LIEN D'INVITATION EN UN CLIC`;
+    ? "ENVOIE LE LIEN — LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE"
+    : `${players.length} JOUEURS · LIEN D'INVITATION EN UN CLIC`;
   $("btnMultiInvite").classList.toggle("btn--primary", seul);
   $("btnMultiStart").classList.toggle("btn--primary", !seul);
 
@@ -282,20 +282,20 @@ function renderLobby(
 function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean): void {
   const box = $("multiSettings");
   box.classList.toggle("is-guest", !isHost);
-  // Dire qui dÃ©cide, plutÃ´t que de laisser un invitÃ© cliquer sans effet et
-  // conclure que l'interface est cassÃ©e.
+  // Dire qui décide, plutôt que de laisser un invité cliquer sans effet et
+  // conclure que l'interface est cassée.
   $("settingsHint").textContent = locked
-    ? "RÃ‰GLAGES VERROUILLÃ‰S PENDANT UN MATCH"
+    ? "RÉGLAGES VERROUILLÉS PENDANT UN MATCH"
     : isHost
-      ? "TU DÃ‰CIDES POUR TOUT LE SALON Â· TOUCHE UNE OPTION POUR LA CHANGER"
-      : "SEUL CELUI QUI A CRÃ‰Ã‰ LE SALON PEUT CHANGER CES RÃ‰GLAGES";
+      ? "TU DÉCIDES POUR TOUT LE SALON · TOUCHE UNE OPTION POUR LA CHANGER"
+      : "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES";
   box.classList.toggle("is-locked", locked);
 
   /*
-   * Les trois rÃ©glages sont rangÃ©s du plus faible au plus fort, et leur jauge
-   * suit ce rang : c'est ce qui rend Â« Ã—8 Â» ou Â« 1.3 Â» lisibles sans les
+   * Les trois réglages sont rangés du plus faible au plus fort, et leur jauge
+   * suit ce rang : c'est ce qui rend « ×8 » ou « 1.3 » lisibles sans les
    * comprendre. `SPEED_CHOICES` descend (1.7 est la plus lente), donc on le
-   * retourne â€” une jauge qui dÃ©croÃ®t de gauche Ã  droite se lit Ã  l'envers.
+   * retourne — une jauge qui décroît de gauche à droite se lit à l'envers.
    */
   const fill = (
     id: string,
@@ -305,7 +305,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
       label: (n: number) => string;
       aria: (n: number) => string;
       icon: "bars" | "dots";
-      /** Crans allumÃ©s pour cette valeur, Ã  son rang `i` dans la liste. */
+      /** Crans allumés pour cette valeur, à son rang `i` dans la liste. */
       level: (n: number, i: number) => number;
       steps: number;
     },
@@ -335,10 +335,10 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   });
 
   /*
-   * Les vies se COMPTENT, elles ne s'Ã©chelonnent pas : des carrÃ©s, comme les
-   * points de vie sur les plaques et au classement, et autant que la valeur â€”
-   * pas son rang. RangÃ©e par rang, l'option Â« 3 Â» n'affichait que deux points,
-   * ce qui est faux au premier coup d'Å“il pour le seul rÃ©glage dont l'icÃ´ne
+   * Les vies se COMPTENT, elles ne s'échelonnent pas : des carrés, comme les
+   * points de vie sur les plaques et au classement, et autant que la valeur —
+   * pas son rang. Rangée par rang, l'option « 3 » n'affichait que deux points,
+   * ce qui est faux au premier coup d'œil pour le seul réglage dont l'icône
    * peut dire exactement la valeur.
    */
   const maxVies = Math.max(...LIVES_CHOICES);
@@ -351,13 +351,13 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   });
 
   /*
-   * Plus la jauge est haute, plus les rÃ¨gles tournent souvent â€” et JAMAIS
-   * n'allume RIEN. Un seul cran allumÃ© pour Â« jamais Â» aurait dit Â« un peu Â».
+   * Plus la jauge est haute, plus les règles tournent souvent — et JAMAIS
+   * n'allume RIEN. Un seul cran allumé pour « jamais » aurait dit « un peu ».
    */
   const rotations = [...ROTATION_CHOICES].sort((a, b) => b - a);
   fill("optRotation", rotations, settings.rotationEvery, {
     label: (n) => ROTATION_LABEL[n] ?? String(n),
-    aria: (n) => (n >= 999 ? "Les rÃ¨gles ne tournent jamais" : `Rotation toutes les ${n} manches`),
+    aria: (n) => (n >= 999 ? "Les règles ne tournent jamais" : `Rotation toutes les ${n} manches`),
     icon: "bars",
     level: (_n, i) => i,
     steps: rotations.length - 1,
@@ -375,15 +375,15 @@ function toWire(
 /**
  * L'action TELLE QUE LE SERVEUR LA VERRA.
  *
- * Le fil ne transporte qu'un index de piÃ¨ce : le serveur reconstruit donc la
- * position Ã  partir de l'entitÃ©, pas du point cliquÃ©. Si le client prÃ©visualise
- * avec les coordonnÃ©es du clic, les deux peuvent diverger â€” cliquer le bord
- * droit d'une piÃ¨ce centrÃ©e juste dans la zone interdite de LE GAUCHER donnerait
- * un aperÃ§u Â« tenu Â» suivi d'un verdict Â« infraction Â».
+ * Le fil ne transporte qu'un index de pièce : le serveur reconstruit donc la
+ * position à partir de l'entité, pas du point cliqué. Si le client prévisualise
+ * avec les coordonnées du clic, les deux peuvent diverger — cliquer le bord
+ * droit d'une pièce centrée juste dans la zone interdite de LE GAUCHER donnerait
+ * un aperçu « tenu » suivi d'un verdict « infraction ».
  *
- * Un aperÃ§u qui contredit le verdict, c'est exactement Â« le jeu triche Â» : le
- * seul risque que le projet considÃ¨re comme fatal. On juge donc localement sur
- * la mÃªme chose que le serveur.
+ * Un aperçu qui contredit le verdict, c'est exactement « le jeu triche » : le
+ * seul risque que le projet considère comme fatal. On juge donc localement sur
+ * la même chose que le serveur.
  */
 function vueServeur(action: Action): Action {
   if (action.kind !== "click") return action;
@@ -393,22 +393,22 @@ function vueServeur(action: Action): Action {
 }
 
 function previewLabel(o: Outcome): string {
-  if (o.kind === "survive") return o.trap ? "PIÃˆGE DÃ‰JOUÃ‰â€¦" : "TENUâ€¦";
+  if (o.kind === "survive") return o.trap ? "PIÈGE DÉJOUÉ…" : "TENU…";
   if (o.kind === "death") return o.reason;
   return "";
 }
 
-/** Le libellÃ© du tampon se dÃ©duit de la raison â€” jamais d'un contexte
- *  d'appel, sinon le grand Ã©lÃ©ment finit par contredire le petit. */
+/** Le libellé du tampon se déduit de la raison — jamais d'un contexte
+ *  d'appel, sinon le grand élément finit par contredire le petit. */
 function stampForReason(reason: string): string {
   const r = reason.toUpperCase();
-  if (r.includes("TEMPS") || r.includes("Ã‰COUL")) return "TROP LENT";
-  if (r.includes("RÃˆGLE") || r.includes("INTERDIT")) return "INFRACTION";
-  return "RATÃ‰";
+  if (r.includes("TEMPS") || r.includes("ÉCOUL")) return "TROP LENT";
+  if (r.includes("RÈGLE") || r.includes("INTERDIT")) return "INFRACTION";
+  return "RATÉ";
 }
 
 function stampFor(o: RoundOutcome): string {
-  if (o.kind !== "death") return "RATÃ‰";
+  if (o.kind !== "death") return "RATÉ";
   return stampForReason(o.reason);
 }
 
@@ -418,7 +418,7 @@ function outcomeFlash(o: RoundOutcome): PlateFlash {
   return "idle";
 }
 
-/** Conserve l'ordre d'arrivÃ©e : mises Ã  jour in-place, nouveaux en fin. */
+/** Conserve l'ordre d'arrivée : mises à jour in-place, nouveaux en fin. */
 function mergePlayers(prev: PlayerPublic[], next: PlayerPublic[]): PlayerPublic[] {
   const map = new Map(next.map((p) => [p.id, p]));
   const ordered: PlayerPublic[] = [];
@@ -436,7 +436,7 @@ function mergePlayers(prev: PlayerPublic[], next: PlayerPublic[]): PlayerPublic[
 }
 
 export function initMulti(show: ShowFn, hud: Hud): MultiApi {
-  // MÃªme nettoyage que pour le collecteur : une URL avec un BOM devant donne
+  // Même nettoyage que pour le collecteur : une URL avec un BOM devant donne
   // une socket qui ne s'ouvre jamais, sans message lisible.
   const wsUrl = cleanEnv(import.meta.env.VITE_WS_URL as string | undefined);
   const btnMulti = $<HTMLButtonElement>("btnMulti");
@@ -449,7 +449,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const chatForm = $("chatForm") as HTMLFormElement;
   const chatInput = $<HTMLInputElement>("chatInput");
   chatInput.maxLength = CHAT_MAX_LEN;
-  /** OÃ¹ le chat retourne quand il n'est ancrÃ© nulle part : la couche flottante. */
+  /** Où le chat retourne quand il n'est ancré nulle part : la couche flottante. */
   const chatFloat = chatEl.parentElement!;
   /** Bandes latérales, une par écran qui en porte une. */
   const chatDocks: Record<string, HTMLElement> = {
@@ -473,7 +473,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   type ChatLine = { playerId: string; name: string; text: string; glyph: Glyph };
   const chatLines: ChatLine[] = [];
-  /** Sourdine locale â€” jamais envoyÃ©e, jamais persistÃ©e. */
+  /** Sourdine locale — jamais envoyée, jamais persistée. */
   const muted = new Set<string>();
   let chatFadeTimer: ReturnType<typeof setTimeout> | null = null;
   let uiScreen: string | null = "home";
@@ -505,33 +505,35 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const url: string = wsUrl;
 
   let net: NetClient | null = null;
+  /** Libellé d'état de la carte MULTIJOUEUR, le temps d'une connexion. */
+  let etatMultiAvant = "";
   let roomCode = "";
   let connecting = false;
-  /** Le serveur a-t-il expliquÃ© lui-mÃªme l'Ã©chec de la tentative en cours ? */
+  /** Le serveur a-t-il expliqué lui-même l'échec de la tentative en cours ? */
   let errFromServer = false;
   /**
-   * Dernier salon frÃ©quentÃ©, CONSERVÃ‰ Ã  travers les coupures.
+   * Dernier salon fréquenté, CONSERVÉ à travers les coupures.
    *
-   * `roomCode` est remis Ã  zÃ©ro dÃ¨s qu'on quitte l'Ã©cran de jeu ; il ne peut
-   * donc pas servir Ã  revenir. Celui-ci n'est effacÃ© que sur un dÃ©part
-   * volontaire â€” quitter, Ãªtre exclu, revenir au menu.
+   * `roomCode` est remis à zéro dès qu'on quitte l'écran de jeu ; il ne peut
+   * donc pas servir à revenir. Celui-ci n'est effacé que sur un départ
+   * volontaire — quitter, être exclu, revenir au menu.
    */
   let lastRoomCode = "";
   let rejoining = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
-  /** DerniÃ¨re liste salon â€” ordre stable pour les plaques. */
+  /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
   let lobbyInMatch = false;
   const watchBar = $("watchBar");
   const watchTargets = $("watchTargets");
-  /** Flashes de verdict (ok/trap/dead/idle) jusqu'Ã  expiration ou prochaine manche. */
+  /** Flashes de verdict (ok/trap/dead/idle) jusqu'à expiration ou prochaine manche. */
   const platePulse = new Map<string, PlateFlash>();
   const emoteTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let lastEmoteSentAt = 0;
   let emoteCooldownTimer: ReturnType<typeof setTimeout> | null = null;
-  /** EmpÃªche le "room" post-match d'Ã©craser l'Ã©cran FIN. */
+  /** Empêche le "room" post-match d'écraser l'écran FIN. */
   let endScreenOpen = false;
   const dramaEl = $("drama");
   const dramaEyebrow = $("dramaEyebrow");
@@ -560,6 +562,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       "drama--duel",
       "drama--rule",
       "drama--rotation",
+      "drama--me",
+      "drama--dead-me",
     );
     dramaEl.setAttribute("aria-hidden", "true");
     dramaEyebrow.textContent = "";
@@ -590,42 +594,64 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.add("drama--kill");
     dramaEl.classList.toggle("drama--elim", elim);
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = elim ? "Ã‰LIMINÃ‰" : "";
-    dramaNames.textContent = victims.map((v) => v.player.name).join(" Â· ");
-    dramaRule.textContent = focusRule.name;
+
+    /*
+     * UN seul panneau, jamais deux couches superposées.
+     *
+     * Le tampon plein cadre (« INFRACTION », 96 px, cadre incliné, z-index 9)
+     * s'abattait PAR-DESSUS ce panneau (z-index 8) quand la victime, c'était
+     * moi. Deux surfaces centrées l'une sur l'autre, disant la même chose, et
+     * celle du dessus masquait le pseudo et la raison. Rapporté en playtest :
+     * « on voit le pseudo du joueur et une autre pop-up juste au-dessus ».
+     *
+     * Le panneau porte donc seul l'information pendant une kill-cam, et il dit
+     * à qui elle s'adresse. Le tampon reste pour les manches SANS kill-cam
+     * (pauses courtes, duel), où il est la seule annonce à l'écran.
+     */
+    /*
+     * `elim` dit qu'une élimination a eu lieu DANS LA MANCHE, pas qu'elle est
+     * la mienne : il se déduit de la longueur de pause, qui vaut pour tout le
+     * salon. Bâtir l'intitulé dessus annonçait « TU ES ÉLIMINÉ » à quelqu'un
+     * qui venait seulement de perdre une vie pendant qu'un autre tombait. Le
+     * texte se lit donc sur la victime en tête — c'est moi dès que je suis
+     * dans la liste, le tri s'en charge — et sur SON élimination à elle.
+     */
+    const tete = victims[0]!;
+    const victimeMoi = tete.player.id === net?.myId;
+    const jeSuisElimine = victimeMoi && tete.eliminated;
+    dramaEl.classList.toggle("drama--me", victimeMoi);
+    dramaEl.classList.toggle("drama--dead-me", jeSuisElimine);
+    dramaEyebrow.textContent = victimeMoi
+      ? jeSuisElimine
+        ? "TU ES ÉLIMINÉ"
+        : "TU PERDS UNE VIE"
+      : elim
+        ? "ÉLIMINÉ"
+        : "VIE PERDUE";
+    dramaNames.textContent = victims.map((v) => v.player.name).join(" · ");
+    // « SOUS » : sans ce mot, un nom de règle posé entre un pseudo et une
+    // raison de mort ne se lit pas comme une règle.
+    dramaRule.textContent = `SOUS ${focusRule.name}`;
     const primary = victims[0]!;
     dramaReason.textContent = primary.reason.toUpperCase();
     dramaExtra.textContent =
       elim && aliveCount > 0 ? `ILS NE SONT PLUS QUE ${aliveCount}` : "";
     timerEl.classList.add("is-recharge");
-    /*
-     * Le tampon ne s'abat que sur MA mort.
-     *
-     * Il tombait aussi quand quelqu'un d'autre mourait : un Â« INFRACTION Â»
-     * plein Ã©cran chez un joueur qui, lui, venait de rÃ©ussir sa manche.
-     * RapportÃ© en soirÃ©e â€” Â« lorsqu'un joueur meurt, l'information s'affiche
-     * pour tout le monde Â», et les notifications se superposaient.
-     *
-     * La kill-cam, elle, reste collective : c'est le spectacle, et elle NOMME
-     * le mort. Le tampon, lui, est un verdict personnel.
-     */
-    const meVictim = victims.find((v) => v.player.id === net?.myId);
-    if (meVictim) hud.showStamp(stampForReason(meVictim.reason));
-    else hud.hideStamp();
+    hud.hideStamp();
   }
 
   /**
-   * RÃ©vÃ©lation de la rÃ¨gle unique, en plein cadre, pendant le compte Ã  rebours.
+   * Révélation de la règle unique, en plein cadre, pendant le compte à rebours.
    *
-   * La rÃ¨gle unique EST le jeu : un joueur qui ne l'a pas lue joue en aveugle.
-   * En solo elle a un Ã©cran entier ; en multijoueur elle n'Ã©tait qu'une ligne
-   * dans le bandeau du haut, posÃ©e en mÃªme temps que dix autres choses â€” donc
-   * personne ne la lisait, et on dÃ©couvrait sa contrainte en mourant.
+   * La règle unique EST le jeu : un joueur qui ne l'a pas lue joue en aveugle.
+   * En solo elle a un écran entier ; en multijoueur elle n'était qu'une ligne
+   * dans le bandeau du haut, posée en même temps que dix autres choses — donc
+   * personne ne la lisait, et on découvrait sa contrainte en mourant.
    *
-   * Le compte Ã  rebours dure trois secondes pendant lesquelles le centre est
-   * libre et le jeu ne demande rien. C'est le mÃªme principe que la kill-cam :
-   * pendant la pause, le centre fait le spectacle. On rÃ©utilise donc le mÃªme
-   * panneau â€” pas un mÃ©canisme de plus Ã  entretenir.
+   * Le compte à rebours dure trois secondes pendant lesquelles le centre est
+   * libre et le jeu ne demande rien. C'est le même principe que la kill-cam :
+   * pendant la pause, le centre fait le spectacle. On réutilise donc le même
+   * panneau — pas un mécanisme de plus à entretenir.
    */
   function showRuleReveal(rule: OneRule, rotation = false): void {
     if (!match) return;
@@ -636,10 +662,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.add("drama--rule");
     dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = rotation ? "TA RÃˆGLE CHANGE" : "TA RÃˆGLE UNIQUE";
+    dramaEyebrow.textContent = rotation ? "TA RÈGLE CHANGE" : "TA RÈGLE UNIQUE";
     dramaNames.textContent = rule.name;
-    // Le brief EN CLAIR, pas seulement le nom : Â« LE DALTONIEN Â» ne dit rien
-    // Ã  qui ne l'a jamais rencontrÃ©, et c'est justement le cas d'un invitÃ©.
+    // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
+    // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
     dramaReason.textContent = rule.brief;
     dramaRule.textContent = "";
     dramaExtra.textContent = "";
@@ -656,7 +682,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.add("drama--duel");
     dramaEl.setAttribute("aria-hidden", "false");
     dramaEyebrow.textContent = "DUEL";
-    dramaNames.textContent = `${a.name}  Â·  ${b.name}`;
+    dramaNames.textContent = `${a.name}  ·  ${b.name}`;
     dramaRule.textContent = "";
     dramaReason.textContent = "";
     dramaExtra.textContent = "";
@@ -704,18 +730,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const rule = rid ? ruleById(rid) : match.rule;
     if (!rule) {
       /*
-       * Aucune rÃ¨gle rÃ©soluble. Le cas concret est un dÃ©calage de versions :
-       * le front (Vercel) et le serveur de salons (Fly) se dÃ©ploient
-       * sÃ©parÃ©ment, donc le serveur peut nommer une rÃ¨gle que ce bundle ne
-       * connaÃ®t pas. PROTOCOL_VERSION protÃ¨ge le protocole, pas la table des
-       * rÃ¨gles.
+       * Aucune règle résoluble. Le cas concret est un décalage de versions :
+       * le front (Vercel) et le serveur de salons (Fly) se déploient
+       * séparément, donc le serveur peut nommer une règle que ce bundle ne
+       * connaît pas. PROTOCOL_VERSION protège le protocole, pas la table des
+       * règles.
        *
-       * Sortir en `return` laissait `match.round` sur la manche PRÃ‰CÃ‰DENTE,
-       * alors que beginRound a dÃ©jÃ  avancÃ© match.idx : le joueur voyait et
-       * cliquait la scÃ¨ne Nâˆ’1 pendant que le serveur jugeait la N. Verdicts
-       * incomprÃ©hensibles, et aucune erreur nulle part.
+       * Sortir en `return` laissait `match.round` sur la manche PRÉCÉDENTE,
+       * alors que beginRound a déjà avancé match.idx : le joueur voyait et
+       * cliquait la scène N−1 pendant que le serveur jugeait la N. Verdicts
+       * incompréhensibles, et aucune erreur nulle part.
        *
-       * Un champ vide est un mauvais moment ; une scÃ¨ne fausse est un mensonge.
+       * Un champ vide est un mauvais moment ; une scène fausse est un mensonge.
        */
       match.round = null;
       return;
@@ -737,13 +763,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     for (const p of match.players) {
       if (p.lives <= 0 && p.id !== current) continue;
       /*
-       * On ne se propose jamais soi-mÃªme comme cible.
+       * On ne se propose jamais soi-même comme cible.
        *
-       * Le filtre ne visait que le joueur Ã‰LIMINÃ‰ (`lives <= 0`) â€” mais un
-       * spectateur arrivÃ© en cours de partie n'a pas de siÃ¨ge, donc pas de
-       * vies dÃ©comptÃ©es : il se retrouvait dans sa propre liste de cibles,
-       * proposÃ© de se regarder lui-mÃªme alors qu'il ne joue pas. C'est
-       * `isSpectating()` qui dÃ©cide, pas le nombre de vies.
+       * Le filtre ne visait que le joueur ÉLIMINÉ (`lives <= 0`) — mais un
+       * spectateur arrivé en cours de partie n'a pas de siège, donc pas de
+       * vies décomptées : il se retrouvait dans sa propre liste de cibles,
+       * proposé de se regarder lui-même alors qu'il ne joue pas. C'est
+       * `isSpectating()` qui décide, pas le nombre de vies.
        */
       if (p.id === net.myId) continue;
       const chip = document.createElement("button");
@@ -778,19 +804,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   /**
    * Le chat n'existe PAS pendant une manche.
    *
-   * Il Ã©tait disponible en permanence, repliÃ© par-dessus l'aire de jeu.
-   * ConstatÃ© en soirÃ©e : il ne s'affichait que partiellement, mangeait une
-   * partie de l'Ã©cran, les messages n'apparaissaient qu'en envoyant des Â« . Â»,
-   * et on ne pouvait pas les faire dÃ©filer. Un canal de discussion Ã  moitiÃ©
-   * fonctionnel pendant une fenÃªtre d'une seconde et demie ne rend service Ã 
-   * personne â€” il gÃªne.
+   * Il était disponible en permanence, replié par-dessus l'aire de jeu.
+   * Constaté en soirée : il ne s'affichait que partiellement, mangeait une
+   * partie de l'écran, les messages n'apparaissaient qu'en envoyant des « . »,
+   * et on ne pouvait pas les faire défiler. Un canal de discussion à moitié
+   * fonctionnel pendant une fenêtre d'une seconde et demie ne rend service à
+   * personne — il gêne.
    *
-   * Il ne vit donc plus que lÃ  oÃ¹ un Ã©cran est ouvert : salon d'attente et fin
-   * de match. Les messages reÃ§us pendant la partie ne sont pas perdus, ils
-   * s'affichent Ã  la reprise.
+   * Il ne vit donc plus que là où un écran est ouvert : salon d'attente et fin
+   * de match. Les messages reçus pendant la partie ne sont pas perdus, ils
+   * s'affichent à la reprise.
    *
-   * ConsÃ©quence heureuse : le piÃ¨ge du clavier disparaÃ®t. `EntrÃ©e` ne peut plus
-   * dÃ©tourner les touches de jeu, puisqu'il n'y a rien Ã  ouvrir en manche.
+   * Conséquence heureuse : le piège du clavier disparaît. `Entrée` ne peut plus
+   * détourner les touches de jeu, puisqu'il n'y a rien à ouvrir en manche.
    */
   function chatAvailable(): boolean {
     return !!roomCode && !!net?.connected && screenOpen();
@@ -810,13 +836,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   /**
    * Le chat rejoint la colonne du salon, ou reprend sa place flottante.
    *
-   * Uniquement lÃ  oÃ¹ le salon a DEUX colonnes. En une seule, la colonne de
-   * droite passe sous les rÃ©glages et les boutons : le chat se retrouverait Ã 
-   * 930 px du haut sur un 375Ã—667, alors que la couche flottante le garde Ã 
-   * portÃ©e de pouce sans rien coÃ»ter. L'ancrage est un gain d'Ã©cran large.
+   * Uniquement là où le salon a DEUX colonnes. En une seule, la colonne de
+   * droite passe sous les réglages et les boutons : le chat se retrouverait à
+   * 930 px du haut sur un 375×667, alors que la couche flottante le garde à
+   * portée de pouce sans rien coûter. L'ancrage est un gain d'écran large.
    *
-   * Un dÃ©placement de nÅ“ud perd le focus : on le rend, sinon quelqu'un qui
-   * tape au moment oÃ¹ le salon se peint voit son curseur disparaÃ®tre.
+   * Un déplacement de nœud perd le focus : on le rend, sinon quelqu'un qui
+   * tape au moment où le salon se peint voit son curseur disparaître.
    */
   function dockChat(): void {
     const bande = uiScreen !== null ? chatDocks[uiScreen] : undefined;
@@ -830,8 +856,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function renderChatLog(): void {
     const expanded = chatExpanded();
-    // AncrÃ©, le chat a une colonne entiÃ¨re : il garde l'historique du salon
-    // plutÃ´t que les huit derniÃ¨res lignes d'une couche qui se replie.
+    // Ancré, le chat a une colonne entière : il garde l'historique du salon
+    // plutôt que les huit dernières lignes d'une couche qui se replie.
     const garde = chatEl.classList.contains("chat--docked") ? 40 : expanded ? 8 : 3;
     const visible = chatLines.slice(-garde);
     chatLog.innerHTML = "";
@@ -847,20 +873,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.querySelector<HTMLElement>(".chat__text")!.textContent = line.text;
       chatLog.appendChild(row);
     }
-    // Le dernier message reste visible : la colonne dÃ©file, pas le lecteur.
+    // Le dernier message reste visible : la colonne défile, pas le lecteur.
     chatLog.scrollTop = chatLog.scrollHeight;
   }
 
   /**
-   * RÃ©serve, sous le contenu, la place que le chat FLOTTANT lui prend.
+   * Réserve, sous le contenu, la place que le chat FLOTTANT lui prend.
    *
-   * MesurÃ© sur un 375Ã—667 : la couche recouvrait le bouton Â« 5 vies Â» du salon
-   * â€” et comme elle reÃ§oit les clics, le rÃ©glage devenait inatteignable. On ne
-   * dÃ©place pas le chat pour autant : sur tÃ©lÃ©phone, c'est justement d'Ãªtre
-   * toujours lÃ  qu'il tire son intÃ©rÃªt.
+   * Mesuré sur un 375×667 : la couche recouvrait le bouton « 5 vies » du salon
+   * — et comme elle reçoit les clics, le réglage devenait inatteignable. On ne
+   * déplace pas le chat pour autant : sur téléphone, c'est justement d'être
+   * toujours là qu'il tire son intérêt.
    *
-   * Aucune boucle de dÃ©cision : le chat est positionnÃ© par rapport Ã  `#app`,
-   * donc sa hauteur ne dÃ©pend pas de la marge qu'on vient de poser.
+   * Aucune boucle de décision : le chat est positionné par rapport à `#app`,
+   * donc sa hauteur ne dépend pas de la marge qu'on vient de poser.
    */
   function reserveChatSpace(): void {
     const flottant =
@@ -909,7 +935,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function focusChat(): void {
     if (!chatAvailable()) return;
     // Sur tactile, aucune saisie pendant une manche : le clavier logiciel
-    // sur une fenÃªtre de 800 ms Ã©liminerait le joueur pour un Â« bravo Â».
+    // sur une fenêtre de 800 ms éliminerait le joueur pour un « bravo ».
     if (TOUCH_ONLY && !screenOpen()) return;
     chatEl.classList.remove("hidden", "is-collapsed");
     chatInput.focus();
@@ -957,7 +983,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       plate.appendChild(bubble);
     }
     bubble.textContent = EMOTE_LABELS[k] ?? "";
-    // MÃªme relance d'animation que hud.showStamp : deux rÃ©actions coup sur coup
+    // Même relance d'animation que hud.showStamp : deux réactions coup sur coup
     // doivent se voir toutes les deux.
     bubble.classList.remove("is-on");
     void bubble.offsetWidth;
@@ -1019,9 +1045,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     setPlatesVisible(true);
     const myId = net.myId;
-    // Compact aussi sur petit Ã©cran, quel que soit l'effectif : Ã  deux plaques
-    // par rangÃ©e sur un tÃ©lÃ©phone, six joueurs mangeaient dÃ©jÃ  un tiers de la
-    // hauteur. Le signe passe Ã  24 px, comme Ã  effectif nombreux.
+    // Compact aussi sur petit écran, quel que soit l'effectif : à deux plaques
+    // par rangée sur un téléphone, six joueurs mangeaient déjà un tiers de la
+    // hauteur. Le signe passe à 24 px, comme à effectif nombreux.
     const compact = match.players.length > 6 || window.innerWidth <= 720;
     platesEl.classList.toggle("plates--compact", compact);
     const existing = new Map<string, HTMLElement>();
@@ -1084,12 +1110,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       const stats = p.stats ?? EMPTY_STATS;
       const reactEl = el.querySelector<HTMLElement>(".plate__react");
       if (reactEl) {
-        reactEl.textContent = compact ? "" : stats.reaction != null ? `${stats.reaction} ms` : "â€”";
+        reactEl.textContent = compact ? "" : stats.reaction != null ? `${stats.reaction} ms` : "—";
       }
       const streakEl = el.querySelector<HTMLElement>(".plate__streak");
       if (streakEl) {
         if (stats.streak >= 3) {
-          streakEl.textContent = `Ã—${stats.streak}`;
+          streakEl.textContent = `×${stats.streak}`;
           streakEl.classList.add("is-on");
         } else {
           streakEl.textContent = "";
@@ -1145,19 +1171,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function beginMatch(msg: Extract<ServerMsg, { t: "match_start" }>): void {
     if (!net) return;
     /*
-     * Un SPECTATEUR n'a pas de rÃ¨gle Ã  lui â€” il n'a pas de siÃ¨ge.
+     * Un SPECTATEUR n'a pas de règle à lui — il n'a pas de siège.
      *
-     * Sortir ici le privait de tout Ã©tat de match, donc de la barre de cibles,
-     * du pied Â« JE REGARDE X Â» et de la scÃ¨ne : il restait devant un salon figÃ©
-     * jusqu'Ã  la fin de la partie. On reconstruit donc sa vue Ã  partir de la
-     * rÃ¨gle du joueur qu'il va observer â€” c'est exactement ce que fait
-     * `rebuildViewRound()` ensuite, et Ã§a ne coÃ»te rien au serveur puisque la
-     * scÃ¨ne est dÃ©terministe.
+     * Sortir ici le privait de tout état de match, donc de la barre de cibles,
+     * du pied « JE REGARDE X » et de la scène : il restait devant un salon figé
+     * jusqu'à la fin de la partie. On reconstruit donc sa vue à partir de la
+     * règle du joueur qu'il va observer — c'est exactement ce que fait
+     * `rebuildViewRound()` ensuite, et ça ne coûte rien au serveur puisque la
+     * scène est déterministe.
      */
     const cible = lastPlayers.find((p) => p.lives > 0 && p.id !== net!.myId);
     const ruleId = msg.rules[net.myId] ?? (cible ? msg.rules[cible.id] : undefined);
     const rule = ruleId ? ruleById(ruleId) : undefined;
-    // Plus personne d'observable : il n'y a vraiment rien Ã  montrer.
+    // Plus personne d'observable : il n'y a vraiment rien à montrer.
     if (!rule) return;
 
     endScreenOpen = false;
@@ -1195,9 +1221,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       spectator: !!me?.spectator,
       players: lastPlayers.slice(),
       watchingId: spectating ? (firstAlive?.id ?? null) : null,
-      // Un dÃ©butant porte une vie de plus : borner au rÃ©glage du salon
-      // afficherait 4 points dans une jauge qui n'en prÃ©voit que 3. L'Ã©tat du
-      // salon arrive maintenant AVANT match_start, donc ces vies sont rÃ©elles.
+      // Un débutant porte une vie de plus : borner au réglage du salon
+      // afficherait 4 points dans une jauge qui n'en prévoit que 3. L'état du
+      // salon arrive maintenant AVANT match_start, donc ces vies sont réelles.
       maxLives: Math.max(roomSettings.lives, ...lastPlayers.map((p) => p.lives), 1),
       nextRoundAt: null,
       pauseMs: 0,
@@ -1234,8 +1260,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       musicApi.start();
       match.musicNeedsRestart = false;
     }
-    // Le sting n'annonce quelque chose que s'il s'est passÃ© quelque chose.
-    // AprÃ¨s un interlude banal, ce ne serait qu'un mÃ©tronome de plus.
+    // Le sting n'annonce quelque chose que s'il s'est passé quelque chose.
+    // Après un interlude banal, ce ne serait qu'un métronome de plus.
     if (match.pauseMs > 1800) sfx.resumeSting();
 
     if (msg.rules) {
@@ -1254,13 +1280,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     match.phase = "round";
     match.nextRoundAt = null;
     match.pauseMs = 0;
-    // L'annonce a fait son office : la rÃ¨gle est dÃ©sormais en vigueur.
+    // L'annonce a fait son office : la règle est désormais en vigueur.
     match.rotationRule = null;
     platePulse.clear();
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     rebuildViewRound();
-    // La rÃ¨gle a pu raccourcir la fenÃªtre personnelle : la barre doit le dire,
+    // La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
     // sinon elle promet du temps que le serveur ne donne pas.
     const base = windowMs(match.idx);
     match.spanFactor = match.round && base > 0 ? match.round.durationMs / base : 1;
@@ -1287,18 +1313,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       } else sfx.success(match.score);
     } else if (mine?.kind === "death") {
       sfx.fail();
-      hud.showStamp(stampFor(mine));
+      // Le tampon est posé plus bas, une fois qu'on sait si un panneau va
+      // occuper le centre : le poser ici le faisait clignoter sous la kill-cam.
     }
 
     /*
-     * Le verdict reste affichÃ© jusqu'Ã  la manche suivante â€” pas 800 ms.
+     * Le verdict reste affiché jusqu'à la manche suivante — pas 800 ms.
      *
-     * Il s'effaÃ§ait sur minuterie, alors que la pause dure 1100 ms au calme,
-     * 2400 aprÃ¨s une vie perdue et 4200 aprÃ¨s une Ã©limination : pendant une
+     * Il s'effaçait sur minuterie, alors que la pause dure 1100 ms au calme,
+     * 2400 après une vie perdue et 4200 après une élimination : pendant une
      * kill-cam, on regardait donc des plaques neutres pendant plus de trois
-     * secondes, au moment prÃ©cis oÃ¹ l'on veut voir qui a tenu. Le message
-     * `round` remet dÃ©jÃ  le compteur Ã  zÃ©ro : c'est lui qui efface, comme
-     * partout ailleurs, plutÃ´t qu'un `setTimeout` qui devine.
+     * secondes, au moment précis où l'on veut voir qui a tenu. Le message
+     * `round` remet déjà le compteur à zéro : c'est lui qui efface, comme
+     * partout ailleurs, plutôt qu'un `setTimeout` qui devine.
      */
     platePulse.clear();
     for (const [id, o] of Object.entries(msg.outcomes)) {
@@ -1308,18 +1335,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     syncFooter();
 
     /*
-     * Rotation annoncÃ©e PENDANT la pause, en plein cadre.
+     * Rotation annoncée PENDANT la pause, en plein cadre.
      *
      * Elle arrivait avec la manche suivante, donc pendant qu'il fallait jouer,
-     * et se rÃ©duisait Ã  un changement de texte en haut Ã  gauche. Deux tiers
-     * des pertes de vies venaient de lÃ . Le serveur allonge maintenant
-     * l'interlude et joint les rÃ¨gles Ã  venir : on a le temps de lire.
+     * et se réduisait à un changement de texte en haut à gauche. Deux tiers
+     * des pertes de vies venaient de là. Le serveur allonge maintenant
+     * l'interlude et joint les règles à venir : on a le temps de lire.
      */
     if (msg.nextRules && net) {
       match.rules = { ...msg.nextRules };
       const mienne = ruleById(msg.nextRules[net.myId] ?? "");
-      // On MÃ‰MORISE, on n'affiche pas encore : une kill-cam peut occuper le
-      // centre. syncFrame passera de l'une Ã  l'autre au bon moment.
+      // On MÉMORISE, on n'affiche pas encore : une kill-cam peut occuper le
+      // centre. syncFrame passera de l'une à l'autre au bon moment.
       match.rotationRule = mienne && !isSpectating() ? mienne : null;
     }
 
@@ -1347,12 +1374,36 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         };
       })
       .filter((v): v is { player: PlayerPublic; reason: string; eliminated: boolean } => !!v)
-      .sort((a, b) => Number(b.eliminated) - Number(a.eliminated));
+      /*
+       * MOI d'abord, puis les éliminés.
+       *
+       * Tout le panneau se règle sur `victims[0]` : la raison affichée, la
+       * règle nommée, et la scène rejouée derrière. Trié sur la seule
+       * élimination, il m'annonçait « TU PERDS UNE VIE » au-dessus du motif de
+       * quelqu'un d'autre — mesuré en salon à trois : « SOUS LA POINTE » alors
+       * que je portais LE SANG. Quand je suis dans la liste, c'est ma mort que
+       * l'écran doit expliquer ; le spectacle des autres passe après.
+       */
+      .sort((a, b) => {
+        const moi = (v: { player: PlayerPublic }) => (v.player.id === net?.myId ? 1 : 0);
+        return moi(b) - moi(a) || Number(b.eliminated) - Number(a.eliminated);
+      });
+
+    /*
+     * Une seule annonce plein cadre à la fois.
+     *
+     * Le tampon et le panneau sont deux surfaces centrées, opaques, de tailles
+     * comparables. Quand les deux tombaient ensemble — c'est-à-dire chaque
+     * fois que la victime était moi — le tampon recouvrait le panneau, donc le
+     * pseudo et la raison. Le tampon ne sert donc plus que là où il est seul.
+     */
+    const duelPrevu = pauseMs <= 800 && alive.length === 2 && !match.duelAnnounced;
 
     if (pauseMs > 1800 && victims.length > 0) {
       const focus = victims[0]!;
       const rid = match.rules[focus.player.id] ?? focus.player.ruleId;
       const focusRule = ruleById(rid);
+      if (!focusRule && mine?.kind === "death") hud.showStamp(stampFor(mine));
       if (focusRule) {
         const focusRound = buildMultiRound(match.seed, match.idx, focusRule);
         const elim = pauseMs > 3500;
@@ -1369,11 +1420,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
 
-    if (pauseMs <= 800 && alive.length === 2 && !match.duelAnnounced) {
+    if (duelPrevu) {
       match.duelAnnounced = true;
       showDuel(alive[0]!, alive[1]!);
       sfx.win();
+      return;
     }
+
+    // Aucun panneau ne prend le centre : le tampon est alors la seule annonce
+    // de ma mort, et il la porte seul.
+    if (mine?.kind === "death") hud.showStamp(stampFor(mine));
   }
 
   function renderTitles(players: PlayerPublic[]): void {
@@ -1391,7 +1447,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (reflex) {
       titles.push({
-        label: "RÃ‰FLEXE DU MATCH",
+        label: "RÉFLEXE DU MATCH",
         value: `${reflex.s.reaction} ms`,
         player: reflex.p,
       });
@@ -1417,14 +1473,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (serie) {
       titles.push({
-        label: "SÃ‰RIE",
-        value: `Ã—${serie.s.bestStreak}`,
+        label: "SÉRIE",
+        value: `×${serie.s.bestStreak}`,
         player: serie.p,
       });
     }
 
-    // Sans titre Ã  dÃ©cerner, le classement reprend toute la largeur : une
-    // colonne vide en face de lui se lit comme un contenu qui n'a pas chargÃ©.
+    // Sans titre à décerner, le classement reprend toute la largeur : une
+    // colonne vide en face de lui se lit comme un contenu qui n'a pas chargé.
     $("multi-end").classList.toggle("is-solo", titles.length === 0);
     if (titles.length === 0) {
       box.classList.add("hidden");
@@ -1451,22 +1507,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function renderPodium(players: PlayerPublic[]): void {
     /*
-     * Le classement doit se lire d'un coup d'Å“il.
+     * Le classement doit se lire d'un coup d'œil.
      *
-     * Il affichait Â« â™¥3 Â· 12 Â» sans dire ce qu'Ã©tait 12, sans numÃ©ro de rang,
-     * et marquait Â« EN VIE Â» des joueurs alors que le match Ã©tait fini.
-     * RapportÃ© en soirÃ©e : Â« peu clair, certaines informations ne sont pas
-     * suffisamment explicites Â».
+     * Il affichait « ♥3 · 12 » sans dire ce qu'était 12, sans numéro de rang,
+     * et marquait « EN VIE » des joueurs alors que le match était fini.
+     * Rapporté en soirée : « peu clair, certaines informations ne sont pas
+     * suffisamment explicites ».
      *
-     * Trois corrections : un rang chiffrÃ©, des vies en points comme partout
-     * ailleurs dans le jeu, et une unitÃ© Ã©crite sur le score.
+     * Trois corrections : un rang chiffré, des vies en points comme partout
+     * ailleurs dans le jeu, et une unité écrite sur le score.
      */
     /*
-     * Les spectateurs ne sont pas classÃ©s â€” ils n'ont pas jouÃ©.
+     * Les spectateurs ne sont pas classés — ils n'ont pas joué.
      *
-     * Ils Ã©taient triÃ©s avec les autres, et comme le tri se fait sur les vies,
-     * quelqu'un arrivÃ© en cours de partie se retrouvait en tÃªte du classement
-     * sans avoir jouÃ© une seule manche. Ils apparaissent dÃ©sormais Ã  part, en
+     * Ils étaient triés avec les autres, et comme le tri se fait sur les vies,
+     * quelqu'un arrivé en cours de partie se retrouvait en tête du classement
+     * sans avoir joué une seule manche. Ils apparaissent désormais à part, en
      * fin de liste, sans rang.
      */
     const joueurs = players.filter((p) => !p.spectator);
@@ -1496,22 +1552,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       /*
-       * La rÃ¨gle qu'il portait en tombant.
+       * La règle qu'il portait en tombant.
        *
        * Le classement disait le rang et le score, jamais sous quelle contrainte
-       * chacun avait jouÃ© â€” alors que c'est la seule chose qui distingue deux
-       * joueurs du mÃªme salon, et qu'elle change Ã  chaque rotation. La colonne
-       * dit donc la mÃªme chose ici que dans le salon, et le statut a la sienne.
+       * chacun avait joué — alors que c'est la seule chose qui distingue deux
+       * joueurs du même salon, et qu'elle change à chaque rotation. La colonne
+       * dit donc la même chose ici que dans le salon, et le statut a la sienne.
        */
       row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent =
-        ruleById(p.ruleId)?.name ?? (p.ruleId || "â€”");
+        ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
       row.querySelector<HTMLElement>(".lobbyrow__status")!.textContent = isWinner
         ? "VAINQUEUR"
         : p.lives <= 0
-          ? "Ã‰LIMINÃ‰"
-          : `${rang + 1}áµ‰`;
+          ? "ÉLIMINÉ"
+          : `${rang + 1}ᵉ`;
       // Vies en points, comme sur les plaques et au pied : une seule grammaire
-      // visuelle pour une mÃªme information.
+      // visuelle pour une même information.
       // `livesDots` rend des <i> NUS : sans le conteneur `.lifedots`, la CSS
       // ne les atteint pas et les points restent invisibles.
       row.querySelector<HTMLElement>(".lobbyrow__meta")!.innerHTML =
@@ -1525,13 +1581,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.className = "lobbyrow is-off" + (p.id === net?.myId ? " is-host" : "");
       row.innerHTML =
         `<span class="lobbyrow__name">` +
-        `<span class="lobbyrow__rank">â€”</span>` +
+        `<span class="lobbyrow__rank">—</span>` +
         `<span class="lobbyrow__glyph"></span>` +
         `<span class="lobbyrow__name-text"></span>` +
         `</span>` +
         `<span class="lobbyrow__rule"></span>` +
         `<span class="lobbyrow__status">SPECTATEUR</span>` +
-        `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">A REGARDÃ‰</span></span>`;
+        `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">A REGARDÉ</span></span>`;
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       list.appendChild(row);
@@ -1541,9 +1597,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function endMatch(msg: Extract<ServerMsg, { t: "match_end" }>): void {
     if (!net) return;
 
-    // Une partie terminÃ©e, quel qu'en soit le rÃ©sultat : on n'est plus
-    // nouveau. ComptÃ© Ã  la FIN et non au lancement, pour qu'un salon quittÃ©
-    // pendant le compte Ã  rebours ne consomme pas l'accueil.
+    // Une partie terminée, quel qu'en soit le résultat : on n'est plus
+    // nouveau. Compté à la FIN et non au lancement, pour qu'un salon quitté
+    // pendant le compte à rebours ne consomme pas l'accueil.
     P.mutate((st) => {
       st.multi.matches++;
     });
@@ -1556,7 +1612,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const title = $("multiEndTitle");
     if (msg.winnerId === null) {
-      title.textContent = "Ã‰GALITÃ‰";
+      title.textContent = "ÉGALITÉ";
       title.classList.remove("is-win");
     } else {
       const winner =
@@ -1568,7 +1624,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     renderTitles(msg.players);
     renderPodium(msg.players);
-    $("multiEndInviteHint").textContent = "LIEN D'INVITATION Â· UN CLIC POUR COPIER";
+    $("multiEndInviteHint").textContent = "LIEN D'INVITATION · UN CLIC POUR COPIER";
 
     if (msg.winnerId === net.myId) sfx.win();
     show("multi-end");
@@ -1579,12 +1635,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const link = inviteUrl(roomCode);
     try {
       await navigator.clipboard.writeText(link);
-      // ComptÃ© seulement si le presse-papiers a effectivement pris. La branche
-      // de repli affiche le lien en clair : l'utilisateur peut le recopier Ã  la
-      // main, mais on ne saura jamais s'il l'a fait â€” mieux vaut sous-compter
+      // Compté seulement si le presse-papiers a effectivement pris. La branche
+      // de repli affiche le lien en clair : l'utilisateur peut le recopier à la
+      // main, mais on ne saura jamais s'il l'a fait — mieux vaut sous-compter
       // l'envoi que gonfler le haut d'un entonnoir dont on lit le bas.
       track("invite_sent", { players: lastPlayers.length });
-      $(hintId).textContent = "LIEN COPIÃ‰";
+      $(hintId).textContent = "LIEN COPIÉ";
     } catch {
       $(hintId).textContent = link;
     }
@@ -1644,18 +1700,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     if (msg.t === "error") {
-      // Le serveur vient de dire prÃ©cisÃ©ment ce qui n'allait pas : le rattrapage
-      // gÃ©nÃ©rique de ensureConnected() ne doit pas Ã©craser ce message.
+      // Le serveur vient de dire précisément ce qui n'allait pas : le rattrapage
+      // générique de ensureConnected() ne doit pas écraser ce message.
       errFromServer = true;
       if (msg.code === "room_unknown") {
-        const coupe = msg.detail === "dÃ©connectÃ©";
+        const coupe = msg.detail === "déconnecté";
         /*
-         * Coupure : on ne dÃ©monte RIEN et on tente de revenir seul.
+         * Coupure : on ne démonte RIEN et on tente de revenir seul.
          *
-         * Renvoyer tout de suite Ã  l'Ã©cran de saisie Ã©tait vÃ©cu comme une
-         * expulsion, alors que le siÃ¨ge est gardÃ© cÃ´tÃ© serveur â€” et le joueur
-         * perdait le temps du sursis Ã  chercher son code. attemptRejoin rend
-         * la main s'il Ã©choue vraiment.
+         * Renvoyer tout de suite à l'écran de saisie était vécu comme une
+         * expulsion, alors que le siège est gardé côté serveur — et le joueur
+         * perdait le temps du sursis à chercher son code. attemptRejoin rend
+         * la main s'il échoue vraiment.
          */
         if (coupe && lastRoomCode) {
           void attemptRejoin();
@@ -1663,8 +1719,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         }
         setJoinErr(
           coupe
-            ? "DÃ‰CONNECTÃ‰ â€” REJOINS POUR REPRENDRE TA PLACE"
-            : "AUCUN SALON Ã€ CE CODE â€” VÃ‰RIFIE LES 4 LETTRES, OU CRÃ‰E LE TIEN",
+            ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE"
+            : "AUCUN SALON À CE CODE — VÉRIFIE LES 4 CARACTÈRES, OU CRÉE LE TIEN",
         );
         if (roomCode) {
           roomCode = "";
@@ -1675,18 +1731,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           show("multi-join");
         }
       } else if (msg.code === "room_full") {
-        setJoinErr(`SALON COMPLET (${MAX_PLAYERS} JOUEURS) â€” CRÃ‰E-EN UN AUTRE`);
+        setJoinErr(`SALON COMPLET (${MAX_PLAYERS} JOUEURS) — CRÉE-EN UN AUTRE`);
       } else if (msg.code === "not_host") {
-        setJoinErr("SEUL CELUI QUI A CRÃ‰Ã‰ LE SALON PEUT LANCER â€” DEMANDE-LUI");
+        setJoinErr("SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI");
       } else if (msg.code === "in_match") {
-        setJoinErr("MATCH EN COURS â€” TU ENTRES Ã€ LA PROCHAINE PARTIE");
+        setJoinErr("MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE");
       } else if (msg.code === "bad_version") {
-        // Cas typique d'un onglet restÃ© ouvert sur l'ancien bundle aprÃ¨s un
-        // dÃ©ploiement. Le geste qui rÃ©pare est le rechargement : le dire.
-        setJoinErr("VERSION INCOMPATIBLE â€” RECHARGE LA PAGE");
+        // Cas typique d'un onglet resté ouvert sur l'ancien bundle après un
+        // déploiement. Le geste qui répare est le rechargement : le dire.
+        setJoinErr("VERSION INCOMPATIBLE — RECHARGE LA PAGE");
       } else if (msg.code === "kicked") {
-        setJoinErr("TU AS Ã‰TÃ‰ SORTI DU SALON â€” TU PEUX EN CRÃ‰ER UN Ã€ TOI");
-        // DÃ©part subi mais dÃ©finitif : surtout ne pas revenir tout seul.
+        setJoinErr("TU AS ÉTÉ SORTI DU SALON — TU PEUX EN CRÉER UN À TOI");
+        // Départ subi mais définitif : surtout ne pas revenir tout seul.
         lastRoomCode = "";
         roomCode = "";
         lastPlayers = [];
@@ -1707,31 +1763,31 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   };
 
   /*
-   * Retour d'arriÃ¨re-plan (mobile) : le navigateur a probablement tuÃ© la
-   * socket pendant l'absence. PlutÃ´t que de laisser l'utilisateur dÃ©couvrir
-   * des boutons morts, on constate l'Ã©tat Ã  l'instant oÃ¹ l'onglet revient et
-   * on remet l'interface en position de dÃ©part, avec le message qui va bien.
+   * Retour d'arrière-plan (mobile) : le navigateur a probablement tué la
+   * socket pendant l'absence. Plutôt que de laisser l'utilisateur découvrir
+   * des boutons morts, on constate l'état à l'instant où l'onglet revient et
+   * on remet l'interface en position de départ, avec le message qui va bien.
    */
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
-    // Le navigateur mobile a probablement tuÃ© la socket pendant l'absence.
-    // On tente de reprendre la place plutÃ´t que de renvoyer l'utilisateur Ã 
-    // l'Ã©cran de saisie : c'est exactement le cas que le sursis serveur existe
+    // Le navigateur mobile a probablement tué la socket pendant l'absence.
+    // On tente de reprendre la place plutôt que de renvoyer l'utilisateur à
+    // l'écran de saisie : c'est exactement le cas que le sursis serveur existe
     // pour couvrir.
     if (net && !net.connected && lastRoomCode) void attemptRejoin();
   });
 
   /* ------------------------------------------------------------------ *
-   * IdentitÃ©
+   * Identité
    * ------------------------------------------------------------------ */
 
   /**
-   * Ce qu'on voulait faire avant que l'identitÃ© manque.
+   * Ce qu'on voulait faire avant que l'identité manque.
    *
-   * Volontairement une fonction en attente plutÃ´t qu'une promesse : une
-   * promesse non rÃ©solue â€” Ã©cran quittÃ© autrement que par les deux boutons â€”
-   * laisserait `ensureConnected` bloquÃ© et le bouton MULTIJOUEUR mort jusqu'au
-   * rechargement. On a dÃ©jÃ  payÃ© ce bug une fois, on ne le rÃ©introduit pas.
+   * Volontairement une fonction en attente plutôt qu'une promesse : une
+   * promesse non résolue — écran quitté autrement que par les deux boutons —
+   * laisserait `ensureConnected` bloqué et le bouton MULTIJOUEUR mort jusqu'au
+   * rechargement. On a déjà payé ce bug une fois, on ne le réintroduit pas.
    */
   let apresIdentite: (() => void) | null = null;
   let glyphChoisi = P.load().multi.glyph;
@@ -1766,8 +1822,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   /**
-   * Exige une identitÃ© avant d'agir. Retourne vrai si l'Ã©cran a Ã©tÃ© ouvert â€”
-   * l'appelant s'arrÃªte alors, et `suite` reprendra aprÃ¨s CONTINUER.
+   * Exige une identité avant d'agir. Retourne vrai si l'écran a été ouvert —
+   * l'appelant s'arrête alors, et `suite` reprendra après CONTINUER.
    */
   function needIdentity(suite: () => void): boolean {
     if (savedName()) return false;
@@ -1777,22 +1833,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   /**
-   * Revenir tout seul aprÃ¨s une coupure.
+   * Revenir tout seul après une coupure.
    *
-   * Sans Ã§a, la moindre micro-coupure renvoyait Ã  l'Ã©cran de saisie du code â€”
-   * vÃ©cu comme une expulsion, alors que le siÃ¨ge est gardÃ© cÃ´tÃ© serveur. On
-   * retente donc en silence, et on ne rend la main Ã  l'utilisateur que si Ã§a
-   * Ã©choue vraiment.
+   * Sans ça, la moindre micro-coupure renvoyait à l'écran de saisie du code —
+   * vécu comme une expulsion, alors que le siège est gardé côté serveur. On
+   * retente donc en silence, et on ne rend la main à l'utilisateur que si ça
+   * échoue vraiment.
    *
-   * Trois essais espacÃ©s : le sursis serveur dure 25 s, il n'y a aucune raison
-   * de marteler, et une boucle sans fin sur un serveur Ã©teint serait pire que
-   * le problÃ¨me d'origine.
+   * Trois essais espacés : le sursis serveur dure 25 s, il n'y a aucune raison
+   * de marteler, et une boucle sans fin sur un serveur éteint serait pire que
+   * le problème d'origine.
    */
   async function attemptRejoin(): Promise<void> {
     if (!lastRoomCode || rejoining) return;
     rejoining = true;
     setJoinErr(null);
-    hud.setMeta("RECONNEXIONâ€¦");
+    hud.setMeta("RECONNEXION…");
     try {
       for (let essai = 0; essai < 3; essai++) {
         const client = await ensureConnected();
@@ -1802,10 +1858,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         }
         await new Promise((r) => setTimeout(r, 800));
       }
-      // Ã‰chec : on rend la main, code dÃ©jÃ  saisi pour que ce soit un geste.
+      // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
       $<HTMLInputElement>("multiCode").value = lastRoomCode;
       syncJoinAccent();
-      setJoinErr("CONNEXION PERDUE â€” REJOINS POUR REPRENDRE TA PLACE");
+      setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
       setPlatesVisible(false);
       clearPlateCols();
       clearMatch();
@@ -1816,6 +1872,42 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /**
+   * « CONNEXION… » sur la carte MULTIJOUEUR, sans la détruire.
+   *
+   * Elle affichait cet état par `btnMulti.textContent = "CONNEXION…"`. Or
+   * `btnMulti` n'est pas un bouton-libellé mais une CARTE : trois `<span>`
+   * enfants — titre, description, état. Écrire son `textContent` les supprime
+   * tous les trois, définitivement.
+   *
+   * Conséquences mesurées, et elles s'enchaînent :
+   *   · la carte devient un texte brut sans classe, donc noir sur fond
+   *     sombre — contraste 1,15:1, illisible ;
+   *   · sa description et son état ne reviennent jamais ;
+   *   · surtout, `#cardMultiState` n'existe plus dans le document, donc
+   *     `renderHome()` lève « Cannot set properties of null » et s'interrompt.
+   *     Tout ce qui suit dans cette fonction cesse d'être appliqué : accent de
+   *     la carte suivante, mode classé, libellés SON et MUSIQUE.
+   *
+   * Il suffisait d'ouvrir le multijoueur une fois pour que l'accueil reste
+   * cassé jusqu'au rechargement. L'état va donc là où il était prévu — dans
+   * `.card__state` — et le titre n'est jamais touché.
+   */
+  function setCarteMultiOccupee(occupee: boolean): void {
+    btnMulti.disabled = occupee;
+    const etat = document.getElementById("cardMultiState");
+    if (!etat) return;
+    // L'état d'origine est mémorisé, jamais réécrit de mémoire : le libellé
+    // exact appartient à `renderHome`, et le dupliquer ici garantirait qu'un
+    // jour les deux ne diront plus la même chose.
+    if (occupee) {
+      etatMultiAvant = etat.textContent ?? "";
+      etat.textContent = "CONNEXION…";
+    } else {
+      etat.textContent = etatMultiAvant;
+    }
+  }
+
   async function ensureConnected(): Promise<NetClient | null> {
     if (net?.connected) return net;
     const name = savedName();
@@ -1823,46 +1915,44 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (connecting) return null;
     connecting = true;
     errFromServer = false;
-    btnMulti.disabled = true;
-    btnMulti.textContent = "CONNEXIONâ€¦";
+    setCarteMultiOccupee(true);
     try {
-      // Un client dÃ©connectÃ© ne se rÃ©utilise pas : socket fermÃ©e, horloge et
-      // identifiant pÃ©rimÃ©s. On repart proprement d'une instance neuve â€”
-      // c'est ce qui rend le retour d'arriÃ¨re-plan mobile indolore.
+      // Un client déconnecté ne se réutilise pas : socket fermée, horloge et
+      // identifiant périmés. On repart proprement d'une instance neuve —
+      // c'est ce qui rend le retour d'arrière-plan mobile indolore.
       if (!net || !net.connected) {
         net?.close();
         net = new NetClient(url);
         unsub?.();
         unsub = net.on(onMsg);
       }
-      // anonId est dÃ©jÃ  l'identifiant local persistant du joueur. Le rÃ©utiliser
-      // Ã©vite d'en inventer un second qui pourrait diverger â€” et c'est lui qui
-      // permet de reprendre son siÃ¨ge aprÃ¨s une coupure.
+      // anonId est déjà l'identifiant local persistant du joueur. Le réutiliser
+      // évite d'en inventer un second qui pourrait diverger — et c'est lui qui
+      // permet de reprendre son siège après une coupure.
       await net.connect(name, myGlyph(), P.load().anonId, P.load().multi.matches === 0);
       return net;
     } catch {
       if (!errFromServer) {
-        setJoinErr("SERVEUR INJOIGNABLE â€” VÃ‰RIFIE TA CONNEXION, PUIS RÃ‰ESSAIE");
+        setJoinErr("SERVEUR INJOIGNABLE — VÉRIFIE TA CONNEXION, PUIS RÉESSAIE");
       }
-      // Pendant une reprise automatique, c'est attemptRejoin qui dÃ©cide s'il
-      // faut rendre la main : basculer d'Ã©cran ici couperait la tentative en
+      // Pendant une reprise automatique, c'est attemptRejoin qui décide s'il
+      // faut rendre la main : basculer d'écran ici couperait la tentative en
       // cours et redonnerait la sensation d'expulsion qu'on veut supprimer.
       if (!rejoining) show("multi-join");
       return null;
     } finally {
       connecting = false;
-      btnMulti.disabled = false;
-      btnMulti.textContent = "MULTIJOUEUR";
+      setCarteMultiOccupee(false);
     }
   }
 
   /**
    * L'accent suit l'intention en cours.
    *
-   * Les deux panneaux sont Ã  Ã©galitÃ© tant que rien n'est saisi : CRÃ‰ER est
-   * l'action qui ne demande rien, donc c'est elle qui porte l'accent. DÃ¨s que
-   * le code est complet, c'est REJOINDRE qu'on veut â€” l'Ã©cran cesse de
-   * proposer d'ouvrir un salon Ã  quelqu'un qui vient d'en taper un.
+   * Les deux panneaux sont à égalité tant que rien n'est saisi : CRÉER est
+   * l'action qui ne demande rien, donc c'est elle qui porte l'accent. Dès que
+   * le code est complet, c'est REJOINDRE qu'on veut — l'écran cesse de
+   * proposer d'ouvrir un salon à quelqu'un qui vient d'en taper un.
    */
   function syncJoinAccent(): void {
     const pret = $<HTMLInputElement>("multiCode").value.trim().length === 4;
@@ -1939,8 +2029,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     );
     match.progress = progress;
 
-    // Le pas intermÃ©diaire remonte dÃ©sormais : sans lui, main.ts n'avait rien Ã 
-    // afficher entre le premier et le dernier geste d'une sÃ©quence.
+    // Le pas intermédiaire remonte désormais : sans lui, main.ts n'avait rien à
+    // afficher entre le premier et le dernier geste d'une séquence.
     if (outcome.kind === "pending") return { consumed: true, feel: outcome };
 
     match.preview = outcome;
@@ -1959,32 +2049,32 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       const left = net.clock.toLocal(match.firstRoundAt) - Date.now();
       const sec = Math.max(0, Math.ceil(left / 1000));
       /*
-       * Panneau posÃ© une seule fois ; seul le dÃ©compte se rÃ©Ã©crit.
+       * Panneau posé une seule fois ; seul le décompte se réécrit.
        *
-       * Jamais pour un spectateur : la rÃ¨gle affichÃ©e serait celle d'un autre,
-       * et l'annoncer Â« TA RÃˆGLE UNIQUE Â» serait un mensonge. Le pied lui dit
-       * dÃ©jÃ  qui il regarde.
+       * Jamais pour un spectateur : la règle affichée serait celle d'un autre,
+       * et l'annoncer « TA RÈGLE UNIQUE » serait un mensonge. Le pied lui dit
+       * déjà qui il regarde.
        */
       if (match.drama !== "rule" && match.rule && !isSpectating()) {
         showRuleReveal(match.rule);
       }
-      dramaExtra.textContent = sec > 0 ? `DÃ‰PART Â· ${sec}` : "â€¦";
-      // Le dÃ©compte est dans le panneau : le rÃ©pÃ©ter en mÃ©ta ferait deux
-      // endroits Ã  surveiller pour une seule information.
+      dramaExtra.textContent = sec > 0 ? `DÉPART · ${sec}` : "…";
+      // Le décompte est dans le panneau : le répéter en méta ferait deux
+      // endroits à surveiller pour une seule information.
       hud.setMeta("");
       hud.clearRound();
       return { round: null, rule: match.rule, reveal: false };
     }
 
     /*
-     * L'annonce de rotation prend le centre Ã  la fin de la pause.
+     * L'annonce de rotation prend le centre à la fin de la pause.
      *
-     * S'il y a eu une mort, la kill-cam parle d'abord â€” c'est le spectacle et
-     * il est collectif. Mais le changement de rÃ¨gle est vital pour MOI, donc il
+     * S'il y a eu une mort, la kill-cam parle d'abord — c'est le spectacle et
+     * il est collectif. Mais le changement de règle est vital pour MOI, donc il
      * a le dernier mot : on bascule quand il reste assez de temps pour lire,
-     * et immÃ©diatement s'il n'y a aucune kill-cam Ã  jouer.
+     * et immédiatement s'il n'y a aucune kill-cam à jouer.
      *
-     * PilotÃ© par la frame et non par un setTimeout, comme tout ce qui dÃ©pend du
+     * Piloté par la frame et non par un setTimeout, comme tout ce qui dépend du
      * tempo dans ce fichier.
      */
     if (match.rotationRule && match.drama !== "rule") {
@@ -1998,17 +2088,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
     if (rotating) {
-      hud.setMeta(`LES RÃˆGLES TOURNENT Â· ${match.rule?.name ?? ""}`);
+      hud.setMeta(`LES RÈGLES TOURNENT · ${match.rule?.name ?? ""}`);
     } else if (match.preview) {
       hud.setMeta(previewLabel(match.preview));
     } else if (match.phase === "frozen" && match.authority) {
       const a = match.authority;
-      if (a.kind === "survive") hud.setMeta(a.trap ? "PIÃˆGE DÃ‰JOUÃ‰" : "TENU");
+      if (a.kind === "survive") hud.setMeta(a.trap ? "PIÈGE DÉJOUÉ" : "TENU");
       else if (a.kind === "death") hud.setMeta(a.reason);
       else if (!(match.lives <= 0 || match.spectator)) hud.setMeta("SPECTATEUR");
-      // spectateur : syncFooter a dÃ©jÃ  posÃ© JE REGARDE (sauf pendant rotation)
+      // spectateur : syncFooter a déjà posé JE REGARDE (sauf pendant rotation)
     } else if (match.lives <= 0 || match.spectator) {
-      // syncFooter a dÃ©jÃ  posÃ© JE REGARDE
+      // syncFooter a déjà posé JE REGARDE
     } else {
       hud.setMeta("");
     }
@@ -2017,7 +2107,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return { round: null, rule: match.rule, reveal: false };
     }
 
-    // Kill-cam : scÃ¨ne du mort + rÃ©vÃ©lation + barre en recharge vers nextRoundAt.
+    // Kill-cam : scène du mort + révélation + barre en recharge vers nextRoundAt.
     if (match.drama === "killcam" && match.camRound && match.camRule) {
       let ratio = 1;
       if (match.nextRoundAt != null && match.pauseMs > 0) {
@@ -2025,16 +2115,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         ratio = clamp01(left / Math.max(1, match.pauseMs));
       }
       /*
-       * Le bandeau garde MA rÃ¨gle, toujours.
+       * Le bandeau garde MA règle, toujours.
        *
-       * Il affichait celle du mort pendant la kill-cam. RapportÃ© en soirÃ©e :
-       * Â« lorsqu'un joueur meurt, sa rÃ¨gle s'affiche Ã  la place de la rÃ¨gle du
-       * joueur, ce qui crÃ©e de la confusion Â». C'est exact â€” le bandeau est le
-       * seul endroit stable oÃ¹ l'on vÃ©rifie sa propre contrainte, et le voir
+       * Il affichait celle du mort pendant la kill-cam. Rapporté en soirée :
+       * « lorsqu'un joueur meurt, sa règle s'affiche à la place de la règle du
+       * joueur, ce qui crée de la confusion ». C'est exact — le bandeau est le
+       * seul endroit stable où l'on vérifie sa propre contrainte, et le voir
        * changer sans raison fait douter de ce qu'on porte.
        *
-       * Le panneau de kill-cam nomme dÃ©jÃ  le mort ET sa rÃ¨gle : l'information
-       * est lÃ , Ã  sa place, sans usurper celle du bandeau.
+       * Le panneau de kill-cam nomme déjà le mort ET sa règle : l'information
+       * est là, à sa place, sans usurper celle du bandeau.
        */
       if (match.rule) hud.setRule(match.rule);
       hud.updateRound(match.camRound, match.camRound.durationMs, ratio);
@@ -2046,8 +2136,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       };
     }
 
-    // FenÃªtre PERSONNELLE : l'Ã©chÃ©ance diffusÃ©e vaut pour la manche partagÃ©e,
-    // le facteur porte la dÃ©formation de ma rÃ¨gle.
+    // Fenêtre PERSONNELLE : l'échéance diffusée vaut pour la manche partagée,
+    // le facteur porte la déformation de ma règle.
     const span = Math.max(1, (match.deadline - match.startAt) * match.spanFactor);
     const ratio = clamp01((net.clock.now() - match.startAt) / span);
     const elapsed = Math.max(0, net.clock.now() - match.startAt);
@@ -2085,9 +2175,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       st.ranked.name = nom;
       st.multi.glyph = glyphChoisi;
     });
-    // Le signe part au serveur au prochain `hello` ; si la socket est dÃ©jÃ 
-    // ouverte, elle porte encore l'ancien â€” d'oÃ¹ la fermeture, qui force une
-    // reconnexion propre plutÃ´t qu'une identitÃ© qui diverge d'un Ã©cran Ã  l'autre.
+    // Le signe part au serveur au prochain `hello` ; si la socket est déjà
+    // ouverte, elle porte encore l'ancien — d'où la fermeture, qui force une
+    // reconnexion propre plutôt qu'une identité qui diverge d'un écran à l'autre.
     if (net?.connected && !roomCode) {
       net.close();
       net = null;
@@ -2111,11 +2201,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     void navigator.clipboard
       .writeText(roomCode)
       .then(() => {
-        hint.textContent = `CODE ${roomCode} COPIÃ‰`;
+        hint.textContent = `CODE ${roomCode} COPIÉ`;
       })
       .catch(() => {
-        // Presse-papiers refusÃ© : le code reste lisible Ã  l'Ã©cran, c'est
-        // justement ce qu'on vient de rendre impossible Ã  manquer.
+        // Presse-papiers refusé : le code reste lisible à l'écran, c'est
+        // justement ce qu'on vient de rendre impossible à manquer.
         hint.textContent = "DICTE-LE : IL EST JUSTE AU-DESSUS";
       });
   });
@@ -2134,9 +2224,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     void (async () => {
       sfx.ui();
       setJoinErr(null);
-      // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dÃ¨s
-      // que l'app passe en arriÃ¨re-plan. Un send() sur socket morte ne fait
-      // RIEN, silencieusement â€” c'Ã©tait le Â« je clique, pas de rÃ©ponse Â».
+      // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
+      // que l'app passe en arrière-plan. Un send() sur socket morte ne fait
+      // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
       const client = await ensureConnected();
       client?.createRoom();
     })();
@@ -2147,7 +2237,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       sfx.ui();
       const code = $<HTMLInputElement>("multiCode").value.trim().toUpperCase();
       if (code.length !== 4) {
-        setJoinErr("UN CODE DE SALON FAIT EXACTEMENT 4 LETTRES");
+        setJoinErr("UN CODE DE SALON FAIT EXACTEMENT 4 CARACTÈRES");
         return;
       }
       setJoinErr(null);
@@ -2263,8 +2353,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     syncJoinAccent();
   });
 
-  // Une rotation d'Ã©cran fait franchir le seuil des deux colonnes : le chat
-  // doit suivre, sinon il reste ancrÃ© dans une colonne qui n'existe plus.
+  // Une rotation d'écran fait franchir le seuil des deux colonnes : le chat
+  // doit suivre, sinon il reste ancré dans une colonne qui n'existe plus.
   wideScreen?.addEventListener("change", () => syncChatChrome());
 
   $<HTMLInputElement>("multiCode").addEventListener("keydown", (ev) => {
@@ -2279,8 +2369,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     exitToMenu,
     openFromInvite: (code: string) => {
       track("invite_opened", {});
-      // ArrivÃ©e par un lien d'ami : c'est le cas oÃ¹ l'identitÃ© manque le plus
-      // souvent, et celui oÃ¹ l'accueil compte le plus.
+      // Arrivée par un lien d'ami : c'est le cas où l'identité manque le plus
+      // souvent, et celui où l'accueil compte le plus.
       if (needIdentity(() => void openJoin(code))) return;
       void openJoin(code);
     },
