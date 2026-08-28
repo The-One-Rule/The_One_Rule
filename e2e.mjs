@@ -6,26 +6,73 @@
 process.env.PORT = "8797";
 import WebSocket from "ws";
 import { setTimeout as sleep } from "node:timers/promises";
+
+/*
+ * Deux e2e lancés en parallèle se disputent le port et le second meurt sur une
+ * pile Node de vingt lignes, sans dire ce qui se passe. Le cas est fréquent —
+ * une boucle de vérification laissée en tâche de fond — et le message compte
+ * plus que la pile.
+ */
+process.on("uncaughtException", (e) => {
+  if (e && e.code === "EADDRINUSE") {
+    console.error(`ARRÊT : le port ${process.env.PORT} est déjà pris.`);
+    console.error("Un autre e2e tourne probablement déjà. Attends sa fin, puis relance.");
+    process.exit(2);
+  }
+  throw e;
+});
+
 await import("./server/index.ts");
 const { buildMultiRound } = await import("./src/engine/multiround.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 
+/*
+ * Journal bavard.
+ *
+ * Un « E2E : 1 échec(s) » sans nom d'assertion s'est produit deux fois sans
+ * jamais se reproduire sous observation. Ce fichier dit donc, pour chaque
+ * assertion : son numéro, l'instant où elle est tombée, et — quand elle porte
+ * sur une grandeur mesurée — la MARGE qui la sépare de son seuil. Les
+ * assertions qui passent de justesse sont récapitulées à la fin : ce sont les
+ * seules candidates sérieuses à un échec intermittent.
+ */
+const T0 = Date.now();
+const ms = () => String(Date.now() - T0).padStart(6, " ");
+const journal = [];
+const serres = [];
+
 function client(name, key, rookie = false) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, emotes: [], chats: [], errors: [] };
+  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [], rounds: [], recus: [] };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
-    if (m.t === "pong") c.offset = m.serverNow - (m.sent + Date.now()) / 2;
+    if (m.t === "pong") { c.offset = m.serverNow - (m.sent + Date.now()) / 2; c.offsets.push(c.offset); }
     if (m.t === "room") c.room = m;
     if (m.t === "match_start") { c.seed = m.seed; c.rules = m.rules; }
+    // Horodatage de réception : c'est ce qui permet de comparer les pauses
+    // annoncées par le serveur à celles réellement vécues par un client.
+    if (m.t === "round" || m.t === "verdict") c.recus.push({ t: m.t, idx: m.idx, at: Date.now(), nextRoundAt: m.nextRoundAt ?? null });
     if (m.t === "round") {
+      c.rounds.push({ idx: m.idx, at: Date.now(), deadline: m.deadline });
       // Index de la manche EN COURS, lu et non deduit : le deviner depuis le
       // nombre de verdicts recus rendait les tests dependants du minutage.
       c.roundIdx = m.idx;
       if (m.rules) c.rules = m.rules;
       const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
-      if (!rule || name === "CHLOE") return;
+      /*
+       * CHLOE ne répond jamais (elle sert aux timeouts) et GAUCHER est piloté
+       * à la main par son scénario.
+       *
+       * GAUCHER a coûté deux « E2E : 1 échec(s) » sans nom. Le pilote
+       * automatique clique la première pièce satisfaisant la consigne — qui
+       * peut être dans la première colonne, celle que sa règle interdit. Cet
+       * input et celui du scénario couraient donc l'un contre l'autre, et le
+       * premier arrivé figeait le verdict : une fois sur dix, « ZONE
+       * INTERDITE » était le verdict d'un clic que le scénario n'avait pas
+       * envoyé. Le jeu avait raison, le test se trompait de coupable.
+       */
+      if (!rule || name === "CHLOE" || name === "GAUCHER") return;
       const round = buildMultiRound(c.seed, m.idx, rule);
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
@@ -63,8 +110,52 @@ alice.ws.send(JSON.stringify({ t: "start" }));
 const t0 = Date.now();
 while (!alice.ended && Date.now() - t0 < 40000) await sleep(250);
 
+/*
+ * Instantané du PREMIER match, pris ici et pas à la fin.
+ *
+ * `alice` sert ensuite à d'autres scénarios — dont un salon recréé pour les
+ * messages malformés. Relire ses verdicts en fin de course mélangeait donc
+ * deux matchs : les index repartaient à zéro, les scores « reculaient » et les
+ * erreurs volontaires du test de robustesse remontaient comme des anomalies.
+ */
+const match1 = {
+  verdicts: [...alice.verdicts],
+  recus: [...alice.recus],
+  errors: [...alice.errors],
+};
+
 let fails = 0;
-const ok = (b, msg) => { console.log((b ? "ok  " : "FAIL") + " " + msg); if (!b) fails++; };
+let n = 0;
+const ok = (b, msg) => {
+  n++;
+  const ligne = `${b ? "ok  " : "FAIL"} [${String(n).padStart(3, "0")} @${ms()}ms] ${msg}`;
+  console.log(ligne);
+  journal.push({ n, ok: !!b, msg });
+  if (!b) fails++;
+  return !!b;
+};
+
+/**
+ * Assertion sur une grandeur mesurée, avec sa marge.
+ *
+ * `sens` vaut "min" (la valeur doit dépasser le seuil) ou "max" (elle doit
+ * rester en dessous). La marge relative est imprimée à chaque fois, et toute
+ * assertion qui passe à moins de 30 % de son seuil est récapitulée en fin de
+ * course : c'est là, et nulle part ailleurs, que se cachent les échecs
+ * intermittents.
+ */
+const okMarge = (valeur, seuil, sens, msg, unite = "ms") => {
+  const passe = sens === "min" ? valeur > seuil : valeur < seuil;
+  const marge = seuil === 0 ? 1 : Math.abs(valeur - seuil) / Math.abs(seuil);
+  const pct = (marge * 100).toFixed(0);
+  const detail = `${msg} — mesuré ${Math.round(valeur)} ${unite}, seuil ${sens === "min" ? ">" : "<"} ${seuil} ${unite}, marge ${pct} %`;
+  const r = ok(passe, detail);
+  if (r && marge < 0.3) serres.push({ n, marge: Number(pct), msg: detail });
+  return r;
+};
+
+/** Trace d'information : jamais un échec, mais visible dans la sortie. */
+const info = (msg) => console.log(`info [    @${ms()}ms] ${msg}`);
 ok(!!alice.ended, "match_end reçu sans leave forcé (fin immédiate au dernier survivant)");
 const last = alice.verdicts[alice.verdicts.length - 1];
 ok(alice.verdicts.length >= 3, `manches jouées : ${alice.verdicts.length}`);
@@ -79,8 +170,12 @@ ok(aliceP && aliceP.lives > 0, `ALICE en vie (vies=${aliceP?.lives}, score=${ali
 // peut n'y en avoir aucun. Le comportement lui-même est couvert par les tests
 // unitaires de MatchLogic ; ici on ne fait que le signaler s'il a eu lieu.
 const trapDodged = alice.verdicts.some((v) => Object.values(v.outcomes).some((o) => o.kind === "survive" && o.trap));
-console.log("info " + (trapDodged ? "un piège a été déjoué pendant ce match" : "aucun piège tiré sur ce match court (normal)"));
-ok(Math.abs(alice.offset) < 50, `offset d'horloge plausible en local (${alice.offset.toFixed(1)} ms)`);
+info(trapDodged ? "un piège a été déjoué pendant ce match" : "aucun piège tiré sur ce match court (normal)");
+okMarge(Math.abs(alice.offset), 50, "max", "offset d'horloge en local");
+info(
+  `offsets relevés sur ${alice.offsets.length} pings : ` +
+    alice.offsets.map((o) => o.toFixed(1)).join(" · "),
+);
 
 // Débit emotes : le salon existe encore après match_end.
 alice.emotes.length = 0;
@@ -160,10 +255,19 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   if (annonce) {
     ok(annonce.idx === 3, `annoncee au verdict de la manche 3, avant la 4 (got ${annonce.idx})`);
     ok(!!annonce.nextRules[a.id], "ma prochaine regle m'est nommee");
-    const avant = a.rulesAtRound?.[annonce.idx] ?? a.rules[a.id];
     ok(annonce.nextRules[a.id] !== undefined, "l'attribution complete est fournie");
-    const pause = annonce.nextRoundAt - Date.now();
-    ok(pause > 1500, `la pause laisse le temps de lire (${Math.round(pause)} ms restants)`);
+    /*
+     * Mesuré depuis la RÉCEPTION du verdict, pas depuis maintenant.
+     *
+     * `Date.now()` est appelé après une boucle d'attente de 150 ms de pas :
+     * jusqu'à 150 ms du temps de lecture avaient déjà été consommées par le
+     * test lui-même, et cette perte variable est la seule chose qui approchait
+     * l'assertion de son seuil.
+     */
+    const recu = a.recus.find((r) => r.t === "verdict" && r.idx === annonce.idx);
+    const pause = annonce.nextRoundAt - (recu?.at ?? Date.now());
+    okMarge(pause, 1500, "min", "la pause de rotation laisse le temps de lire");
+    info(`retard d'observation du test : ${Date.now() - (recu?.at ?? Date.now())} ms`);
   }
 
   for (const c of [a, b]) c.ws.close();
@@ -227,14 +331,20 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 
     vus++;
     cible.ws.send(JSON.stringify({ t: "input", round: idx, at: Date.now() + cible.offset, action: { k: "c", i: plusADroite } }));
-    if (process.env.DIAG) {
-      console.log(`  diag: idx=${idx} i=${plusADroite} x=${Math.round(maxX)} trap=${round.trap} steps=${round.steps.length}`);
-    }
     // On attend le verdict de CETTE manche, pas une duree arbitraire.
     const fin = Date.now() + 8000;
     while (!cible.verdicts.some((v) => v.idx === idx) && Date.now() < fin) await sleep(60);
     const mien = cible.verdicts.find((v) => v.idx === idx)?.outcomes?.[cible.id];
-    if (process.env.DIAG) console.log(`  diag: verdict[${idx}] =`, JSON.stringify(mien));
+    /*
+     * Bavard par defaut, et non derriere DIAG : c'est precisement ce qui
+     * manquait le jour ou l'assertion est tombee. Une ligne par manche testee
+     * dit ou l'on a clique, dans quelle scene, et ce que le serveur en a fait.
+     */
+    info(
+      `GAUCHER manche ${idx} : clic i=${plusADroite} x=${Math.round(maxX)} ` +
+        `(zone interdite x<200) · piege=${round.trap} · etapes=${round.steps.length} ` +
+        `· verdict=${mien ? `${mien.kind}${mien.reason ? " " + mien.reason : ""}` : "aucun"}`,
+    );
     if (mien?.kind === "death") motifs.push(String(mien.reason));
   }
   ok(vus > 0, `des manches ont pu etre testees sous LE GAUCHER (${vus})`);
@@ -467,5 +577,79 @@ const notFound = await fetch(`http://127.0.0.1:${process.env.PORT}/`)
   .catch(() => 0);
 ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
 
+/* ------------------------------------------------------------------ *
+ * Cohérence du flux — relue sur ce que le serveur a réellement envoyé.
+ *
+ * Rien de neuf n'est joué ici : on repasse sur les messages déjà collectés
+ * pendant le premier match. Ces invariants ne coûtent rien et attrapent des
+ * défauts qu'aucune assertion ponctuelle ne verrait — un verdict rejoué, un
+ * joueur oublié dans un tour, une vie qui remonte.
+ * ------------------------------------------------------------------ */
+{
+  const idxs = match1.verdicts.map((v) => v.idx);
+  const croissant = idxs.every((v, i) => i === 0 || v > idxs[i - 1]);
+  ok(croissant, `les manches se suivent sans doublon ni retour (${idxs.join(",")})`);
+
+  const manquants = [];
+  for (const v of match1.verdicts) {
+    for (const p of v.players ?? []) {
+      if (!(p.id in (v.outcomes ?? {}))) manquants.push(`${p.name}@${v.idx}`);
+    }
+  }
+  ok(manquants.length === 0, `chaque joueur a un verdict à chaque manche (manquants : ${manquants.join(", ") || "aucun"})`);
+
+  const remontees = [];
+  const dernieresVies = new Map();
+  const derniersScores = new Map();
+  for (const v of match1.verdicts) {
+    for (const p of v.players ?? []) {
+      const vAvant = dernieresVies.get(p.id);
+      if (vAvant !== undefined && p.lives > vAvant) remontees.push(`${p.name} ${vAvant}→${p.lives}@${v.idx}`);
+      dernieresVies.set(p.id, p.lives);
+      const sAvant = derniersScores.get(p.id);
+      if (sAvant !== undefined && p.score < sAvant) remontees.push(`${p.name} score ${sAvant}→${p.score}@${v.idx}`);
+      derniersScores.set(p.id, p.score);
+    }
+  }
+  ok(remontees.length === 0, `aucune vie ne remonte, aucun score ne recule (${remontees.join(", ") || "rien à signaler"})`);
+
+  const pauses = [];
+  for (const r of match1.recus) {
+    if (r.t !== "verdict" || r.nextRoundAt == null) continue;
+    const suivant = match1.recus.find((x) => x.t === "round" && x.idx === r.idx + 1);
+    if (suivant) pauses.push({ idx: r.idx, annoncee: Math.round(r.nextRoundAt - r.at), vecue: suivant.at - r.at });
+  }
+  info(
+    `pauses (annoncée → vécue) : ` +
+      (pauses.map((p) => `#${p.idx} ${p.annoncee}→${p.vecue}`).join(" · ") || "aucune mesurée"),
+  );
+  const enRetard = pauses.filter((p) => p.vecue < p.annoncee - 250);
+  ok(enRetard.length === 0, `aucune manche ne démarre avant l'heure annoncée (${enRetard.map((p) => `#${p.idx}`).join(",") || "aucune"})`);
+
+  const futur = match1.recus.filter((r) => r.nextRoundAt != null && r.nextRoundAt <= r.at);
+  ok(futur.length === 0, `nextRoundAt toujours dans le futur à la réception (${futur.length} en défaut)`);
+
+  const inattendues = match1.errors.filter((e) => e.code !== "not_host");
+  ok(inattendues.length === 0, `aucune erreur inattendue chez ALICE (${inattendues.map((e) => e.code).join(",") || "aucune"})`);
+}
+
+/* ------------------------------------------------------------------ *
+ * Récapitulatif
+ * ------------------------------------------------------------------ */
+console.log("");
+console.log(`— ${n} assertions, ${fails} échec(s), ${Math.round((Date.now() - T0) / 1000)} s`);
+if (serres.length) {
+  console.log(`— ${serres.length} assertion(s) passée(s) à moins de 30 % de leur seuil :`);
+  for (const s of serres.sort((a, b) => a.marge - b.marge)) {
+    console.log(`   [${String(s.n).padStart(3, "0")}] marge ${s.marge} % · ${s.msg}`);
+  }
+  console.log("   Ce sont les seules candidates sérieuses à un échec intermittent.");
+} else {
+  console.log("— aucune assertion serrée : rien qui ressemble à un échec intermittent en attente.");
+}
+if (fails) {
+  console.log("— échecs :");
+  for (const e of journal.filter((x) => !x.ok)) console.log(`   [${String(e.n).padStart(3, "0")}] ${e.msg}`);
+}
 console.log(fails === 0 ? "E2E OK" : `E2E : ${fails} échec(s)`);
 process.exit(fails === 0 ? 0 : 1);
