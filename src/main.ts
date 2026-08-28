@@ -1212,6 +1212,45 @@ let lastRoundKey = "";
 let runId = 0;
 let urgentDone = false;
 
+/* ------------------------------------------------------------------ *
+ * La chaleur
+ *
+ * Une seule grandeur, publiée sur `#app`, que toute la couche d'ambiance
+ * consomme en CSS. Elle n'invente rien : elle agrège le temps consommé de la
+ * manche en cours et l'avancement de la partie, deux valeurs qui existaient
+ * déjà. Le jeu n'en dépend à aucun moment — c'est de la mise en scène.
+ *
+ * Écrite par crans de 5 % et jamais deux fois de suite à l'identique : écrire
+ * une propriété personnalisée invalide le style de tout ce qui l'utilise, et
+ * le faire soixante fois par seconde sur une machine modeste coûte plus cher
+ * que l'effet ne rapporte.
+ * ------------------------------------------------------------------ */
+const CRITICAL_RATIO = 0.76;
+let heatShown = -1;
+let criticalShown = false;
+
+function setHeat(value: number, critical: boolean): void {
+  const cran = Math.round(Math.min(1, Math.max(0, value)) * 20) / 20;
+  if (cran !== heatShown) {
+    heatShown = cran;
+    appEl.style.setProperty("--heat", String(cran));
+  }
+  if (critical !== criticalShown) {
+    criticalShown = critical;
+    appEl.classList.toggle("is-critical", critical);
+  }
+}
+
+/**
+ * Chaleur d'une manche en cours.
+ *
+ * Deux termes : le temps qui se referme ici et maintenant — c'est lui qu'on
+ * ressent — et la partie qui avance, qui donne une montée de fond sur toute
+ * la durée du run. Le premier pèse le double du second.
+ */
+const heatOf = (ratio: number, level: number): number =>
+  Math.min(1, ratio * 0.66 + Math.min(1, level / 30) * 0.34);
+
 function loop(now: number): void {
   requestAnimationFrame(loop);
 
@@ -1238,10 +1277,14 @@ function loop(now: number): void {
       }
       // L'urgence s'entend avant d'être lue : on ne quitte pas la consigne
       // des yeux pour vérifier une barre.
-      if (!urgentDone && session.ratio(now) > 0.76 && session.round.steps.length > 0) {
+      const ratio = session.ratio(now);
+      const aJouer = session.round.steps.length > 0;
+      if (!urgentDone && ratio > CRITICAL_RATIO && aJouer) {
         urgentDone = true;
         sfx.urgent();
       }
+      // L'œil apprend le même seuil que l'oreille, au même instant.
+      setHeat(heatOf(ratio, session.level), ratio > CRITICAL_RATIO && aJouer);
       hud.updateRound(session.round, session.elapsed(now), session.ratio(now));
       musicApi.level(session.level);
       if (challenge) updateGhost(session.runTime(now), session.level);
@@ -1261,6 +1304,13 @@ function loop(now: number): void {
       if (fx.flashViolet) scene.flashViolet(now);
       if (fx.kick != null) scene.kick(now, fx.kick);
     }
+    // Même grammaire en multijoueur : la pause entre deux manches redescend à
+    // froid, ce qui rend la reprise plus franche.
+    const r = multiDraw?.ratio;
+    const enManche = r != null && !!multiDraw?.round;
+    setHeat(enManche ? heatOf(r, multi.roundIndex()) : 0, enManche && r > CRITICAL_RATIO);
+  } else {
+    setHeat(0, false);
   }
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant

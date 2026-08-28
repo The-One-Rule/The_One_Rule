@@ -64,6 +64,8 @@ export type MultiApi = {
   isPlayingMulti: () => boolean;
   /** Manche locale courante (pour hit-test), sans effet de bord HUD. */
   peekRound: () => Round | null;
+  /** Index de la manche en cours — lu par la couche d'ambiance. */
+  roundIndex: () => number;
   trySendMultiAction: (action: Action) => MultiFeel;
   /** Met à jour HUD / compte à rebours ; retourne l'état de dessin ou null. */
   syncFrame: () => MultiDraw | null;
@@ -456,6 +458,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const platesL = $("platesL");
   const platesR = $("platesR");
   const emotesEl = $("emotes");
+  const feedEl = $("feed");
+  const feedTimers = new Set<ReturnType<typeof setTimeout>>();
   const chatEl = $("chat");
   const chatLog = $("chatLog");
   const chatForm = $("chatForm") as HTMLFormElement;
@@ -501,6 +505,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     openFromInvite: () => {},
     isPlayingMulti: () => false,
     peekRound: () => null,
+    roundIndex: () => 0,
     trySendMultiAction: () => ({ consumed: false }),
     syncFrame: () => null,
     takeFx: () => null,
@@ -802,6 +807,46 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     rebuildViewRound();
     renderWatchBar();
     sfx.ui();
+  }
+
+  /**
+   * Une chute au fil des événements.
+   *
+   * N'invente aucune donnée : le nom et le motif viennent du verdict que le
+   * serveur envoie déjà. Trois lignes au plus à l'écran — au-delà, la plus
+   * ancienne s'efface : un fil qui s'allonge devient un mur de texte, et le
+   * but est exactement l'inverse.
+   */
+  function pushFeed(nom: string, motif: string, elim: boolean, moi: boolean): void {
+    const ligne = document.createElement("div");
+    ligne.className =
+      "feed__line" + (elim ? " is-elim" : "") + (moi ? " is-me" : "");
+    const qui = document.createElement("span");
+    qui.className = "feed__who";
+    qui.textContent = nom;
+    const pourquoi = document.createElement("span");
+    pourquoi.className = "feed__why";
+    pourquoi.textContent = elim ? `ÉLIMINÉ · ${motif}` : motif;
+    ligne.append(qui, pourquoi);
+    feedEl.appendChild(ligne);
+    while (feedEl.children.length > 3) feedEl.firstElementChild?.remove();
+
+    const t = setTimeout(() => {
+      ligne.classList.add("is-out");
+      const t2 = setTimeout(() => {
+        ligne.remove();
+        feedTimers.delete(t2);
+      }, 260);
+      feedTimers.add(t2);
+      feedTimers.delete(t);
+    }, 2200);
+    feedTimers.add(t);
+  }
+
+  function clearFeed(): void {
+    for (const t of feedTimers) clearTimeout(t);
+    feedTimers.clear();
+    feedEl.innerHTML = "";
   }
 
   function clearEmoteTimers(): void {
@@ -1170,6 +1215,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     lobbyInMatch = false;
     platePulse.clear();
     clearEmoteTimers();
+    clearFeed();
     setPlatesVisible(false);
     clearPlateCols();
     watchBar.classList.add("hidden");
@@ -1400,6 +1446,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         const moi = (v: { player: PlayerPublic }) => (v.player.id === net?.myId ? 1 : 0);
         return moi(b) - moi(a) || Number(b.eliminated) - Number(a.eliminated);
       });
+
+    // Le fil, lui, ne dépend pas de la longueur de la pause : il annonce
+    // CHAQUE chute, y compris celles qui n'ouvrent aucun panneau.
+    for (const v of victims) {
+      pushFeed(v.player.name, v.reason.toUpperCase(), v.eliminated, v.player.id === net.myId);
+    }
 
     /*
      * Une seule annonce plein cadre à la fois.
@@ -2012,6 +2064,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     return match?.round ?? null;
   }
 
+  function roundIndex(): number {
+    return match?.idx ?? 0;
+  }
+
   function canAct(): boolean {
     return (
       !!match &&
@@ -2388,6 +2444,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     },
     isPlayingMulti,
     peekRound,
+    roundIndex,
     trySendMultiAction,
     syncFrame,
     takeFx,

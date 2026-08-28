@@ -23,17 +23,38 @@ export class Hud {
   private fScore = $("fScore");
   private fBest = $("fBest");
   private fMode = $("fMode");
-  private fMid = $("fMid");
+  private fMidLabel = $("fMidLabel");
   private stamp = $("stamp");
   private stampText = $("stampText");
 
   private lastText = "";
+  private lastRuleName = "";
+  private urgentShown = false;
   private announceTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /**
+   * Pose la règle unique — et l'ANNONCE quand elle change.
+   *
+   * Une règle qui change en silence est une règle qu'on découvre en mourant :
+   * c'était la première cause de perte de vie à la rotation. Le bandeau joue
+   * donc un balayage court à chaque nom nouveau. L'animation est relancée en
+   * retirant puis reposant la classe — sans quoi deux rotations consécutives
+   * n'en produiraient qu'une.
+   */
   setRule(rule: OneRule | null): void {
-    this.bandRule.textContent = rule ? rule.name : "—";
+    const nom = rule ? rule.name : "—";
+    const change = nom !== this.lastRuleName && !!rule;
+    this.lastRuleName = nom;
+    this.bandRule.textContent = nom;
     this.bandBrief.textContent = rule ? rule.brief : "";
     this.band.classList.toggle("is-armed", !!rule);
+    if (change) {
+      this.band.classList.remove("is-new");
+      void this.band.offsetWidth;
+      this.band.classList.add("is-new");
+    } else if (!rule) {
+      this.band.classList.remove("is-new");
+    }
   }
 
   setMeta(text: string): void {
@@ -42,9 +63,9 @@ export class Hud {
 
   setFooter(score: number, best: number, mode: string, midLabel = "RECORD"): void {
     this.fScore.textContent = String(score);
-    this.fBest.className = "";
+    this.fBest.className = "foot__value";
     this.fBest.textContent = String(best);
-    this.fMid.childNodes[0]!.nodeValue = midLabel + " ";
+    this.fMidLabel.textContent = midLabel;
     this.fMode.textContent = mode;
   }
 
@@ -55,10 +76,12 @@ export class Hud {
    */
   setFooterLives(score: number, lives: number, max: number, mode: string): void {
     this.fScore.textContent = String(score);
-    this.fMid.childNodes[0]!.nodeValue = "VIES ";
-    this.fBest.className = "lifedots";
+    this.fMidLabel.textContent = "VIES";
+    this.fBest.className = "foot__value lifedots";
     this.fBest.innerHTML = livesDots(lives, max);
     this.fMode.textContent = mode;
+    // La dernière vie se signale : c'est l'information qui change une décision.
+    this.fBest.classList.toggle("is-last", lives === 1);
   }
 
   clearRound(): void {
@@ -67,6 +90,8 @@ export class Hud {
     this.instr.style.color = "";
     this.sub.textContent = "";
     this.fill.style.transform = "scaleX(0)";
+    this.fill.classList.remove("is-urgent");
+    this.urgentShown = false;
     this.lastText = "";
   }
 
@@ -94,8 +119,19 @@ export class Hud {
     const subText = hidden ? "" : round.glyph ? text : (round.sub ?? "");
     if (this.sub.textContent !== subText) this.sub.textContent = subText;
 
+    /*
+     * La barre est le seul élément écrit à chaque image : elle ne change donc
+     * QUE par `transform`, qui ne coûte ni mise en page ni repeinture. La
+     * couleur passait auparavant par `style.background` à chaque frame — une
+     * écriture de style soixante fois par seconde pour un changement qui
+     * n'arrive qu'une fois par manche. C'est une classe, désormais.
+     */
     this.fill.style.transform = `scaleX(${1 - ratio})`;
-    this.fill.style.background = ratio > 0.72 ? "var(--rouge)" : "var(--paper)";
+    const urgent = ratio > 0.72;
+    if (urgent !== this.urgentShown) {
+      this.urgentShown = urgent;
+      this.fill.classList.toggle("is-urgent", urgent);
+    }
   }
 
   showStamp(label: string): void {

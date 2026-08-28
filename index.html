@@ -9,13 +9,32 @@
   </head>
   <body>
     <div id="app">
+      <!-- Couche d'ambiance : elle ne contient RIEN de lisible et ne reçoit
+           aucun clic. Tout ce qu'elle fait suit `--heat`, publiée par la
+           boucle de jeu. Deux calques séparés parce qu'ils ne bougent pas au
+           même rythme : le voile respire, le cadre bat. -->
+      <div id="heat" aria-hidden="true">
+        <div class="heat__vignette"></div>
+        <div class="heat__frame"></div>
+      </div>
+
+      <!-- LA RÈGLE UNIQUE.
+           C'est l'information dont dépend chaque décision de la partie, et
+           elle tenait dans 19 px au milieu d'une ligne. Elle occupe maintenant
+           la barre entière : intitulé au-dessus, nom en grand, explication sur
+           UNE ligne de hauteur fixe.
+
+           La hauteur fixe n'est pas cosmétique : le bandeau est dans le flux,
+           donc tout ce qui l'étire rétrécit la scène — et la taille du champ
+           EST le gameplay. Un brief long ne doit pas changer la partie. -->
       <header id="band">
-        <div class="band__row">
+        <div class="band__mark" aria-hidden="true"></div>
+        <div class="band__body">
           <span class="band__tag">RÈGLE UNIQUE</span>
           <span class="band__rule" id="bandRule">—</span>
-          <span class="band__meta" id="bandMeta"></span>
+          <p class="band__brief" id="bandBrief"></p>
         </div>
-        <p class="band__brief" id="bandBrief"></p>
+        <span class="band__meta" id="bandMeta"></span>
       </header>
 
       <section id="head">
@@ -54,10 +73,29 @@
 
       <div id="emotes" class="emotes hidden" aria-label="Réactions"></div>
 
+      <!-- LE FIL DES CHUTES.
+           Qui vient de tomber, et pourquoi — sans arrêter la partie. Le
+           panneau plein cadre reste pour les morts qui méritent un temps
+           d'arrêt ; toutes les autres passaient jusqu'ici par un simple
+           clignotement de plaque, qu'on rate en regardant la scène. -->
+      <div id="feed" class="feed" aria-live="polite" aria-label="Chutes"></div>
+
+      <!-- Le pied est un TABLEAU DE BORD, pas une phrase : trois grandeurs
+           qu'on consulte d'un coup d'œil sans quitter la scène. La valeur
+           domine, l'intitulé la nomme en dessous. -->
       <footer id="foot">
-        <span>MANCHE <b id="fScore">0</b></span>
-        <span id="fMid">RECORD <b id="fBest">0</b></span>
-        <span id="fMode">—</span>
+        <div class="foot__cell">
+          <b class="foot__value" id="fScore">0</b>
+          <span class="foot__label">MANCHE</span>
+        </div>
+        <div class="foot__cell foot__cell--mid">
+          <b class="foot__value" id="fBest">0</b>
+          <span class="foot__label" id="fMidLabel">RECORD</span>
+        </div>
+        <div class="foot__cell foot__cell--mode">
+          <b class="foot__value foot__value--mode" id="fMode">—</b>
+          <span class="foot__label">MODE</span>
+        </div>
       </footer>
 
       <div id="tier" class="tier" aria-live="polite"></div>
