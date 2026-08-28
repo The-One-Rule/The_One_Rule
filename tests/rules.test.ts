@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ONE_RULES } from "../src/engine/rules";
+import { ONE_RULES, withoutHold } from "../src/engine/rules";
 import { draftShared, applyRule } from "../src/engine/multiround";
 import { MULTI_RULES } from "../server/match";
 import { resolveAction } from "../src/engine/resolve";
@@ -128,5 +128,33 @@ describe("les règles à travers le transport multijoueur", () => {
       expect(rule.brief.length, `${rule.name} : brief trop court`).toBeGreaterThan(30);
       expect(rule.brief.trim().endsWith("."), `${rule.name} : brief non ponctué`).toBe(true);
     }
+  });
+});
+
+describe("regles injouables sans clavier", () => {
+  it("remplace une regle a touche maintenue, et ne touche pas les autres", () => {
+    for (const rule of ONE_RULES) {
+      const choisie = withoutHold(rule);
+      expect(choisie.watchRelease, `${choisie.name} exige encore une touche maintenue`).toBeUndefined();
+      if (rule.watchRelease === undefined) {
+        expect(choisie, `${rule.name} a ete remplacee alors qu'elle est jouable`).toBe(rule);
+      } else {
+        expect(choisie, `${rule.name} n'a pas ete remplacee`).not.toBe(rule);
+      }
+    }
+  });
+
+  it("remplace toujours par la meme, sinon deux telephones ne jouent pas pareil", () => {
+    const avecMaintien = ONE_RULES.filter((r) => r.watchRelease !== undefined);
+    expect(avecMaintien.length, "aucune regle a maintien : le test ne prouve plus rien").toBeGreaterThan(0);
+    for (const rule of avecMaintien) {
+      const a = withoutHold(rule);
+      const b = withoutHold(rule);
+      expect(a).toBe(b);
+    }
+  });
+
+  it("le catalogue garde au moins une regle jouable sans clavier", () => {
+    expect(ONE_RULES.some((r) => r.watchRelease === undefined)).toBe(true);
   });
 });

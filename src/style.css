@@ -328,9 +328,24 @@ body {
 .drama__panel {
   text-align: center;
   max-width: min(920px, 92%);
-  padding: 18px 22px;
+  padding: 22px 28px 24px;
   border: 4px solid var(--signal);
   background: var(--ink);
+}
+
+/*
+ * Une ligne vide ne réserve plus de place.
+ *
+ * Chaque ligne portait `min-height: 1em` plus sa marge, donc le panneau
+ * gardait jusqu'à trois bandes d'air pour des textes qu'il n'affichait pas —
+ * sur l'annonce de règle, où seuls l'intitulé, le nom et le brief sont
+ * remplis, cela faisait un cadre à moitié vide.
+ */
+.drama__eyebrow:empty,
+.drama__rule:empty,
+.drama__reason:empty,
+.drama__extra:empty {
+  display: none;
 }
 
 .drama--duel .drama__panel {
@@ -338,7 +353,7 @@ body {
 }
 
 .drama--elim .drama__panel {
-  border-color: #e23d3d;
+  border-color: #f74058;
 }
 
 .drama__eyebrow {
@@ -350,7 +365,7 @@ body {
 }
 
 .drama--elim .drama__eyebrow {
-  color: #e23d3d;
+  color: #f74058;
 }
 
 .drama--duel .drama__eyebrow {
@@ -401,6 +416,51 @@ body {
 .drama--duel .drama__reason,
 .drama--duel .drama__extra {
   display: none;
+}
+
+/*
+ * Quand la victime, c'est moi.
+ *
+ * Mon propre pseudo en 52 px ne m'apprend rien : je sais qui je suis. Ce que
+ * je veux lire, c'est POURQUOI je viens de perdre une vie. Les deux tailles
+ * s'échangent donc, et l'intitulé passe en pastille pleine pour qu'on ne
+ * puisse pas prendre l'écran pour la mort de quelqu'un d'autre.
+ *
+ * Pour les autres morts, rien ne change : leur nom reste le titre, c'est le
+ * spectacle.
+ */
+.drama--me .drama__eyebrow {
+  display: inline-block;
+  padding: 4px 12px;
+  color: var(--ink);
+  background: var(--signal);
+  margin-bottom: 14px;
+}
+
+/*
+ * Encre sur le rouge, et non papier : mesuré, « TU ES ÉLIMINÉ » en clair ne
+ * tenait que 3,53:1, sous le seuil lisible à 12 px. En encre sur #f74058 il
+ * tient 5,08:1.
+ *
+ * Et c'est #f74058, le rouge des plaques mortes, pas le #e23d3d qui traînait
+ * ici : la feuille portait DEUX rouges de mort à quelques degrés l'un de
+ * l'autre, l'un sur les plaques, l'autre sur ce panneau. Une seule couleur
+ * pour une seule idée.
+ */
+.drama--dead-me .drama__eyebrow {
+  background: #f74058;
+  color: var(--ink);
+}
+
+.drama--me .drama__names {
+  font-size: clamp(17px, 2.4vw, 22px);
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.drama--me .drama__reason {
+  font-size: clamp(26px, 5.2vw, 48px);
+  color: var(--paper);
 }
 
 /*
@@ -2772,9 +2832,21 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
-.codexrow.is-locked .codexrow__name,
-.codexrow.is-locked .codexrow__score {
+/*
+ * Règle jamais rencontrée : le NOM est caché, pas le statut.
+ *
+ * Les deux étaient en `--line` sur `--ink`, soit un contraste mesuré de
+ * 1,46:1 — donc « JAMAIS RENCONTRÉE » était aussi illisible que les tirets qui
+ * masquent le nom. Or c'est exactement la ligne qui explique pourquoi
+ * l'entrée est vide. Les tirets restent discrets, ils ne portent aucune
+ * information ; le statut repasse au contraste des textes secondaires.
+ */
+.codexrow.is-locked .codexrow__name {
   color: var(--line);
+}
+
+.codexrow.is-locked .codexrow__score {
+  color: var(--paper-dim);
 }
 
 .codexrow.is-cleared .codexrow__score {

@@ -206,6 +206,29 @@ const LA_MAIN_GAUCHE: OneRule = {
   judge: (a) => (a.kind === "release" && a.key === " " ? "TU AS RELÂCHÉ ESPACE" : null),
 };
 
+/**
+ * La même règle, ou son remplaçant si elle exige une touche maintenue.
+ *
+ * Une règle à `watchRelease` demande de garder une touche enfoncée toute la
+ * partie : sans clavier, elle est injouable — le lancement se refuse — et la
+ * lever sans plus la rendrait inerte, donc un avantage gratuit. C'est le même
+ * arbitrage que pour les consignes clavier retirées du tirage tactile, et que
+ * pour l'exclusion de LA MAIN GAUCHE du pool multijoueur.
+ *
+ * Le remplaçant est le suivant du catalogue qui n'a pas de contrainte de
+ * maintien : déterministe, donc deux appareils tactiles obtiennent la même
+ * règle le même jour et leurs scores restent comparables entre eux.
+ */
+export function withoutHold(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule {
+  if (rule.watchRelease === undefined) return rule;
+  const depart = pool.indexOf(rule);
+  for (let k = 1; k <= pool.length; k++) {
+    const cand = pool[(depart + k) % pool.length]!;
+    if (cand.watchRelease === undefined) return cand;
+  }
+  return rule;
+}
+
 export const ONE_RULES: OneRule[] = [
   LE_SANG,
   LA_POINTE,

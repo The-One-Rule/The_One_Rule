@@ -9,7 +9,7 @@ import {
   windowMs,
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
-import { ONE_RULES } from "./engine/rules";
+import { ONE_RULES, withoutHold } from "./engine/rules";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule } from "./game/daily";
@@ -187,7 +187,19 @@ function show(id: ScreenId): void {
   multi.onScreen(id);
 }
 
-const multi = initMulti((id) => show(id), hud);
+/*
+ * Revenir du multijoueur repeint l'accueil.
+ *
+ * `exitToMenu(); show("home")` — le chemin de QUITTER, de RETOUR et de la fin
+ * de match — n'appelait pas `renderHome()`. On retrouvait donc un accueil figé
+ * sur l'état d'avant : le compteur de parties multi venait d'augmenter, la
+ * carte du jour pouvait avoir changé de statut, et rien de tout cela
+ * n'apparaissait avant un rechargement. Afficher l'accueil, c'est le rendre.
+ */
+const multi = initMulti((id) => {
+  if (id === "home") renderHome();
+  show(id);
+}, hud);
 
 function renderHome(): void {
   const s = P.load();
@@ -446,6 +458,29 @@ const teaserDuJour = (ruleId: string, jour: number): string => {
  */
 const jamaisJoue = (): boolean => P.load().recent.length === 0;
 
+/**
+ * Une règle qui exige une touche maintenue est INJOUABLE sans clavier.
+ *
+ * LA MAIN GAUCHE demande de garder ESPACE enfoncée toute la partie. Sur un
+ * téléphone, `startRun()` refuse donc de lancer — « APPUIE SUR ESPACE ET
+ * GARDE-LA ENFONCÉE POUR LANCER » — devant un écran qui n'a pas de touche
+ * ESPACE. Le run du jour tirant dans les douze règles, un jour sur douze
+ * aucun joueur mobile ne pouvait jouer. Et la lever sans plus serait pire :
+ * la règle ne juge que sur un relâchement d'ESPACE, donc elle serait
+ * parfaitement inerte — un avantage gratuit et invisible, exactement ce que
+ * le catalogue s'interdit.
+ *
+ * C'est la décision déjà prise deux fois ailleurs, pour le même motif : les
+ * consignes clavier sortent du tirage tactile (`TOUCH_ONLY`), et LA MAIN
+ * GAUCHE sort du pool multijoueur. Elle sort donc aussi du tirage solo quand
+ * l'appareil ne peut pas la tenir.
+ *
+ * Le remplacement est DÉTERMINISTE — la règle suivante du catalogue qui n'a
+ * pas de contrainte de maintien — pour que deux téléphones aient la même
+ * règle le même jour, et donc des scores encore comparables entre eux.
+ */
+const regleJouableIci = (rule: OneRule): OneRule => (TOUCH_ONLY ? withoutHold(rule) : rule);
+
 /* ------------------------------------------------------------------ *
  * Lancement d'un run
  * ------------------------------------------------------------------ */
@@ -454,7 +489,7 @@ function openBrief(mode: Mode): void {
   pendingMode = mode;
 
   if (mode === "daily") {
-    pendingRule = ruleOfDay(day);
+    pendingRule = regleJouableIci(ruleOfDay(day));
   } else {
     // l'entraînement ne tire que les règles déjà rencontrées : la surprise
     // du run du jour est le seul contenu neuf, il ne faut pas la brûler
@@ -463,7 +498,7 @@ function openBrief(mode: Mode): void {
     // LE SANG, l'interdit le plus lisible du catalogue.
     const known = ONE_RULES.filter((r) => P.isEncountered(s, r.id));
     const pool = known.length ? known : ONE_RULES.filter((r) => r.id === "sang");
-    pendingRule = pool[Math.floor(Math.random() * pool.length)]!;
+    pendingRule = regleJouableIci(pool[Math.floor(Math.random() * pool.length)]!);
   }
 
   $("briefEyebrow").textContent = mode === "daily" ? `RUN DU JOUR · #${day}` : "ENTRAÎNEMENT";
@@ -590,7 +625,9 @@ async function openRanked(): Promise<void> {
     return;
   }
 
-  const rule = ONE_RULES.find((r) => r.id === offer.ruleId);
+  // Substitution sans risque ici : `sendRanked` transmet l'identifiant de la
+  // règle RÉELLEMENT jouée, c'est donc elle que le serveur rejouera.
+  const rule = regleJouableIci(ONE_RULES.find((r) => r.id === offer.ruleId)!);
   if (!rule) return;
 
   ranked = { opponent: offer.opponent, seed: offer.seed, ruleId: offer.ruleId };
@@ -990,7 +1027,11 @@ function updateGhost(runMs: number, mine: number): void {
 }
 
 function loadChallenge(r: Replay): void {
-  const rule = ruleOfReplay(r);
+  // Un défi reçu sur téléphone alors que l'adversaire portait LA MAIN GAUCHE
+  // était tout simplement impossible à lancer. La comparaison de scores perd
+  // en rigueur avec une autre règle, mais un duel approximatif vaut mieux
+  // qu'un bouton COMMENCER qui ne répond pas.
+  const rule = regleJouableIci(ruleOfReplay(r)!);
   if (!rule) return;
   // Le cran qui compte : quelqu'un est arrivé PAR un lien de défi. Émis après
   // le décodage, donc jamais sur un lien trafiqué — un lien mort mesure le
@@ -1027,10 +1068,25 @@ function backHome(): void {
   show("home");
 }
 
+/**
+ * ÉCHAP en pleine partie.
+ *
+ * Elle ne regardait que `session`, qui n'existe qu'en SOLO : en plein match
+ * multijoueur, la touche ne faisait donc rien. Or aucun écran n'est ouvert
+ * pendant un match — il n'y a ni bouton QUITTER ni menu — et le pied de
+ * l'accueil promet « ÉCHAP POUR LE MENU ». On restait enfermé dans le match
+ * jusqu'à sa fin, ou jusqu'à fermer l'onglet.
+ *
+ * `backHome()` passe par `multi.exitToMenu()`, qui quitte le salon proprement
+ * côté serveur : le départ est déclaré, il n'est pas subi comme une coupure.
+ */
 function abandon(): void {
-  if (!session) return;
-  session = null;
-  backHome();
+  if (session) {
+    session = null;
+    backHome();
+    return;
+  }
+  if (multi.isPlayingMulti()) backHome();
 }
 
 function replay(): void {

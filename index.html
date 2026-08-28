@@ -305,7 +305,7 @@
             <p class="eyebrow">TU OUVRES</p>
             <h3 class="panel__title">CRÉER UN SALON</h3>
             <p class="panel__text">
-              Tu obtiens un code de quatre lettres à dicter, et un lien à envoyer.
+              Tu obtiens un code de quatre caractères à dicter, et un lien à envoyer.
               La vitesse, les vies et la rotation, c'est toi qui les règles.
             </p>
             <div class="btnrow">
@@ -316,7 +316,11 @@
           <div class="col panel">
             <p class="eyebrow">ON T'ATTEND</p>
             <h3 class="panel__title">REJOINDRE</h3>
-            <p class="panel__text">Entre le code de quatre lettres qu'on t'a donné.</p>
+            <!-- « caractères » et non « lettres » : l'alphabet des codes
+                 contient aussi des chiffres (CODE_ALPHABET, sans I/L/O/0/1
+                 pour qu'un code se dicte). Un joueur à qui l'on annonce
+                 quatre LETTRES et qui reçoit « 3PS8 » croit s'être trompé. -->
+            <p class="panel__text">Entre le code de quatre caractères qu'on t'a donné.</p>
             <div class="fieldrow">
               <input
                 class="field"
