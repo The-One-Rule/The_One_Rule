@@ -74,6 +74,7 @@
             autocomplete="off"
             spellcheck="false"
             aria-label="Message"
+            placeholder="ÉCRIS ICI POUR PARLER"
           />
         </form>
       </div>
@@ -344,11 +345,14 @@
       </section>
 
       <!-- MULTI — SALON -->
-      <section class="screen hidden" id="multi-lobby">
-        <!-- À gauche ce qu'on décide : le code, les réglages, le lancement.
-             À droite ce qui vit : qui est là, et ce qu'ils se disent. Le chat
-             vient s'ancrer dans `#chatSlot` le temps du salon — ailleurs il
-             reste la couche flottante qu'il a toujours été. -->
+      <!-- Trois bandes sur écran large : à gauche ce qu'on décide (le code, les
+           réglages, le lancement), au centre qui est là, et le chat sur toute la
+           hauteur contre le bord droit. Le chat n'est PAS dans la zone qui
+           défile : il est ancré dans `#chatSlot`, hors du flux, pour garder sa
+           hauteur quoi qu'il arrive au reste. Sous 1200 px il redevient la
+           barre flottante du bas. -->
+      <section class="screen screen--dock hidden" id="multi-lobby">
+        <div class="screen__pane">
         <div class="screen__scroll screen__scroll--wide room">
           <div class="col room__setup">
             <div class="room__code">
@@ -387,18 +391,19 @@
           <div class="col room__live">
             <h2 class="room__title" id="multiLobbyTitle">EN ATTENTE</h2>
             <div class="lobby room__list" id="multiPlayers"></div>
-            <div class="room__chat" id="chatSlot"></div>
           </div>
         </div>
+        </div>
+        <aside class="chatdock" id="chatSlot" aria-label="Discussion du salon"></aside>
       </section>
 
       <!-- MULTI — FIN DE MATCH -->
-      <section class="screen hidden" id="multi-end">
-        <!-- Le classement est la seule chose que dix joueurs regardent en même
-             temps : il prend la colonne large, avec la règle que chacun portait
-             en tombant. Les titres du match sont un commentaire, ils tiennent
-             à côté. Sans titre à décerner, le classement reprend toute la
-             largeur (classe `is-solo`, posée par renderTitles). -->
+      <!-- Même découpe que le salon : le classement et les titres occupent la
+           zone qui défile, le chat tient la bande de droite sur toute la
+           hauteur. C'est l'écran où l'on commente le match — la discussion
+           doit y être aussi grande que le classement. -->
+      <section class="screen screen--dock hidden" id="multi-end">
+        <div class="screen__pane">
         <div class="screen__scroll screen__scroll--wide end">
           <div class="end__head">
             <p class="eyebrow">MATCH TERMINÉ</p>
@@ -423,6 +428,8 @@
             <p class="fineprint" id="multiEndInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
           </div>
         </div>
+        </div>
+        <aside class="chatdock" id="chatSlotEnd" aria-label="Discussion du salon"></aside>
       </section>
     </div>
 

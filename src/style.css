@@ -1109,6 +1109,75 @@ body {
   display: none;
 }
 
+/*
+ * Écrans à bande latérale — le salon et la fin de match.
+ *
+ * Le chat y tient toute la hauteur contre le bord droit, et il ne défile PAS
+ * avec le reste : c'est une bande, pas un bloc de la page. La zone de contenu
+ * devient donc son propre conteneur de défilement (`.screen__pane`), et garde
+ * le `margin: auto` qui centre sans rendre le haut inatteignable — même
+ * raison que sur `.screen`.
+ *
+ * La bande n'existe que lorsqu'elle contient le chat (voir `dockChat`) :
+ * vide, elle disparaît et le contenu reprend toute la largeur. Aucune requête
+ * média ici, c'est le JS qui décide de l'ancrage selon la place disponible.
+ */
+.screen--dock {
+  display: flex;
+  /* `stretch`, et non le `flex-start` hérité de `.screen` : sans lui, la bande
+     et la zone de contenu se dimensionnent sur leur contenu — la bande faisait
+     118 px de haut au lieu des 860 de l'écran. Aucun rapport avec le piège du
+     centrage : rien n'est poussé au-dessus de l'origine de défilement, chaque
+     zone gère le sien. */
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
+}
+
+.screen__pane {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.screen__pane > * {
+  margin: auto;
+}
+
+.screen > .screen__pane,
+.screen > .chatdock {
+  margin: 0;
+}
+
+.chatdock {
+  flex: 0 0 clamp(280px, 24vw, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 16px 18px;
+  background: var(--ink-2);
+  border-left: 1px solid var(--line);
+  min-height: 0;
+}
+
+/* En pseudo-élément : un enfant réel rendrait `:empty` toujours faux, et la
+   bande resterait ouverte sur du vide quand le chat n'est pas ancré. */
+.chatdock::before {
+  content: "DISCUSSION";
+  flex: 0 0 auto;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+  letter-spacing: 0.26em;
+  color: var(--paper-dim);
+}
+
+.chatdock:empty {
+  display: none;
+}
+
 /* ------------------------------------------------------------------
    Chat salon
    ------------------------------------------------------------------ */
@@ -1198,6 +1267,13 @@ body {
 
 .chat__input:focus {
   border-color: var(--paper);
+}
+
+/* Un champ vide et muet ne dit pas qu'on peut écrire dedans. */
+.chat__input::placeholder {
+  color: var(--paper-dim);
+  letter-spacing: 0.12em;
+  font-size: 12px;
 }
 
 .lobbyrow__acts {
@@ -1492,18 +1568,9 @@ body {
 }
 
 .room__list {
-  /* La liste défile, le reste de la colonne ne bouge pas : à dix joueurs elle
-     poussait le chat hors de l'écran. */
+  /* Dix joueurs poussaient les boutons hors de l'écran : la liste défile
+     dans sa colonne, le reste de la page ne bouge pas. */
   overflow-y: auto;
-}
-
-.room__chat {
-  display: flex;
-  margin-top: 22px;
-}
-
-.room__chat:empty {
-  display: none;
 }
 
 /*
@@ -1537,9 +1604,6 @@ body {
   .room__acts {
     order: 5;
   }
-  .room__chat {
-    order: 6;
-  }
 
   /* Le titre ne porte plus la marge d'un bloc : il coiffe la liste. */
   .room__title + .room__list {
@@ -1547,31 +1611,34 @@ body {
     border-top: none;
   }
 
-  /*
-   * Le chat flottant devient une BARRE, collée au bas de l'écran.
-   *
-   * Il planait à 52 px du bas, au milieu d'un salon qui fait 1115 px de haut
-   * sur un 375×667 : il recouvrait donc une bande du contenu en permanence, et
-   * comme il reçoit les clics, ce qui tombait dessous devenait inatteignable —
-   * mesuré sur le bouton « 5 vies ». Réserver de la place en bas ne suffit
-   * pas : une couche qui plane au milieu masque tout ce qui défile derrière
-   * elle, à n'importe quelle position.
-   *
-   * Collée en bas et doublée d'une marge égale à sa hauteur (`--chat-space`,
-   * posée par `reserveChatSpace()`), tout élément peut au contraire être amené
-   * au-dessus d'elle par simple défilement. On ne l'ancre pas dans le flux
-   * pour autant : sur téléphone, c'est d'être toujours là qu'elle tire son
-   * intérêt.
-   */
+}
+
+/*
+ * Partout où le chat n'est PAS ancré dans une bande, il se colle au bas.
+ *
+ * Il planait à 52 px du bas, au milieu d'un salon qui fait 1115 px de haut sur
+ * un 375×667 : il recouvrait donc une bande du contenu en permanence, et comme
+ * il reçoit les clics, ce qui tombait dessous devenait inatteignable — mesuré
+ * sur le bouton « 5 vies ». Réserver de la place en bas ne suffit pas : une
+ * couche qui plane au milieu masque tout ce qui défile derrière elle, à
+ * n'importe quelle position de défilement.
+ *
+ * Collé en bas et doublé d'une marge égale à sa hauteur (`--chat-space`, posée
+ * par `reserveChatSpace()`), tout élément peut au contraire être amené au-dessus
+ * de lui par simple défilement.
+ *
+ * Le seuil est celui de l'ancrage (1200 px, voir `wideScreen`) et non celui des
+ * deux colonnes : entre les deux, il n'y a pas encore de bande, et le défaut
+ * était exactement le même qu'au téléphone.
+ */
+@media (max-width: 1199px) {
   .chat:not(.chat--docked) {
-    left: 0;
-    right: 0;
     bottom: 0;
-    max-width: none;
     padding: 8px var(--gap) 10px;
     padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: var(--ink);
-    border-top: 1px solid var(--line);
+    border: 1px solid var(--line);
+    border-bottom: none;
   }
 
   #multi-lobby .screen__scroll,
@@ -1580,12 +1647,26 @@ body {
   }
 }
 
+/* Sur téléphone, la barre prend toute la largeur : 420 px y sont déjà l'écran
+   entier, et un panneau qui ne touche pas les deux bords laisse deux lisières
+   inutiles. Après le bloc ci-dessus, pour en défaire les bordures latérales. */
+@media (max-width: 899px) {
+  .chat:not(.chat--docked) {
+    left: 0;
+    right: 0;
+    max-width: none;
+    border-left: none;
+    border-right: none;
+  }
+}
+
 /*
- * Le chat ancré dans la colonne du salon.
+ * Le chat ancré dans la bande latérale.
  *
  * Ailleurs il reste ce qu'il a toujours été : une couche flottante en position
- * absolue, calée en bas de `#app`. Ici il appartient au flux, prend la largeur
- * de sa colonne et toute la hauteur qui reste.
+ * absolue, calée en bas de `#app`. Ici il appartient à la bande, prend toute
+ * sa largeur et toute sa hauteur — c'est le point : la discussion doit être
+ * aussi grande que ce qu'on regarde à côté.
  */
 .chat--docked {
   position: static;
@@ -1626,33 +1707,13 @@ body {
   }
 
   /*
-   * La colonne de droite est bornée en hauteur pour que la liste et le chat
-   * aient une hauteur à se partager. Sans borne, ils s'étirent au contenu et
-   * « pleine hauteur » ne veut plus rien dire.
-   */
-  .room__live {
-    display: flex;
-    flex-direction: column;
-    height: min(70vh, 620px);
-  }
-
-  /*
-   * La liste prend ce qu'il lui faut, jusqu'à la moitié de la colonne.
-   *
-   * Sans plafond, dix joueurs lui donnaient 340 px et laissaient 150 au chat —
-   * trois lignes et un champ de saisie, dans le salon où l'attente est
-   * précisément le moment où l'on se parle. Le plafond est en pourcentage
-   * d'une colonne de hauteur fixe : rien ici ne dépend de ce qu'il décide.
+   * La liste est bornée : à dix joueurs elle mesure 440 px et pousserait le
+   * reste de la colonne hors du champ de vision. Le plafond est absolu, pas
+   * relatif au contenu — rien ici ne se décide sur une grandeur que la
+   * décision modifie.
    */
   .room__list {
-    flex: 0 1 auto;
-    min-height: 96px;
-    max-height: 52%;
-  }
-
-  .room__chat {
-    flex: 1 1 auto;
-    min-height: 150px;
+    max-height: min(56vh, 460px);
   }
 }
 

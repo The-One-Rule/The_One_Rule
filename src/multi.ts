@@ -451,14 +451,25 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   chatInput.maxLength = CHAT_MAX_LEN;
   /** OÃ¹ le chat retourne quand il n'est ancrÃ© nulle part : la couche flottante. */
   const chatFloat = chatEl.parentElement!;
-  const chatSlot = $("chatSlot");
+  /** Bandes latérales, une par écran qui en porte une. */
+  const chatDocks: Record<string, HTMLElement> = {
+    "multi-lobby": $("chatSlot"),
+    "multi-end": $("chatSlotEnd"),
+  };
 
   const TOUCH_ONLY =
     typeof matchMedia !== "undefined" &&
     matchMedia("(hover: none) and (pointer: coarse)").matches;
 
-  /* Le seuil des deux colonnes, tenu par la feuille de style (`--wide`). */
-  const wideScreen = typeof matchMedia !== "undefined" ? matchMedia("(min-width: 900px)") : null;
+  /*
+   * Seuil d'ancrage de la bande de chat.
+   *
+   * Plus haut que le seuil des deux colonnes (900 px) : la bande prend jusqu'à
+   * 380 px, et les deux colonnes du contenu doivent garder de quoi respirer à
+   * côté. À 1200 px il reste 812 px pour elles, soit ~380 chacune. En dessous,
+   * le chat redevient la barre du bas, qui ne prend de place à personne.
+   */
+  const wideScreen = typeof matchMedia !== "undefined" ? matchMedia("(min-width: 1200px)") : null;
 
   type ChatLine = { playerId: string; name: string; text: string; glyph: Glyph };
   const chatLines: ChatLine[] = [];
@@ -808,12 +819,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * tape au moment oÃ¹ le salon se peint voit son curseur disparaÃ®tre.
    */
   function dockChat(): void {
-    const ancrable = uiScreen === "multi-lobby" && (wideScreen?.matches ?? false);
-    const cible = ancrable ? chatSlot : chatFloat;
+    const bande = uiScreen !== null ? chatDocks[uiScreen] : undefined;
+    const cible = bande && (wideScreen?.matches ?? false) ? bande : chatFloat;
     if (chatEl.parentElement === cible) return;
     const avaitLeFocus = document.activeElement === chatInput;
     cible.appendChild(chatEl);
-    chatEl.classList.toggle("chat--docked", cible === chatSlot);
+    chatEl.classList.toggle("chat--docked", cible !== chatFloat);
     if (avaitLeFocus) chatInput.focus();
   }
 
