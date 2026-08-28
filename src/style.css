@@ -644,19 +644,28 @@ body {
   border-color: var(--paper-dim);
 }
 
-.plate--ok {
+/*
+ * Verdicts de manche — ils PRIMENT sur les états durables.
+ *
+ * Écrits en `.plate.plate--ok` plutôt que `.plate--ok` : deux classes contre
+ * une, donc ils l'emportent sur `--me`, `--out` et `--rookie` où qu'elles
+ * soient déclarées. Sans cela, la règle dépendrait de l'ordre du fichier — et
+ * c'est exactement ce qui privait un débutant de son liseré vert, puisque
+ * `.plate--rookie` est déclaré plus bas.
+ */
+.plate.plate--ok {
   border-color: #40f7c0;
   background: color-mix(in srgb, #40f7c0 12%, transparent);
   color: var(--paper);
 }
 
-.plate--trap {
+.plate.plate--trap {
   border-color: var(--signal);
   background: color-mix(in srgb, var(--signal) 16%, transparent);
   color: var(--signal-pale);
 }
 
-.plate--dead {
+.plate.plate--dead {
   border-color: #f74058;
   background: #f74058;
   color: var(--ink);
