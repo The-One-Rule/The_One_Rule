@@ -12,7 +12,7 @@ import { mulberry32 } from "./engine/rng";
 import { ONE_RULES, withoutHold } from "./engine/rules";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
-import { dailySeed, dayIndex, ruleOfDay, tomorrowRule } from "./game/daily";
+import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
@@ -160,6 +160,8 @@ let session: Session | null = null;
 let pendingRule: OneRule | null = null;
 let pendingMode: Mode = "daily";
 let spaceDown = false;
+/** Dernière règle servie à l'entraînement — pour ne pas la resservir aussitôt. */
+let derniereEntrainement: string | null = null;
 /** Dernier run terminé : la session est libérée dès la fin, mais l'écran
  *  de fin et le partage doivent encore pouvoir s'y référer. */
 let lastRun: {
@@ -491,14 +493,14 @@ function openBrief(mode: Mode): void {
   if (mode === "daily") {
     pendingRule = regleJouableIci(ruleOfDay(day));
   } else {
-    // l'entraînement ne tire que les règles déjà rencontrées : la surprise
-    // du run du jour est le seul contenu neuf, il ne faut pas la brûler
-    // Nouveau joueur : on ne lui sert pas la règle du jour en entraînement,
-    // ce serait brûler le seul contenu neuf de sa journée. Il apprend sur
-    // LE SANG, l'interdit le plus lisible du catalogue.
-    const known = ONE_RULES.filter((r) => P.isEncountered(s, r.id));
-    const pool = known.length ? known : ONE_RULES.filter((r) => r.id === "sang");
-    pendingRule = regleJouableIci(pool[Math.floor(Math.random() * pool.length)]!);
+    pendingRule = trainingRule({
+      duJour: ruleOfDay(day).id,
+      connues: new Set(Object.keys(s.encountered)),
+      derniere: derniereEntrainement,
+      sansMaintien: TOUCH_ONLY,
+      rng: Math.random,
+    });
+    derniereEntrainement = pendingRule.id;
   }
 
   $("briefEyebrow").textContent = mode === "daily" ? `RUN DU JOUR · #${day}` : "ENTRAÎNEMENT";
@@ -1089,13 +1091,30 @@ function abandon(): void {
   if (multi.isPlayingMulti()) backHome();
 }
 
+/**
+ * REJOUER · R.
+ *
+ * Il appelait `startRun()` directement : même règle, et le brief jamais
+ * réaffiché. Les deux défauts rapportés au playtest sortent de là — « six ou
+ * sept fois d'affilée la même règle », et « il faudrait pouvoir lire la règle
+ * avant ». En enchaînant, on ne la revoyait tout simplement plus.
+ *
+ * L'entraînement repasse donc par l'annonce, qui tire une nouvelle règle. Un
+ * DUEL et le CLASSÉ gardent leur chemin : la comparaison n'a de sens que sur
+ * la même partie, et pour eux le brief est déjà rejoué par leur propre
+ * ouverture.
+ */
 function replay(): void {
   if (pendingMode === "ranked") {
     void openRanked(); // nouvelle graine, nouvel adversaire : jamais deux fois le même match
     return;
   }
-  if (pendingMode === "daily" && !challenge) return;
-  startRun();
+  if (challenge) {
+    startRun(); // revanche : même graine, même règle, sinon on ne compare plus rien
+    return;
+  }
+  if (pendingMode === "daily") return;
+  openBrief("training");
 }
 
 $("btnDaily").addEventListener("click", () => {
