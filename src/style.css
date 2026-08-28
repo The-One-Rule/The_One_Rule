@@ -48,6 +48,48 @@
    * ne se touche pas ne fait que diluer ce qui se touche.
    */
   --tap: 44px;
+
+  /* ----------------------------------------------------------------
+     Échelle typographique — hors écran de jeu
+
+     Relevé avant refonte : 47 déclarations de taille, dont 40 sous 14 px,
+     et un interlettrage allant de 0 à 0,28em SANS aucune corrélation avec
+     la taille. Le motif dominant était même l'inverse du bon sens — du
+     10 px à 0,26em (`.eyebrow`, `.teaser`) contre du 13 px à 0,2em
+     (`.btn`). À cette taille, l'espacement ne fait plus « signalétique » :
+     il fait lire lettre par lettre. Rapporté en playtest — « les petits
+     textes sont trop petits et étirés, l'écart avec le code est violent ».
+
+     Quatre tailles, et l'interlettrage DÉCROÎT avec elles. Les capitales
+     gardent leur écartement là où il porte quelque chose — les intitulés —
+     mais calibré pour rester un mot, pas une suite de lettres.
+
+     Le plancher passe de 9-10 px à 11 px : en dessous, rien n'est à lire.
+
+     L'écran de JEU garde ses valeurs propres (bandeau, consigne, pied,
+     plaques, panneaux) : sa densité est calée sur une lecture en 200 ms,
+     pas sur du confort de lecture, et elle a déjà été réglée à part.
+     ---------------------------------------------------------------- */
+
+  /** Mentions, méta, unités. Le plancher du lisible. */
+  --t-micro: 11px;
+  --ls-micro: 0.08em;
+
+  /** Texte secondaire : états de carte, valeurs, aides. */
+  --t-petit: 12px;
+  --ls-petit: 0.1em;
+
+  /** Texte courant, phrases. Peu d'écartement : ce sont des mots. */
+  --t-base: 13px;
+  --ls-base: 0.04em;
+
+  /** Lecture posée : briefs, descriptions longues. */
+  --t-lire: 15px;
+  --ls-lire: 0.02em;
+
+  /** Intitulés en capitales — le seul endroit où l'écartement informe. */
+  --t-intitule: 11px;
+  --ls-intitule: 0.18em;
 }
 
 /*
@@ -928,8 +970,8 @@ body {
 }
 
 .titles__label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
   color: var(--signal-pale);
   min-width: 14ch;
 }
@@ -950,8 +992,8 @@ body {
   gap: 8px;
   font-family: var(--display);
   font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 0.04em;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
 }
 
 @keyframes glyphFall {
@@ -1057,7 +1099,7 @@ body {
   flex: 0 0 auto;
   min-width: 2ch;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: var(--t-petit);
   font-variant-numeric: tabular-nums;
   color: var(--paper-dim);
   text-align: right;
@@ -1075,7 +1117,7 @@ body {
 
 .lobbyrow__rounds {
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.1em;
+  letter-spacing: var(--ls-petit);
 }
 
 /*
@@ -1229,8 +1271,8 @@ body {
   flex: 0 0 auto;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
-  letter-spacing: 0.26em;
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
 }
 
@@ -1285,8 +1327,9 @@ body {
   padding: 4px 8px;
   background: color-mix(in srgb, var(--ink) 82%, transparent);
   border: 1px solid var(--line);
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-base);
+  line-height: 1.45;
 }
 
 .chat__line .lobbyrow__glyph {
@@ -1332,8 +1375,8 @@ body {
 /* Un champ vide et muet ne dit pas qu'on peut écrire dedans. */
 .chat__input::placeholder {
   color: var(--paper-dim);
-  letter-spacing: 0.12em;
-  font-size: 12px;
+  letter-spacing: var(--ls-petit);
+  font-size: var(--t-petit);
 }
 
 .lobbyrow__acts {
@@ -1523,8 +1566,8 @@ body {
 }
 
 .eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.26em;
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
 }
 
@@ -1579,8 +1622,9 @@ body {
 .panel__text {
   margin: 14px auto 0;
   max-width: 38ch;
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.6;
   color: var(--paper-dim);
 }
 
@@ -1761,9 +1805,23 @@ body {
 }
 
 @media (min-width: 900px) {
+  /*
+   * La colonne des joueurs se CENTRE sur la hauteur de la rangée.
+   *
+   * Alignée en haut, elle portait deux lignes de contenu face à une colonne de
+   * réglages de 575 px : tout le vide tombait d'un seul côté, sous la liste,
+   * et l'écran se lisait comme inachevé. Rapporté en playtest — « la colonne
+   * flotte au-dessus d'un immense trou noir ».
+   *
+   * Le centrage ne répartit pas moins de vide, il le répartit également : ce
+   * qui se lisait comme un manque redevient une marge. Sans risque du piège de
+   * `.screen` : ici ce n'est pas le conteneur de défilement qui centre, et une
+   * grille prend toujours la hauteur de sa colonne la plus haute — rien ne peut
+   * être poussé au-dessus de l'origine.
+   */
   .room {
     gap: 26px 52px;
-    align-items: stretch;
+    align-items: center;
   }
 
   /*
@@ -1774,6 +1832,30 @@ body {
    */
   .room__list {
     max-height: min(56vh, 460px);
+  }
+
+  /*
+   * À petit effectif, les lignes respirent.
+   *
+   * Un salon de deux ou trois est le cas ORDINAIRE — c'est ainsi qu'on
+   * commence, et c'est l'écran qu'on regarde le plus longtemps. Y afficher
+   * trois lignes de 45 px dans une colonne de 860 donnait une liste
+   * riquiqui. La place disponible sert donc à ce qui compte : les joueurs
+   * présents. Au-delà, on retombe sur la densité, qui devient le bon choix
+   * quand il y a dix noms à parcourir.
+   */
+  .room.is-few .lobbyrow {
+    padding: 22px 2px;
+  }
+
+  .room.is-few .room__title {
+    margin-bottom: 4px;
+  }
+
+  /* Même défaut au classement : trois titres décernés face à dix lignes de
+     podium laissaient la colonne de droite suspendue en l'air. */
+  .end {
+    align-items: center;
   }
 }
 
@@ -1850,8 +1932,9 @@ body {
 .lede {
   margin: 20px auto 0;
   max-width: 46ch;
-  font-size: 13px;
-  line-height: 1.75;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.7;
   color: var(--paper-dim);
 }
 
@@ -1862,8 +1945,8 @@ body {
 
 .warn {
   margin-top: 16px;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--signal-pale);
 }
 
@@ -1873,8 +1956,8 @@ body {
 
 .fineprint {
   margin-top: 22px;
-  font-size: 10px;
-  letter-spacing: 0.18em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--paper-dim);
 }
 
@@ -1897,9 +1980,10 @@ body {
 
 .btn {
   font-family: var(--mono);
-  /* 11 px en capitales espacées de 0,2em : lisible de près, pas au pouce. */
-  font-size: 13px;
-  letter-spacing: 0.2em;
+  /* Un libellé de bouton est un mot qu'on lit d'un bloc, pas une enseigne
+     à épeler : l'écartement descend de 0,2em à celui du texte courant. */
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
   color: var(--paper);
   background: none;
   border: 1px solid var(--line);
@@ -2023,8 +2107,10 @@ body {
 .card__title {
   display: block;
   font-family: var(--mono);
-  font-size: 14px;
-  letter-spacing: 0.2em;
+  font-size: 15px;
+  /* Un titre de carte porte encore de l'écartement — c'est une enseigne —
+     mais moins qu'avant : à 0,2em, « MULTIJOUEUR » se lisait en syllabes. */
+  letter-spacing: 0.12em;
   color: var(--paper);
 }
 
@@ -2032,10 +2118,10 @@ body {
   display: block;
   margin-top: 7px;
   font-family: var(--display);
-  font-size: 13px;
+  font-size: var(--t-lire);
   font-weight: 500;
-  line-height: 1.45;
-  letter-spacing: 0;
+  line-height: 1.5;
+  letter-spacing: var(--ls-lire);
   color: var(--paper-dim);
   /* La mesure de lecture, quelle que soit la largeur disponible. */
   max-width: 48ch;
@@ -2049,8 +2135,8 @@ body {
 .card__state {
   display: block;
   font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--signal-pale);
 }
 
@@ -2092,8 +2178,8 @@ body {
 }
 
 .btn--pref {
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--paper-dim);
   opacity: 0.85;
 }
@@ -2110,9 +2196,8 @@ body {
 .chip {
   border: 1px solid var(--line);
   padding: 7px 12px;
-  /* 10 px avec 0,16em d'interlettrage : sous le seuil de lisibilité. */
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--paper-dim);
   /*
    * Sans fond déclaré, un `<button>` prend celui du système : mesuré à
@@ -2276,8 +2361,8 @@ button.chip:active:not(:disabled) {
   gap: 12px;
   padding: 12px 2px;
   border-bottom: 1px solid var(--line);
-  font-size: 11px;
-  letter-spacing: 0.1em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
 }
 
 .lobbyrow__rule {
@@ -2297,7 +2382,7 @@ button.chip:active:not(:disabled) {
 .lobbyrow__status {
   flex: 0 0 auto;
   min-width: 9ch;
-  letter-spacing: 0.16em;
+  letter-spacing: var(--ls-petit);
   color: var(--paper-dim);
 }
 
@@ -2382,9 +2467,8 @@ button.chip:active:not(:disabled) {
 
 .settings__label {
   flex: 0 0 9ch;
-  /* 10 px : le nom du réglage était moins lisible que ses options. */
-  font-size: 12px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--paper);
 }
 
@@ -2435,8 +2519,8 @@ button.chip:active:not(:disabled) {
 }
 
 .opt__label {
-  font-size: 11px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   line-height: 1;
 }
 
@@ -2448,8 +2532,8 @@ button.chip:active:not(:disabled) {
  * (« 1620 MS »). `--paper-dim` plein tient 5,41:1 et se distingue tout autant.
  */
 .opt__hint {
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   line-height: 1;
   color: var(--paper-dim);
   font-variant-numeric: tabular-nums;
@@ -2597,10 +2681,16 @@ button.chip:active:not(:disabled) {
 }
 
 /* Dit qui décide, plutôt que de laisser deviner pourquoi rien ne réagit. */
+/*
+ * Cette ligne dit qui décide, et le playtest l'a trouvée « trop petite et
+ * étirée » : c'est une phrase, pas une enseigne. Elle prend donc la taille et
+ * l'écartement du texte secondaire.
+ */
 .settings__hint {
-  margin-top: 8px;
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  margin-top: 10px;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  line-height: 1.5;
   color: var(--paper-dim);
 }
 
@@ -2633,8 +2723,8 @@ button.chip:active:not(:disabled) {
   gap: 12px;
   padding: 11px 2px;
   border-bottom: 1px solid var(--line);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
 }
 
 .quest__box {
@@ -2694,8 +2784,8 @@ button.chip:active:not(:disabled) {
 
 .because {
   margin-top: 14px;
-  font-size: 11px;
-  letter-spacing: 0.12em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--paper);
 }
 
@@ -2719,8 +2809,8 @@ button.chip:active:not(:disabled) {
 
 .reward {
   margin-top: 18px;
-  font-size: 10px;
-  letter-spacing: 0.16em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--signal-pale);
 }
 
@@ -2734,8 +2824,8 @@ button.chip:active:not(:disabled) {
   margin-top: 22px;
   padding: 14px 16px;
   border: 1px solid var(--signal);
-  font-size: 11px;
-  letter-spacing: 0.14em;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--signal-pale);
   line-height: 1.9;
 }
@@ -2762,8 +2852,8 @@ button.chip:active:not(:disabled) {
   margin-top: 26px;
   padding-top: 18px;
   border-top: 1px solid var(--line);
-  font-size: 10px;
-  letter-spacing: 0.26em;
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
 }
 
@@ -2806,9 +2896,9 @@ button.chip:active:not(:disabled) {
   display: block;
   font-family: var(--display);
   font-weight: 500;
-  font-size: 13px;
-  line-height: 1.45;
-  letter-spacing: 0;
+  font-size: var(--t-lire);
+  line-height: 1.5;
+  letter-spacing: var(--ls-lire);
   color: var(--paper-dim);
   max-width: 62ch;
 }
@@ -2826,8 +2916,8 @@ button.chip:active:not(:disabled) {
 }
 
 .codexrow__score {
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--paper-dim);
   font-variant-numeric: tabular-nums;
 }
@@ -2962,8 +3052,9 @@ button.chip:active:not(:disabled) {
 
 .notice p {
   flex: 1 1 260px;
-  font-size: 11px;
-  line-height: 1.7;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.65;
   color: var(--paper-dim);
 }
 
