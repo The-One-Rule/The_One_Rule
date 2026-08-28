@@ -405,10 +405,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const chatForm = $("chatForm") as HTMLFormElement;
   const chatInput = $<HTMLInputElement>("chatInput");
   chatInput.maxLength = CHAT_MAX_LEN;
+  /** Où le chat retourne quand il n'est ancré nulle part : la couche flottante. */
+  const chatFloat = chatEl.parentElement!;
+  const chatSlot = $("chatSlot");
 
   const TOUCH_ONLY =
     typeof matchMedia !== "undefined" &&
     matchMedia("(hover: none) and (pointer: coarse)").matches;
+
+  /* Le seuil des deux colonnes, tenu par la feuille de style (`--wide`). */
+  const wideScreen = typeof matchMedia !== "undefined" ? matchMedia("(min-width: 900px)") : null;
 
   type ChatLine = { playerId: string; name: string; text: string; glyph: Glyph };
   const chatLines: ChatLine[] = [];
@@ -753,9 +759,33 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /**
+   * Le chat rejoint la colonne du salon, ou reprend sa place flottante.
+   *
+   * Uniquement là où le salon a DEUX colonnes. En une seule, la colonne de
+   * droite passe sous les réglages et les boutons : le chat se retrouverait à
+   * 930 px du haut sur un 375×667, alors que la couche flottante le garde à
+   * portée de pouce sans rien coûter. L'ancrage est un gain d'écran large.
+   *
+   * Un déplacement de nœud perd le focus : on le rend, sinon quelqu'un qui
+   * tape au moment où le salon se peint voit son curseur disparaître.
+   */
+  function dockChat(): void {
+    const ancrable = uiScreen === "multi-lobby" && (wideScreen?.matches ?? false);
+    const cible = ancrable ? chatSlot : chatFloat;
+    if (chatEl.parentElement === cible) return;
+    const avaitLeFocus = document.activeElement === chatInput;
+    cible.appendChild(chatEl);
+    chatEl.classList.toggle("chat--docked", cible === chatSlot);
+    if (avaitLeFocus) chatInput.focus();
+  }
+
   function renderChatLog(): void {
     const expanded = chatExpanded();
-    const visible = chatLines.slice(-(expanded ? 8 : 3));
+    // Ancré, le chat a une colonne entière : il garde l'historique du salon
+    // plutôt que les huit dernières lignes d'une couche qui se replie.
+    const garde = chatEl.classList.contains("chat--docked") ? 40 : expanded ? 8 : 3;
+    const visible = chatLines.slice(-garde);
     chatLog.innerHTML = "";
     for (const line of visible) {
       const row = document.createElement("div");
@@ -769,9 +799,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.querySelector<HTMLElement>(".chat__text")!.textContent = line.text;
       chatLog.appendChild(row);
     }
+    // Le dernier message reste visible : la colonne défile, pas le lecteur.
+    chatLog.scrollTop = chatLog.scrollHeight;
   }
 
   function syncChatChrome(): void {
+    dockChat();
     if (!chatAvailable()) {
       chatEl.classList.add("hidden");
       chatEl.classList.remove("is-collapsed");
@@ -1348,6 +1381,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       });
     }
 
+    // Sans titre à décerner, le classement reprend toute la largeur : une
+    // colonne vide en face de lui se lit comme un contenu qui n'a pas chargé.
+    $("multi-end").classList.toggle("is-solo", titles.length === 0);
     if (titles.length === 0) {
       box.classList.add("hidden");
       return;
@@ -1403,6 +1439,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.className =
         "lobbyrow" +
         (p.id === net?.myId ? " is-host" : "") +
+        (isWinner ? " is-winner" : "") +
         (p.lives <= 0 ? " is-off" : "");
       row.innerHTML =
         `<span class="lobbyrow__name">` +
@@ -1411,11 +1448,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__name-text"></span>` +
         `</span>` +
         `<span class="lobbyrow__rule"></span>` +
+        `<span class="lobbyrow__status"></span>` +
         `<span class="lobbyrow__meta"></span>`;
       row.querySelector<HTMLElement>(".lobbyrow__rank")!.textContent = `${rang + 1}`;
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
-      row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent = isWinner
+      /*
+       * La règle qu'il portait en tombant.
+       *
+       * Le classement disait le rang et le score, jamais sous quelle contrainte
+       * chacun avait joué — alors que c'est la seule chose qui distingue deux
+       * joueurs du même salon, et qu'elle change à chaque rotation. La colonne
+       * dit donc la même chose ici que dans le salon, et le statut a la sienne.
+       */
+      row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent =
+        ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
+      row.querySelector<HTMLElement>(".lobbyrow__status")!.textContent = isWinner
         ? "VAINQUEUR"
         : p.lives <= 0
           ? "ÉLIMINÉ"
@@ -1439,7 +1487,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__glyph"></span>` +
         `<span class="lobbyrow__name-text"></span>` +
         `</span>` +
-        `<span class="lobbyrow__rule">SPECTATEUR</span>` +
+        `<span class="lobbyrow__rule"></span>` +
+        `<span class="lobbyrow__status">SPECTATEUR</span>` +
         `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">A REGARDÉ</span></span>`;
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
@@ -1713,6 +1762,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       }
       // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
       $<HTMLInputElement>("multiCode").value = lastRoomCode;
+      syncJoinAccent();
       setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
       setPlatesVisible(false);
       clearPlateCols();
@@ -1764,11 +1814,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /**
+   * L'accent suit l'intention en cours.
+   *
+   * Les deux panneaux sont à égalité tant que rien n'est saisi : CRÉER est
+   * l'action qui ne demande rien, donc c'est elle qui porte l'accent. Dès que
+   * le code est complet, c'est REJOINDRE qu'on veut — l'écran cesse de
+   * proposer d'ouvrir un salon à quelqu'un qui vient d'en taper un.
+   */
+  function syncJoinAccent(): void {
+    const pret = $<HTMLInputElement>("multiCode").value.trim().length === 4;
+    $("btnMultiJoin").classList.toggle("btn--primary", pret);
+    $("btnMultiCreate").classList.toggle("btn--primary", !pret);
+  }
+
   async function openJoin(prefill?: string): Promise<void> {
     sfx.ui();
     setJoinErr(null);
     const codeInput = $<HTMLInputElement>("multiCode");
     if (prefill) codeInput.value = prefill;
+    syncJoinAccent();
     const client = await ensureConnected();
     if (!client) return;
     show("multi-join");
@@ -2153,7 +2218,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $<HTMLInputElement>("multiCode").addEventListener("input", (ev) => {
     const el = ev.target as HTMLInputElement;
     el.value = el.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+    syncJoinAccent();
   });
+
+  // Une rotation d'écran fait franchir le seuil des deux colonnes : le chat
+  // doit suivre, sinon il reste ancré dans une colonne qui n'existe plus.
+  wideScreen?.addEventListener("change", () => syncChatChrome());
 
   $<HTMLInputElement>("multiCode").addEventListener("keydown", (ev) => {
     if (ev.key === "Enter") {

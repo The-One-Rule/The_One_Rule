@@ -1394,6 +1394,274 @@ body {
 }
 
 /*
+ * REJOINDRE : deux intentions, deux panneaux.
+ *
+ * Ouvrir un salon et entrer dans celui d'un autre étaient quatre boutons dans
+ * la même rangée, sous un champ de code unique — donc personne ne savait s'il
+ * fallait remplir le code AVANT de cliquer CRÉER. Deux panneaux encadrés, un
+ * bouton chacun, rien entre les deux.
+ */
+/* Pas d'`order` ici : l'ordre du document — titre, les deux panneaux, le pied —
+   est déjà celui qu'il faut une fois empilé. En poser sur une partie seulement
+   des enfants d'une grille renvoie les autres (`order: 0`) devant : le titre
+   se retrouvait sous les deux panneaux. */
+.join__head,
+.join__foot {
+  text-align: center;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  padding: 20px 18px 22px;
+  text-align: center;
+  /* Les deux panneaux gardent la même hauteur : côte à côte, deux cadres
+     inégaux se lisent comme une hiérarchie qui n'existe pas. */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel__title {
+  margin-top: 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(22px, 3.2vw, 30px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.panel__text {
+  margin: 14px auto 0;
+  max-width: 38ch;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--paper-dim);
+}
+
+/* Le bouton du panneau reste en bas, quelle que soit la longueur du texte. */
+.panel .btnrow {
+  margin-top: auto;
+  padding-top: 20px;
+}
+
+@media (min-width: 900px) {
+  .join {
+    gap: 26px 52px;
+  }
+
+  .join__head,
+  .join__foot {
+    grid-column: 1 / -1;
+  }
+
+  .join__foot {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+
+  .join__foot .btnrow {
+    margin-top: 0;
+  }
+}
+
+/*
+ * SALON : à gauche ce qu'on décide, à droite ce qui vit.
+ *
+ * Le code et les réglages sont des décisions de l'hôte ; la liste des joueurs
+ * et le chat bougent tout seuls. Les empiler obligeait à faire défiler entre
+ * « qui est là » et « je lance » — exactement les deux choses qu'on regarde
+ * ensemble au moment de démarrer.
+ */
+.room__title {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(20px, 3vw, 26px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--signal-pale);
+}
+
+.room__list {
+  /* La liste défile, le reste de la colonne ne bouge pas : à dix joueurs elle
+     poussait le chat hors de l'écran. */
+  overflow-y: auto;
+}
+
+.room__chat {
+  display: flex;
+  margin-top: 22px;
+}
+
+.room__chat:empty {
+  display: none;
+}
+
+/*
+ * Une colonne : l'ordre du salon n'est plus celui des colonnes.
+ *
+ * Empilés tels quels, les réglages et les boutons passaient AVANT la liste des
+ * joueurs — mesuré sur un 375×667 : « qui est là » commençait à 761 px du
+ * haut, soit après un écran entier de défilement, dans le seul écran dont
+ * c'est la question. Les deux conteneurs s'effacent (`display: contents`) et
+ * leurs blocs se rangent dans l'ordre qui compte au pouce : le code à dicter,
+ * qui est là, ce qu'on règle, ce qu'on lance, puis ce qu'on se dit.
+ */
+@media (max-width: 899px) {
+  .room__setup,
+  .room__live {
+    display: contents;
+  }
+
+  .room__code {
+    order: 1;
+  }
+  .room__title {
+    order: 2;
+  }
+  .room__list {
+    order: 3;
+  }
+  #multiSettings {
+    order: 4;
+  }
+  .room__acts {
+    order: 5;
+  }
+  .room__chat {
+    order: 6;
+  }
+
+  /* Le titre ne porte plus la marge d'un bloc : il coiffe la liste. */
+  .room__title + .room__list {
+    margin-top: 0;
+    border-top: none;
+  }
+}
+
+/*
+ * Le chat ancré dans la colonne du salon.
+ *
+ * Ailleurs il reste ce qu'il a toujours été : une couche flottante en position
+ * absolue, calée en bas de `#app`. Ici il appartient au flux, prend la largeur
+ * de sa colonne et toute la hauteur qui reste.
+ */
+.chat--docked {
+  position: static;
+  max-width: none;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.chat--docked .chat__log {
+  flex: 1 1 auto;
+  max-height: none;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/*
+ * Les messages collés en bas, SANS `justify-content: flex-end`.
+ *
+ * Écrit d'abord ainsi, et mesuré : à huit messages dans 149 px, la première
+ * ligne se retrouvait à y=386 pour un log qui commence à 481 — elle sortait
+ * par le HAUT, et `scrollHeight` restait égal à `clientHeight`, donc rien ne
+ * permettait de remonter. Les anciens messages étaient perdus, pas masqués.
+ *
+ * Même piège que `.screen`, qui ne se centre pas par `align-items` pour cette
+ * raison exacte : ce qu'un conteneur en défilement pousse hors de sa boîte par
+ * le début devient inatteignable. La marge automatique sur le premier enfant
+ * fait le même travail visuel et disparaît d'elle-même dès que ça déborde.
+ */
+.chat--docked .chat__log > :first-child {
+  margin-top: auto;
+}
+
+@media (min-width: 900px) {
+  .room {
+    gap: 26px 52px;
+    align-items: stretch;
+  }
+
+  /*
+   * La colonne de droite est bornée en hauteur pour que la liste et le chat
+   * aient une hauteur à se partager. Sans borne, ils s'étirent au contenu et
+   * « pleine hauteur » ne veut plus rien dire.
+   */
+  .room__live {
+    display: flex;
+    flex-direction: column;
+    height: min(70vh, 620px);
+  }
+
+  /*
+   * La liste prend ce qu'il lui faut, jusqu'à la moitié de la colonne.
+   *
+   * Sans plafond, dix joueurs lui donnaient 340 px et laissaient 150 au chat —
+   * trois lignes et un champ de saisie, dans le salon où l'attente est
+   * précisément le moment où l'on se parle. Le plafond est en pourcentage
+   * d'une colonne de hauteur fixe : rien ici ne dépend de ce qu'il décide.
+   */
+  .room__list {
+    flex: 0 1 auto;
+    min-height: 96px;
+    max-height: 52%;
+  }
+
+  .room__chat {
+    flex: 1 1 auto;
+    min-height: 150px;
+  }
+}
+
+/*
+ * CLASSEMENT DE FIN : le podium large, les titres à côté.
+ *
+ * Dix lignes de classement dans 560 px obligeaient à couper l'information —
+ * on ne savait plus sous quelle règle chacun était tombé. Les titres du match
+ * sont un commentaire : ils tiennent dans la colonne étroite.
+ */
+/* Comme `.join`, aucun `order` : l'ordre du document — titre, classement,
+   titres du match, boutons — est déjà celui qu'il faut empilé. */
+.end__head,
+.end__foot {
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .end {
+    gap: 26px 52px;
+    /* Le classement porte dix lignes, les titres trois au plus. */
+    grid-template-columns: 1.35fr 1fr;
+  }
+
+  .end__head,
+  .end__foot {
+    grid-column: 1 / -1;
+  }
+
+  /* Aucun titre décerné : le classement reprend toute la largeur plutôt que
+     de laisser une colonne vide en face de lui. */
+  #multi-end.is-solo .end__podium {
+    grid-column: 1 / -1;
+  }
+
+  .end__foot {
+    border-top: 1px solid var(--line);
+    padding-top: 18px;
+  }
+
+  .end__foot .btnrow {
+    margin-top: 0;
+  }
+}
+
+#multi-end.is-solo .end__titles {
+  display: none;
+}
+
+/*
  * L'annonce de la règle unique.
  *
  * Le brief est le seul écran qu'on ne relit pas : il passe une fois, et ce
@@ -1845,6 +2113,41 @@ button.chip:active:not(:disabled) {
   flex: 1 1 auto;
   color: var(--signal-pale);
   text-transform: uppercase;
+}
+
+/*
+ * Rang atteint, au classement de fin.
+ *
+ * `.lobbyrow__rule` portait « VAINQUEUR » sur le podium et le nom d'une règle
+ * dans le salon : la même colonne disait deux choses différentes selon
+ * l'écran. Elle porte maintenant la règle des deux côtés, et le statut a la
+ * sienne.
+ */
+.lobbyrow__status {
+  flex: 0 0 auto;
+  min-width: 9ch;
+  letter-spacing: 0.16em;
+  color: var(--paper-dim);
+}
+
+.lobbyrow.is-winner .lobbyrow__status,
+.lobbyrow.is-winner .lobbyrow__name {
+  color: var(--paper);
+}
+
+/*
+ * Quatre colonnes ne tiennent pas dans 325 px : sans retour à la ligne, le nom
+ * de la règle écrasait les vies et le nombre de manches jusqu'à les rendre
+ * illisibles. La ligne se replie, elle ne se tronque pas.
+ */
+@media (max-width: 620px) {
+  .lobbyrow {
+    flex-wrap: wrap;
+  }
+
+  .lobbyrow__meta {
+    margin-left: auto;
+  }
 }
 
 .lobbyrow__meta {

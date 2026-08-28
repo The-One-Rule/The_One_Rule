@@ -285,83 +285,143 @@
 
       <!-- MULTI — REJOINDRE -->
       <section class="screen hidden" id="multi-join">
-        <div class="screen__scroll">
-          <p class="eyebrow">MULTIJOUEUR</p>
-          <h2 class="rulename">REJOINDRE</h2>
-          <p class="lede">
-            Crée un salon ou entre un code de <b>4 lettres</b>.
-            Chaque joueur porte une règle unique — les autres la voient.
-          </p>
-          <div class="fieldrow">
-            <input
-              class="field"
-              id="multiCode"
-              type="text"
-              maxlength="4"
-              spellcheck="false"
-              autocomplete="off"
-              placeholder="CODE"
-              aria-label="Code du salon"
-            />
+        <!-- Deux intentions, pas une liste de boutons : ouvrir un salon et
+             entrer dans celui d'un autre n'ont rien à voir. Empilées, elles se
+             confondaient — on ne savait pas s'il fallait remplir le code AVANT
+             de cliquer CRÉER. Elles sont maintenant côte à côte, chacune avec
+             son propre bouton, et rien entre les deux. -->
+        <div class="screen__scroll screen__scroll--wide join">
+          <div class="join__head">
+            <p class="eyebrow">MULTIJOUEUR</p>
+            <h2 class="rulename">JOUER À PLUSIEURS</h2>
+            <p class="lede">
+              Chaque joueur porte sa <b>propre règle unique</b> — et les autres la voient.
+              De 2 à 10 joueurs.
+            </p>
           </div>
-          <p class="warn hidden" id="multiJoinErr"></p>
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnMultiCreate">CRÉER UN SALON</button>
-            <button class="btn" id="btnMultiJoin">REJOINDRE</button>
-            <button class="btn btn--ghost" id="btnMultiIdentity">CHANGER DE SIGNE</button>
-            <button class="btn btn--ghost" id="btnMultiJoinBack">RETOUR</button>
+
+          <div class="col panel">
+            <p class="eyebrow">TU OUVRES</p>
+            <h3 class="panel__title">CRÉER UN SALON</h3>
+            <p class="panel__text">
+              Tu obtiens un code de quatre lettres à dicter, et un lien à envoyer.
+              La vitesse, les vies et la rotation, c'est toi qui les règles.
+            </p>
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnMultiCreate">CRÉER UN SALON</button>
+            </div>
+          </div>
+
+          <div class="col panel">
+            <p class="eyebrow">ON T'ATTEND</p>
+            <h3 class="panel__title">REJOINDRE</h3>
+            <p class="panel__text">Entre le code de quatre lettres qu'on t'a donné.</p>
+            <div class="fieldrow">
+              <input
+                class="field"
+                id="multiCode"
+                type="text"
+                maxlength="4"
+                spellcheck="false"
+                autocomplete="off"
+                placeholder="CODE"
+                aria-label="Code du salon"
+              />
+            </div>
+            <p class="warn hidden" id="multiJoinErr"></p>
+            <div class="btnrow">
+              <button class="btn" id="btnMultiJoin">REJOINDRE</button>
+            </div>
+          </div>
+
+          <div class="join__foot">
+            <div class="btnrow">
+              <button class="btn btn--ghost" id="btnMultiIdentity">CHANGER DE SIGNE</button>
+              <button class="btn btn--ghost" id="btnMultiJoinBack">RETOUR</button>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- MULTI — SALON -->
       <section class="screen hidden" id="multi-lobby">
-        <div class="screen__scroll">
-          <!-- Le code se dicte à voix haute autant qu'il se partage par lien :
-               c'est l'élément le plus utile du salon, il doit être le plus
-               visible. -->
-          <p class="eyebrow">CODE DU SALON</p>
-          <button class="roomcode" id="multiLobbyCode" title="Copier le code">————</button>
-          <p class="fineprint" id="multiLobbyCodeHint">TOUCHE LE CODE POUR LE COPIER</p>
-          <h2 class="rulename" id="multiLobbyTitle">EN ATTENTE</h2>
-          <div class="lobby" id="multiPlayers"></div>
-          <div class="settings" id="multiSettings" aria-label="Réglages du salon">
-            <div class="settings__row" data-key="speed">
-              <span class="settings__label">VITESSE</span>
-              <div class="settings__opts" id="optSpeed"></div>
+        <!-- À gauche ce qu'on décide : le code, les réglages, le lancement.
+             À droite ce qui vit : qui est là, et ce qu'ils se disent. Le chat
+             vient s'ancrer dans `#chatSlot` le temps du salon — ailleurs il
+             reste la couche flottante qu'il a toujours été. -->
+        <div class="screen__scroll screen__scroll--wide room">
+          <div class="col room__setup">
+            <div class="room__code">
+              <!-- Le code se dicte à voix haute autant qu'il se partage par
+                   lien : c'est l'élément le plus utile du salon, il doit être
+                   le plus visible. -->
+              <p class="eyebrow">CODE DU SALON</p>
+              <button class="roomcode" id="multiLobbyCode" title="Copier le code">————</button>
+              <p class="fineprint" id="multiLobbyCodeHint">TOUCHE LE CODE POUR LE COPIER</p>
             </div>
-            <div class="settings__row" data-key="lives">
-              <span class="settings__label">VIES</span>
-              <div class="settings__opts" id="optLives"></div>
+            <div class="settings" id="multiSettings" aria-label="Réglages du salon">
+              <div class="settings__row" data-key="speed">
+                <span class="settings__label">VITESSE</span>
+                <div class="settings__opts" id="optSpeed"></div>
+              </div>
+              <div class="settings__row" data-key="lives">
+                <span class="settings__label">VIES</span>
+                <div class="settings__opts" id="optLives"></div>
+              </div>
+              <div class="settings__row" data-key="rotationEvery">
+                <span class="settings__label">ROTATION</span>
+                <div class="settings__opts" id="optRotation"></div>
+              </div>
+              <p class="settings__hint" id="settingsHint"></p>
             </div>
-            <div class="settings__row" data-key="rotationEvery">
-              <span class="settings__label">ROTATION</span>
-              <div class="settings__opts" id="optRotation"></div>
+            <div class="room__acts">
+              <div class="btnrow">
+                <button class="btn btn--primary hidden" id="btnMultiStart">LANCER</button>
+                <button class="btn" id="btnMultiInvite">COPIER LE LIEN</button>
+                <button class="btn btn--ghost" id="btnMultiLeave">QUITTER</button>
+              </div>
+              <p class="fineprint" id="multiInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
             </div>
-            <p class="settings__hint" id="settingsHint"></p>
           </div>
-          <div class="btnrow">
-            <button class="btn btn--primary hidden" id="btnMultiStart">LANCER</button>
-            <button class="btn" id="btnMultiInvite">COPIER LE LIEN</button>
-            <button class="btn btn--ghost" id="btnMultiLeave">QUITTER</button>
+
+          <div class="col room__live">
+            <h2 class="room__title" id="multiLobbyTitle">EN ATTENTE</h2>
+            <div class="lobby room__list" id="multiPlayers"></div>
+            <div class="room__chat" id="chatSlot"></div>
           </div>
-          <p class="fineprint" id="multiInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
         </div>
       </section>
 
       <!-- MULTI — FIN DE MATCH -->
       <section class="screen hidden" id="multi-end">
-        <div class="screen__scroll">
-          <p class="eyebrow">MATCH TERMINÉ</p>
-          <h2 class="verdict" id="multiEndTitle">FIN DU MATCH</h2>
-          <div id="multiTitles" class="titles hidden" aria-label="Titres du match"></div>
-          <div class="lobby" id="multiPodium"></div>
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnMultiReplay">REJOUER</button>
-            <button class="btn" id="btnMultiEndInvite">COPIER LE LIEN</button>
-            <button class="btn btn--ghost" id="btnMultiEndHome">QUITTER</button>
+        <!-- Le classement est la seule chose que dix joueurs regardent en même
+             temps : il prend la colonne large, avec la règle que chacun portait
+             en tombant. Les titres du match sont un commentaire, ils tiennent
+             à côté. Sans titre à décerner, le classement reprend toute la
+             largeur (classe `is-solo`, posée par renderTitles). -->
+        <div class="screen__scroll screen__scroll--wide end">
+          <div class="end__head">
+            <p class="eyebrow">MATCH TERMINÉ</p>
+            <h2 class="verdict" id="multiEndTitle">FIN DU MATCH</h2>
           </div>
-          <p class="fineprint" id="multiEndInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
+
+          <div class="col end__podium">
+            <div class="lobby" id="multiPodium"></div>
+          </div>
+
+          <div class="col end__titles">
+            <p class="eyebrow">TITRES DU MATCH</p>
+            <div id="multiTitles" class="titles hidden" aria-label="Titres du match"></div>
+          </div>
+
+          <div class="end__foot">
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnMultiReplay">REJOUER</button>
+              <button class="btn" id="btnMultiEndInvite">COPIER LE LIEN</button>
+              <button class="btn btn--ghost" id="btnMultiEndHome">QUITTER</button>
+            </div>
+            <p class="fineprint" id="multiEndInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
+          </div>
         </div>
       </section>
     </div>
