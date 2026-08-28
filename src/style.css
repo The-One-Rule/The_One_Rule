@@ -1537,6 +1537,38 @@ body {
     margin-top: 0;
     border-top: none;
   }
+
+  /*
+   * Le chat flottant devient une BARRE, collée au bas de l'écran.
+   *
+   * Il planait à 52 px du bas, au milieu d'un salon qui fait 1115 px de haut
+   * sur un 375×667 : il recouvrait donc une bande du contenu en permanence, et
+   * comme il reçoit les clics, ce qui tombait dessous devenait inatteignable —
+   * mesuré sur le bouton « 5 vies ». Réserver de la place en bas ne suffit
+   * pas : une couche qui plane au milieu masque tout ce qui défile derrière
+   * elle, à n'importe quelle position.
+   *
+   * Collée en bas et doublée d'une marge égale à sa hauteur (`--chat-space`,
+   * posée par `reserveChatSpace()`), tout élément peut au contraire être amené
+   * au-dessus d'elle par simple défilement. On ne l'ancre pas dans le flux
+   * pour autant : sur téléphone, c'est d'être toujours là qu'elle tire son
+   * intérêt.
+   */
+  .chat:not(.chat--docked) {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-width: none;
+    padding: 8px var(--gap) 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    background: var(--ink);
+    border-top: 1px solid var(--line);
+  }
+
+  #multi-lobby .screen__scroll,
+  #multi-end .screen__scroll {
+    padding-bottom: var(--chat-space, 0px);
+  }
 }
 
 /*
@@ -1952,6 +1984,15 @@ body {
   font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--paper-dim);
+  /*
+   * Sans fond déclaré, un `<button>` prend celui du système : mesuré à
+   * `rgb(240,240,240)` sur Windows, sous un texte en `--paper`
+   * (239,234,224) — donc illisible. Les `<span class="chip">` de l'accueil
+   * n'avaient rien, eux, ce qui a caché le défaut : seuls les chips
+   * ACTIONNABLES étaient touchés, c'est-à-dire les emotes, la sourdine,
+   * l'exclusion, les cibles spectateur et tous les réglages.
+   */
+  background: none;
 }
 
 /*
@@ -2221,7 +2262,7 @@ button.chip:active:not(:disabled) {
   flex: 1 1 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 /*
@@ -2237,27 +2278,192 @@ button.chip:active:not(:disabled) {
  * seuil de lecture. On inverse le choix courant — fond plein, comme un bouton
  * pressé — et on cesse d'effacer ce qu'on veut faire lire.
  */
-.settings__opts .chip {
-  cursor: pointer;
+/* ------------------------------------------------------------------
+   Boutons d'option — voir src/render/option.ts
+   ------------------------------------------------------------------ */
+.opt {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 84px;
+  min-height: var(--tap);
+  padding: 8px 12px 9px;
+  /* Un fond, explicitement : c'est ce qui manquait à `.chip`. */
+  background: var(--ink-2);
+  border: 1px solid var(--line);
   color: var(--paper);
+  font-family: var(--mono);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 130ms linear,
+    border-color 130ms linear,
+    color 130ms linear,
+    transform 130ms cubic-bezier(0.2, 0.8, 0.3, 1);
 }
 
-.settings__opts .chip.is-on {
+.opt__label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  line-height: 1;
+}
+
+/*
+ * La précision se distingue par la TAILLE, jamais par une opacité.
+ *
+ * Écrite en `opacity: .72`, elle tombait à 3,46:1 sur le fond sombre — sous le
+ * seuil lisible, pour le chiffre qui est justement la raison d'être du bouton
+ * (« 1620 MS »). `--paper-dim` plein tient 5,41:1 et se distingue tout autant.
+ */
+.opt__hint {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * La jauge suit `currentColor`, donc elle s'inverse avec le bouton sans une
+ * règle de plus — même grammaire que les points de vie : un rectangle vide
+ * pour un cran éteint, plein pour un cran allumé.
+ */
+.opt__marks {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 14px;
+}
+
+.opt__marks i {
+  width: 4px;
+  border: 1px solid currentColor;
+  transform-origin: bottom center;
+  transition:
+    background 130ms linear,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.opt__marks i.is-on {
+  background: currentColor;
+}
+
+/* Vitesse : des barres qui montent. Plus haut, plus vite. */
+.opt__marks--bars i:nth-child(1) {
+  height: 5px;
+}
+.opt__marks--bars i:nth-child(2) {
+  height: 8px;
+}
+.opt__marks--bars i:nth-child(3) {
+  height: 11px;
+}
+.opt__marks--bars i:nth-child(4) {
+  height: 14px;
+}
+.opt__marks--bars i:nth-child(5) {
+  height: 17px;
+}
+
+/* Compte : des carrés égaux, comme les vies partout ailleurs dans le jeu. */
+.opt__marks--dots i {
+  width: 8px;
+  height: 8px;
+}
+
+.opt:hover:not(:disabled),
+.opt:focus-visible {
+  border-color: var(--paper);
+}
+
+/* Le mouvement dit qu'on peut agir ; il n'existe que là où on le peut. */
+.opt:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.opt:hover:not(:disabled) .opt__marks i.is-on {
+  transform: scaleY(1.14);
+}
+
+.opt:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.opt.is-on {
   background: var(--paper);
   border-color: var(--paper);
   color: var(--ink);
 }
 
-/* Verrouillé ou invité : on ne peut pas agir, mais on doit toujours LIRE. */
-.settings.is-locked .chip,
-.settings.is-guest .chip:not(.is-on) {
-  cursor: default;
-  opacity: 0.75;
+.opt.is-on .opt__hint {
+  color: var(--ink);
 }
 
-.settings.is-locked .chip.is-on,
-.settings.is-guest .chip.is-on {
-  opacity: 1;
+/*
+ * L'option qui vient de prendre la sélection, et elle seule (voir
+ * `fillOptions`). Un seul passage : c'est un accusé de réception, pas une
+ * animation d'ambiance.
+ */
+.opt.is-fresh .opt__marks i.is-on {
+  animation: optRise 320ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.opt.is-fresh .opt__marks i.is-on:nth-child(2) {
+  animation-delay: 45ms;
+}
+.opt.is-fresh .opt__marks i.is-on:nth-child(3) {
+  animation-delay: 90ms;
+}
+.opt.is-fresh .opt__marks i.is-on:nth-child(4) {
+  animation-delay: 135ms;
+}
+.opt.is-fresh .opt__marks i.is-on:nth-child(5) {
+  animation-delay: 180ms;
+}
+
+@keyframes optRise {
+  from {
+    transform: scaleY(0.2);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+/*
+ * Verrouillé ou invité : on ne peut pas agir, mais on doit toujours LIRE.
+ * L'option retenue garde son plein contraste — c'est justement celle qu'un
+ * invité est venu chercher.
+ */
+.opt:disabled {
+  cursor: default;
+}
+
+.settings.is-locked .opt:not(.is-on),
+.settings.is-guest .opt:not(.is-on) {
+  opacity: 0.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opt,
+  .opt__marks i {
+    transition: background 130ms linear, border-color 130ms linear, color 130ms linear;
+  }
+
+  .opt:hover:not(:disabled),
+  .opt:active:not(:disabled) {
+    transform: none;
+  }
+
+  .opt:hover:not(:disabled) .opt__marks i.is-on {
+    transform: none;
+  }
+
+  .opt.is-fresh .opt__marks i.is-on {
+    animation: none;
+  }
 }
 
 /* Dit qui décide, plutôt que de laisser deviner pourquoi rien ne réagit. */

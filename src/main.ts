@@ -32,6 +32,7 @@ import { findMatch, rankedAvailable, submitRun } from "./ranked/client";
 import type { Opponent } from "./ranked/client";
 
 import { Hud } from "./render/hud";
+import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { cleanEnv } from "./env";
@@ -325,29 +326,50 @@ function renderPace(): void {
 
   const current = P.load().trainingPace;
   const opts = $("optPace");
-  opts.innerHTML = "";
-  for (const v of PACE_CHOICES) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "chip" + (v === current ? " is-on" : "");
-    chip.textContent = PACE_LABELS[v] ?? String(v);
-    chip.addEventListener("click", () => {
+  /*
+   * Chaque allure porte SA fenêtre, plutôt qu'une ligne qui n'annonçait que
+   * celle du choix courant. On compare les trois d'un coup d'œil, ce qui est
+   * la seule question qu'on se pose ici : « combien de temps j'aurai ».
+   *
+   * Les allures sont rangées de la plus lente à la plus rapide — `PACE_CHOICES`
+   * les donne dans l'autre sens, et une jauge qui descend de gauche à droite
+   * se lit à l'envers.
+   */
+  const lentesDabord = [...PACE_CHOICES].sort((a, b) => b - a);
+  fillOptions(
+    opts,
+    lentesDabord.map((v, i) => ({
+      value: String(v),
+      label: PACE_LABELS[v] ?? String(v),
+      hint: `${Math.round(windowMs(10) * v)} MS`,
+      level: i + 1,
+      steps: lentesDabord.length,
+      icon: "bars" as const,
+      selected: v === current,
+      aria: `${PACE_LABELS[v] ?? v} — ${Math.round(windowMs(10) * v)} millisecondes à la manche 10`,
+    })),
+  );
+  for (const btn of Array.from(opts.children)) {
+    btn.addEventListener("click", () => {
+      const v = Number((btn as HTMLElement).dataset.value);
       sfx.ui();
       P.mutate((st) => {
         st.trainingPace = v;
       });
       renderPace();
     });
-    opts.appendChild(chip);
   }
 
-  const fenetre = Math.round(windowMs(10) * current);
-  // Une seule ligne : en capitales espacées, la version longue en faisait deux
-  // et se lisait comme une notice au moment où l'écran doit annoncer.
+  // La ligne ne porte plus le chiffre — il est sur chaque bouton. Elle dit ce
+  // qu'aucune jauge ne peut dire : à quoi sert l'allure choisie, et laquelle
+  // des trois compte pour le record.
+  const ref = PACE_LABELS[PACE_DEFAULT] ?? "NORMAL";
   hint.textContent =
     current === PACE_DEFAULT
-      ? `${fenetre} MS À LA MANCHE 10 · SEULE ALLURE QUI INSCRIT UN RECORD`
-      : `${fenetre} MS À LA MANCHE 10 · LE RECORD NE S'INSCRIT QU'EN NORMAL`;
+      ? "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD"
+      : current > PACE_DEFAULT
+        ? `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${ref}`
+        : `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${ref}`;
 }
 
 function renderCodex(): void {

@@ -26,6 +26,7 @@ import { NetClient } from "./net/client";
 import { glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
+import { fillOptions } from "./render/option";
 import { musicApi, sfx, unlock } from "./audio";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -291,33 +292,77 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
       : "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES";
   box.classList.toggle("is-locked", locked);
 
+  /*
+   * Les trois réglages sont rangés du plus faible au plus fort, et leur jauge
+   * suit ce rang : c'est ce qui rend « ×8 » ou « 1.3 » lisibles sans les
+   * comprendre. `SPEED_CHOICES` descend (1.7 est la plus lente), donc on le
+   * retourne — une jauge qui décroît de gauche à droite se lit à l'envers.
+   */
   const fill = (
     id: string,
     choices: readonly number[],
     current: number,
-    labelOf: (n: number) => string,
+    opts: {
+      label: (n: number) => string;
+      aria: (n: number) => string;
+      icon: "bars" | "dots";
+      /** Crans allumés pour cette valeur, à son rang `i` dans la liste. */
+      level: (n: number, i: number) => number;
+      steps: number;
+    },
   ): void => {
-    const el = $(id);
-    el.innerHTML = "";
-    for (const v of choices) {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip" + (v === current ? " is-on" : "");
-      chip.dataset.value = String(v);
-      chip.textContent = labelOf(v);
-      chip.disabled = locked || !isHost;
-      el.appendChild(chip);
-    }
+    fillOptions(
+      $(id),
+      choices.map((v, i) => ({
+        value: String(v),
+        label: opts.label(v),
+        level: opts.level(v, i),
+        steps: opts.steps,
+        icon: opts.icon,
+        selected: v === current,
+        disabled: locked || !isHost,
+        aria: opts.aria(v),
+      })),
+    );
   };
 
-  fill("optSpeed", SPEED_CHOICES, settings.speed, (n) => SPEED_LABEL[n] ?? String(n));
-  fill("optLives", LIVES_CHOICES, settings.lives, (n) => String(n));
-  fill(
-    "optRotation",
-    ROTATION_CHOICES,
-    settings.rotationEvery,
-    (n) => ROTATION_LABEL[n] ?? String(n),
-  );
+  const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
+  fill("optSpeed", vitesses, settings.speed, {
+    label: (n) => SPEED_LABEL[n] ?? String(n),
+    aria: (n) => `Vitesse ${SPEED_LABEL[n] ?? n}`,
+    icon: "bars",
+    level: (_n, i) => i + 1,
+    steps: vitesses.length,
+  });
+
+  /*
+   * Les vies se COMPTENT, elles ne s'échelonnent pas : des carrés, comme les
+   * points de vie sur les plaques et au classement, et autant que la valeur —
+   * pas son rang. Rangée par rang, l'option « 3 » n'affichait que deux points,
+   * ce qui est faux au premier coup d'œil pour le seul réglage dont l'icône
+   * peut dire exactement la valeur.
+   */
+  const maxVies = Math.max(...LIVES_CHOICES);
+  fill("optLives", LIVES_CHOICES, settings.lives, {
+    label: (n) => String(n),
+    aria: (n) => `${n} vie${n > 1 ? "s" : ""}`,
+    icon: "dots",
+    level: (n) => n,
+    steps: maxVies,
+  });
+
+  /*
+   * Plus la jauge est haute, plus les règles tournent souvent — et JAMAIS
+   * n'allume RIEN. Un seul cran allumé pour « jamais » aurait dit « un peu ».
+   */
+  const rotations = [...ROTATION_CHOICES].sort((a, b) => b - a);
+  fill("optRotation", rotations, settings.rotationEvery, {
+    label: (n) => ROTATION_LABEL[n] ?? String(n),
+    aria: (n) => (n >= 999 ? "Les règles ne tournent jamais" : `Rotation toutes les ${n} manches`),
+    icon: "bars",
+    level: (_n, i) => i,
+    steps: rotations.length - 1,
+  });
 }
 
 function toWire(
@@ -803,25 +848,48 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     chatLog.scrollTop = chatLog.scrollHeight;
   }
 
+  /**
+   * Réserve, sous le contenu, la place que le chat FLOTTANT lui prend.
+   *
+   * Mesuré sur un 375×667 : la couche recouvrait le bouton « 5 vies » du salon
+   * — et comme elle reçoit les clics, le réglage devenait inatteignable. On ne
+   * déplace pas le chat pour autant : sur téléphone, c'est justement d'être
+   * toujours là qu'il tire son intérêt.
+   *
+   * Aucune boucle de décision : le chat est positionné par rapport à `#app`,
+   * donc sa hauteur ne dépend pas de la marge qu'on vient de poser.
+   */
+  function reserveChatSpace(): void {
+    const flottant =
+      !chatEl.classList.contains("hidden") && !chatEl.classList.contains("chat--docked");
+    const h = flottant ? Math.round(chatEl.getBoundingClientRect().height) : 0;
+    document.documentElement.style.setProperty("--chat-space", h ? `${h + 16}px` : "0px");
+  }
+
   function syncChatChrome(): void {
     dockChat();
     if (!chatAvailable()) {
       chatEl.classList.add("hidden");
       chatEl.classList.remove("is-collapsed");
       clearChatFade();
+      reserveChatSpace();
       return;
     }
     chatEl.classList.remove("hidden");
     const expanded = chatExpanded();
     chatEl.classList.toggle("is-collapsed", !expanded);
     renderChatLog();
+    reserveChatSpace();
     if (expanded) {
       clearChatFade();
     } else {
       clearChatFade();
       chatFadeTimer = setTimeout(() => {
         chatFadeTimer = null;
-        if (!chatExpanded()) chatLog.innerHTML = "";
+        if (!chatExpanded()) {
+          chatLog.innerHTML = "";
+          reserveChatSpace();
+        }
       }, 6000);
     }
   }
@@ -2159,7 +2227,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   });
 
   $("multiSettings").addEventListener("click", (ev) => {
-    const chip = (ev.target as HTMLElement).closest("button.chip") as HTMLButtonElement | null;
+    const chip = (ev.target as HTMLElement).closest("button.opt") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const row = chip.closest(".settings__row") as HTMLElement | null;
     const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | undefined;
