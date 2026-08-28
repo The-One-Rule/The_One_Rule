@@ -67,8 +67,23 @@ export const INTERLUDE_ROTATION_MS = 3400;
  */
 export const ROTATION_GRACE_FACTOR = 1.5;
 
-/** Compte à rebours avant la première manche d'un match. */
-export const COUNTDOWN_MS = 3000;
+/**
+ * Compte à rebours avant la première manche — et seul temps de lecture de la
+ * règle unique.
+ *
+ * Trois secondes, c'était le compte à rebours d'origine, posé avant que le
+ * panneau plein cadre n'y affiche la règle et son explication. Playtest du
+ * 28/08/2026, rapporté par plusieurs joueurs : « il faudrait pouvoir lire la
+ * règle avant » — alors qu'elle EST affichée. Trois secondes suffisent à voir
+ * qu'il y a du texte, pas à lire une phrase de quinze mots, la comprendre, et
+ * se préparer.
+ *
+ * Quatre secondes et demie : le temps de lire deux fois. C'est aussi la seule
+ * chose qu'un joueur fait pendant ce compte à rebours — il n'y a rien d'autre
+ * à l'écran. La rotation en cours de match, elle, garde ses 3400 ms : la règle
+ * y est déjà connue, on n'en découvre que l'attribution.
+ */
+export const COUNTDOWN_MS = 4500;
 /** Rotation des règles entre joueurs (défaut salon). */
 export const ROTATION_EVERY = 8;
 export const START_LIVES = 3;

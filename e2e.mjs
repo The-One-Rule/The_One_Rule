@@ -25,6 +25,17 @@ process.on("uncaughtException", (e) => {
 await import("./server/index.ts");
 const { buildMultiRound } = await import("./src/engine/multiround.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
+const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
+
+/*
+ * Attendre le DÉPART d'un match, pas une durée devinée.
+ *
+ * Six attentes étaient écrites en dur — 3000, 3200, 3400, 3600 ms — toutes
+ * calées de tête sur un compte à rebours de 3 secondes. Allonger celui-ci pour
+ * laisser le temps de lire la règle les a toutes fait mentir d'un coup : elles
+ * mesuraient une constante qu'elles ne nommaient pas.
+ */
+const APRES_DEPART = COUNTDOWN_MS + 600;
 
 /*
  * Journal bavard.
@@ -302,7 +313,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(180); }
   await sleep(300);
   eq[0].ws.send(JSON.stringify({ t: "start" }));
-  await sleep(3400);
+  await sleep(APRES_DEPART);
 
   const cible = eq[3];
   ok(cible.rules[cible.id] === "gaucher", "le 4e client porte bien LE GAUCHER");
@@ -371,7 +382,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   await sleep(200);
   const code = joueur.room.code;
   joueur.ws.send(JSON.stringify({ t: "start" }));
-  await sleep(3600); // compte a rebours + une manche entamee
+  await sleep(APRES_DEPART); // compte a rebours + une manche entamee
 
   const curieux = await client("CURIEUX", "cle-curieux");
   curieux.ws.send(JSON.stringify({ t: "join", code }));
@@ -448,7 +459,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   emil.ws.send(JSON.stringify({ t: "join", code }));
   await sleep(200);
   dora.ws.send(JSON.stringify({ t: "start" }));
-  await sleep(3600); // compte à rebours + une manche entamée
+  await sleep(APRES_DEPART); // compte à rebours + une manche entamée
 
   /*
    * Référence prise sur le DERNIER VERDICT, pas sur le dernier message `room`.
@@ -537,7 +548,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 alice.ws.send(JSON.stringify({ t: "create" }));
 await sleep(150);
 alice.ws.send(JSON.stringify({ t: "start" }));
-await sleep(3200); // COUNTDOWN_MS + marge : il faut une manche OUVERTE pour atteindre le code fautif
+await sleep(APRES_DEPART); // COUNTDOWN_MS + marge : il faut une manche OUVERTE pour atteindre le code fautif
 const malformes = [
   { t: "input", round: 0, at: 0 },                          // action absente : le crasheur
   { t: "input", round: 0, at: 0, action: null },
