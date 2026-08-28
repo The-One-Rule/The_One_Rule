@@ -1,6 +1,6 @@
 import { pickInstruction } from "./instructions";
 import { place } from "./scene";
-import { FORCED_TRAP_ROUNDS, windowMs } from "./difficulty";
+import { FORCED_TRAP_ROUNDS, windowForSteps } from "./difficulty";
 import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
@@ -75,6 +75,8 @@ export function buildRound(
     if (trap || !wantsTrap) break;
   }
 
+  const steps = trap ? [] : compile(want);
+
   let round: Round = {
     instructionId: instr.id,
     text: draft.text,
@@ -82,10 +84,12 @@ export function buildRound(
     glyph: draft.glyph,
     colorWord: draft.colorWord,
     ents,
-    steps: trap ? [] : compile(want),
+    steps,
     trap,
     originalWant: trap ? want : undefined,
-    durationMs: Math.round(windowMs(level) * pace),
+    // Le temps suit le travail demandé : une séquence de trois clics n'est pas
+    // une manche à un clic. Un piège n'en demande aucun, donc rien à ajouter.
+    durationMs: Math.round(windowForSteps(level, steps.length) * pace),
   };
 
   if (rule.transform) round = rule.transform(round, rng, level);

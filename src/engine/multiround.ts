@@ -22,7 +22,7 @@
 import { hashStr, mulberry32 } from "./rng";
 import { pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
-import { windowMs } from "./difficulty";
+import { windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import type { Instruction, OneRule, Round, Want } from "./types";
 
@@ -80,7 +80,14 @@ export function draftShared(
     colorWord: draft.colorWord,
     ents,
     want,
-    durationMs: windowMs(idx),
+    /*
+     * La durée suit le nombre d'actions de la consigne COMMUNE, donc elle
+     * reste la même pour tout le salon : l'échéance diffusée par le serveur
+     * garde son sens. Ce qu'une règle ajoute par-dessus — LE JUMEAU qui double
+     * les étapes, L'ACCÉLÉRATION qui retranche — reste personnel et passe par
+     * `transform`, que le serveur relit dans `durationFor`.
+     */
+    durationMs: windowForSteps(idx, compile(want).length),
   };
 }
 

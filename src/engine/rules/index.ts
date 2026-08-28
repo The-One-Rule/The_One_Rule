@@ -1,4 +1,5 @@
 import { rChance, rInt } from "../rng";
+import { STEP_MS } from "../difficulty";
 import { INSTRUCTIONS } from "../instructions";
 import { COLOR_IDS, FIELD_W } from "../types";
 import type { ColorId, Entity, OneRule, Want } from "../types";
@@ -178,8 +179,24 @@ const LE_JUMEAU: OneRule = {
   traps: false,
   forbids: noForbid,
   judge: noJudge,
+  /*
+   * Doubler les étapes SANS doubler le temps rendait la règle injouable dès
+   * qu'elle tombait sur une séquence : « clique jaune puis bleu » devenait
+   * quatre clics dans la fenêtre d'un seul. C'est le cas le plus dur du jeu, et
+   * le seul dont le playtest ait nommé la combinaison.
+   *
+   * Chaque étape ajoutée ouvre donc droit au même supplément que partout
+   * ailleurs. La règle reste exigeante — deux fois plus de gestes — sans être
+   * une condamnation.
+   */
   transform: (round) =>
-    round.steps.length === 0 ? round : { ...round, steps: [...round.steps, ...round.steps] },
+    round.steps.length === 0
+      ? round
+      : {
+          ...round,
+          steps: [...round.steps, ...round.steps],
+          durationMs: round.durationMs + round.steps.length * STEP_MS,
+        },
 };
 
 const L_ACCELERATION: OneRule = {

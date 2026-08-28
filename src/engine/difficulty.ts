@@ -27,6 +27,31 @@ export function windowMs(level: number): number {
 }
 
 /**
+ * Supplément de temps par action SUPPLÉMENTAIRE demandée.
+ *
+ * La fenêtre ne dépendait que du niveau, jamais du travail demandé : « clique
+ * le carré bleu » et « clique jaune puis bleu » avaient exactement la même
+ * durée, et LE JUMEAU — qui double toutes les étapes — n'en ajoutait aucune.
+ * Une séquence de deux sous LE JUMEAU faisait donc quatre clics dans le temps
+ * d'un seul.
+ *
+ * Mesuré au playtest du 28/08/2026 : le dépassement de temps est devenu la
+ * première cause de mort (39,4 %), et le retour est explicite — « clique jaune
+ * puis bleu devient déjà très difficile, et pire encore avec LE JUMEAU ». En
+ * duel, la tension de 0,7 ramenait la fenêtre au plancher de 700 ms : quatre
+ * clics en 700 ms n'est pas difficile, c'est impossible.
+ *
+ * 280 ms, c'est le geste seul — viser et cliquer une cible déjà identifiée —
+ * sans la lecture ni la décision, qui elles n'ont lieu qu'une fois par manche.
+ * La première étape n'ouvre donc droit à rien : elle est déjà dans la fenêtre.
+ */
+export const STEP_MS = 280;
+
+/** La fenêtre d'une manche, pour un niveau et un nombre d'actions donnés. */
+export const windowForSteps = (level: number, steps: number): number =>
+  windowMs(level) + Math.max(0, steps - 1) * STEP_MS;
+
+/**
  * Allures de l'ENTRAÎNEMENT — et de lui seul.
  *
  * La courbe ci-dessus suppose un joueur qui a AUTOMATISÉ la vérification de sa

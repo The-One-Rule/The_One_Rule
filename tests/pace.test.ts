@@ -6,6 +6,7 @@ import {
   PACE_CHOICES,
   PACE_DEFAULT,
   PACE_LABELS,
+  windowForSteps,
   windowMs,
 } from "../src/engine/difficulty";
 import { Session } from "../src/game/session";
@@ -55,10 +56,17 @@ describe("allure d'entraînement", () => {
     // Le run du jour doit rester identique pour tout le monde : sinon un score
     // ne se compare plus à rien et la graine partagée ne veut plus rien dire.
     const lent = PACE_CHOICES.find((p) => p > PACE_DEFAULT)!;
+    /*
+     * La référence se lit sur le nombre d'ÉTAPES de la manche, pas sur
+     * `windowMs(0)` seul : depuis que la fenêtre suit le travail demandé, une
+     * manche à deux clics dure plus longtemps qu'une manche à un clic. Écrit
+     * en dur, ce test passait par chance — parce que la manche 0 de cette
+     * graine n'a qu'une étape.
+     */
     for (const mode of ["daily", "ranked"] as const) {
       const s = new Session({ mode, rule: regle, rng: mulberry32(7), now: 0, seed: 7, pace: lent });
       expect(s.pace, `${mode} ne doit pas suivre l'allure`).toBe(PACE_DEFAULT);
-      expect(s.round.durationMs).toBe(windowMs(0));
+      expect(s.round.durationMs).toBe(windowForSteps(0, s.round.steps.length));
     }
 
     const t = new Session({
@@ -70,7 +78,9 @@ describe("allure d'entraînement", () => {
       pace: lent,
     });
     expect(t.pace).toBe(lent);
-    expect(t.round.durationMs).toBe(Math.round(windowMs(0) * lent));
+    expect(t.round.durationMs).toBe(
+      Math.round(windowForSteps(0, t.round.steps.length) * lent),
+    );
   });
 
   it("donne l'échauffement à l'entraînement aussi", () => {
