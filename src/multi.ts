@@ -268,6 +268,18 @@ function renderLobby(
    * et reléguait au second plan la seule action qui a du sens — inviter.
    * L'écran doit dire ce qu'il faut faire, pas seulement ce qui se passe.
    */
+  /*
+   * L'écran suit l'effectif.
+   *
+   * Un salon de deux ou trois est le cas ordinaire — c'est ainsi qu'on
+   * commence — et c'est justement là que la colonne des joueurs se réduisait à
+   * trois lignes perdues dans 860 px de hauteur. En dessous de cinq, les
+   * lignes respirent ; au-delà, la densité redevient le bon choix.
+   */
+  document
+    .querySelector(".room")
+    ?.classList.toggle("is-few", players.length > 0 && players.length < 5);
+
   const seul = players.length <= 1;
   $("multiLobbyTitle").textContent = seul ? "INVITE QUELQU'UN" : "EN ATTENTE";
   $("multiInviteHint").textContent = seul
