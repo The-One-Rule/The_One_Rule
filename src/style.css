@@ -1117,10 +1117,21 @@ body {
   color: var(--ink);
 }
 
+/*
+ * La barre du spectateur.
+ *
+ * Quelqu'un qui regarde n'a AUCUN autre repère : il ne joue pas, son pied ne
+ * lui parle pas de lui, et la scène qu'il voit est celle d'un autre. « JE
+ * REGARDE » était écrit au même gris que le reste, et la cible suivie ne se
+ * distinguait des autres que par une bordure claire. Il faut d'abord savoir
+ * qu'on est spectateur, ensuite de qui.
+ */
 .watchbar__label {
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  color: var(--paper-dim);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ink);
+  background: var(--signal);
+  padding: 4px var(--sp-2);
 }
 
 .watchbar__targets {
@@ -1133,9 +1144,12 @@ body {
   cursor: pointer;
 }
 
+/* La cible suivie est PLEINE : c'est l'écran qu'on est en train de regarder,
+   pas une option parmi d'autres. */
 .watchbar__targets .chip.is-on {
   border-color: var(--paper);
-  color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
 }
 
 .plate__head {
@@ -3481,12 +3495,73 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * La frise du run.
+ *
+ * Chaque manche a laissé une marque : réussite, piège déjoué, échauffement,
+ * chute. C'est le seul récit que l'écran de fin raconte — on y relit sa partie
+ * — et c'était une ligne de texte de 15 px perdue sous un chiffre de 86.
+ * Encadrée et respirée, elle se lit comme une bande de pellicule.
+ */
 .marks {
-  margin: 20px auto 0;
-  max-width: 20ch;
-  font-size: 15px;
-  line-height: 1.7;
+  margin: var(--sp-4) auto 0;
+  max-width: 22ch;
+  padding: var(--sp-2);
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  font-size: 17px;
+  line-height: 1.6;
+  letter-spacing: 2px;
   word-break: break-all;
+}
+
+/*
+ * L'issue, portée par la tête entière.
+ *
+ * `.verdict.is-win` ne changeait qu'une couleur de texte : « TENU » et
+ * « ÉLIMINÉ » se ressemblaient trop pour qu'on sache en un regard comment le
+ * run s'est fini. Le filet dit l'issue avant le mot.
+ */
+.over__head {
+  padding-bottom: var(--sp-3);
+  border-bottom: var(--bd-thin) solid var(--dead);
+}
+
+#over.is-win .over__head {
+  border-bottom-color: var(--ok);
+}
+
+.verdict {
+  animation: verdictIn var(--d-slow) var(--e-punch);
+}
+
+/* Le compte arrive après le verdict : on apprend d'abord si l'on a tenu,
+   ensuite combien de temps. */
+.over__result .tally {
+  animation: tallyIn var(--d-slow) var(--e-punch) 120ms backwards;
+}
+
+@keyframes verdictIn {
+  0% {
+    opacity: 0;
+    transform: scale(1.12);
+    letter-spacing: 0.12em;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes tallyIn {
+  0% {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .reward {
@@ -3550,22 +3625,58 @@ button.chip:active:not(:disabled) {
 }
 
 /* Carnet */
-.codexlist {
-  margin-top: 22px;
-  text-align: left;
-  border-top: 1px solid var(--line);
+/*
+ * Le carnet : un tableau de chasse, pas un index.
+ *
+ * Douze entrées séparées par un filet, toutes identiques : rien ne disait au
+ * premier regard combien de règles restaient à découvrir, ni lesquelles
+ * avaient été tenues jusqu'au bout. Or c'est exactement ce qu'on vient y
+ * chercher — le carnet est le seul endroit du jeu qui garde une trace de ce
+ * qu'on a traversé.
+ *
+ * Chaque règle devient une fiche, et son état se voit avant de se lire :
+ * verrouillée en creux, rencontrée en plein, tenue avec l'accent.
+ */
+.codexprogress {
+  margin-top: var(--sp-2);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--signal-pale);
+  font-variant-numeric: tabular-nums;
 }
 
-/*
- * Une entrée de carnet porte deux lignes : le nom et le résultat, puis
- * l'explication de la règle. Elle ne servait qu'à cocher ce qu'on avait
- * rencontré ; elle sert maintenant à s'en souvenir.
- */
+.codexlist {
+  margin-top: var(--sp-4);
+  text-align: left;
+  display: grid;
+  gap: var(--sp-1);
+}
+
 .codexrow {
   display: block;
-  padding: 12px 2px;
-  border-bottom: 1px solid var(--line);
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  border-left: var(--bd-frame) solid var(--line);
   text-align: left;
+  transition: border-color var(--d-fast) linear;
+}
+
+/* Jamais rencontrée : la fiche est vide, et elle en a l'air. */
+.codexrow.is-locked {
+  background: none;
+  border-left-color: var(--line);
+  border-style: dashed;
+}
+
+/* Rencontrée : elle existe. */
+.codexrow:not(.is-locked) {
+  border-left-color: var(--paper-dim);
+}
+
+/* Tenue jusqu'au bout : c'est le seul trophée du jeu solo. */
+.codexrow.is-cleared {
+  border-left-color: var(--ok);
 }
 
 .codexrow__head {
@@ -3605,16 +3716,25 @@ button.chip:active:not(:disabled) {
 }
 
 /*
- * Règle jamais rencontrée : le NOM est caché, pas le statut.
+ * Règle jamais rencontrée : le nom est MASQUÉ, pas écrit en gris.
  *
- * Les deux étaient en `--line` sur `--ink`, soit un contraste mesuré de
- * 1,46:1 — donc « JAMAIS RENCONTRÉE » était aussi illisible que les tirets qui
- * masquent le nom. Or c'est exactement la ligne qui explique pourquoi
- * l'entrée est vide. Les tirets restent discrets, ils ne portent aucune
- * information ; le statut repasse au contraste des textes secondaires.
+ * Les tirets étaient du texte en `--line` sur `--ink`, soit 1,46:1. Cacher
+ * une information en la rendant illisible fonctionne, mais c'est du texte
+ * invisible : n'importe quel audit le signale à juste titre, et rien ne dit
+ * que c'est délibéré. Une barre de censure le dit — elle se voit, elle
+ * s'explique toute seule, et il n'y a plus de contraste à mesurer puisqu'il
+ * n'y a plus de texte affiché. Les tirets restent dans le document pour les
+ * lecteurs d'écran, à côté du « JAMAIS RENCONTRÉE » qui, lui, est lisible.
  */
 .codexrow.is-locked .codexrow__name {
-  color: var(--line);
+  color: transparent;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--line) 0 5px,
+    transparent 5px 10px
+  );
+  border: var(--bd-hair) solid var(--line);
+  padding: 2px var(--sp-2);
 }
 
 .codexrow.is-locked .codexrow__score {
@@ -3821,6 +3941,8 @@ button.chip:active:not(:disabled) {
   .room__list .lobbyrow,
   .drama--rule .drama__extra.is-tick,
   #multi-end.is-victory .verdict,
+  .verdict,
+  .over__result .tally,
   .screen:not(.hidden),
   .screen:not(.hidden) > *,
   #stamp.is-on,
@@ -3851,8 +3973,10 @@ button.chip:active:not(:disabled) {
   }
 
   /* Les cartes ne se posent plus : elles sont là. `backwards` les laisserait
-     invisibles si l'animation était seulement neutralisée. */
-  .cards .card {
+     invisibles si l'animation était seulement neutralisée — même piège pour
+     le compte de l'écran de fin. */
+  .cards .card,
+  .over__result .tally {
     opacity: 1;
     transform: none;
   }

@@ -390,6 +390,20 @@ function renderCodex(): void {
   const s = P.load();
   const list = $("codexList");
   list.innerHTML = "";
+
+  /*
+   * L'avancement, en tête du carnet.
+   *
+   * C'est la question qu'on vient y poser — « combien m'en reste-t-il ? » — et
+   * il fallait compter les lignes soi-même. Les deux nombres existaient déjà :
+   * l'accueil affiche le premier dans ses puces, et le second se lit dans le
+   * même objet. Aucune donnée nouvelle, seulement dite à l'endroit où elle
+   * répond à quelque chose.
+   */
+  const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+  const tenues = ONE_RULES.filter((r) => s.encountered[r.id]?.cleared).length;
+  $("codexProgress").textContent =
+    `${vues} / ${ONE_RULES.length} RENCONTRÉES · ${tenues} TENUES`;
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
     const row = document.createElement("div");
@@ -749,7 +763,18 @@ function finishRun(): void {
   for (const id of fraiches) track("quest_complete", { quest: id });
   renderQuests("overQuests", fraiches);
 
+  /*
+   * L'issue se voit avant de se lire.
+   *
+   * « TENU » et « ÉLIMINÉ » s'affichaient au même gris, dans le même cadre :
+   * il fallait lire le mot pour savoir comment le run s'était terminé. C'est
+   * l'écran qu'on voit le plus souvent en solo, et le seul qui dise si l'on a
+   * réussi. La classe porte l'issue jusqu'à la feuille de style, qui colore la
+   * tête entière — le mot reste le même, il n'est plus seul à le dire.
+   */
   const verdict = $("verdict");
+  $("over").classList.toggle("is-win", end.cleared);
+  verdict.classList.toggle("is-win", end.cleared);
   verdict.textContent = end.cleared
     ? "TENU"
     : end.cause === "macro"
