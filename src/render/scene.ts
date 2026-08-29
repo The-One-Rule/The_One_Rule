@@ -30,6 +30,22 @@ const ACCENT = "#9184D9";
 const PAPER = "#EFEAE0";
 const LINE = "#26344A";
 
+/**
+ * Matière du terrain et des pièces.
+ *
+ * Le champ était transparent : on voyait le fond de la page, et les pièces
+ * flottaient dans le vide. Elles-mêmes étaient des aplats de couleur pure,
+ * sans épaisseur — c'est ce qui donnait au jeu son air de maquette.
+ *
+ * Trois valeurs suffisent à poser une surface et à donner du volume, sans
+ * dégradé et sans ombre floue : `shadowBlur` coûte cher sur une machine
+ * modeste, et une ombre nette dit la même chose.
+ */
+const SOL = "#111A28";
+const SOL_TRAME = "rgba(145,132,217,0.055)";
+const OMBRE = "rgba(0,0,0,0.42)";
+const ARETE = "rgba(255,255,255,0.20)";
+
 /** Une particule du bac. Réutilisée, jamais réallouée. */
 interface Particle {
   x: number; y: number; vx: number; vy: number;
@@ -363,6 +379,34 @@ export class SceneRenderer {
     }
   }
 
+  /**
+   * Le terrain.
+   *
+   * Une aire de jeu doit se voir. Sans elle, les pièces flottent sur le fond
+   * de la page et rien ne dit où l'on peut cliquer — le champ n'existait que
+   * dans le code. Une surface à peine plus sombre que la page suffit à le
+   * poser, et une trame régulière lui donne une profondeur : elle sert de
+   * repère spatial quand l'œil balaie quinze formes en une seconde.
+   *
+   * Purement décorative : elle ne suit ni la grille logique ni les cellules,
+   * et rien du jeu n'en dépend. Dessinée en premier, donc sous tout le reste.
+   */
+  private drawField(): void {
+    const { ctx } = this;
+    ctx.fillStyle = SOL;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+
+    // Un point tous les 50 : assez dense pour donner une texture, assez espacé
+    // pour ne jamais concurrencer une pièce. 220 points, un seul chemin.
+    ctx.fillStyle = SOL_TRAME;
+    const pas = 50;
+    for (let x = pas; x < FIELD_W; x += pas) {
+      for (let y = pas; y < FIELD_H; y += pas) {
+        ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
+      }
+    }
+  }
+
   /** Bande interdite d'une règle spatiale : invisible, elle serait injuste. */
   private drawZone(zone: { x0: number; x1: number }): void {
     const { ctx } = this;
@@ -438,6 +482,10 @@ export class SceneRenderer {
       (this.offY + oy * this.scale) * this.dpr,
     );
 
+    // Le terrain d'abord, toujours : il reste posé entre deux manches, ce qui
+    // évite qu'un interlude ne fasse disparaître l'aire de jeu.
+    this.drawField();
+
     if (rule?.zone) this.drawZone(rule.zone);
 
     if (round) {
@@ -454,15 +502,46 @@ export class SceneRenderer {
         this.reduced || now - this.bornAt >= 120
           ? 1
           : 0.62 + (0.38 * Math.max(0, now - this.bornAt)) / 120;
+      /*
+       * Trois passes par pièce : l'ombre, l'aplat, l'arête.
+       *
+       * Une pièce était un aplat de couleur pure posé sur du vide. Elle n'avait
+       * ni poids ni épaisseur, et c'est ce qui donnait au jeu son air de
+       * maquette — plus que n'importe quel écran de menu.
+       *
+       * L'ombre est la MÊME forme, décalée vers le bas : nette, sans flou.
+       * `shadowBlur` produirait le même volume et coûterait dix fois plus sur
+       * une machine modeste, dans une boucle qui a 16 ms par image.
+       *
+       * L'arête est un liseré clair sur le contour. Pas de dégradé — l'identité
+       * s'en passe partout, et un contour dit la lumière aussi bien.
+       *
+       * Rien ici ne touche à `e.x`, `e.y` ni `e.r` : la géométrie du hit-test
+       * est exactement celle d'avant, au pixel près.
+       */
       for (const e of round.ents) {
         let scale = birth;
         if (breathes) {
           // ±1,5 %, période ~2,6 s ; phase déterministe (e.phase).
           scale *= 1 + 0.015 * Math.sin((now / 1000) * ((Math.PI * 2) / 2.6) + e.phase);
         }
-        ctx.fillStyle = HEX[e.color];
-        this.path(e, e.r * scale);
+        const r = e.r * scale;
+
+        ctx.save();
+        ctx.translate(0, e.r * 0.14);
+        ctx.fillStyle = OMBRE;
+        this.path(e, r);
         ctx.fill();
+        ctx.restore();
+
+        ctx.fillStyle = HEX[e.color];
+        this.path(e, r);
+        ctx.fill();
+
+        ctx.strokeStyle = ARETE;
+        ctx.lineWidth = 2;
+        this.path(e, r);
+        ctx.stroke();
       }
       if (reveal) this.drawReveal(round, now);
     }

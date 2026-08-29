@@ -197,9 +197,52 @@ body {
            env(safe-area-inset-bottom) env(safe-area-inset-left);
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--line);
-  border-right: 1px solid var(--line);
+  border-left: var(--bd-hair) solid var(--line);
+  border-right: var(--bd-hair) solid var(--line);
   overflow: hidden;
+  /* Contient le calque de fond en `z-index: -1` — sans quoi il passerait
+     derrière le fond de la page et deviendrait invisible. */
+  isolation: isolate;
+}
+
+/*
+ * La matière du fond.
+ *
+ * Tout le jeu se jouait sur un aplat de #0E1520 : un noir bleuté parfaitement
+ * uni, sur lequel chaque cadre semblait posé sur rien. C'est le premier
+ * responsable de l'impression « page web sombre » — un jeu a une surface, pas
+ * un fond de document.
+ *
+ * Une trame de points, à peine visible, et deux nappes de lumière très douces
+ * dans les angles hauts. Rien qui bouge, rien qui se calcule : le navigateur
+ * peint ce calque une fois et le garde. Il est sous absolument tout, et ne
+ * reçoit aucun clic.
+ */
+/*
+ * `z-index: -1`, et surtout PAS de règle sur les enfants.
+ *
+ * Première version : `#app > * { position: relative; z-index: 1 }` pour passer
+ * le contenu au-dessus. Ce sélecteur porte un identifiant, donc une
+ * spécificité de (1,0,0) — il écrasait TOUS les z-index du jeu d'un coup.
+ * Mesuré aussitôt : `.drama` retombait de 8 à 1, `.screen` de 10 à 1, et les
+ * écrans quittaient le positionnement absolu pour s'empiler dans le flux.
+ *
+ * Un calque négatif ne demande rien à personne : il se peint après le fond du
+ * parent et avant tout le reste. `isolation` sur `#app` crée le contexte
+ * d'empilement qui l'empêche de filer derrière le fond de la page.
+ */
+#app::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 70% 46% at 12% -8%, rgba(145, 132, 217, 0.09), transparent),
+    radial-gradient(ellipse 60% 40% at 92% 4%, rgba(35, 126, 246, 0.06), transparent),
+    radial-gradient(circle at center, var(--line) 1px, transparent 1.4px);
+  background-size: auto, auto, 26px 26px;
+  opacity: 0.85;
 }
 
 /* ------------------------------------------------------------------
@@ -468,6 +511,14 @@ body {
   opacity: 0.45;
 }
 
+/*
+ * La consigne. Le mot le plus lu du jeu.
+ *
+ * Elle gagne une lueur qui suit `--heat` : quand le temps se resserre, le mot
+ * rayonne. C'est du `text-shadow` seul — aucune taille, aucune hauteur, aucune
+ * marge ne bouge, parce que `#head` est en `flex: 0 0 auto` et que ce qu'il
+ * prend, le terrain le perd. La géométrie du champ EST du gameplay.
+ */
 #instr {
   font-family: var(--display);
   font-weight: 600;
@@ -476,12 +527,16 @@ body {
   letter-spacing: -0.03em;
   min-height: 1em;
   transition: color 90ms linear;
+  text-shadow:
+    0 0 calc(18px + var(--heat, 0) * 26px)
+    rgba(207, 201, 242, calc(0.14 + var(--heat, 0) * 0.3));
 }
 
 #instr.is-glyph {
   font-size: clamp(64px, 10vw, 104px);
 }
 
+/* L'écran de jeu garde ses valeurs propres : voir la note sur l'échelle. */
 #sub {
   margin-top: 10px;
   min-height: 15px;
@@ -635,12 +690,47 @@ body {
   display: none;
 }
 
+/*
+ * Le panneau des temps forts.
+ *
+ * C'est le seul moment où le jeu s'arrête et où tout le monde regarde le même
+ * endroit sans rien avoir à faire — observé en playtest : pendant la pause,
+ * les joueurs soufflent et commentent. L'écran doit être beau à ce
+ * moment-là, parce qu'il n'a rien d'autre à faire.
+ *
+ * Un cadre plein devenait une boîte. Des équerres d'angle donnent la même
+ * lecture — une zone désignée — avec la légèreté d'un viseur. Elles sont
+ * peintes en fond, donc sans un seul élément de plus.
+ */
 .drama__panel {
+  position: relative;
   text-align: center;
   max-width: min(920px, 92%);
-  padding: 22px 28px 24px;
-  border: 4px solid var(--signal);
-  background: var(--ink);
+  padding: var(--sp-5) var(--sp-5) var(--sp-4);
+  border: var(--bd-hair) solid color-mix(in srgb, var(--signal) 45%, transparent);
+  background:
+    linear-gradient(var(--signal), var(--signal)) 0 0 / 26px var(--bd-frame) no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 0 0 / var(--bd-frame) 26px no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 100% 0 / 26px var(--bd-frame) no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 100% 0 / var(--bd-frame) 26px no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 0 100% / 26px var(--bd-frame) no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 0 100% / var(--bd-frame) 26px no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 100% 100% / 26px var(--bd-frame) no-repeat,
+    linear-gradient(var(--signal), var(--signal)) 100% 100% / var(--bd-frame) 26px no-repeat,
+    var(--ink);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  animation: dramaIn var(--d-base) var(--e-punch);
+}
+
+@keyframes dramaIn {
+  from {
+    opacity: 0;
+    transform: scale(0.965);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /*
@@ -658,12 +748,24 @@ body {
   display: none;
 }
 
+/* Les équerres changent de couleur avec le moment : c'est le seul élément du
+   panneau qui dit son registre avant qu'on ait lu un mot. */
 .drama--duel .drama__panel {
-  border-color: var(--paper);
+  border-color: color-mix(in srgb, var(--paper) 40%, transparent);
+  background-image:
+    linear-gradient(var(--paper), var(--paper)), linear-gradient(var(--paper), var(--paper)),
+    linear-gradient(var(--paper), var(--paper)), linear-gradient(var(--paper), var(--paper)),
+    linear-gradient(var(--paper), var(--paper)), linear-gradient(var(--paper), var(--paper)),
+    linear-gradient(var(--paper), var(--paper)), linear-gradient(var(--paper), var(--paper));
 }
 
 .drama--elim .drama__panel {
-  border-color: #f74058;
+  border-color: color-mix(in srgb, var(--dead) 45%, transparent);
+  background-image:
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead));
 }
 
 .drama__eyebrow {
@@ -760,6 +862,20 @@ body {
 .drama--dead-me .drama__eyebrow {
   background: #f74058;
   color: var(--ink);
+}
+
+/*
+ * Les équerres suivent la pastille. Elles restaient violettes pendant que
+ * « TU ES ÉLIMINÉ » s'affichait en garance : deux couleurs pour un seul
+ * message. Le cadre entier passe au rouge quand c'est fini pour moi.
+ */
+.drama--dead-me .drama__panel {
+  border-color: color-mix(in srgb, var(--dead) 45%, transparent);
+  background-image:
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead)),
+    linear-gradient(var(--dead), var(--dead)), linear-gradient(var(--dead), var(--dead));
 }
 
 .drama--me .drama__names {
@@ -1437,13 +1553,16 @@ body {
   display: none;
 }
 
+/* Les distinctions de fin de match : une par ligne, chacune une plaquette. */
 .titles__row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--sp-3);
   flex-wrap: wrap;
-  border: 1px solid var(--line);
-  padding: 10px 12px;
+  padding: var(--sp-2) var(--sp-3);
+  background: color-mix(in srgb, var(--ink-2) 75%, transparent);
+  border: none;
+  border-left: var(--bd-frame) solid color-mix(in srgb, var(--signal) 55%, transparent);
 }
 
 .titles__label {
@@ -1639,6 +1758,12 @@ body {
   min-height: var(--tap);
   cursor: pointer;
   touch-action: manipulation;
+  /* C'est le seul élément que les joueurs se dictent à voix haute : il a le
+     droit de rayonner. */
+  text-shadow: 0 0 34px rgba(207, 201, 242, 0.35);
+  transition:
+    color var(--d-fast) linear,
+    text-shadow var(--d-fast) linear;
 }
 
 .roomcode:hover,
@@ -1834,6 +1959,11 @@ body {
   display: flex;
   padding: 24px;
   overflow-y: auto;
+  /* Sans gouttière réservée, la barre de défilement se pose PAR-DESSUS le
+     contenu : mesuré en fenêtre étroite, la dernière lettre de « TOUCHE LE
+     CODE POUR LE COPIER » passait dessous. La gouttière est prise une fois
+     pour toutes, que la barre soit là ou non. */
+  scrollbar-gutter: stable;
 }
 
 .screen__pane > * {
@@ -1850,9 +1980,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px 16px 18px;
-  background: var(--ink-2);
-  border-left: 1px solid var(--line);
+  padding: var(--sp-3) var(--sp-3) var(--sp-4);
+  /* La bande est un renfoncement, pas un panneau posé : plus sombre que la
+     page, et son bord gauche porte une ombre portée qui creuse la séparation.
+     C'est ce qui la fait lire comme une pièce à côté, pas comme une colonne. */
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.28), transparent 120px), var(--ink-2);
+  border-left: var(--bd-hair) solid var(--line);
+  box-shadow: inset 14px 0 26px -18px rgba(0, 0, 0, 0.9);
   min-height: 0;
 }
 
@@ -1861,11 +1995,11 @@ body {
 .chatdock::before {
   content: "DISCUSSION";
   flex: 0 0 auto;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--line);
+  padding-bottom: var(--sp-2);
+  border-bottom: var(--bd-thin) solid color-mix(in srgb, var(--signal) 45%, transparent);
   font-size: var(--t-intitule);
   letter-spacing: var(--ls-intitule);
-  color: var(--paper-dim);
+  color: var(--signal-pale);
 }
 
 .chatdock:empty {
@@ -1912,16 +2046,30 @@ body {
   max-height: 96px;
 }
 
+/*
+ * Une ligne de chat.
+ *
+ * Chacune était un rectangle cerclé de gris : dix messages donnaient dix
+ * boîtes, et la colonne ressemblait à un formulaire. Un fil de discussion se
+ * lit en continu — le liseré gauche suffit à séparer les prises de parole, et
+ * l'œil descend sans buter sur des cadres.
+ */
 .chat__line {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 4px 8px;
-  background: color-mix(in srgb, var(--ink) 82%, transparent);
-  border: 1px solid var(--line);
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-2);
+  background: color-mix(in srgb, var(--ink) 72%, transparent);
+  border: none;
+  border-left: var(--bd-thin) solid var(--line);
   font-size: var(--t-petit);
   letter-spacing: var(--ls-base);
   line-height: 1.45;
+}
+
+/* Le mien se distingue : c'est le repère qui permet de suivre l'échange. */
+.chat--docked .chat__line:has(.chat__name) {
+  transition: border-color var(--d-fast) linear;
 }
 
 .chat__line .lobbyrow__glyph {
@@ -2144,12 +2292,36 @@ body {
   }
 }
 
+/*
+ * Le titre.
+ *
+ * C'est la première chose qu'on voit du jeu, et c'était un mot posé en haut
+ * d'une colonne. Il devient une enseigne : plus grand, appuyé sur un filet
+ * d'accent, avec une lueur qui le décolle du fond. Rien de tout cela ne bouge
+ * — un logo qui s'agite est un logo qu'on ne regarde plus.
+ */
 .logo {
+  position: relative;
+  display: inline-block;
   font-family: var(--display);
   font-weight: 600;
-  font-size: clamp(40px, 9vw, 76px);
-  line-height: 0.88;
-  letter-spacing: -0.045em;
+  font-size: clamp(46px, 10vw, 92px);
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  padding-left: var(--sp-3);
+  text-shadow: 0 0 46px rgba(145, 132, 217, 0.28);
+}
+
+/* Le filet reprend les hachures du bandeau de règle : c'est la même
+   signalétique, et elle dit d'emblée de quel jeu il s'agit. */
+.logo::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4%;
+  bottom: 4%;
+  width: 6px;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px);
 }
 
 .logo em {
@@ -2191,14 +2363,23 @@ body {
 }
 
 .panel {
-  border: 1px solid var(--line);
-  padding: 20px 18px 22px;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  padding: var(--sp-4) var(--sp-3) var(--sp-4);
   text-align: center;
   /* Les deux panneaux gardent la même hauteur : côte à côte, deux cadres
      inégaux se lisent comme une hiérarchie qui n'existe pas. */
   height: 100%;
   display: flex;
   flex-direction: column;
+  transition: border-color var(--d-fast) linear;
+}
+
+/* Un panneau est une intention : il s'éclaire quand on s'y intéresse. */
+.panel:hover,
+.panel:focus-within {
+  border-color: var(--paper-dim);
 }
 
 .panel__title {
@@ -2567,9 +2748,38 @@ body {
  * en prenait 532 — ça tenait, avec 28 px de marge pour toute la suite du
  * catalogue. Un nom qui déborde ne se coupe pas, il sort de l'écran.
  */
+/*
+ * L'annonce de la règle, en solo.
+ *
+ * C'est le dernier écran avant la partie, et le seul moment où le joueur peut
+ * lire sa contrainte sans pression. Il ressemblait à un titre de page. Il
+ * devient une PLAQUE : hachures de chantier, filets haut et bas, le nom au
+ * centre. La même signalétique que le bandeau de jeu, pour qu'on reconnaisse
+ * en partie ce qu'on a lu ici.
+ */
 .rulename--hero {
-  margin-top: 10px;
+  position: relative;
+  margin-top: var(--sp-3);
+  padding: var(--sp-3) 0;
   font-size: clamp(34px, 6.4vw, 60px);
+  border-top: var(--bd-thin) solid color-mix(in srgb, var(--signal) 55%, transparent);
+  border-bottom: var(--bd-thin) solid color-mix(in srgb, var(--signal) 55%, transparent);
+  background:
+    repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px) 0 0 / 100% 4px no-repeat,
+    repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px) 0 100% / 100% 4px no-repeat;
+  text-shadow: 0 0 40px rgba(207, 201, 242, 0.3);
+  animation: heroIn var(--d-slow) var(--e-punch);
+}
+
+@keyframes heroIn {
+  from {
+    opacity: 0;
+    letter-spacing: 0.14em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: -0.03em;
+  }
 }
 
 .brief .lede {
@@ -2625,15 +2835,28 @@ body {
   margin-top: 14px;
 }
 
+/*
+ * Les boutons.
+ *
+ * Ils étaient transparents, cerclés d'un trait d'un pixel : posés sur le fond,
+ * sans surface propre, ils ressemblaient à des liens encadrés. Un bouton de
+ * jeu est un OBJET — il a une face, une épaisseur, et il s'enfonce quand on
+ * appuie dessus.
+ *
+ * Toujours aucun arrondi, aucun dégradé : le relief vient d'un fond, d'un
+ * liseré clair en haut et d'un déplacement d'un pixel. C'est assez.
+ */
 .btn {
+  position: relative;
   font-family: var(--mono);
   /* Un libellé de bouton est un mot qu'on lit d'un bloc, pas une enseigne
      à épeler : l'écartement descend de 0,2em à celui du texte courant. */
   font-size: var(--t-base);
   letter-spacing: var(--ls-base);
   color: var(--paper);
-  background: none;
-  border: 1px solid var(--line);
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   padding: 12px 20px;
   min-height: var(--tap);
   display: inline-flex;
@@ -2643,9 +2866,10 @@ body {
   /* Supprime le délai de 300 ms et le zoom au double-tap sur mobile. */
   touch-action: manipulation;
   transition:
-    background 120ms linear,
-    color 120ms linear,
-    border-color 120ms linear;
+    background var(--d-fast) linear,
+    color var(--d-fast) linear,
+    border-color var(--d-fast) linear,
+    transform var(--d-snap) var(--e-out);
 }
 
 /*
@@ -2656,6 +2880,8 @@ body {
  */
 .btn:active {
   background: var(--line);
+  transform: translateY(1px);
+  box-shadow: none;
 }
 
 /*
@@ -2672,13 +2898,39 @@ body {
   color: var(--ink);
 }
 
+/*
+ * L'action principale d'un écran.
+ *
+ * Elle ne portait qu'une bordure claire, exactement comme un bouton survolé :
+ * sur un écran de fin qui en aligne quatre, rien ne disait lequel on venait
+ * chercher. Elle est PLEINE — c'est la seule surface claire de l'écran, on ne
+ * peut pas la manquer, et le contraste inversé la sépare de tout le reste.
+ */
 .btn--primary {
+  background: var(--paper);
   border-color: var(--paper);
+  color: var(--ink);
+  box-shadow: none;
 }
 
+.btn--primary:hover,
+.btn--primary:focus-visible {
+  background: var(--signal-pale);
+  border-color: var(--signal-pale);
+  color: var(--ink);
+}
+
+.btn--primary:active {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+/* Un bouton fantôme est une porte de sortie : présent, jamais concurrent. */
 .btn--ghost {
   color: var(--paper-dim);
+  background: none;
   border-color: transparent;
+  box-shadow: none;
   padding: 11px 14px;
 }
 
@@ -2890,7 +3142,7 @@ body {
 }
 
 .chip {
-  border: 1px solid var(--line);
+  border: var(--bd-hair) solid var(--line);
   padding: 7px 12px;
   font-size: var(--t-petit);
   letter-spacing: var(--ls-petit);
@@ -2902,8 +3154,11 @@ body {
    * n'avaient rien, eux, ce qui a caché le défaut : seuls les chips
    * ACTIONNABLES étaient touchés, c'est-à-dire les emotes, la sourdine,
    * l'exclusion, les cibles spectateur et tous les réglages.
+   *
+   * Le fond est désormais `--ink-2` plutôt que rien : une puce est une petite
+   * surface posée sur l'écran, pas un mot cerclé de gris.
    */
-  background: none;
+  background: var(--ink-2);
 }
 
 /*
@@ -2955,18 +3210,30 @@ button.chip:active:not(:disabled) {
   justify-content: center;
 }
 
+/*
+ * Le champ de code.
+ *
+ * C'est l'endroit où l'on tape ce qu'un ami vient de dicter : il doit avoir
+ * l'évidence d'une serrure. Trait épais, fond creusé, et une lueur d'accent
+ * dès qu'il a le focus — on doit savoir sans réfléchir que c'est là que ça se
+ * passe.
+ */
 .field {
   width: 8ch;
   font-family: var(--mono);
-  font-size: 22px;
+  font-size: 26px;
   letter-spacing: 0.35em;
   text-align: center;
   text-transform: uppercase;
   color: var(--paper);
-  background: var(--ink-2);
-  border: 1px solid var(--line);
+  background: var(--ink);
+  border: var(--bd-thin) solid var(--line);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
   padding: 12px 8px 12px 14px;
   min-height: var(--tap);
+  transition:
+    border-color var(--d-fast) linear,
+    box-shadow var(--d-fast) linear;
   /* Pas d'`outline: none` : c'est le champ où l'on tape le code d'un salon,
      donc exactement celui qu'il ne faut pas perdre au clavier. */
 }
@@ -3009,14 +3276,29 @@ button.chip:active:not(:disabled) {
   align-items: center;
   justify-content: center;
   background: var(--ink-2);
-  border: 1px solid var(--line);
+  border: var(--bd-hair) solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   cursor: pointer;
   touch-action: manipulation;
-  transition: border-color 120ms linear;
+  transition:
+    border-color var(--d-fast) linear,
+    background var(--d-fast) linear,
+    transform var(--d-snap) var(--e-out);
+}
+
+/* Choisir son signe est le seul geste d'identité du jeu : il doit répondre. */
+.glyphpick__opt:hover {
+  border-color: var(--signal);
+  transform: translateY(-2px);
+}
+
+.glyphpick__opt:active {
+  transform: translateY(0);
 }
 
 .glyphpick__opt[aria-checked="true"] {
   border-color: var(--paper);
+  background: color-mix(in srgb, var(--paper) 12%, var(--ink-2));
 }
 
 /* Le signe choisi ne doit pas dépendre de la seule couleur de bordure :
@@ -3036,7 +3318,10 @@ button.chip:active:not(:disabled) {
 }
 
 .field:focus {
-  border-color: var(--paper);
+  border-color: var(--signal);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.35),
+    0 0 0 3px color-mix(in srgb, var(--signal) 28%, transparent);
 }
 
 .field::placeholder {
@@ -3046,19 +3331,30 @@ button.chip:active:not(:disabled) {
 
 /* Liste salon / podium */
 .lobby {
-  margin-top: 22px;
+  margin-top: var(--sp-4);
   text-align: left;
-  border-top: 1px solid var(--line);
 }
 
+/*
+ * Une rangée du salon, ou du classement de fin.
+ *
+ * C'était une liste : des filets gris, tous identiques, où le vainqueur ne se
+ * distinguait que par un nom un peu plus clair. La rangée devient une bande
+ * pleine, avec un liseré à gauche qui porte l'état — c'est ce liseré qui dit
+ * l'hôte, le vainqueur, le déconnecté, avant qu'on lise quoi que ce soit.
+ */
 .lobbyrow {
   display: flex;
   align-items: baseline;
-  gap: 12px;
-  padding: 12px 2px;
-  border-bottom: 1px solid var(--line);
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-3);
+  margin-bottom: 2px;
+  background: color-mix(in srgb, var(--ink-2) 70%, transparent);
+  border: none;
+  border-left: var(--bd-frame) solid var(--line);
   font-size: var(--t-petit);
   letter-spacing: var(--ls-petit);
+  transition: background var(--d-fast) linear, border-color var(--d-fast) linear;
 }
 
 .lobbyrow__rule {
@@ -3085,6 +3381,24 @@ button.chip:active:not(:disabled) {
 .lobbyrow.is-winner .lobbyrow__status,
 .lobbyrow.is-winner .lobbyrow__name {
   color: var(--paper);
+}
+
+/*
+ * Le vainqueur. Il n'y en a qu'un, et l'écran de fin ne sert qu'à le dire :
+ * sa bande s'éclaire et son liseré passe à l'accent. Le premier du classement
+ * se voit de l'autre bout de la table.
+ */
+.lobbyrow.is-winner {
+  background: color-mix(in srgb, var(--signal) 12%, var(--ink-2));
+  border-left-color: var(--signal);
+}
+
+.lobbyrow.is-host {
+  border-left-color: color-mix(in srgb, var(--signal) 60%, transparent);
+}
+
+.lobbyrow.is-off {
+  border-left-color: transparent;
 }
 
 /*
@@ -3202,16 +3516,17 @@ button.chip:active:not(:disabled) {
   padding: 8px 12px 9px;
   /* Un fond, explicitement : c'est ce qui manquait à `.chip`. */
   background: var(--ink-2);
-  border: 1px solid var(--line);
+  border: var(--bd-hair) solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   color: var(--paper);
   font-family: var(--mono);
   cursor: pointer;
   touch-action: manipulation;
   transition:
-    background 130ms linear,
-    border-color 130ms linear,
-    color 130ms linear,
-    transform 130ms cubic-bezier(0.2, 0.8, 0.3, 1);
+    background var(--d-fast) linear,
+    border-color var(--d-fast) linear,
+    color var(--d-fast) linear,
+    transform var(--d-fast) var(--e-out);
 }
 
 .opt__label {
@@ -3423,16 +3738,39 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-petit);
 }
 
+/*
+ * Les quêtes.
+ *
+ * Une case de 12 px au trait d'un pixel : cochée ou non, l'écart se voyait à
+ * peine, et une quête accomplie ne procurait rien. C'est pourtant la seule
+ * récompense du jeu solo. La case grandit, le trait s'épaissit, et une quête
+ * validée s'annonce sur toute sa ligne.
+ */
 .quest__box {
   flex: 0 0 auto;
-  width: 12px;
-  height: 12px;
-  border: 1px solid var(--paper-dim);
+  width: 15px;
+  height: 15px;
+  border: var(--bd-thin) solid var(--paper-dim);
+  transition:
+    background var(--d-fast) linear,
+    border-color var(--d-fast) linear;
 }
 
 .quest.is-done .quest__box {
   background: var(--signal);
   border-color: var(--signal);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--signal) 55%, transparent);
+}
+
+.quest.is-done {
+  border-left: var(--bd-thin) solid var(--signal);
+  padding-left: var(--sp-2);
+}
+
+/* Celle que le run vient de valider : le liseré prend toute la place. */
+.quest.is-fresh {
+  border-left-width: var(--bd-frame);
+  background: color-mix(in srgb, var(--signal) 9%, transparent);
 }
 
 .quest__label {
@@ -3506,13 +3844,25 @@ button.chip:active:not(:disabled) {
 .marks {
   margin: var(--sp-4) auto 0;
   max-width: 22ch;
-  padding: var(--sp-2);
-  background: var(--ink-2);
+  padding: var(--sp-3) var(--sp-2);
+  background:
+    /* Les perforations d'une bande de pellicule, haut et bas. Purement
+       décoratives : elles ne disent rien que le contenu ne dise déjà, elles
+       donnent seulement à la frise la forme de ce qu'elle est. */
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.45) 0 4px, transparent 4px 12px) 0 3px / 100% 4px no-repeat,
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.45) 0 4px, transparent 4px 12px) 0 calc(100% - 3px) / 100% 4px no-repeat,
+    var(--ink-2);
   border: var(--bd-hair) solid var(--line);
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.4);
   font-size: 17px;
   line-height: 1.6;
   letter-spacing: 2px;
   word-break: break-all;
+}
+
+/* Rien à encadrer tant qu'aucune manche n'a été jouée. */
+.marks:empty {
+  display: none;
 }
 
 /*
@@ -3525,10 +3875,23 @@ button.chip:active:not(:disabled) {
 .over__head {
   padding-bottom: var(--sp-3);
   border-bottom: var(--bd-thin) solid var(--dead);
+  /* Le filet n'est pas qu'un trait : il éclaire ce qu'il y a au-dessus, comme
+     une enseigne. C'est la couleur qu'on voit avant de lire le mot. */
+  box-shadow: 0 6px 30px -12px var(--dead);
 }
 
 #over.is-win .over__head {
   border-bottom-color: var(--ok);
+  box-shadow: 0 6px 30px -12px var(--ok);
+}
+
+/* Le compte porte l'issue avec le filet : vert si l'on a tenu, rouge sinon. */
+.tally {
+  text-shadow: 0 0 46px color-mix(in srgb, var(--dead) 55%, transparent);
+}
+
+#over.is-win .tally {
+  text-shadow: 0 0 46px color-mix(in srgb, var(--ok) 55%, transparent);
 }
 
 .verdict {
@@ -3577,10 +3940,20 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
+/*
+ * Le gain de rang, après une partie multi.
+ *
+ * C'est la seule récompense chiffrée du jeu, et elle s'affichait dans un cadre
+ * de la même épaisseur que tout le reste. Fond teinté, liseré gauche épais : la
+ * boîte se lit comme un ticket, pas comme un paragraphe encadré.
+ */
 .rank {
-  margin-top: 22px;
-  padding: 14px 16px;
-  border: 1px solid var(--signal);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: color-mix(in srgb, var(--signal) 10%, var(--ink-2));
+  border: var(--bd-hair) solid color-mix(in srgb, var(--signal) 45%, transparent);
+  border-left-width: var(--bd-alert);
+  border-left-color: var(--signal);
   font-size: var(--t-petit);
   letter-spacing: var(--ls-petit);
   color: var(--signal-pale);
@@ -3599,19 +3972,29 @@ button.chip:active:not(:disabled) {
 .rank__delta {
   font-family: var(--display);
   font-weight: 600;
-  font-size: 26px;
+  font-size: 32px;
   letter-spacing: -0.02em;
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: var(--sp-1);
+  color: var(--paper);
+  text-shadow: 0 0 24px rgba(207, 201, 242, 0.35);
 }
 
+/*
+ * Ce qui attend demain. C'est la seule raison de revenir que l'écran de fin
+ * avance : elle mérite mieux qu'un filet gris. Un liseré à gauche, comme les
+ * fiches du carnet — même famille, même promesse.
+ */
 .teaser {
-  margin-top: 26px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
+  margin-top: var(--sp-4);
+  padding: var(--sp-3) var(--sp-3);
+  border: none;
+  border-left: var(--bd-frame) solid color-mix(in srgb, var(--signal) 60%, transparent);
+  background: color-mix(in srgb, var(--ink-2) 70%, transparent);
   font-size: var(--t-intitule);
   letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
+  text-align: left;
 }
 
 .teaser b {
@@ -3843,9 +4226,10 @@ button.chip:active:not(:disabled) {
   flex-wrap: wrap;
   align-items: center;
   gap: 14px;
-  padding: 14px var(--gap);
+  padding: var(--sp-3) var(--gap);
   background: var(--ink-2);
-  border-top: 1px solid var(--line);
+  border-top: var(--bd-frame) solid color-mix(in srgb, var(--signal) 40%, transparent);
+  box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.5);
 }
 
 .notice.hidden {
