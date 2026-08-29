@@ -38,6 +38,17 @@ export interface OptionSpec {
   disabled?: boolean;
   /** Lu par les lecteurs d'écran, où la jauge ne dit rien. */
   aria?: string;
+  /**
+   * Segment de barre : le libellé seul, sans jauge ni précision.
+   *
+   * Réservé aux réglages du salon, où cinq vitesses doivent tenir dans une
+   * colonne de 380 px. La jauge y perdrait de toute façon son sens : dans une
+   * barre, c'est la POSITION du segment qui dit le rang, et l'échelle de mots
+   * — DÉCOUV. → BRUTAL — dit déjà le sens de lecture. Ailleurs (l'allure du
+   * brief, seule sur sa ligne), la jauge reste : elle y est le seul indice de
+   * direction.
+   */
+  compact?: boolean;
 }
 
 function marks(spec: OptionSpec): HTMLElement {
@@ -61,14 +72,14 @@ export function optionButton(spec: OptionSpec): HTMLButtonElement {
   btn.setAttribute("aria-pressed", spec.selected ? "true" : "false");
   if (spec.aria) btn.setAttribute("aria-label", spec.aria);
 
-  btn.appendChild(marks(spec));
+  if (!spec.compact) btn.appendChild(marks(spec));
 
   const label = document.createElement("span");
   label.className = "opt__label";
   label.textContent = spec.label;
   btn.appendChild(label);
 
-  if (spec.hint) {
+  if (spec.hint && !spec.compact) {
     const hint = document.createElement("span");
     hint.className = "opt__hint";
     hint.textContent = spec.hint;

@@ -403,39 +403,56 @@
             <div class="room__code">
               <!-- Le code se dicte à voix haute autant qu'il se partage par
                    lien : c'est l'élément le plus utile du salon, il doit être
-                   le plus visible. -->
+                   le plus visible. Une case par caractère — on épelle « 3, P,
+                   S, 8 » au téléphone, on ne lit pas un mot. Les cases sont
+                   remplies par `setRoomCode`, jamais par `textContent` sur le
+                   conteneur, qui les détruirait (même piège que les cartes). -->
               <p class="eyebrow">CODE DU SALON</p>
-              <button class="roomcode" id="multiLobbyCode" title="Copier le code">————</button>
-              <p class="fineprint" id="multiLobbyCodeHint">TOUCHE LE CODE POUR LE COPIER</p>
+              <div class="roomcode" id="multiLobbyCode" aria-label="Code du salon"></div>
+              <div class="btnrow btnrow--tight">
+                <button class="btn" id="btnMultiCopyCode">COPIER LE CODE</button>
+                <button class="btn btn--ghost" id="btnMultiInvite">COPIER LE LIEN</button>
+              </div>
+              <p class="fineprint" id="multiLobbyCodeHint">DICTE-LE, OU ENVOIE LE LIEN</p>
             </div>
-            <div class="settings" id="multiSettings" aria-label="Réglages du salon">
+            <!-- `settings--seg` : les options se touchent, en une seule barre
+                 segmentée. C'est le seul groupe de réglages du site à l'être —
+                 l'allure du brief garde ses boutons séparés et ses jauges. -->
+            <div class="settings settings--seg" id="multiSettings" aria-label="Réglages du salon">
+              <p class="settings__who" id="settingsWho">RÉGLAGES</p>
               <div class="settings__row" data-key="speed">
                 <span class="settings__label">VITESSE</span>
                 <div class="settings__opts" id="optSpeed"></div>
               </div>
-              <div class="settings__row" data-key="lives">
-                <span class="settings__label">VIES</span>
-                <div class="settings__opts" id="optLives"></div>
-              </div>
-              <div class="settings__row" data-key="rotationEvery">
-                <span class="settings__label">ROTATION</span>
-                <div class="settings__opts" id="optRotation"></div>
+              <!-- Deux réglages à trois ou quatre valeurs courtes : côte à côte
+                   ils tiennent sur une ligne, et la colonne respire. -->
+              <div class="settings__pair">
+                <div class="settings__row" data-key="lives">
+                  <span class="settings__label">VIES</span>
+                  <div class="settings__opts" id="optLives"></div>
+                </div>
+                <div class="settings__row" data-key="rotationEvery">
+                  <span class="settings__label">ROTATION</span>
+                  <div class="settings__opts" id="optRotation"></div>
+                </div>
               </div>
               <p class="settings__hint" id="settingsHint"></p>
             </div>
+            <!-- Le lancement ferme la colonne : c'est la dernière chose qu'on
+                 fait, elle est en bas et elle est seule de sa taille. -->
             <div class="room__acts">
-              <div class="btnrow">
-                <button class="btn btn--primary hidden" id="btnMultiStart">LANCER</button>
-                <button class="btn" id="btnMultiInvite">COPIER LE LIEN</button>
-                <button class="btn btn--ghost" id="btnMultiLeave">QUITTER</button>
-              </div>
-              <p class="fineprint" id="multiInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
+              <button class="btn btn--launch hidden" id="btnMultiStart">LANCER LA PARTIE</button>
+              <button class="btn btn--ghost" id="btnMultiLeave">QUITTER LE SALON</button>
+              <p class="fineprint" id="multiInviteHint"></p>
             </div>
           </div>
 
           <div class="col room__live">
-            <h2 class="room__title" id="multiLobbyTitle">EN ATTENTE</h2>
-            <div class="lobby room__list" id="multiPlayers"></div>
+            <div class="room__head">
+              <h2 class="room__title" id="multiLobbyTitle">EN ATTENTE</h2>
+              <p class="room__count" id="multiLobbyCount"></p>
+            </div>
+            <div class="seats room__list" id="multiPlayers"></div>
           </div>
         </div>
         </div>

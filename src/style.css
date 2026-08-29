@@ -1740,35 +1740,44 @@ body {
  * quelqu'un. C'est donc l'élément le plus utile de cet écran, et il doit en
  * être le plus visible.
  *
- * Cliquable : le copier est le geste qui suit, immédiatement.
+ * Une case par caractère. On l'ÉPELLE au téléphone — « 3, P, S, 8 » — et une
+ * suite de caractères espacés se relit sans cesse pour savoir où l'on en est.
+ * Quatre cases séparées donnent quatre repères, et la rangée garde sa largeur
+ * quel que soit le code.
+ *
+ * Le copier est passé à un bouton dédié, juste dessous : un texte cliquable
+ * sans apparence de bouton ne se découvre que par accident.
  */
 .roomcode {
-  display: block;
-  margin: 6px auto 2px;
-  font-family: var(--mono);
-  font-size: clamp(44px, 11vw, 84px);
-  line-height: 1;
-  letter-spacing: 0.22em;
-  /* Compense l'interlettrage, qui décale le bloc vers la droite. */
-  text-indent: 0.22em;
-  color: var(--paper);
-  background: none;
-  border: none;
-  padding: 6px 10px;
-  min-height: var(--tap);
-  cursor: pointer;
-  touch-action: manipulation;
-  /* C'est le seul élément que les joueurs se dictent à voix haute : il a le
-     droit de rayonner. */
-  text-shadow: 0 0 34px rgba(207, 201, 242, 0.35);
-  transition:
-    color var(--d-fast) linear,
-    text-shadow var(--d-fast) linear;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 var(--sp-3);
 }
 
-.roomcode:hover,
-.roomcode:focus-visible {
-  color: var(--signal-pale);
+.roomcode__char {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /*
+   * Hauteur fixe, largeur libre — surtout PAS `aspect-ratio` avec un plancher.
+   * Mesuré : `aspect-ratio: 1` + `min-height: 56px` impose 56 px de large à
+   * chaque case, donc 248 px pour la rangée, et elle débordait de sa colonne
+   * dès que celle-ci était plus étroite. Une case peut être rectangulaire ;
+   * elle ne peut pas sortir de l'écran.
+   */
+  height: 64px;
+  min-width: 0;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid color-mix(in srgb, var(--signal) 40%, var(--line));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  font-family: var(--mono);
+  font-size: clamp(28px, 4.4vw, 42px);
+  line-height: 1;
+  color: var(--paper);
+  /* C'est le seul élément que les joueurs se dictent à voix haute : il a le
+     droit de rayonner. */
+  text-shadow: 0 0 26px rgba(207, 201, 242, 0.4);
 }
 
 /* Rang au classement de fin : chiffré, aligné, en chasse fixe. */
@@ -1968,6 +1977,14 @@ body {
 
 .screen__pane > * {
   margin: auto;
+  /*
+   * Sans ce zéro, la zone ne peut pas rétrécir sous la largeur de son contenu :
+   * le minimum automatique d'un élément flexible est son `min-content`, et la
+   * rangée du code — quatre cases et leurs gouttières — le fixait à 268 px.
+   * Mesuré en bande étroite : la quatrième case sortait de la zone, qui ne
+   * défile qu'en vertical, donc elle était perdue.
+   */
+  min-width: 0;
 }
 
 .screen > .screen__pane,
@@ -2150,7 +2167,14 @@ body {
 .screen__scroll--wide {
   max-width: 1080px;
   display: grid;
-  grid-template-columns: 1fr;
+  /*
+   * `minmax(0, 1fr)` et non `1fr` : le minimum d'une piste `1fr` est `auto`,
+   * c'est-à-dire le `min-content` du plus large de ses éléments. Mesuré en
+   * bande étroite — la barre des vitesses, cinq segments, réclame 273 px de
+   * min-content — la piste passait à 273 dans un conteneur de 189, et tout ce
+   * qu'elle contenait sortait d'une zone qui ne défile qu'en vertical.
+   */
+  grid-template-columns: minmax(0, 1fr);
   gap: 28px;
   text-align: center;
 }
@@ -2161,7 +2185,7 @@ body {
 
 @media (min-width: 900px) {
   .screen__scroll--wide {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
     gap: 52px;
   }
@@ -2444,42 +2468,86 @@ body {
   color: var(--signal-pale);
 }
 
+/*
+ * Les deux colonnes du salon ne sont pas égales.
+ *
+ * À parts égales, la colonne des joueurs faisait 489 px sur un 1440 : deux
+ * tuiles par rangée, trois rangées pour six joueurs, pendant que la colonne
+ * des réglages — un code et trois barres — gardait la même largeur sans rien
+ * en faire. Les réglages ont une largeur naturelle ; la grille des présences
+ * n'en a pas, elle prend ce qu'on lui donne. Elle prend donc le reste.
+ */
+@media (min-width: 900px) {
+  .room {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  }
+}
+
+/* Le titre et l'effectif se lisent ensemble : « qui est là » est une question
+   qui appelle un nombre autant qu'une liste. */
+.room__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.room__count {
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Les joueurs du salon : des PRÉSENCES, pas des lignes de tableau.
+ *
+ * Un salon d'attente sert à voir QUI est arrivé — pas à comparer des colonnes.
+ * En lignes, l'écran affichait quatre champs dont trois ne disent rien avant
+ * le lancement : la règle n'est pas encore tirée (elle s'écrivait « — ») et
+ * les vies sont les mêmes pour tout le monde. Chacun prend une tuile qui ne
+ * porte que ce qui le distingue : son signe, son nom, sa mention.
+ *
+ * Une grille plutôt qu'une colonne : à six joueurs, une colonne de six lignes
+ * laissait les deux tiers de la zone vides pendant qu'on attendait — le vide
+ * était le reproche principal de la soirée. Les tuiles se rangent en autant de
+ * colonnes que la largeur en admet.
+ *
+ * Le classement de fin garde ses lignes : un classement, lui, se lit
+ * justement en colonnes comparables.
+ */
 .room__list {
   /* Dix joueurs poussaient les boutons hors de l'écran : la liste défile
      dans sa colonne, le reste de la page ne bouge pas. */
   overflow-y: auto;
 }
 
-/*
- * Les joueurs du salon : des PRÉSENCES, pas des lignes de tableau.
- *
- * Un salon d'attente sert à voir qui est arrivé. En lignes de 12 px séparées
- * d'un filet, chacun ressemblait à une entrée de journal — le lobby avait
- * l'air d'une facture. Chaque joueur a maintenant son bloc : un cadre, son
- * signe à taille lisible, son nom en tête, sa règle et ses vies dessous.
- *
- * Le style ne s'applique QUE dans le salon : le classement de fin garde ses
- * lignes, parce qu'un classement se lit justement en colonnes comparables.
- */
-.room__list .lobbyrow {
+.seats {
+  display: grid;
+  /* 180 et non 200 : mesuré, 200 ne donnait que deux colonnes dans les 617 px
+     de la zone (trois pistes réclament 600 px plus deux gouttières, soit 620).
+     Une tuile n'a besoin que d'un signe, d'un nom de 14 signes et d'une
+     mention — 180 lui suffit, et trois par rangée valent mieux que deux. */
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--sp-2);
+  align-content: start;
+  text-align: left;
+}
+
+.seat {
+  position: relative;
+  display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-2);
-  margin-bottom: var(--sp-1);
-  border: var(--bd-hair) solid var(--line);
-  border-bottom: var(--bd-hair) solid var(--line);
+  padding: var(--sp-3);
+  min-height: 62px;
   background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition: border-color var(--d-fast) linear;
   animation: seatIn var(--d-base) var(--e-punch);
-}
-
-/* Le siège de l'hôte, et le mien, se repèrent sans lire. */
-.room__list .lobbyrow.is-host {
-  border-left: var(--bd-frame) solid var(--signal);
-}
-
-.room__list .lobbyrow:hover {
-  border-color: var(--paper-dim);
 }
 
 /* Un joueur qui arrive DOIT se voir arriver : c'est l'événement qu'on attend
@@ -2487,7 +2555,7 @@ body {
 @keyframes seatIn {
   from {
     opacity: 0;
-    transform: translateX(-10px);
+    transform: translateY(-8px);
   }
   to {
     opacity: 1;
@@ -2495,14 +2563,111 @@ body {
   }
 }
 
-.room__list .lobbyrow__name {
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
+.seat__glyph {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.room__list .lobbyrow__glyph svg {
-  width: 22px;
-  height: 22px;
+.seat__glyph svg {
+  width: 18px;
+  height: 18px;
+}
+
+.seat__id {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.seat__name {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-base);
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.seat__status {
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/* Mon siège se repère sans lire : c'est le premier repère qu'on cherche dans
+   une grille de dix. */
+.seat.is-me {
+  border-color: color-mix(in srgb, var(--signal) 60%, transparent);
+}
+
+.seat.is-host .seat__status,
+.seat.is-rookie .seat__status {
+  color: var(--signal-pale);
+}
+
+.seat.is-off {
+  opacity: 0.45;
+}
+
+/*
+ * Sourdine et exclusion.
+ *
+ * Elles ne s'adressent à personne au repos — ce sont des recours, pas des
+ * actions du salon. Elles restent posées dans le coin de la tuile, en retrait,
+ * et se réveillent au survol ou au focus. Sur écran tactile, où il n'y a pas
+ * de survol, elles restent visibles : `hover: hover` ne cible que les pointeurs
+ * qui en ont un.
+ */
+.seat__acts {
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-1);
+  display: flex;
+  gap: 2px;
+}
+
+.seat__act {
+  padding: 4px 6px;
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color var(--d-fast) linear;
+}
+
+.seat__act:hover,
+.seat__act:focus-visible {
+  color: var(--paper);
+}
+
+.seat__act--kick:hover,
+.seat__act--kick:focus-visible {
+  color: var(--dead);
+}
+
+.seat__act.is-on {
+  color: var(--signal-pale);
+}
+
+@media (hover: hover) {
+  .seat__acts {
+    opacity: 0;
+    transition: opacity var(--d-fast) linear;
+  }
+
+  .seat:hover .seat__acts,
+  .seat:focus-within .seat__acts {
+    opacity: 1;
+  }
 }
 
 /*
@@ -2521,10 +2686,20 @@ body {
     display: contents;
   }
 
+  /*
+   * L'`order` porte sur `.room__head`, JAMAIS sur `.room__title`.
+   *
+   * Le titre a été enveloppé dans une tête qui porte aussi l'effectif. Poser
+   * l'ordre sur le titre le posait donc sur un enfant de cette tête — dont le
+   * frère, l'effectif, gardait `order: 0` et passait devant. Mesuré : la
+   * rangée affichait « 6 / 10 JOUEURS » PUIS « EN ATTENTE ». C'est le piège de
+   * l'`order` partiel, déjà payé sur la grille de l'accueil : on n'en pose
+   * aucun, ou on les pose tous — ici, sur les enfants de la grille seulement.
+   */
   .room__code {
     order: 1;
   }
-  .room__title {
+  .room__head {
     order: 2;
   }
   .room__list {
@@ -2537,12 +2712,10 @@ body {
     order: 5;
   }
 
-  /* Le titre ne porte plus la marge d'un bloc : il coiffe la liste. */
-  .room__title + .room__list {
-    margin-top: 0;
-    border-top: none;
+  /* La tête ne porte plus la marge d'un bloc : elle coiffe la liste. */
+  .room__head {
+    margin-bottom: var(--sp-2);
   }
-
 }
 
 /*
@@ -2832,6 +3005,11 @@ body {
   display: none;
 }
 
+/* Vidée de son texte, elle gardait sa marge. Voir la note sur `.settings`. */
+.fineprint.hidden {
+  display: none;
+}
+
 .fineprint {
   margin-top: 22px;
   font-size: var(--t-micro);
@@ -2977,6 +3155,42 @@ body {
 
 .btn.hidden {
   display: none;
+}
+
+/*
+ * LANCER LA PARTIE.
+ *
+ * Le seul bouton du site qui termine une attente à plusieurs : tout le salon
+ * le regarde en même temps. Il prend toute la largeur de sa colonne et le
+ * double de la hauteur d'un bouton ordinaire — non pas parce qu'il est
+ * important en soi, mais parce qu'il est la dernière chose à faire, et qu'on
+ * le cherche du regard en parlant à quelqu'un d'autre.
+ *
+ * Il n'est PAS `--primary` : la surface claire du salon est déjà prise par le
+ * réglage sélectionné, et deux pleins se disputeraient l'œil. Un cadre à
+ * l'accent, sur fond sombre, se distingue sans entrer en concurrence.
+ */
+.btn--launch {
+  display: block;
+  width: 100%;
+  padding: 18px 20px;
+  background: color-mix(in srgb, var(--signal) 12%, var(--ink-2));
+  border: var(--bd-frame) solid var(--signal);
+  color: var(--paper);
+  font-size: var(--t-lire);
+  letter-spacing: 0.12em;
+}
+
+.btn--launch:hover,
+.btn--launch:focus-visible {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--ink);
+}
+
+.btn--launch:active {
+  background: var(--signal-pale);
+  color: var(--ink);
 }
 
 /*
@@ -3511,6 +3725,129 @@ button.chip:active:not(:disabled) {
 }
 
 /*
+ * Les réglages du salon en barre segmentée.
+ *
+ * Une variante, et seulement là : l'allure du brief garde ses boutons séparés
+ * et ses jauges, parce qu'elle est seule sur sa ligne et qu'elle a de la place.
+ * Ici il y a trois réglages dans une colonne de 380 px, et cinq vitesses à
+ * loger. Les options se touchent, partagent leurs bords, et l'intitulé passe
+ * AU-DESSUS plutôt qu'à côté — c'est ce qui rend la barre pleine largeur.
+ *
+ * Le choix courant reste inversé, fond plein : c'est le correctif mesuré de la
+ * soirée où trois joueurs sur quatre ne savaient pas laquelle était
+ * sélectionnée, et il ne bouge pas.
+ */
+.settings--seg .settings__row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-2);
+  padding: 0;
+  border-bottom: none;
+  margin-bottom: var(--sp-3);
+}
+
+.settings--seg .settings__label {
+  flex: 0 0 auto;
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/*
+ * Les séparateurs sont des GOUTTIÈRES, pas des bordures.
+ *
+ * Premier essai : bordure sur chaque segment, `border-left: none` sur les
+ * suivants, `nowrap`. Deux défauts mesurés en colonne étroite — les cinq
+ * libellés se chevauchaient parce que rien ne les laissait passer à la ligne,
+ * et le partage de bordure n'aurait de toute façon plus rien voulu dire une
+ * fois la barre repliée.
+ *
+ * Ici, le conteneur porte le cadre et une couleur de fond ; les segments n'ont
+ * aucune bordure et laissent voir un filet d'un pixel entre eux. Le résultat
+ * est identique tant que la barre tient sur une ligne, et reste juste quand
+ * elle se replie.
+ */
+.settings--seg .settings__opts {
+  gap: 1px;
+  flex-wrap: wrap;
+  background: var(--line);
+  border: var(--bd-hair) solid var(--line);
+}
+
+/*
+ * `1 0 auto` : la base est la largeur du LIBELLÉ, et le segment ne rétrécit
+ * jamais en dessous.
+ *
+ * Une base fixe ne marche pas — les trois groupes n'ont pas les mêmes mots.
+ * Mesuré avec `1 1 56px` : « DÉCOUV. » avait sa place, mais VIES et ROTATION,
+ * dans leurs demi-colonnes de 147 px, repliaient leur dernier chiffre sur une
+ * deuxième ligne alors que trois nombres à un chiffre y tiennent largement.
+ *
+ * En partant du contenu, chaque barre se replie exactement quand ses propres
+ * mots ne tiennent plus, et jamais avant. La croissance (`1`) les ramène
+ * ensuite à largeur égale.
+ */
+/*
+ * Base nulle pour l'égalité, plancher `max-content` pour la lisibilité.
+ *
+ * Trois tentatives, trois mesures :
+ *   · `1 1 0` seul — les segments deviennent égaux, mais rien ne les empêche
+ *     de passer sous la largeur de leur mot : les cinq vitesses se
+ *     chevauchaient en colonne étroite ;
+ *   · `1 1 56px` — base uniforme, mais les trois groupes n'ont pas les mêmes
+ *     mots : VIES repliait son dernier chiffre dans 147 px ;
+ *   · `1 0 auto` — plus de chevauchement, mais des segments inégaux (35 px
+ *     pour « 4 » contre 77 pour « JAMAIS »), dont trois sous le minimum
+ *     tactile.
+ *
+ * La base nulle rend la part égale ; le plancher `max-content` interdit
+ * d'écraser un mot et sert aussi de largeur de repli — le navigateur range les
+ * segments en fonction de cette taille, donc la barre passe à la ligne
+ * exactement quand ses propres mots ne tiennent plus.
+ */
+.settings--seg .opt {
+  flex: 1 1 0;
+  /* Défait aussi le plancher de 84 px du bouton d'option plein, qui mettait
+     les trois chiffres de VIES sur trois lignes. */
+  min-width: max-content;
+  padding: 10px 8px;
+  border: none;
+  box-shadow: none;
+}
+
+/*
+ * Deux réglages courts sur une ligne — mais pas à parts égales.
+ *
+ * VIES en a trois, ROTATION en a quatre — et « JAMAIS » réclame à lui seul
+ * 66 px quand un chiffre en demande 42. À moitié-moitié, les segments de
+ * rotation tombaient à 43 px, sous le minimum tactile de 44 ; au prorata du
+ * nombre d'options (3fr/4fr), à 42, pour la même raison — c'est le MOT long
+ * qui commande, pas le compte.
+ *
+ * `2fr 3fr` donne 137 et 206 px dans une colonne de 360 : 45 px de segment des
+ * deux côtés, et les deux barres se lisent comme une seule graduation.
+ */
+.settings__pair {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: var(--sp-3);
+}
+
+@media (max-width: 420px) {
+  .settings__pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Qui décide, dit en tête plutôt qu'en note de bas de bloc. */
+.settings__who {
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  margin-bottom: var(--sp-3);
+}
+
+/*
  * Réglages du salon : lisibles, et le choix courant sans ambiguïté.
  *
  * Retour le plus récurrent de la soirée : « trois joueurs sur quatre qui
@@ -3762,36 +4099,22 @@ button.chip:active:not(:disabled) {
 /*
  * Les quêtes.
  *
- * Une case de 12 px au trait d'un pixel : cochée ou non, l'écart se voyait à
- * peine, et une quête accomplie ne procurait rien. C'est pourtant la seule
- * récompense du jeu solo. La case grandit, le trait s'épaissit, et une quête
- * validée s'annonce sur toute sa ligne.
+ * La refonte leur avait donné une case plus grosse, une lueur, un liseré et un
+ * fond teinté sur la ligne validée. Rapporté tel quel : « ça fait très site IA
+ * générique avec les cases cochées en surbrillance ». C'est juste — quatre
+ * signaux pour dire une seule chose, cochée ou pas. Retour au modèle d'avant :
+ * une case, pleine ou vide, et le libellé barré. Rien d'autre.
  */
 .quest__box {
   flex: 0 0 auto;
-  width: 15px;
-  height: 15px;
-  border: var(--bd-thin) solid var(--paper-dim);
-  transition:
-    background var(--d-fast) linear,
-    border-color var(--d-fast) linear;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--paper-dim);
 }
 
 .quest.is-done .quest__box {
   background: var(--signal);
   border-color: var(--signal);
-  box-shadow: 0 0 12px color-mix(in srgb, var(--signal) 55%, transparent);
-}
-
-.quest.is-done {
-  border-left: var(--bd-thin) solid var(--signal);
-  padding-left: var(--sp-2);
-}
-
-/* Celle que le run vient de valider : le liseré prend toute la place. */
-.quest.is-fresh {
-  border-left-width: var(--bd-frame);
-  background: color-mix(in srgb, var(--signal) 9%, transparent);
 }
 
 .quest__label {
@@ -3896,24 +4219,21 @@ button.chip:active:not(:disabled) {
 .over__head {
   padding-bottom: var(--sp-3);
   border-bottom: var(--bd-thin) solid var(--dead);
-  /* Le filet n'est pas qu'un trait : il éclaire ce qu'il y a au-dessus, comme
-     une enseigne. C'est la couleur qu'on voit avant de lire le mot. */
-  box-shadow: 0 6px 30px -12px var(--dead);
 }
 
 #over.is-win .over__head {
   border-bottom-color: var(--ok);
-  box-shadow: 0 6px 30px -12px var(--ok);
 }
 
-/* Le compte porte l'issue avec le filet : vert si l'on a tenu, rouge sinon. */
-.tally {
-  text-shadow: 0 0 46px color-mix(in srgb, var(--dead) 55%, transparent);
-}
-
-#over.is-win .tally {
-  text-shadow: 0 0 46px color-mix(in srgb, var(--ok) 55%, transparent);
-}
+/*
+ * Pas de halo sous le filet.
+ *
+ * Il en portait un, coloré comme l'issue. Une ombre part de la BOÎTE, pas du
+ * texte : la tête fait toute la largeur de la colonne, le mot n'en occupe que
+ * le milieu, donc la lueur débordait des deux côtés et paraissait décalée sous
+ * l'écriture. Rapporté comme tel. Le filet coloré suffit à dire l'issue ; il
+ * n'a pas besoin d'être éclairé pour se voir.
+ */
 
 .verdict {
   animation: verdictIn var(--d-slow) var(--e-punch);

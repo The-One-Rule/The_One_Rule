@@ -53,6 +53,20 @@ describe("bouton d'option", () => {
     expect(off.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("en segment de barre, la jauge et la précision disparaissent", () => {
+    // Dans une barre segmentée, c'est la POSITION qui dit le rang : la jauge
+    // ferait doublon et « 1620 MS » sous cinq segments de 65 px ne tient pas.
+    // Ailleurs elle reste — d'où le drapeau, et d'où ce test.
+    const seg = optionButton(spec({ compact: true, hint: "1620 MS" }));
+    expect(seg.querySelectorAll(".opt__marks").length).toBe(0);
+    expect(seg.querySelectorAll(".opt__hint").length).toBe(0);
+    expect(seg.querySelector(".opt__label")?.textContent).toBe("NORMAL");
+
+    const plein = optionButton(spec({ hint: "1620 MS" }));
+    expect(plein.querySelectorAll(".opt__marks i").length).toBe(3);
+    expect(plein.querySelector(".opt__hint")?.textContent).toBe("1620 MS");
+  });
+
   it("transporte sa valeur et son verrouillage", () => {
     const btn = optionButton(spec({ value: "0.65", disabled: true }));
     expect(btn.dataset.value).toBe("0.65");

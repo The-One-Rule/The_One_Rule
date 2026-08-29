@@ -29,6 +29,7 @@ import { livesDots } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
 import type { PlateFlash } from "./render/plate";
+import { seatClasses, seatStatus } from "./render/seat";
 import { musicApi, sfx, unlock } from "./audio";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -185,22 +186,73 @@ function setJoinErr(msg: string | null): void {
   el.classList.remove("hidden");
 }
 
+/*
+ * Cinq vitesses dans une barre segmentée : « DÉCOUVERTE » y prendrait à lui
+ * seul deux fois la place des autres. Abrégé — le mot complet reste dans
+ * l'`aria-label`, qui n'a pas de contrainte de largeur.
+ */
 const SPEED_LABEL: Record<number, string> = {
-  1.7: "DÉCOUVERTE",
+  1.7: "DÉCOUV.",
   1.3: "LENT",
   1: "NORMAL",
   0.8: "VITE",
   0.65: "ÉCLAIR",
 };
+const SPEED_ARIA: Record<number, string> = {
+  1.7: "Découverte",
+  1.3: "Lent",
+  1: "Normal",
+  0.8: "Vite",
+  0.65: "Éclair",
+};
+/* Quatre segments dans une demi-colonne : le « × » ne survit pas, et il ne
+   manque pas — l'intitulé ROTATION est juste au-dessus. Le sens complet
+   (« toutes les N manches ») reste dans l'`aria-label`. */
 const ROTATION_LABEL: Record<number, string> = {
-  4: "×4",
-  8: "×8",
-  16: "×16",
+  4: "4",
+  8: "8",
+  16: "16",
   999: "JAMAIS",
 };
 
 function playerGlyph(p: PlayerPublic) {
   return p.glyph ?? glyphFor(p.id);
+}
+
+/**
+ * Le code du salon, une case par caractère.
+ *
+ * `textContent` sur le conteneur détruirait les cases — c'est le piège déjà
+ * payé sur les cartes de l'accueil. On reconstruit donc les enfants, et on
+ * garde toujours quatre cases : un code court laisse des cases vides plutôt
+ * qu'une rangée qui change de largeur à chaque rendu.
+ */
+function setRoomCode(code: string): void {
+  const box = $("multiLobbyCode");
+  const chars = (code || "").padEnd(4, " ").slice(0, 4).split("");
+  if (box.dataset.code === code) return;
+  box.dataset.code = code;
+  box.innerHTML = "";
+  for (const c of chars) {
+    const cell = document.createElement("span");
+    cell.className = "roomcode__char";
+    cell.textContent = c.trim() || "—";
+    box.appendChild(cell);
+  }
+}
+
+/** L'état d'un siège, tel que `render/seat.ts` l'attend. */
+function seatState(p: PlayerPublic, inMatch: boolean, myId: string) {
+  return {
+    connected: p.connected,
+    spectator: p.spectator,
+    host: p.host,
+    rookie: !!p.rookie,
+    lives: p.lives,
+    score: p.score,
+    inMatch,
+    isMe: p.id === myId,
+  };
 }
 
 function renderLobby(
@@ -213,55 +265,57 @@ function renderLobby(
   onToggleMute: (playerId: string) => void,
   onKick: (playerId: string) => void,
 ): void {
-  $("multiLobbyCode").textContent = code;
+  setRoomCode(code);
   const list = $("multiPlayers");
   list.innerHTML = "";
   const me = players.find((p) => p.id === myId);
   $<HTMLButtonElement>("btnMultiStart").classList.toggle("hidden", !me?.host || inMatch);
 
+  /*
+   * Un joueur = une tuile, pas une ligne de tableau.
+   *
+   * En lignes, le salon avait l'air d'une facture : quatre colonnes dont trois
+   * ne disent rien avant le lancement — la règle n'est pas encore tirée (elle
+   * s'affichait « — »), et les vies sont les mêmes pour tout le monde. Une
+   * tuile ne porte que ce qui distingue : le signe, le nom, et la seule
+   * mention qui s'applique.
+   */
   for (const p of players) {
-    const row = document.createElement("div");
-    row.className =
-      "lobbyrow" +
-      (p.host ? " is-host" : "") +
-      (!p.connected ? " is-off" : "");
-    const ruleName = ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
-    row.innerHTML =
-      `<span class="lobbyrow__name">` +
-      `<span class="lobbyrow__glyph"></span>` +
-      `<span class="lobbyrow__name-text"></span>` +
-      `</span>` +
-      `<span class="lobbyrow__rule"></span>` +
-      `<span class="lobbyrow__meta"></span>`;
-    row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
-    row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
-    row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent = ruleName;
-    const meta: string[] = [];
-    if (p.host) meta.push("HÔTE");
-    if (p.spectator) meta.push("SPECT.");
-    if (!p.connected) meta.push("HORS LIGNE");
-    meta.push(`♥${p.lives}`);
-    row.querySelector<HTMLElement>(".lobbyrow__meta")!.textContent = meta.join(" · ");
+    const etat = seatState(p, inMatch, myId);
+    const seat = document.createElement("div");
+    seat.className = seatClasses(etat).join(" ");
+    seat.innerHTML =
+      `<span class="seat__glyph"></span>` +
+      `<span class="seat__id">` +
+      `<span class="seat__name"></span>` +
+      `<span class="seat__status"></span>` +
+      `</span>`;
+    seat.querySelector(".seat__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 18);
+    seat.querySelector<HTMLElement>(".seat__name")!.textContent = p.name;
+    seat.querySelector<HTMLElement>(".seat__status")!.textContent = seatStatus(etat);
     if (p.id !== myId) {
       const acts = document.createElement("div");
-      acts.className = "lobbyrow__acts";
+      acts.className = "seat__acts";
       const muteBtn = document.createElement("button");
       muteBtn.type = "button";
-      muteBtn.className = "chip" + (muted.has(p.id) ? " is-on" : "");
-      muteBtn.textContent = "SOURDINE";
+      muteBtn.className = "seat__act" + (muted.has(p.id) ? " is-on" : "");
+      muteBtn.title = muted.has(p.id) ? "Réactiver ses messages" : "Couper ses messages";
+      muteBtn.setAttribute("aria-label", `${muted.has(p.id) ? "Réactiver" : "Couper"} ${p.name}`);
+      muteBtn.textContent = muted.has(p.id) ? "MUET" : "SOURDINE";
       muteBtn.addEventListener("click", () => onToggleMute(p.id));
       acts.appendChild(muteBtn);
       if (me?.host) {
         const kickBtn = document.createElement("button");
         kickBtn.type = "button";
-        kickBtn.className = "chip";
+        kickBtn.className = "seat__act seat__act--kick";
+        kickBtn.setAttribute("aria-label", `Exclure ${p.name}`);
         kickBtn.textContent = "EXCLURE";
         kickBtn.addEventListener("click", () => onKick(p.id));
         acts.appendChild(kickBtn);
       }
-      row.appendChild(acts);
+      seat.appendChild(acts);
     }
-    list.appendChild(row);
+    list.appendChild(seat);
   }
 
   /*
@@ -286,11 +340,15 @@ function renderLobby(
 
   const seul = players.length <= 1;
   $("multiLobbyTitle").textContent = seul ? "INVITE QUELQU'UN" : "EN ATTENTE";
+  // L'effectif est chiffré à côté du titre : c'est la question qu'on se pose
+  // en regardant cet écran, et elle a une réponse exacte.
+  $("multiLobbyCount").textContent = `${players.length} / ${MAX_PLAYERS} JOUEURS`;
   $("multiInviteHint").textContent = seul
-    ? "ENVOIE LE LIEN — LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE"
-    : `${players.length} JOUEURS · LIEN D'INVITATION EN UN CLIC`;
+    ? "LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE"
+    : "";
+  $("multiInviteHint").classList.toggle("hidden", !seul);
+  // Seul dans un salon, la seule action qui a du sens est d'inviter.
   $("btnMultiInvite").classList.toggle("btn--primary", seul);
-  $("btnMultiStart").classList.toggle("btn--primary", !seul);
 
   renderSettings(settings, !!me?.host, inMatch);
 }
@@ -298,6 +356,7 @@ function renderLobby(
 function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean): void {
   const box = $("multiSettings");
   box.classList.toggle("is-guest", !isHost);
+  $("settingsWho").textContent = isHost ? "RÉGLAGES · HÔTE" : "RÉGLAGES DU SALON";
   // Dire qui décide, plutôt que de laisser un invité cliquer sans effet et
   // conclure que l'interface est cassée.
   $("settingsHint").textContent = locked
@@ -337,6 +396,8 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
         selected: v === current,
         disabled: locked || !isHost,
         aria: opts.aria(v),
+        // Le salon est le seul groupe en barre segmentée : voir `compact`.
+        compact: true,
       })),
     );
   };
@@ -344,7 +405,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
   fill("optSpeed", vitesses, settings.speed, {
     label: (n) => SPEED_LABEL[n] ?? String(n),
-    aria: (n) => `Vitesse ${SPEED_LABEL[n] ?? n}`,
+    aria: (n) => `Vitesse ${SPEED_ARIA[n] ?? n}`,
     icon: "bars",
     level: (_n, i) => i + 1,
     steps: vitesses.length,
@@ -2295,7 +2356,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     show(savedName() ? "multi-join" : "home");
   });
 
-  $("multiLobbyCode").addEventListener("click", () => {
+  $("btnMultiCopyCode").addEventListener("click", () => {
     if (!roomCode) return;
     sfx.ui();
     const hint = $("multiLobbyCodeHint");
@@ -2364,9 +2425,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     net?.startMatch();
   });
 
+  // Les deux copies rendent compte au MÊME endroit, sous les deux boutons :
+  // un retour qui s'affiche loin du geste n'est pas vu.
   $("btnMultiInvite").addEventListener("click", () => {
     sfx.ui();
-    void copyInvite("multiInviteHint");
+    void copyInvite("multiLobbyCodeHint");
   });
 
   $("btnMultiEndInvite").addEventListener("click", () => {
