@@ -72,8 +72,12 @@ function client(name, key, rookie = false) {
       if (m.rules) c.rules = m.rules;
       const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
       /*
-       * CHLOE ne répond jamais (elle sert aux timeouts) et GAUCHER est piloté
-       * à la main par son scénario.
+       * CHLOE ne répond jamais (elle sert aux timeouts), et tout client
+       * marqué `manuel` est piloté par son scénario.
+       *
+       * Le marquage se fait sur l'OBJET, plus sur le nom : depuis que le pool
+       * de règles est permuté par match, on ne sait plus à l'avance lequel des
+       * clients portera LE GAUCHER — il faut le découvrir au démarrage.
        *
        * GAUCHER a coûté deux « E2E : 1 échec(s) » sans nom. Le pilote
        * automatique clique la première pièce satisfaisant la consigne — qui
@@ -83,7 +87,7 @@ function client(name, key, rookie = false) {
        * INTERDITE » était le verdict d'un clic que le scénario n'avait pas
        * envoyé. Le jeu avait raison, le test se trompait de coupable.
        */
-      if (!rule || name === "CHLOE" || name === "GAUCHER") return;
+      if (!rule || name === "CHLOE" || c.manuel) return;
       const round = buildMultiRound(c.seed, m.idx, rule);
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
@@ -293,30 +297,39 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 // il est assure de perdre ». On rejoue ici le chemin complet — vrai serveur,
 // vrai client ws — sur une piece situee hors de la zone.
 {
-  const { MatchLogic: ML } = await import("./server/match.ts");
   const { draftShared, applyRule } = await import("./src/engine/multiround.ts");
   const { ONE_RULES: RULES } = await import("./src/engine/rules/index.ts");
   const gaucher = RULES.find((r) => r.id === "gaucher");
 
-  // L'ordre des sieges suit l'ordre d'arrivee, et rulesAt(0) distribue
-  // MULTI_RULES dans l'ordre : le QUATRIEME arrivant porte LE GAUCHER des la
-  // manche 0. Aucune attente de rotation, donc aucun aleatoire.
-  const rangGaucher = new ML(1, ["a", "b", "c", "d"]);
-  const porteur = [...rangGaucher.rulesAt(0).entries()].find(([, r]) => r.id === "gaucher")?.[0];
-  ok(porteur === "d", `le 4e siege porte LE GAUCHER des la manche 0 (got ${porteur})`);
-
+  // Le porteur se DECOUVRE, il ne se suppose pas — et a effectif plein, sa
+  // presence est garantie.
+  //
+  // Ce bloc affirmait « le 4e arrivant porte LE GAUCHER des la manche 0 »,
+  // parce que rulesAt indexait MULTI_RULES par l'ordre des sieges sans jamais
+  // toucher a la graine. C'etait le defaut lui-meme transforme en assertion :
+  // le siege 0 recevait LE SANG a chaque match, a vie.
+  //
+  // Le pool est desormais permute par match. Mais MULTI_RULES compte DIX
+  // regles et un salon accepte DIX joueurs : a effectif plein, rulesAt
+  // distribue une bijection — chaque regle tombe exactement une fois. LE
+  // GAUCHER est donc present a coup sur, quelle que soit la permutation, et un
+  // seul salon suffit. Rien a retirer, rien d'aleatoire.
   const eq = [];
-  for (const n of ["G1", "G2", "G3", "GAUCHER"]) eq.push(await client(n, "cle-" + n));
+  for (let i = 0; i < 10; i++) eq.push(await client("G" + i, "cle-G" + i));
   eq[0].ws.send(JSON.stringify({ t: "create" }));
   await sleep(250);
   const code = eq[0].room.code;
-  for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(180); }
+  for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(120); }
   await sleep(300);
   eq[0].ws.send(JSON.stringify({ t: "start" }));
-  await sleep(APRES_DEPART);
-
-  const cible = eq[3];
-  ok(cible.rules[cible.id] === "gaucher", "le 4e client porte bien LE GAUCHER");
+  // Assez tot pour marquer le porteur AVANT la premiere manche : le compte a
+  // rebours dure COUNTDOWN_MS, et rien n'est joue pendant ce temps.
+  await sleep(500);
+  const cible = eq.find((c) => c.rules[c.id] === "gaucher");
+  ok(!!cible, "un siege porte LE GAUCHER (bijection a effectif plein)");
+  // Le pilote automatique le laisse tranquille : son scenario le conduit.
+  cible.manuel = true;
+  await sleep(APRES_DEPART - 500);
 
   // Il clique la piece la PLUS A DROITE a chaque manche. Ce sera souvent la
   // mauvaise cible — peu importe : on verifie seulement que le motif de mort

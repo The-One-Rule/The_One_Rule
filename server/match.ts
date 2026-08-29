@@ -9,6 +9,7 @@
  */
 
 import { ONE_RULES } from "../src/engine/rules";
+import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared } from "../src/engine/multiround";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import type { SharedRound } from "../src/engine/multiround";
@@ -42,6 +43,16 @@ import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol
 export const MULTI_RULES: OneRule[] = ONE_RULES.filter(
   (r) => !r.watchRelease && r.id !== "voyelle",
 );
+
+/**
+ * Décalage de graine pour le tirage des règles.
+ *
+ * Le même nombre sert déjà à tirer les scènes (`draftShared`). Deux usages
+ * d'une même graine se corrèlent : ici sans conséquence visible, mais c'est
+ * exactement le genre de couplage qui rend un défaut indébuggable six mois
+ * plus tard. Une constante suffit à les séparer.
+ */
+const SEL_REGLES = 0x9e3779b9 | 0;
 
 export interface SeatStats {
   /** Première réaction de chaque manche réussie. On garde les mesures, pas
@@ -101,6 +112,26 @@ export class MatchLogic {
   readonly seats: Seat[];
   readonly settings: RoomSettings;
   roundIdx = -1;
+  /**
+   * Le pool de règles, permuté pour CE match.
+   *
+   * Il ne l'était pas, et le défaut était invisible à la lecture : `rulesAt`
+   * indexait `MULTI_RULES` directement par `(siège + shift)`, sans jamais
+   * toucher à la graine — alors que le commentaire de la méthode annonçait
+   * « fonction pure de (graine, manche, siège) ». Le siège 0 recevait donc
+   * `MULTI_RULES[0]`, c'est-à-dire LE SANG, à la manche 0 de CHAQUE match, à
+   * vie. Et comme le siège est l'ordre d'arrivée, l'hôte l'avait toujours.
+   *
+   * Mesuré sur cinq graines différentes avant correctif : attribution
+   * rigoureusement identique les cinq fois. Rapporté depuis le jeu — « le sang
+   * qui revient plusieurs fois d'affilé ». C'est la même maladie que la boucle
+   * fermée de l'entraînement au jour 2, sur l'autre chemin.
+   *
+   * La permutation est tirée une fois, dans le constructeur : `rulesAt` est
+   * appelée à chaque manche et à chaque reconnexion, et `rShuffle` rend une
+   * COPIE — `MULTI_RULES` reste intact d'un match à l'autre.
+   */
+  private readonly pool: OneRule[];
   /** Fenêtre réelle : courbe moteur × speed × tension, bornée par MIN/MAX_ROUND_MS. */
   private roundDurationMs = 0;
   private shared: SharedRound | null = null;
@@ -115,6 +146,7 @@ export class MatchLogic {
   ) {
     this.seed = seed;
     this.settings = settings;
+    this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), MULTI_RULES);
     this.seats = playerIds.map((id, i) => {
       const rookie = rookies.has(id);
       return {
@@ -136,15 +168,24 @@ export class MatchLogic {
    * Chaque siège reçoit une règle différente tant que le pool le permet, et
    * l'attribution TOURNE d'un cran toutes les `rotationEvery` manches : au
    * moment où un joueur a intégré sa contrainte, elle change de mains.
-   * Fonction pure de (graine, manche, siège) : serveur et clients calculent
-   * la même chose sans échange.
+   *
+   * L'index parcourt `this.pool` — le pool PERMUTÉ pour ce match — et non
+   * `MULTI_RULES`. C'est toute la différence entre « ta règle dépend de ton
+   * ordre d'arrivée, à vie » et « ta règle change à chaque partie ». Le
+   * décalage d'un cran par rotation est conservé : c'est lui qui fait passer
+   * une contrainte de mains, et il garde son sens dans un pool permuté.
+   *
+   * L'attribution est TRANSMISE, pas recalculée par le client (`msg.rules`,
+   * voir `server/index.ts`). Elle peut donc changer sans risque de désaccord
+   * entre les deux — un aperçu qui contredirait le verdict serait le seul
+   * défaut tenu pour fatal.
    */
   rulesAt(idx: number): Map<string, OneRule> {
     const every = Math.max(1, this.settings.rotationEvery);
     const shift = Math.floor(idx / every);
     const out = new Map<string, OneRule>();
     for (const s of this.seats) {
-      const rule = MULTI_RULES[(s.seat + shift) % MULTI_RULES.length]!;
+      const rule = this.pool[(s.seat + shift) % this.pool.length]!;
       out.set(s.id, rule);
     }
     return out;

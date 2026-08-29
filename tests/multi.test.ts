@@ -15,15 +15,39 @@ import {
   STATS_MIN_SAMPLES,
 } from "../shared/protocol";
 
-/** Joue parfaitement la manche ouverte (silence sur piège). */
+/**
+ * Joue parfaitement la manche ouverte (silence sur piège).
+ *
+ * TOUTES les étapes, pas seulement la première. Elle n'en jouait qu'une, et
+ * s'appelait déjà « parfaitement » : ça ne tenait que parce que l'attribution
+ * des règles était figée et donnait aux sièges 0 et 1 deux règles à une seule
+ * action. Sous LE JUMEAU — chaque geste deux fois — la moitié de la séquence
+ * manquait et le joueur mourait. Le correctif de l'attribution a révélé cette
+ * aide qui passait par chance ; trois tests de statistiques en dépendaient.
+ *
+ * Les étapes suivantes sont jouées une milliseconde plus tard : la réaction
+ * retenue est celle du PREMIER geste, donc les assertions sur `reaction`
+ * gardent la valeur qu'on leur passe.
+ *
+ * Et le clic porte la position de SA PIÈCE, `ent.x/ent.y`. Elle passait
+ * `x: 0, y: 0` — c'est-à-dire l'angle du terrain, en pleine zone interdite de
+ * LE GAUCHER, qui juge sur la position. Le siège 0 ne recevait jamais cette
+ * règle tant que l'attribution était figée ; dès qu'il l'a reçue, l'aide a
+ * tué le joueur trois manches sur quatre. C'est ainsi que le vrai chemin
+ * fonctionne — le fil ne transporte qu'un index de pièce, et le serveur
+ * reconstruit la position depuis l'entité.
+ */
 function playPerfect(m: MatchLogic, id: string, atMs = 300): void {
   const rule = m.rulesAt(m.roundIdx).get(id)!;
   const round = buildMultiRound(m.seed, m.roundIdx, rule);
-  if (round.steps.length === 0) return;
-  const step = round.steps[0]!;
-  if (step.kind === "click") m.input(id, m.roundIdx, { kind: "click", ent: round.ents[step.idx]!, x: 0, y: 0 }, atMs);
-  else if (step.kind === "key") m.input(id, m.roundIdx, { kind: "key", key: step.key }, atMs);
-  else m.input(id, m.roundIdx, { kind: "click", ent: round.ents[0] ?? null, x: 900, y: 10 }, atMs);
+  round.steps.forEach((step, i) => {
+    const t = atMs + i;
+    if (step.kind === "click") {
+      const ent = round.ents[step.idx]!;
+      m.input(id, m.roundIdx, { kind: "click", ent, x: ent.x, y: ent.y }, t);
+    } else if (step.kind === "key") m.input(id, m.roundIdx, { kind: "key", key: step.key }, t);
+    else m.input(id, m.roundIdx, { kind: "click", ent: round.ents[0] ?? null, x: 900, y: 10 }, t);
+  });
 }
 
 /** Force une mort sur la manche ouverte (mauvais clic). */
@@ -93,6 +117,70 @@ describe("logique de match", () => {
 
   it("exclut la contrainte de maintien du pool multijoueur", () => {
     expect(MULTI_RULES.some((r) => r.watchRelease)).toBe(false);
+  });
+
+  /*
+   * Le défaut rapporté depuis le jeu : « le sang qui revient plusieurs fois
+   * d'affilé en multijoueur ».
+   *
+   * `rulesAt` indexait `MULTI_RULES` par `(siège + shift)` sans jamais toucher
+   * à la graine. Le siège 0 recevait donc `MULTI_RULES[0]` — LE SANG — à la
+   * manche 0 de CHAQUE match, et le siège est l'ordre d'arrivée : l'hôte
+   * l'avait toujours. Cinq graines différentes donnaient la même attribution.
+   *
+   * Le test porte sur la PROPRIÉTÉ, pas sur la permutation : il ne vérifie
+   * jamais qu'une graine donnée produit telle règle, ce qui figerait
+   * l'implémentation. Il vérifie que l'attribution dépend de la graine, et
+   * qu'aucun siège n'est prisonnier d'une règle.
+   */
+  it("l'attribution dépend de la graine, et non du seul ordre d'arrivée", () => {
+    const premiere = (graine: number) => new MatchLogic(graine, ids).rulesAt(0).get("a")!.id;
+    const graines = [1, 7, 42, 424242, 31337, 999999, 2024, 5, 88, 12345];
+    const vues = new Set(graines.map(premiere));
+
+    // Avant correctif : `vues.size === 1`, et toujours "sang".
+    expect(vues.size, `le siège 0 ne voit que ${[...vues].join(", ")}`).toBeGreaterThan(1);
+  });
+
+  it("aucune règle n'est structurellement privilégiée sur un siège", () => {
+    // Sur un large échantillon de matchs, la première règle du siège 0 doit
+    // se répartir sur tout le pool — pas se concentrer sur une seule.
+    const compte = new Map<string, number>();
+    for (let graine = 1; graine <= 400; graine++) {
+      const id = new MatchLogic(graine * 7919, ids).rulesAt(0).get("a")!.id;
+      compte.set(id, (compte.get(id) ?? 0) + 1);
+    }
+    expect(compte.size, "toutes les règles doivent pouvoir tomber au siège 0").toBe(
+      MULTI_RULES.length,
+    );
+    // Aucune ne doit rafler plus du quart des matchs : à 10 règles, l'espérance
+    // est 10 %. Le seuil est large exprès — on refuse un biais structurel, pas
+    // une fluctuation.
+    const max = Math.max(...compte.values());
+    expect(max / 400, `la plus fréquente sort ${((max / 400) * 100).toFixed(0)} %`).toBeLessThan(
+      0.25,
+    );
+  });
+
+  it("un même match garde son attribution stable d'un appel à l'autre", () => {
+    // `rulesAt` est appelée à chaque manche ET à chaque reconnexion : deux
+    // appels pour la même manche doivent rendre la même chose, sinon un
+    // joueur qui revient se voit attribuer une autre règle que les autres
+    // ne lui voient.
+    const m = new MatchLogic(31337, ids);
+    for (const idx of [0, 3, ROTATION_EVERY, ROTATION_EVERY * 2 + 1]) {
+      const a = [...m.rulesAt(idx)].map(([k, v]) => `${k}=${v.id}`).join();
+      const b = [...m.rulesAt(idx)].map(([k, v]) => `${k}=${v.id}`).join();
+      expect(a).toBe(b);
+    }
+  });
+
+  it("la permutation d'un match ne contamine pas le suivant", () => {
+    // `rShuffle` rend une copie ; si un jour quelqu'un permute sur place,
+    // `MULTI_RULES` dériverait de match en match et ce test tomberait.
+    const avant = MULTI_RULES.map((r) => r.id).join();
+    for (let g = 1; g <= 50; g++) new MatchLogic(g, ids).rulesAt(0);
+    expect(MULTI_RULES.map((r) => r.id).join()).toBe(avant);
   });
 
   it("fait vivre un match complet : vies, éliminations, vainqueur", () => {
@@ -246,6 +334,29 @@ describe("logique de match", () => {
 });
 
 describe("statistiques de siège", () => {
+  /**
+   * Un match dont le siège 0 porte la règle demandée.
+   *
+   * Ces tests mesurent des STATISTIQUES — médiane de réaction, séries, pièges
+   * déjoués — et il leur faut pour ça une règle qui ne contraigne ni le moment
+   * ni la position du geste : sous LA SECONDE, agir à 100 ms est une mort ;
+   * sous LE GAUCHER, la position compte ; sous L'ÉCLAIR, les pièges se font
+   * attendre au-delà de la fin du match.
+   *
+   * Ils prenaient jusqu'ici ce que l'attribution leur donnait, sans le dire —
+   * ce qui marchait tant qu'elle était figée sur LE SANG. Elle dépend
+   * désormais de la graine : la dépendance devient explicite plutôt que
+   * chanceuse, et le jour où LE SANG changera de nature, l'échec dira lequel
+   * des deux a bougé.
+   */
+  function matchAvec(regleId: string, ids: string[]): MatchLogic {
+    for (let g = 1; g < 5000; g++) {
+      const m = new MatchLogic(g, ids);
+      if (m.rulesAt(0).get(ids[0]!)!.id === regleId) return m;
+    }
+    throw new Error(`aucune graine ne donne « ${regleId} » au siège 0`);
+  }
+
   /** Ouvre des manches jusqu'à en avoir une non-piège pour `id`, puis joue. */
   function surviveAt(m: MatchLogic, id: string, atMs: number, otherIds: string[]): boolean {
     for (let guard = 0; guard < 80; guard++) {
@@ -266,7 +377,7 @@ describe("statistiques de siège", () => {
   }
 
   it("ne retient que les manches réussies dans la médiane (pas les morts)", () => {
-    const m = new MatchLogic(9001, ["a", "b"]);
+    const m = matchAvec("sang", ["a", "b"]);
     expect(surviveAt(m, "a", 100, ["b"])).toBe(true);
     expect(surviveAt(m, "a", 500, ["b"])).toBe(true);
     // mort à 200 ms : ne doit pas entrer dans reactions
@@ -281,7 +392,7 @@ describe("statistiques de siège", () => {
   });
 
   it("laisse reaction à null sous STATS_MIN_SAMPLES, puis une médiane", () => {
-    const m = new MatchLogic(9002, ["a", "b"]);
+    const m = matchAvec("sang", ["a", "b"]);
     expect(surviveAt(m, "a", 120, ["b"])).toBe(true);
     expect(m.statsOf("a").reaction).toBeNull();
     expect(surviveAt(m, "a", 180, ["b"])).toBe(true);
@@ -292,7 +403,7 @@ describe("statistiques de siège", () => {
   });
 
   it("repart la série à zéro à la mort et conserve bestStreak", () => {
-    const m = new MatchLogic(9003, ["a", "b"]);
+    const m = matchAvec("sang", ["a", "b"]);
     expect(surviveAt(m, "a", 200, ["b"])).toBe(true);
     expect(surviveAt(m, "a", 200, ["b"])).toBe(true);
     expect(m.statsOf("a").streak).toBeGreaterThanOrEqual(2);
@@ -310,7 +421,7 @@ describe("statistiques de siège", () => {
   });
 
   it("ne compte trapsAvoided que sur survive avec trap", () => {
-    const m = new MatchLogic(9004, ["a", "b"]);
+    const m = matchAvec("sang", ["a", "b"]);
     let traps = 0;
     for (let guard = 0; guard < 200 && traps < 1; guard++) {
       m.openRound();

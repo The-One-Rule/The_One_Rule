@@ -410,13 +410,28 @@ qu'un index de pièce, jamais de coordonnées ni de durée personnelle. **Toute
 règle nouvelle ou modifiée doit être pensée à travers le fil.**
 `tests/rules.test.ts` couvre les propriétés qui comptent.
 
+**Un test ne doit jamais dépendre en silence de QUELLE règle tombe où.**
+L'attribution multijoueur a été figée pendant des mois — siège 0 = LE SANG, à
+vie — et quatre tests plus une assertion e2e s'y étaient adossés sans le dire.
+Les corriger a révélé deux aides qui passaient par chance : `playPerfect` ne
+jouait que la PREMIÈRE étape (mortel sous LE JUMEAU) et posait `x: 0, y: 0`
+comme position de clic (mortel sous LE GAUCHER, qui interdit `x < 200`).
+
+Deux façons propres de s'en passer, toutes deux en place :
+
+- **nommer la règle dont on a besoin** — `matchAvec("sang", …)` cherche une
+  graine qui la donne au siège 0, et le test dit alors ce qu'il exige ;
+- **jouer à effectif plein** — dix règles au pool, dix sièges au maximum, donc
+  `rulesAt` distribue une bijection : à dix joueurs, chaque règle tombe
+  exactement une fois. C'est ce qui rend le scénario GAUCHER de l'e2e
+  déterministe sans rien tirer au sort.
+
 ---
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. Dernier commit `981ca61`, **déployé**.
-**Vérification** : `tsc` · 203 tests (22 fichiers) · e2e 64 assertions ·
-`vite build` — tous verts.
+**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 207 tests
+(22 fichiers) · e2e 63 assertions · `vite build` — tous verts.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
