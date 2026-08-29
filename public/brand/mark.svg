@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="The One Rule">
+  <title>The One Rule</title>
+  <rect x="6" y="6" width="84" height="84" rx="18" fill="none" stroke="#efeae0" stroke-width="6"></rect>
+  <circle cx="48" cy="48" r="19" fill="#9184d9"></circle>
+  <line x1="16" y1="80" x2="80" y2="16" stroke="#efeae0" stroke-width="6" stroke-linecap="butt"></line>
+</svg>

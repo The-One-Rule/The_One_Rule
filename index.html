@@ -6,6 +6,53 @@
     <meta name="theme-color" content="#0E1520" />
     <title>THE ONE RULE</title>
     <meta name="description" content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute." />
+
+    <!-- ONGLET ET ÉCRAN D'ACCUEIL.
+         Le signe est un panneau d'interdiction reconstruit avec le vocabulaire
+         du jeu : le cadre est la règle, le disque est une pièce, la barre est
+         le refus. Voir public/brand/README.md pour la géométrie et les
+         interdits — l'accent ne porte QUE le disque.
+
+         Le SVG d'abord : il reste net à toutes les tailles. Le PNG de 32 px
+         n'est qu'un repli pour les navigateurs qui ignorent `image/svg+xml`.
+         Les chemins sont relatifs, pas absolus : le dépôt sait aussi produire
+         un fichier autonome (`inline.mjs`) qu'on ouvre sans serveur. -->
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="alternate icon" href="./favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./site.webmanifest" />
+
+    <!-- CARTE DE PARTAGE.
+         Le lien d'invitation est le seul chemin pour faire venir quelqu'un à
+         distance — le code, lui, se dicte de vive voix. Il s'affichait nu.
+
+         `og:image` exige une URL ABSOLUE : un chemin relatif ou une data-URI
+         ne sont pas résolus par les robots qui fabriquent l'aperçu. Le domaine
+         est donc écrit en dur, et il faut le corriger ici si le site déménage.
+         Corollaire : la vignette n'apparaît qu'une fois le site déployé. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="The One Rule" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:title" content="THE ONE RULE" />
+    <meta
+      property="og:description"
+      content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."
+    />
+    <meta property="og:url" content="https://the-one-rule-rho.vercel.app/" />
+    <meta property="og:image" content="https://the-one-rule-rho.vercel.app/og.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The One Rule — le signe et le nom sur fond nocturne." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="THE ONE RULE" />
+    <meta
+      name="twitter:description"
+      content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."
+    />
+    <meta name="twitter:image" content="https://the-one-rule-rho.vercel.app/og.png" />
+    <meta name="twitter:image:alt" content="The One Rule — le signe et le nom sur fond nocturne." />
   </head>
   <body>
     <div id="app">
