@@ -135,13 +135,21 @@ src/
     verify, difficulty (windowMs, windowForSteps, STEP_MS)
   game/        daily (ruleOfDay, trainingRule), session, quests, progress, replay
   net/         NetClient + ServerClock + glyphes, zéro DOM
-  render/      scene (canvas), hud, layout (PUR et testé), option, plate
+  render/      scene (canvas), hud, layout (PUR et testé), option, plate, seat
   ranked/      elo, antibot, client
   analytics/   file groupée, sendBeacon, transport injectable
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
 api/           fonctions edge Vercel : collect, ranked
+public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
+  brand/       le kit d'identité d'origine, son README et ses tokens
 scripts/       pull, report, check-deploy, check-salons
 ```
+
+**`render/plate.ts` et `render/seat.ts` sont purs et testés** pour la même
+raison : ils portent des PRIORITÉS, et une priorité écrite en `if` successifs
+est le genre de code qui se lit juste et se comporte faux. `plate.ts` a été
+extrait après un vrai bug (le statut de débutant écrasait le verdict de la
+manche). Toute nouvelle composition d'états doit suivre ce chemin.
 
 **Contrainte structurante : `engine/` est pur.** C'est ce qui permet à
 `verify.ts` de rejouer un run côté serveur et au multi de reconstruire les
@@ -262,11 +270,35 @@ gouttière mesurée à 64).
   refuse tout élément masqué sans règle qui le masque.
 - **Un `order` sur une partie seulement des enfants d'une grille** renvoie les
   autres (`order: 0` implicite) devant. N'en pose aucun, ou pose-les tous.
+  Payé une seconde fois en enveloppant `.room__title` dans `.room__head` : la
+  règle visait alors un enfant dont le frère passait devant, et le salon
+  affichait « 6 / 10 JOUEURS » PUIS « EN ATTENTE ». **Poser l'`order` sur
+  l'enfant de la grille, jamais sur un descendant.**
 - **`animation-fill-mode: backwards` + `prefers-reduced-motion`** : neutraliser
   l'animation sans remettre `opacity: 1` laisse l'élément **invisible**.
 - **Ne jamais écrire `textContent` sur une carte** (`#btnDaily`, `#btnMulti`,
   `#btnTraining`, `#btnRanked`) : ce sont des `<button>` à trois `<span>`, et
-  l'écriture les détruit. `tests/cartes.test.ts` le refuse.
+  l'écriture les détruit. `tests/cartes.test.ts` le refuse. Même piège sur
+  `#multiLobbyCode`, qui porte maintenant quatre cases : passer par
+  `setRoomCode()`.
+- **`1fr` n'est pas `minmax(0, 1fr)`.** Le minimum d'une piste `1fr` est le
+  `min-content` de son plus large élément : mesuré, la barre des vitesses en
+  réclamait 273 px et la piste passait à 273 dans un conteneur de 189 — tout
+  sortait d'une zone qui ne défile qu'en vertical. Même famille : un élément
+  flexible ne rétrécit pas sous son contenu sans `min-width: 0`.
+- **Une barre segmentée se règle en `flex: 1 1 0` + `min-width: max-content`.**
+  Trois essais mesurés avant d'y arriver : base nulle seule → les libellés se
+  chevauchent ; base fixe → les groupes courts se replient pour rien ; `1 0
+  auto` → segments inégaux, dont trois sous les 44 px tactiles. La base nulle
+  donne la part égale, le plancher `max-content` interdit d'écraser un mot et
+  sert de largeur de repli.
+- **`aspect-ratio` + un plancher de taille** impose la dimension croisée : sur
+  les cases du code, `aspect-ratio: 1` avec `min-height: 56px` forçait 56 px de
+  large chacune, donc 248 px de rangée qui débordait. Hauteur fixe, largeur
+  libre.
+- **Une ombre part de la BOÎTE, pas du texte.** Un halo posé sous le filet de
+  l'écran de fin débordait des deux côtés du mot, puisque la tête fait toute la
+  largeur de la colonne. Rapporté comme « mal centré ». Supprimé.
 
 ---
 
@@ -309,6 +341,8 @@ gouttière mesurée à 64).
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 12 règles ; 45 combinaisons possibles à deux règles |
 | Pièces sans dépense | `st.coins` s'accumule et ne sert à rien |
+| Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
+| Couleur sans second canal | les pièces ne se distinguent que par la teinte, et garance/jade est la collision classique du daltonisme rouge-vert. Voir la note en §12 |
 
 ---
 
@@ -362,31 +396,66 @@ règle nouvelle ou modifiée doit être pensée à travers le fil.**
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. Dernier commit `d453dce`.
-**Vérification** : `tsc` · 187 tests (20 fichiers) · e2e 64 assertions ·
-`vite build` — tous verts. **Rien n'est déployé** depuis la refonte.
+**Branche** `master`, propre, poussée. Dernier commit `981ca61`, **déployé**.
+**Vérification** : `tsc` · 203 tests (22 fichiers) · e2e 64 assertions ·
+`vite build` — tous verts.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
 site (5 bugs) · écran de perte de vie · échelle typographique · salon adaptatif
-· correctifs du playtest jour 2 · **refonte UI en trois passes**.
+· correctifs du playtest jour 2 · refonte UI en trois passes · **direction
+artistique (le terrain devient une surface)** · **salon reconstruit sur
+maquette** · **identité de marque**.
+
+### Le canvas a été touché, une fois
+
+Il ne l'avait jamais été. Le terrain est désormais une surface à lui (`SOL
+#111A28`, trame de points tous les 50) et chaque pièce reçoit trois passes :
+ombre portée, couleur pleine, arête de lumière. **`fieldRect()` est inchangé**
+— mesuré `{x:24, y:30, w:952, h:400}` avant et après. C'est la condition : la
+géométrie de test de collision ne bouge pas, l'habillage est décoratif.
+
+Les pièces restent des **aplats de couleur**. C'est là qu'il faut regarder si
+l'impression « prototype » persiste, et c'est aussi ce qui rend le mode
+daltonien nécessaire (voir ci-dessous).
 
 ### Ce qui n'a pas été fait, et pourquoi
 
-- **Le canvas** — pièces, grille, couleurs, animations de scène — n'a jamais
-  été touché : il relève du rendu de jeu. Si l'impression « prototype »
-  persiste après la refonte, c'est là qu'il faut regarder.
 - **La montée de tension n'a pas pu être vue en conditions réelles** : le volet
   ne compose pas de frames. Les états cibles sont vérifiés, le ressenti non.
 - **L'onboarding** n'a pas été traité directement. Le pari est que l'ouverture
   du catalogue d'entraînement en règle une bonne partie — un joueur qui
   découvre une règle différente à chaque partie apprend le jeu en jouant. **À
   vérifier au prochain playtest avant d'ajouter quoi que ce soit.**
+- **Toute la refonte UI n'a JAMAIS été vue par un joueur.** Deux playtests l'ont
+  informée, aucun ne l'a validée. Le point le plus suspect : les réglages du
+  salon ont perdu leurs jauges et leurs « 1620 MS » au profit d'une barre
+  segmentée, sur la foi d'une maquette — alors que ces jauges venaient d'un
+  problème mesuré (trois joueurs sur quatre ne savaient pas régler la vitesse).
 
-### Les deux choses qui manquent vraiment
+### Le pari central du pivot a reçu sa réponse, et elle est NON
 
-1. **Le pari central du pivot n'a jamais été testé** : *le chat vit-il pendant
-   les kill-cams ?* Il faut 3-4 joueurs minimum (à 2, il n'y a pas de kill-cam).
-2. **Une session avec des inconnus**, et le rapport du jour 3 — qui sera enfin
-   lisible, puisque la difficulté par règle portera sur douze règles au lieu
-   d'une.
+*Le chat vit-il pendant les kill-cams ?* Rapporté après usage : « les joueurs
+sont tellement focus et le temps court qu'ils **soufflent** pendant la pause
+plutôt que de s'intéresser au chat, ils discutent ». La pause est un moment de
+respiration, pas un moment de lecture.
+
+Ça ne condamne pas la bande de chat — elle sert le salon **avant** la partie —
+mais ça retire sa justification à tout ce qui viserait à l'animer **pendant**.
+Ne pas reconstruire ce pari sans nouvelle preuve.
+
+### Ce qui manque vraiment
+
+**Une session avec des inconnus**, et le rapport du jour 3 — qui sera enfin
+lisible, puisque la difficulté par règle portera sur douze règles au lieu
+d'une. Un chiffre y est réfutable : les **39,4 % de morts par dépassement de
+temps**. La fenêtre tient maintenant compte du nombre d'actions ; si ce nombre
+n'a pas bougé, le correctif était faux.
+
+### Backlog en cours d'arbitrage
+
+1. **Mode daltonien.** Garance `#F74058` et jade `#40F7C0` sont la collision
+   classique du daltonisme rouge-vert (~6 % des hommes en deutéranomalie), et
+   ce sont exactement les deux couleurs qui portent LE SANG et le couple
+   vie/mort. La couleur n'est pas décorative ici, **c'est de l'état de jeu**.
+2. **Salons publics**, à la manière de BombParty — rejoindre sans code.
