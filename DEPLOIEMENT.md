@@ -59,11 +59,20 @@ refuse toute connexion navigateur en production — c'est volontaire, et c'est
 testé (`tests/origin.test.ts`) :
 
 ```bash
-fly secrets set ALLOWED_ORIGINS="https://ton-front.vercel.app"
+fly secrets set ALLOWED_ORIGINS="https://www.theonerule.party,https://theonerule.party,https://the-one-rule-rho.vercel.app"
 ```
 
 Plusieurs origines se séparent par des virgules. L'URL WebSocket à donner au
 front est la même qu'au-dessus, en `wss://` : `wss://ton-app.fly.dev`.
+
+**Chaque domaine ajouté doit repasser ici.** C'est la panne la plus sournoise
+du projet : le solo continue de tourner, seul le multijoueur tombe, et le
+message ressemble à une panne de serveur. Vérifié en une commande, depuis la
+racine du dépôt :
+
+```bash
+node -e "import('ws').then(({default:W})=>{const w=new W('wss://the-one-rule-salons.fly.dev',{origin:'https://www.theonerule.party'});w.on('open',()=>{console.log('ACCEPTE');w.close()});w.on('unexpected-response',(_q,r)=>console.log('REFUSE',r.statusCode))})"
+```
 
 Le journal de démarrage dit lequel des deux cas s'applique — il affiche soit la
 liste des origines autorisées, soit un avertissement explicite.

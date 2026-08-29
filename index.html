@@ -29,7 +29,11 @@
          `og:image` exige une URL ABSOLUE : un chemin relatif ou une data-URI
          ne sont pas résolus par les robots qui fabriquent l'aperçu. Le domaine
          est donc écrit en dur, et il faut le corriger ici si le site déménage.
-         Corollaire : la vignette n'apparaît qu'une fois le site déployé. -->
+         Corollaire : la vignette n'apparaît qu'une fois le site déployé.
+
+         C'est `www` et non l'apex : `theonerule.party` répond 308 vers
+         `www.theonerule.party`. Annoncer l'apex ferait passer chaque robot
+         d'aperçu par une redirection, que tous ne suivent pas. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="The One Rule" />
     <meta property="og:locale" content="fr_FR" />
@@ -38,8 +42,8 @@
       property="og:description"
       content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."
     />
-    <meta property="og:url" content="https://the-one-rule-rho.vercel.app/" />
-    <meta property="og:image" content="https://the-one-rule-rho.vercel.app/og.png" />
+    <meta property="og:url" content="https://www.theonerule.party/" />
+    <meta property="og:image" content="https://www.theonerule.party/og.png" />
     <meta property="og:image:type" content="image/png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -51,7 +55,7 @@
       name="twitter:description"
       content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."
     />
-    <meta name="twitter:image" content="https://the-one-rule-rho.vercel.app/og.png" />
+    <meta name="twitter:image" content="https://www.theonerule.party/og.png" />
     <meta name="twitter:image:alt" content="The One Rule — le signe et le nom sur fond nocturne." />
   </head>
   <body>

@@ -348,15 +348,33 @@ gouttière mesurée à 64).
 
 ## 10. Déploiement et mesure
 
-Front **Vercel** (`the-one-rule-rho.vercel.app`) · salons **Fly**
+Front **Vercel**, servi sur **`www.theonerule.party`** (l'apex répond 308 vers
+`www` ; `the-one-rule-rho.vercel.app` reste actif) · salons **Fly**
 (`the-one-rule-salons.fly.dev`). Deux déploiements distincts, **par Pierre**.
 
 ```bash
 vercel --prod --yes
 fly deploy
+node scripts/check-deploy.mjs https://www.theonerule.party
 node scripts/check-salons.mjs https://the-one-rule-salons.fly.dev
 node scripts/pull.mjs | node scripts/report.mjs
 ```
+
+⚠️ **Un nouveau domaine casse le multijoueur en silence.** `server/origin.ts`
+refuse toute socket dont l'origine n'est pas dans `ALLOWED_ORIGINS`, et l'échec
+ressemble à « le serveur est tombé », pas à « ton origine est refusée » —
+mesuré sur `theonerule.party` le jour de sa mise en service : HTTP 401 sur les
+deux nouveaux hôtes, pendant que le solo tournait normalement.
+
+```bash
+fly secrets set ALLOWED_ORIGINS="https://www.theonerule.party,https://theonerule.party,https://the-one-rule-rho.vercel.app"
+```
+
+`fly secrets set` **redémarre la machine**, donc tue les salons en cours : à
+faire quand personne ne joue, et revérifier `fly scale count 1` juste après.
+L'apex figure dans la liste bien qu'il redirige : la redirection se fait côté
+navigateur avant l'ouverture de la socket, mais un client qui arriverait
+directement sur l'apex enverrait cette origine-là.
 
 ⚠️ **Une seule instance Fly, obligatoirement.** Les salons vivent en mémoire ;
 `min_machines_running = 1` est un *minimum*, pas un plafond — Fly en
