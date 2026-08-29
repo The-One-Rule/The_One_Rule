@@ -794,8 +794,70 @@ body {
   margin-right: auto;
 }
 
+/*
+ * Le décompte de lancement.
+ *
+ * C'est le seul instant où tout un salon attend la même chose en même temps.
+ * Il s'écrivait « DÉPART · 3 » en 12 px sous le brief — la taille d'une
+ * légende pour le moment le plus partagé du jeu. Un chiffre, en grand, qui
+ * frappe une fois par seconde.
+ */
 .drama--rule .drama__extra {
+  margin-top: var(--sp-3);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(40px, 8vw, 72px);
+  line-height: 1;
+  letter-spacing: -0.04em;
   color: var(--signal-pale);
+  font-variant-numeric: tabular-nums;
+}
+
+.drama--rule .drama__extra.is-tick {
+  animation: countTick 420ms var(--e-punch);
+}
+
+@keyframes countTick {
+  0% {
+    opacity: 0.2;
+    transform: scale(1.45);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/*
+ * La victoire.
+ *
+ * Elle se lisait au même gris que la défaite. Le cadre de l'écran s'allume,
+ * une seule fois, et le nom prend l'accent — pas de confettis : le jeu se
+ * regarde à plusieurs, et celui qui a perdu est dans la pièce.
+ */
+#multi-end.is-victory .verdict {
+  animation: winIn var(--d-slow) var(--e-punch);
+}
+
+#multi-end.is-victory .end__head {
+  border-bottom: var(--bd-thin) solid var(--signal);
+  padding-bottom: var(--sp-3);
+}
+
+@keyframes winIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.86);
+    letter-spacing: 0.2em;
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /*
@@ -1024,6 +1086,35 @@ body {
 .emotes .chip:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+/*
+ * Les emotes sont la SEULE expression disponible en pleine manche sur
+ * téléphone — le chat y est coupé, et c'est délibéré. Elles avaient pourtant
+ * l'apparence d'un réglage : même chip, même gris, aucune réaction.
+ *
+ * Elles gardent leur discrétion au repos, parce qu'elles bordent le champ de
+ * jeu, mais elles répondent : c'est un geste social, il doit s'entendre.
+ */
+.emotes .chip {
+  background: var(--ink-2);
+  border-color: var(--line);
+  transition:
+    border-color var(--d-snap) linear,
+    color var(--d-snap) linear,
+    transform var(--d-snap) var(--e-out);
+}
+
+.emotes .chip:hover:not(:disabled),
+.emotes .chip:focus-visible {
+  border-color: var(--signal);
+  color: var(--signal-pale);
+}
+
+.emotes .chip:active:not(:disabled) {
+  transform: scale(0.92);
+  background: var(--signal);
+  color: var(--ink);
 }
 
 .watchbar__label {
@@ -2619,31 +2710,80 @@ body {
 }
 
 .card {
+  position: relative;
   display: block;
   width: 100%;
   background: none;
-  border: 1px solid var(--line);
-  padding: 14px 16px;
+  border: var(--bd-hair) solid var(--line);
+  border-left: var(--bd-thin) solid var(--line);
+  padding: var(--sp-3) var(--sp-3);
   min-height: var(--tap);
   cursor: pointer;
+  text-align: left;
   touch-action: manipulation;
   transition:
-    border-color 120ms linear,
-    background 120ms linear;
+    border-color var(--d-fast) linear,
+    background var(--d-fast) linear,
+    transform var(--d-fast) var(--e-out);
 }
 
-.card:hover,
+.card:hover:not(:disabled),
 .card:focus-visible {
   border-color: var(--paper);
-}
-
-.card:active:not(:disabled) {
   background: var(--ink-2);
 }
 
-/* L'action évidente du moment. Une seule à la fois — voir renderHome(). */
+/* Une carte de mode est une porte : on doit sentir qu'elle s'ouvre. */
+.card:hover:not(:disabled) {
+  transform: translateX(3px);
+}
+
+.card:active:not(:disabled) {
+  transform: translateX(1px);
+  background: var(--ink-2);
+}
+
+/*
+ * L'action évidente du moment — une seule à la fois, voir `renderHome()`.
+ *
+ * Elle ne se distinguait que par une bordure claire d'un pixel, au milieu de
+ * trois cartes identiques. Un joueur qui arrive sur le jeu ne sait pas par où
+ * commencer : rapporté à chaque playtest. Le liseré d'accent la désigne sans
+ * un mot de plus, et c'est le seul endroit de l'accueil où `--signal`
+ * apparaît, donc il ne se confond avec rien.
+ */
 .card--primary {
   border-color: var(--paper);
+  border-left-color: var(--signal);
+  border-left-width: var(--bd-frame);
+  background: var(--ink-2);
+}
+
+/* Les cartes se posent l'une après l'autre : l'œil suit l'ordre de lecture
+   au lieu de recevoir trois blocs d'un coup. */
+.cards .card {
+  animation: cardIn var(--d-slow) var(--e-out) backwards;
+}
+
+.cards .card:nth-child(2) {
+  animation-delay: 70ms;
+}
+.cards .card:nth-child(3) {
+  animation-delay: 140ms;
+}
+.cards .card:nth-child(4) {
+  animation-delay: 210ms;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .card__title {
@@ -3677,6 +3817,10 @@ button.chip:active:not(:disabled) {
   #timerFill.is-urgent,
   .foot__value.lifedots.is-last,
   .feed__line,
+  .cards .card,
+  .room__list .lobbyrow,
+  .drama--rule .drama__extra.is-tick,
+  #multi-end.is-victory .verdict,
   .screen:not(.hidden),
   .screen:not(.hidden) > *,
   #stamp.is-on,
@@ -3704,6 +3848,19 @@ button.chip:active:not(:disabled) {
   }
   .plate__rule-text {
     transition: none;
+  }
+
+  /* Les cartes ne se posent plus : elles sont là. `backwards` les laisserait
+     invisibles si l'animation était seulement neutralisée. */
+  .cards .card {
+    opacity: 1;
+    transform: none;
+  }
+
+  .card:hover:not(:disabled),
+  .card:active:not(:disabled),
+  .emotes .chip:active:not(:disabled) {
+    transform: none;
   }
 }
 

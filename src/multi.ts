@@ -84,6 +84,8 @@ type MatchState = {
   rules: Record<string, string>;
   phase: "countdown" | "round" | "frozen";
   firstRoundAt: number;
+  /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
+  countSec: number;
   idx: number;
   startAt: number;
   deadline: number;
@@ -588,6 +590,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaRule.textContent = "";
     dramaReason.textContent = "";
     dramaExtra.textContent = "";
+    dramaExtra.classList.remove("is-tick");
     timerEl.classList.remove("is-recharge");
     if (match) {
       match.drama = "off";
@@ -1264,6 +1267,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       rules: { ...msg.rules },
       phase: "countdown",
       firstRoundAt: msg.firstRoundAt,
+      countSec: -1,
       idx: -1,
       startAt: 0,
       deadline: 0,
@@ -1674,16 +1678,30 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     clearMatch();
     endScreenOpen = true;
 
+    /*
+     * Le résultat AVANT le nom.
+     *
+     * L'écran affichait le nom du vainqueur, et rien d'autre : celui qui
+     * perdait lisait un pseudo — le sien s'il gagnait — sans qu'aucun mot ne
+     * lui dise ce qui venait de se passer. C'est le dernier écran d'un match,
+     * celui qu'on regarde ensemble : il doit trancher en un coup d'œil.
+     */
     const title = $("multiEndTitle");
+    const kicker = $("multiEndKicker");
+    const ecran = $("multi-end");
+    const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
+    ecran.classList.toggle("is-victory", jeGagne);
     if (msg.winnerId === null) {
+      kicker.textContent = "MATCH TERMINÉ";
       title.textContent = "ÉGALITÉ";
       title.classList.remove("is-win");
     } else {
       const winner =
         lastPlayers.find((p) => p.id === msg.winnerId) ??
         msg.players.find((p) => p.id === msg.winnerId);
+      kicker.textContent = jeGagne ? "TU AS GAGNÉ" : "VAINQUEUR";
       title.textContent = winner?.name ?? "FIN DU MATCH";
-      title.classList.toggle("is-win", msg.winnerId === net.myId);
+      title.classList.toggle("is-win", jeGagne);
     }
 
     renderTitles(msg.players);
@@ -2126,7 +2144,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       if (match.drama !== "rule" && match.rule && !isSpectating()) {
         showRuleReveal(match.rule);
       }
-      dramaExtra.textContent = sec > 0 ? `DÉPART · ${sec}` : "…";
+      /*
+       * Le décompte est un ÉVÉNEMENT, pas une légende.
+       *
+       * Il s'écrivait « DÉPART · 3 » en 12 px sous le brief, réécrit à chaque
+       * image. C'est le seul moment du jeu où tout le monde attend la même
+       * chose au même instant : il bat maintenant en grand, une pulsation par
+       * seconde, et on ne le réécrit qu'au changement de seconde — soit quatre
+       * fois au lieu de deux cent soixante.
+       */
+      if (sec !== match.countSec) {
+        match.countSec = sec;
+        dramaExtra.textContent = sec > 0 ? String(sec) : "GO";
+        dramaExtra.classList.remove("is-tick");
+        void dramaExtra.offsetWidth;
+        dramaExtra.classList.add("is-tick");
+      }
       // Le décompte est dans le panneau : le répéter en méta ferait deux
       // endroits à surveiller pour une seule information.
       hud.setMeta("");
