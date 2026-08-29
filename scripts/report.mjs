@@ -189,6 +189,19 @@ if (users.size < MIN_ECHANTILLON) {
 } else if (social.duelOpened && social.duelPlayed / social.duelOpened < 0.5) {
   console.log("  · On ouvre mais on ne joue pas. Le problème est l'écran d'annonce, pas");
   console.log("    l'envie : trop de lecture entre le clic et la première manche.");
+} else if (Number.isNaN(d7.rate)) {
+  /*
+   * Le cas qui manquait, et c'était le pire des trois.
+   *
+   * `d7.rate` vaut NaN tant qu'aucun joueur n'a sept jours d'ancienneté — et
+   * `NaN < 0.12` est FAUX. Le rapport tombait donc dans la branche finale et
+   * annonçait « D7 tenu » pour un D7 qu'il n'avait jamais mesuré, en
+   * concluant « ne rien construire de social ». Une absence de mesure
+   * transformée en feu vert, dans le seul document censé arbitrer.
+   */
+  console.log("  · Les liens circulent, mais le D7 n'est pas ENCORE MESURABLE : il faut");
+  console.log("    une cohorte de sept jours d'ancienneté. Ne conclus rien sur le social");
+  console.log("    tant que cette ligne affiche « — » : reviens quand elle porte un chiffre.");
 } else if (d7.rate < GATES.d7) {
   console.log("  · Les liens circulent ET sont joués, mais le D7 ne suit pas. C'est");
   console.log("    exactement l'hypothèse de la table asynchrone : l'envie est prouvée,");
@@ -216,6 +229,44 @@ console.log(
     "  donc la mécanique centrale est ce qui les met en difficulté. Une part écrasante de\n" +
     "  'timeout' signifie que le jeu est trop rapide avant d'être intéressant.",
 );
+
+/*
+ * Le même découpage, JOUR PAR JOUR.
+ *
+ * Les totaux ci-dessus mentent dès qu'un déploiement tombe au milieu de la
+ * fenêtre — et c'est le cas ordinaire, pas l'exception. Constaté : sur trois
+ * jours agrégés, les morts au temps ressortaient à 41,4 %, contre 39,4 % au
+ * relevé précédent, ce qui donnait un correctif inefficace. Découpés, les
+ * mêmes données disaient 52,7 % la veille du déploiement et 31,1 % le
+ * lendemain. Et LE SANG passait de 96,8 % des runs à 29,7 %.
+ *
+ * Une moyenne qui enjambe un correctif ne mesure plus rien. Cette section
+ * existe pour que la ligne du déploiement se voie à l'œil nu.
+ */
+const parJour = new Map();
+for (const r of runs) {
+  if (r.day === undefined) continue;
+  const j = parJour.get(r.day) ?? { n: 0, causes: {}, regles: new Set(), sang: 0 };
+  j.n++;
+  j.causes[r.cause ?? "?"] = (j.causes[r.cause ?? "?"] ?? 0) + 1;
+  if (r.rule) {
+    j.regles.add(r.rule);
+    if (r.rule === "sang") j.sang++;
+  }
+  parJour.set(r.day, j);
+}
+
+if (parJour.size > 1) {
+  console.log("\nPAR JOUR — cherche la marche d'escalier, c'est là qu'un correctif a atterri");
+  console.log("  jour    runs   timeout    wrong    macro   règles   LE SANG");
+  for (const [jour, j] of [...parJour].sort((a, b) => a[0] - b[0])) {
+    const p = (c) => pct((j.causes[c] ?? 0) / j.n).padStart(7);
+    console.log(
+      `  ${String(jour).padEnd(7)} ${String(j.n).padStart(4)}  ${p("timeout")}  ${p("wrong")}  ${p("macro")}` +
+        `   ${String(j.regles.size).padStart(4)}   ${pct(j.sang / j.n).padStart(7)}`,
+    );
+  }
+}
 
 console.log("\nDIFFICULTÉ PAR RÈGLE UNIQUE (score médian)");
 for (const [rule, scores] of Object.entries(byRule).sort((a, b) => median(a[1]) - median(b[1]))) {

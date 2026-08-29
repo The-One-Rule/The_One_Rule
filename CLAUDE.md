@@ -304,7 +304,45 @@ gouttière mesurée à 64).
 
 ## 8. Ce que les playtests ont établi
 
-**Jour 2 (28/08/2026)** — 14 joueurs, 33 runs, D1 37,5 % (n=8), session médiane
+### Jour 3 (30/08/2026) — les deux correctifs tiennent, et un effet de bord
+
+50 joueurs uniques sur trois jours, 181 runs, dont **39 joueurs le jour 240** —
+le déploiement tombe entre le 239 et le 240, et c'est ce qui rend le tableau
+lisible. **Ne JAMAIS lire ce rapport en agrégé** : sur les trois jours réunis,
+les morts au temps ressortaient à 41,4 % contre 39,4 % au relevé précédent,
+c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
+
+| | j238 | j239 | **j240** |
+|---|---|---|---|
+| règles vues à l'entraînement | 1 | 2 | **12** |
+| LE SANG | 100 % | 96,8 % | **29,7 %** |
+| mort au temps | 21,4 % | 52,7 % | **31,1 %** |
+| mort sur un mauvais choix | 35,7 % | 40,9 % | **64,9 %** |
+| mort sur la règle unique | 42,9 % | 6,5 % | **4,1 %** |
+
+- **Le catalogue d'entraînement fonctionne.** Une règle visible sur douze est
+  devenue douze sur douze. C'était le premier bug de conception du jour 2.
+- **La fenêtre qui tient compte du nombre d'actions fonctionne.** Les morts au
+  temps tombent de moitié, et les joueurs meurent désormais sur une DÉCISION
+  plutôt que sur l'horloge — c'est exactement ce que le rapport appelle de ses
+  vœux.
+- **L'effet de bord, et il n'est pas mince** : les morts sur la règle unique —
+  donc sur le PIÈGE, le seul élément non copiable du jeu — passent de 42,9 % à
+  **4,1 %**. La cause est mécanique : **cinq règles sur douze seulement portent
+  `traps: true`**, les sept autres sont des déformations qui ne piègent jamais.
+  Tant que LE SANG sortait 96 % du temps, le piège était constamment en jeu ;
+  en ouvrant le catalogue, on a divisé son exposition. Le correctif était juste
+  et nécessaire — mais il a dilué le cœur du jeu, et personne ne l'avait prévu.
+  **Décision en attente** : pondérer le tirage vers les règles piégeantes,
+  donner des pièges aux sept déformations, ou assumer la variété.
+- **Session médiane 1 min 05 s** contre 10 min 02 s au jour 2. Ne pas y lire une
+  régression : la population a changé — 39 visiteurs largement nouveaux contre
+  9 amis réunis pour jouer. C'est le rebond d'un entonnoir élargi.
+- D1 **35,7 %** (n=14), stable. D7 toujours pas mesurable.
+
+### Jour 2 (28/08/2026)
+
+14 joueurs, 33 runs, D1 37,5 % (n=8), session médiane
 10 min 02 s, 28,6 % de joueurs qui invitent, **0 % de partage de score**.
 
 - Le social est **synchrone** : on donne le code à l'oral, on invite au salon.
