@@ -412,10 +412,20 @@ règle nouvelle ou modifiée doit être pensée à travers le fil.**
 
 **Un test ne doit jamais dépendre en silence de QUELLE règle tombe où.**
 L'attribution multijoueur a été figée pendant des mois — siège 0 = LE SANG, à
-vie — et quatre tests plus une assertion e2e s'y étaient adossés sans le dire.
-Les corriger a révélé deux aides qui passaient par chance : `playPerfect` ne
-jouait que la PREMIÈRE étape (mortel sous LE JUMEAU) et posait `x: 0, y: 0`
-comme position de clic (mortel sous LE GAUCHER, qui interdit `x < 200`).
+vie — et quatre tests plus deux mécanismes de l'e2e s'y étaient adossés sans le
+dire. La dépermuter a révélé **trois** aides qui passaient par chance :
+
+- `playPerfect` ne jouait que la PREMIÈRE étape — mortel sous LE JUMEAU, qui
+  demande chaque geste deux fois ;
+- elle posait `x: 0, y: 0` comme position de clic, soit l'angle du terrain —
+  mortel sous LE GAUCHER, qui interdit `x < 200` ;
+- le pilote de l'e2e agissait à **230 ms** — mortel sous LA SECONDE, qui refuse
+  toute action avant 400. Il tire désormais à 460 : au-dessus des 400
+  interdits, sous les 700 de `MIN_ROUND_MS`. La fenêtre est étroite et le
+  chiffre n'est pas libre.
+
+Le symptôme était toujours le même et toujours trompeur : le test accusait le
+jeu d'avoir éliminé le mauvais joueur, alors que c'est l'aide qui jouait mal.
 
 Deux façons propres de s'en passer, toutes deux en place :
 
@@ -430,8 +440,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 207 tests
-(22 fichiers) · e2e 63 assertions · `vite build` — tous verts.
+**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 220 tests
+(23 fichiers) · e2e 63 assertions · `vite build` — tous verts.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
@@ -485,10 +495,48 @@ d'une. Un chiffre y est réfutable : les **39,4 % de morts par dépassement de
 temps**. La fenêtre tient maintenant compte du nombre d'actions ; si ce nombre
 n'a pas bougé, le correctif était faux.
 
+### Mode motifs (daltonien) — fait
+
+Réglage `MOTIFS`, persisté. Chaque couleur porte une trame en plus de sa
+teinte : hachures montantes pour la garance, points pour le jade, barres pour
+l'azur, hachures descendantes pour l'ambre — choisies pour se distinguer AU
+SEIN de chaque paire qui se confond, pas seulement les unes des autres.
+
+**L'encre de la trame se calcule, elle n'est pas choisie** (`encrePour`). Une
+encre sombre unique donnait 33 sur l'ambre et 12,7 seulement sur l'azur. Et le
+piège : décider sur la clarté en vision NORMALE donne la mauvaise réponse pour
+la garance — 105, donc « sombre », alors qu'un deutéranope la perçoit à 181,
+donc claire. Il faut juger sur la clarté **perçue**. Après correction, l'écart-
+type de clarté dans la pièce, en simulation de deutéranopie :
+
+| | éteint | allumé |
+|---|---|---|
+| garance | 3,0 | 28,3 |
+| ambre | 1,1 | 33,3 |
+| azur | 4,2 | 30,1 |
+| jade | 1,8 | 16,6 |
+
+Deux autres surfaces : la frise de fin de run gagne des silhouettes (rond,
+losange, triangle, croix) — c'était la seule chose du jeu qui ne disait son
+affaire QUE par la teinte. Et **LE DALTONIEN sort du tirage** (`withoutInk`) :
+elle joue sur le conflit entre le mot et l'encre, donc elle ne devient pas
+injouable mais INERTE — un avantage gratuit, la famille de la décision n°1.
+
+Le reste du jeu portait déjà un second canal : les plaques distinguent par
+remplissage plein contre liseré, le verdict porte le mot autant que le filet,
+et l'état critique parle à l'oreille au même seuil qu'à l'œil.
+
 ### Backlog en cours d'arbitrage
 
-1. **Mode daltonien.** Garance `#F74058` et jade `#40F7C0` sont la collision
-   classique du daltonisme rouge-vert (~6 % des hommes en deutéranomalie), et
-   ce sont exactement les deux couleurs qui portent LE SANG et le couple
-   vie/mort. La couleur n'est pas décorative ici, **c'est de l'état de jeu**.
-2. **Salons publics**, à la manière de BombParty — rejoindre sans code.
+1. **Consignes par plateforme.** Chaque instruction porte déjà `touch` (15 sur
+   19). Ma proposition : le pool s'adapte au SALON, pas au joueur — entre PC,
+   les 4 consignes clavier s'ouvrent ; en salon mixte, on retombe sur les
+   tactiles. Ça évite des plateaux divergents et garde le moment partagé, qui
+   est ce qui fait la salle. La version « par joueur » est possible mais coûte
+   la scène commune. **Décision de Pierre en attente.**
+2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
+   côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
+   liste vide dit « personne ne joue ». À revoir après une soirée.
+3. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. Ce sont
+   de nouveaux types d'entrée, donc de nouvelles actions sur le fil et une
+   nouvelle résolution : c'est un chantier, pas un ajout de contenu.

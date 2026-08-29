@@ -1,5 +1,6 @@
 import { FIELD_H, FIELD_W } from "../engine/types";
 import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
+import { MOTIFS, encrePour } from "./motif";
 import type { ColorId, Entity, OneRule, Round } from "../engine/types";
 
 /**
@@ -43,6 +44,24 @@ const LINE = "#26344A";
  */
 const SOL = "#111A28";
 const SOL_TRAME = "rgba(145,132,217,0.055)";
+
+/**
+ * Trame du mode daltonien : encre et pas, en unités du champ.
+ *
+ * 12 unités sur un rayon de pièce d'environ 34 : trois à quatre passages de
+ * trame par pièce. Moins, et le motif ne se lit pas sur une petite pièce ;
+ * plus, et il devient un aplat gris qui mange la teinte.
+ *
+ * L'opacité est le point délicat. Trop faible, le second canal n'existe pas ;
+ * trop forte, il efface la couleur — or la couleur reste l'information
+ * première pour qui la perçoit, et le mode ne doit pas dégrader leur jeu.
+ */
+const TRAME_PAS = 12;
+
+const rgbDe = (hex: string): number[] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
 const OMBRE = "rgba(0,0,0,0.42)";
 const ARETE = "rgba(255,255,255,0.20)";
 
@@ -106,11 +125,105 @@ export class SceneRenderer {
   private bornRound: Round | null = null;
   private bornAt = 0;
 
+  /**
+   * Mode daltonien : chaque couleur reçoit en plus une trame.
+   *
+   * Purement du rendu. Le moteur choisit les couleurs par identifiant, le fil
+   * n'en transporte aucune, et `verify.ts` rejoue par identifiant : ce
+   * commutateur ne peut donc pas faire diverger deux écrans sur un verdict.
+   * C'est ce qui rend le second canal réalisable ici sans rien risquer.
+   */
+  daltonien = false;
+  /**
+   * Trames prêtes à l'emploi, une par couleur.
+   *
+   * Construites à la PREMIÈRE utilisation et gardées : `createPattern` alloue
+   * un canevas et une texture, et la grille se balaie en 800 ms — en fabriquer
+   * à chaque frame reviendrait à allouer soixante fois par seconde pour un
+   * dessin qui ne change jamais.
+   */
+  private trames = new Map<ColorId, CanvasPattern>();
+
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) throw new Error("canvas 2D indisponible");
     this.ctx = ctx;
     this.resize();
+  }
+
+  /**
+   * La trame d'une couleur, en unités du CHAMP.
+   *
+   * La tuile est dessinée à 32 px puis ramenée à `TRAME_PAS` unités par
+   * `setTransform` : dessiner directement une tuile de 12 px la rendrait
+   * floue une fois le champ mis à l'échelle, et grossière sur écran dense.
+   *
+   * L'encre est un noir translucide, et non une couleur : elle doit se voir
+   * sur les quatre teintes, qui sont toutes vives. Une encre claire
+   * disparaîtrait sur l'ambre, une encre sombre opaque effacerait la teinte —
+   * or la couleur reste l'information première pour qui la perçoit.
+   */
+  private trame(color: ColorId): CanvasPattern | null {
+    const dejaLa = this.trames.get(color);
+    if (dejaLa) return dejaLa;
+
+    const T = 32;
+    const tuile = document.createElement("canvas");
+    tuile.width = T;
+    tuile.height = T;
+    const g = tuile.getContext("2d");
+    if (!g) return null;
+
+    const motif = MOTIFS[color];
+    const e = encrePour(rgbDe(HEX[color]));
+    const encre = `rgba(${e.rgb[0]},${e.rgb[1]},${e.rgb[2]},${e.alpha})`;
+    g.strokeStyle = encre;
+    g.fillStyle = encre;
+    g.lineWidth = T * 0.18;
+    g.lineCap = "square";
+
+    if (motif.kind === "points") {
+      for (const [cx, cy] of [
+        [T * 0.25, T * 0.25],
+        [T * 0.75, T * 0.75],
+      ]) {
+        g.beginPath();
+        g.arc(cx!, cy!, T * 0.15, 0, Math.PI * 2);
+        g.fill();
+      }
+    } else if (motif.kind === "barres") {
+      // DEUX barres, pas une. Mesuré en simulation de deutéranopie : à une
+      // seule barre par tuile, la trame de l'azur ne produisait qu'un
+      // écart-type de clarté de 10,7 dans la pièce, contre 28 à 33 pour les
+      // hachures et 16 pour les points — c'était le canal le plus faible du
+      // lot, pour la seule raison qu'il couvrait moins de surface.
+      for (const y of [T * 0.25, T * 0.75]) {
+        g.beginPath();
+        g.moveTo(0, y);
+        g.lineTo(T, y);
+        g.stroke();
+      }
+    } else {
+      // Trois traits pour que la tuile se raccorde à ses voisines : la
+      // diagonale sort par un coin, il faut la répéter de part et d'autre.
+      g.translate(T / 2, T / 2);
+      g.rotate((motif.angle * Math.PI) / 180);
+      g.translate(-T / 2, -T / 2);
+      for (const d of [-T, 0, T]) {
+        g.beginPath();
+        g.moveTo(-T, T * 0.5 + d);
+        g.lineTo(T * 2, T * 0.5 + d);
+        g.stroke();
+      }
+    }
+
+    const pat = this.ctx.createPattern(tuile, "repeat");
+    if (!pat) return null;
+    if (typeof DOMMatrix !== "undefined" && pat.setTransform) {
+      pat.setTransform(new DOMMatrix().scale(TRAME_PAS / T));
+    }
+    this.trames.set(color, pat);
+    return pat;
   }
 
   resize(): void {
@@ -537,6 +650,17 @@ export class SceneRenderer {
         ctx.fillStyle = HEX[e.color];
         this.path(e, r);
         ctx.fill();
+
+        // Second canal : la trame se pose SUR la teinte, elle ne la remplace
+        // pas. Même chemin, donc elle épouse la forme sans découpe.
+        if (this.daltonien) {
+          const trame = this.trame(e.color);
+          if (trame) {
+            ctx.fillStyle = trame;
+            this.path(e, r);
+            ctx.fill();
+          }
+        }
 
         ctx.strokeStyle = ARETE;
         ctx.lineWidth = 2;

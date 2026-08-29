@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ONE_RULES, withoutHold } from "../src/engine/rules";
+import { ONE_RULES, REGLES_A_ENCRE, withoutHold, withoutInk } from "../src/engine/rules";
 import { draftShared, applyRule } from "../src/engine/multiround";
 import { MULTI_RULES } from "../server/match";
 import { resolveAction } from "../src/engine/resolve";
@@ -156,5 +156,52 @@ describe("regles injouables sans clavier", () => {
 
   it("le catalogue garde au moins une regle jouable sans clavier", () => {
     expect(ONE_RULES.some((r) => r.watchRelease === undefined)).toBe(true);
+  });
+});
+
+/*
+ * Le mode motifs retire LE DALTONIEN du tirage.
+ *
+ * Elle ecrit les noms de couleur dans la MAUVAISE couleur — « lis le mot,
+ * ignore l'encre ». Tout son interet tient au conflit entre ce qu'on lit et ce
+ * qu'on voit ; qui ne percoit pas l'encre n'a plus de conflit. Elle ne devient
+ * pas injouable, elle devient INERTE — et c'est pire : une regle qui ne peut
+ * pas pieger son porteur est un avantage gratuit ET invisible. Meme famille
+ * que `voyelle`, `acceleration` et `gaucher`.
+ */
+describe("regles inertes en mode motifs", () => {
+  it("remplace la regle a encre, et ne touche pas les autres", () => {
+    for (const rule of ONE_RULES) {
+      const choisie = withoutInk(rule);
+      expect(
+        REGLES_A_ENCRE.includes(choisie.id),
+        `${choisie.name} joue encore sur la perception de l'encre`,
+      ).toBe(false);
+      if (REGLES_A_ENCRE.includes(rule.id)) {
+        expect(choisie, `${rule.name} n'a pas ete remplacee`).not.toBe(rule);
+      } else {
+        expect(choisie, `${rule.name} a ete remplacee alors qu'elle reste piegeante`).toBe(rule);
+      }
+    }
+  });
+
+  it("remplace toujours par la meme, sinon deux joueurs ne jouent pas le meme jour", () => {
+    const aEncre = ONE_RULES.filter((r) => REGLES_A_ENCRE.includes(r.id));
+    // Garde-fou : si REGLES_A_ENCRE se vidait, tout ce bloc passerait a vide.
+    expect(aEncre.length, "aucune regle a encre : le test ne prouve plus rien").toBeGreaterThan(0);
+    for (const rule of aEncre) {
+      expect(withoutInk(rule)).toBe(withoutInk(rule));
+    }
+  });
+
+  it("les deux substitutions se composent sans se defaire", () => {
+    // Un telephone en mode motifs subit les DEUX : pas de touche maintenue, et
+    // pas d'encre. Une substitution qui reintroduirait ce que l'autre vient
+    // d'ecarter donnerait une regle injouable a un joueur sur seize.
+    for (const rule of ONE_RULES) {
+      const r = withoutInk(withoutHold(rule));
+      expect(r.watchRelease, `${r.name} exige une touche maintenue`).toBeUndefined();
+      expect(REGLES_A_ENCRE.includes(r.id), `${r.name} joue sur l'encre`).toBe(false);
+    }
   });
 });

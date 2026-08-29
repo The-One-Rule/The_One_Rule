@@ -31,6 +31,15 @@ export interface Save {
   multi: { glyph: number; matches: number };
   sound: boolean;
   music: boolean;
+  /**
+   * Mode daltonien : chaque couleur porte en plus une trame.
+   *
+   * Purement du rendu — sauf un point de jeu, qui ne pouvait pas être évité :
+   * LE DALTONIEN sort du tirage, parce qu'elle deviendrait inerte et donc un
+   * avantage gratuit (voir `withoutInk`). C'est la même exception que pour une
+   * règle matériellement injouable sur l'appareil.
+   */
+  daltonien: boolean;
   bestTraining: number;
   /**
    * Allure choisie pour l'entraînement (voir PACE_CHOICES).
@@ -57,6 +66,7 @@ const fresh = (): Save => ({
   multi: { glyph: 0, matches: 0 },
   sound: true,
   music: true,
+  daltonien: false,
   bestTraining: 0,
   /*
    * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.

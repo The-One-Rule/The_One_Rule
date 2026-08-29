@@ -246,6 +246,38 @@ export function withoutHold(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule
   return rule;
 }
 
+/** Une règle qui joue sur la PERCEPTION de la couleur, et non sur son nom. */
+export const REGLES_A_ENCRE = ["daltonien"];
+
+/**
+ * La même règle, ou son remplaçant en mode daltonien.
+ *
+ * L'ironie est parfaite : la règle qui pose problème s'appelle LE DALTONIEN.
+ * Elle écrit les noms de couleur dans la MAUVAISE couleur — « lis le mot,
+ * ignore l'encre ». Tout son intérêt tient au conflit entre ce qu'on lit et ce
+ * qu'on voit ; pour qui ne perçoit pas l'encre, il n'y a plus de conflit.
+ *
+ * Elle ne devient donc pas injouable, elle devient INERTE — et c'est pire.
+ * C'est exactement la famille de défauts de `voyelle`, `acceleration` et
+ * `gaucher` : une règle qui ne peut pas piéger son porteur est un avantage
+ * gratuit et invisible. Le joueur croit porter une contrainte, il n'en porte
+ * aucune, et personne dans le salon ne peut le savoir.
+ *
+ * Même mécanique que `withoutHold`, et pour la même raison de fond : le
+ * remplaçant est le suivant du catalogue, donc déterministe — deux joueurs en
+ * mode daltonien obtiennent la même règle le même jour, et leurs scores
+ * restent comparables entre eux.
+ */
+export function withoutInk(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule {
+  if (!REGLES_A_ENCRE.includes(rule.id)) return rule;
+  const depart = pool.indexOf(rule);
+  for (let k = 1; k <= pool.length; k++) {
+    const cand = pool[(depart + k) % pool.length]!;
+    if (!REGLES_A_ENCRE.includes(cand.id)) return cand;
+  }
+  return rule;
+}
+
 export const ONE_RULES: OneRule[] = [
   LE_SANG,
   LA_POINTE,

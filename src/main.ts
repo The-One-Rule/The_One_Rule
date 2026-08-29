@@ -9,7 +9,7 @@ import {
   windowMs,
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
-import { ONE_RULES, withoutHold } from "./engine/rules";
+import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
@@ -287,8 +287,28 @@ function renderHome(): void {
   $("cardRankedState").textContent = `${divisionOf(s.ranked.rating).name} · ${s.ranked.rating}`;
   $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
   $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
+  appliqueMotifs(s.daltonien);
   setEnabled(s.sound);
   setMusicEnabled(s.music);
+}
+
+/**
+ * Pose le second canal partout où il doit l'être.
+ *
+ * Trois surfaces, et trois seulement — le reste du jeu porte DÉJÀ un second
+ * canal et n'a rien à changer : les plaques distinguent vivant et mort par un
+ * remplissage plein contre un liseré, le verdict de fin porte le mot autant
+ * que le filet, et l'état critique parle à l'oreille (`sfx.urgent`) au même
+ * seuil qu'à l'œil.
+ *
+ * Restaient les pièces — la trame du canevas — et la frise de fin de run, qui
+ * est une suite de carrés de couleur pure sans aucune autre marque. La classe
+ * sur `#app` laisse la feuille de style traiter la seconde.
+ */
+function appliqueMotifs(on: boolean): void {
+  scene.daltonien = on;
+  appEl.classList.toggle("is-motifs", on);
+  $("btnMotifs").textContent = `MOTIFS : ${on ? "ON" : "OFF"}`;
 }
 
 /**
@@ -495,7 +515,12 @@ const jamaisJoue = (): boolean => P.load().recent.length === 0;
  * pas de contrainte de maintien — pour que deux téléphones aient la même
  * règle le même jour, et donc des scores encore comparables entre eux.
  */
-const regleJouableIci = (rule: OneRule): OneRule => (TOUCH_ONLY ? withoutHold(rule) : rule);
+const regleJouableIci = (rule: OneRule): OneRule => {
+  const sansMaintien = TOUCH_ONLY ? withoutHold(rule) : rule;
+  // Et en mode daltonien, LE DALTONIEN sort aussi : elle ne serait pas
+  // injouable mais INERTE, ce qui est pire — voir `withoutInk`.
+  return P.load().daltonien ? withoutInk(sansMaintien) : sansMaintien;
+};
 
 /* ------------------------------------------------------------------ *
  * Lancement d'un run
@@ -789,7 +814,7 @@ function finishRun(): void {
     : mode === "daily"
       ? `MANCHES SUR ${DAILY_LENGTH}`
       : "MANCHES TENUES";
-  $("marks").textContent = marksToString(end.marks);
+  renderMarks($("marks"), end.marks);
 
   const reward = $("reward");
   reward.classList.toggle("hidden", gained <= 0);
@@ -847,6 +872,49 @@ function claimGains(): number {
     gained = claimAll(st, day);
   });
   return gained;
+}
+
+/**
+ * Silhouette de chaque marque, pour le mode motifs.
+ *
+ * La frise est la seule surface du jeu qui ne dit son affaire QUE par la
+ * couleur : quatre carrés, aucune autre marque. Et 🟩 contre 🟥, c'est
+ * exactement la paire rouge-vert.
+ *
+ * Les marques du MODÈLE ne changent pas : elles partent telles quelles dans le
+ * texte de partage, où les carrés de couleur sont la convention et où l'on ne
+ * contrôle pas la police d'arrivée. Seul l'affichage de l'écran de fin gagne
+ * une silhouette — et il garde la couleur, qui reste l'information première
+ * pour qui la perçoit.
+ */
+const SILHOUETTE: Record<string, { glyphe: string; classe: string }> = {
+  "🟩": { glyphe: "●", classe: "mark--ok" },
+  "🟦": { glyphe: "◆", classe: "mark--trap" },
+  "🟨": { glyphe: "▲", classe: "mark--grace" },
+  "🟥": { glyphe: "✕", classe: "mark--dead" },
+};
+
+/**
+ * Écrit la frise dans son conteneur.
+ *
+ * Hors mode motifs, rien ne change : un simple texte, comme avant. En mode
+ * motifs, chaque manche devient un élément pour porter sa silhouette — d'où le
+ * passage par le DOM plutôt que par `textContent`.
+ */
+function renderMarks(host: HTMLElement, marks: string[]): void {
+  if (!P.load().daltonien) {
+    host.textContent = marksToString(marks);
+    return;
+  }
+  host.innerHTML = "";
+  const montre = marks.length <= 24 ? marks : [...marks.slice(0, 12), "…", ...marks.slice(-11)];
+  for (const m of montre) {
+    const el = document.createElement("span");
+    const s = SILHOUETTE[m];
+    el.className = "mark" + (s ? ` ${s.classe}` : "");
+    el.textContent = s ? s.glyphe : m;
+    host.appendChild(el);
+  }
 }
 
 /** 🟩 réussite · 🟦 piège déjoué · 🟨 échauffement · 🟥 fin */
@@ -1180,6 +1248,14 @@ $("btnMusic").addEventListener("click", () => {
   });
   setMusicEnabled(s.music);
   $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
+  sfx.ui();
+});
+
+$("btnMotifs").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.daltonien = !st.daltonien;
+  });
+  appliqueMotifs(s.daltonien);
   sfx.ui();
 });
 

@@ -52,6 +52,25 @@ const ms = () => String(Date.now() - T0).padStart(6, " ");
 const journal = [];
 const serres = [];
 
+/*
+ * Quand le pilote automatique agit, apres l'ouverture d'une manche.
+ *
+ * 460 ms, et le chiffre n'est pas libre : LA SECONDE tue toute action lancee
+ * avant 400 ms (« TU AS AGI TROP TOT »), et MIN_ROUND_MS vaut 700 — il faut
+ * donc tomber dans la fenetre etroite qui reste. Les etapes suivantes ajoutent
+ * 55 ms chacune, ce qui laisse encore 185 ms de marge sur une manche au plus
+ * court, plus les 120 ms d'INPUT_TOLERANCE_MS.
+ *
+ * Le pilote tirait a 230 ms. Ca n'a jamais pose probleme tant que l'attribution
+ * des regles etait figee — les sieges 0 a 2 recevaient LE SANG, LA POINTE et LE
+ * COLOSSE, aucune contrainte de temps. Depuis que le pool est permute par
+ * match, ALICE peut tirer LA SECONDE : elle mourait alors a chaque manche, et
+ * l'e2e accusait le jeu d'avoir elimine le mauvais joueur. Meme famille que
+ * l'aide `playPerfect` des tests unitaires, qui ne jouait que la premiere
+ * etape et cliquait en x:0.
+ */
+const DELAI_PILOTE = 460;
+
 function client(name, key, rookie = false) {
   const ws = new WebSocket("ws://localhost:8797");
   const c = { name, key, rookie, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [], rounds: [], recus: [] };
@@ -99,7 +118,7 @@ function client(name, key, rookie = false) {
             : { k: "c", i: Math.max(0, round.ents.findIndex((e) => st.kind !== "clickAnyExcept" || e.color !== st.color)) };
           setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: a })), k * 55);
         });
-      }, 230);
+      }, DELAI_PILOTE);
     }
     if (m.t === "verdict") c.verdicts.push(m);
     if (m.t === "match_end") c.ended = m;
@@ -510,9 +529,39 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   ok(emil2.seed !== 0, "match_start renvoyé à la reprise (le client peut rejouer)");
   ok(emil2.seed === dora.seed, "même graine que les autres : scène partagée intacte");
   ok(!!emil2.rules[emil2.id], "sa règle unique lui est réattribuée");
+  /*
+   * On attend l'EVENEMENT, pas une duree.
+   *
+   * Ce point attendait 3000 ms fixes, et tombait environ une fois sur deux.
+   * Ce n'etait pas du hasard mais une marge : a deux joueurs, l'absent perd
+   * une vie par depassement de temps, ce qui declenche l'interlude « vie
+   * perdue » de 2400 ms. Une manche peut donc coûter jusqu'a MAX_ROUND_MS
+   * (2400) + 2400 = 4800 ms — bien au-dela de la fenetre.
+   *
+   * Allonger le sommeil aurait rallonge l'e2e pour tout le monde et laisse la
+   * meme fragilite un cran plus loin. Sonder jusqu'a l'arrivee rend le test
+   * deterministe ET rapide dans le cas courant, et la duree mesuree part dans
+   * le message : c'est elle qui dira, un jour, que les interludes ont bouge.
+   */
   const verdictsAvant = emil2.verdicts.length;
-  await sleep(3000);
-  ok(emil2.verdicts.length > verdictsAvant, "il reçoit à nouveau les verdicts des manches");
+  const t0Verdict = Date.now();
+  const PLAFOND_VERDICT = 9000;
+  while (emil2.verdicts.length === verdictsAvant && Date.now() - t0Verdict < PLAFOND_VERDICT) {
+    await sleep(100);
+  }
+  const misVerdict = Date.now() - t0Verdict;
+  const moi = emil2.room?.players?.find((p) => p.id === emil2.id);
+  info(
+    `EMIL a la reprise : manches vues=${emil2.rounds.length} termine=${!!emil2.ended} ` +
+      `spectateur=${moi?.spectator} vies=${moi?.lives} joueurs=${emil2.room?.players?.length} ` +
+      `dora manches=${dora.rounds.length} dora termine=${!!dora.ended}`,
+  );
+  okMarge(
+    misVerdict,
+    PLAFOND_VERDICT,
+    "max",
+    `il reçoit à nouveau les verdicts des manches (${emil2.verdicts.length - verdictsAvant} reçu(s))`,
+  );
   ok(emil2.id === idAvant, `siège repris : même identifiant (${idAvant} → ${emil2.id})`);
   const apres = emil2.room?.players?.find((p) => p.id === emil2.id);
   ok(apres?.spectator === false, "EMIL rejoue, il n'est PAS spectateur");

@@ -4210,6 +4210,36 @@ button.chip:active:not(:disabled) {
 }
 
 /*
+ * La frise en mode motifs.
+ *
+ * Quatre carrés de couleur sont la seule chose du jeu qui ne dise son affaire
+ * QUE par la teinte — et 🟩 contre 🟥 est justement la paire rouge-vert. En
+ * mode motifs, chaque manche porte une silhouette : un rond tenu, un losange
+ * pour un piège déjoué, un triangle pour l'échauffement, une croix pour la
+ * chute. La couleur reste : elle informe encore qui la perçoit.
+ */
+.mark {
+  display: inline-block;
+  width: 1.15em;
+  text-align: center;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.mark--ok {
+  color: var(--ok);
+}
+.mark--trap {
+  color: #237ef6;
+}
+.mark--grace {
+  color: #f5b214;
+}
+.mark--dead {
+  color: var(--dead);
+}
+
+/*
  * L'issue, portée par la tête entière.
  *
  * `.verdict.is-win` ne changeait qu'une couleur de texte : « TENU » et
