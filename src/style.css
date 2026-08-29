@@ -2793,6 +2793,27 @@ body {
   letter-spacing: var(--ls-lire);
   line-height: 1.7;
   color: var(--paper-dim);
+  /* Six lignes centrées, ragées des deux côtés : chaque retour à la ligne
+     déplace le point de départ du regard. `pretty` équilibre les fins de
+     ligne là où le navigateur le sait faire, et ne coûte rien ailleurs. */
+  text-wrap: pretty;
+}
+
+/*
+ * Le paragraphe qui enseigne le jeu.
+ *
+ * C'est la première chose lue après le logo, et la seule qui explique la
+ * règle du jeu à quelqu'un qui arrive. Centré, il flottait. Il se cale à
+ * gauche, sous les mêmes hachures que le logo : le bloc de marque devient
+ * une seule pièce signée, et le regard a un bord où revenir à chaque ligne.
+ */
+.home__brand .lede {
+  text-align: left;
+  padding: var(--sp-3) var(--sp-4);
+  padding-left: calc(var(--sp-4) + 6px);
+  background:
+    repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px) 0 0 / 6px 100% no-repeat,
+    color-mix(in srgb, var(--ink-2) 65%, transparent);
 }
 
 .lede b {
@@ -4323,6 +4344,8 @@ button.chip:active:not(:disabled) {
   .feed__line,
   .cards .card,
   .room__list .lobbyrow,
+  .drama__panel,
+  .rulename--hero,
   .drama--rule .drama__extra.is-tick,
   #multi-end.is-victory .verdict,
   .verdict,
