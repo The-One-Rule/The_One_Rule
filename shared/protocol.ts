@@ -235,7 +235,26 @@ export const ROOKIE_BONUS_LIVES = 1;
 export type ClientMsg =
   /** `key` est un identifiant local stable : c'est lui qui permet de
    *  retrouver son siège après une coupure. Absent = joueur éphémère. */
-  | { t: "hello"; v: number; name: string; glyph?: Glyph; key?: string; rookie?: boolean }
+  /**
+   * `clavier` : cet appareil peut-il jouer une consigne au clavier ?
+   *
+   * ABSENT VAUT NON, et ce défaut est structurant. Le serveur n'ouvre le pool
+   * clavier que si TOUS les sièges l'annoncent ; un client d'une version
+   * antérieure ne connaît pas ce champ, ne l'envoie donc pas, et la table
+   * retombe sur le tirage tactile — c'est-à-dire exactement ce que cet ancien
+   * client sait reconstruire. Sans ce défaut, il calculerait une manche que le
+   * serveur ne juge pas, et l'aperçu contredirait le verdict : le seul défaut
+   * tenu pour fatal.
+   */
+  | {
+      t: "hello";
+      v: number;
+      name: string;
+      glyph?: Glyph;
+      key?: string;
+      rookie?: boolean;
+      clavier?: boolean;
+    }
   | { t: "create" }
   | { t: "join"; code: string }
   | { t: "leave" }
@@ -276,6 +295,20 @@ export type ServerMsg =
       rules: Record<string, string>;
       firstRoundAt: number;
       settings: RoomSettings;
+      /**
+       * Le pool CLAVIER est-il ouvert pour ce match ?
+       *
+       * Vrai seulement si tous les sièges ont annoncé un clavier. Fixé une
+       * fois pour toutes au lancement, jamais recalculé en cours de match :
+       * quelqu'un qui arrive après le départ devient spectateur, donc
+       * l'effectif assis ne bouge plus, donc le tirage ne peut pas changer
+       * sous les pieds des joueurs.
+       *
+       * Le client le REÇOIT, il ne le déduit pas de la liste des joueurs. Une
+       * déduction locale divergerait le temps qu'un départ se propage, et une
+       * divergence sur le tirage, c'est un aperçu qui contredit le verdict.
+       */
+      clavier: boolean;
     }
   | {
       t: "round";

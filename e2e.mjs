@@ -23,7 +23,8 @@ process.on("uncaughtException", (e) => {
 });
 
 await import("./server/index.ts");
-const { buildMultiRound } = await import("./src/engine/multiround.ts");
+const { buildMultiRound, poolMulti } = await import("./src/engine/multiround.ts");
+const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
 
@@ -71,15 +72,15 @@ const serres = [];
  */
 const DELAI_PILOTE = 460;
 
-function client(name, key, rookie = false) {
+function client(name, key, rookie = false, clavier = false) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, key, rookie, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [], rounds: [], recus: [] };
+  const c = { name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [], rounds: [], recus: [], clavierMatch: null };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
     if (m.t === "pong") { c.offset = m.serverNow - (m.sent + Date.now()) / 2; c.offsets.push(c.offset); }
     if (m.t === "room") c.room = m;
-    if (m.t === "match_start") { c.seed = m.seed; c.rules = m.rules; }
+    if (m.t === "match_start") { c.seed = m.seed; c.rules = m.rules; c.clavierMatch = m.clavier === true; }
     // Horodatage de réception : c'est ce qui permet de comparer les pauses
     // annoncées par le serveur à celles réellement vécues par un client.
     if (m.t === "round" || m.t === "verdict") c.recus.push({ t: m.t, idx: m.idx, at: Date.now(), nextRoundAt: m.nextRoundAt ?? null });
@@ -107,7 +108,10 @@ function client(name, key, rookie = false) {
        * envoyé. Le jeu avait raison, le test se trompait de coupable.
        */
       if (!rule || name === "CHLOE" || c.manuel) return;
-      const round = buildMultiRound(c.seed, m.idx, rule);
+      // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
+      // exactement ce que fait le vrai client, et c'est ce qui garantit que les
+      // deux cotes du fil reconstruisent la meme manche.
+      const round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true));
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
         if (name === "BOB") { ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: 0 } })); return; }
@@ -126,7 +130,7 @@ function client(name, key, rookie = false) {
     if (m.t === "chat") c.chats.push(m);
     if (m.t === "error") c.errors.push(m);
   });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -305,6 +309,92 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   }
 
   for (const c of [a, b]) c.ws.close();
+  await sleep(220);
+}
+
+/*
+ * POOL PAR SALON : entre claviers, les consignes clavier s'ouvrent.
+ *
+ * Le pool s'adapte au SALON et non au joueur — la scene et la consigne
+ * restent communes, c'est ce qui fait qu'on crie ensemble. Deux garanties a
+ * verifier, et aucune ne se voit dans un test unitaire :
+ *
+ *   · le drapeau traverse vraiment le fil, dans le bon sens ;
+ *   · les deux cotes reconstruisent la MEME manche. Si le serveur tirait dans
+ *     un pool et le client dans l'autre, leurs indices de pieces ne
+ *     designeraient pas les memes formes : le joueur mourrait en cliquant ce
+ *     que son ecran lui montre. C'est le defaut tenu pour fatal.
+ *
+ * Le pilote joue avec le pool du drapeau recu. S'il y avait desaccord, les
+ * clics tomberaient a cote et les morts s'accumuleraient — c'est la mesure.
+ */
+{
+  const eq = [];
+  for (const n of ["K1", "K2", "K3"]) eq.push(await client(n, "cle-" + n, false, true));
+  eq[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = eq[0].room.code;
+  for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(160); }
+  await sleep(250);
+  eq[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART + 14000);
+
+  ok(eq.every((c) => c.clavierMatch === true), "le salon tout-clavier ouvre le pool elargi");
+
+  const vues = new Set();
+  for (let idx = 0; idx <= Math.max(0, eq[0].roundIdx); idx++) {
+    vues.add(buildMultiRound(eq[0].seed, idx, ONE_RULES[0], poolMulti(true)).instructionId);
+  }
+  const auClavier = [...vues].filter((id) => !INSTRUCTIONS.find((i) => i.id === id)?.touch);
+  info(`salon clavier : ${eq[0].rounds.length} manches, consignes vues ${[...vues].join(", ")}`);
+
+  /*
+   * On assertit ce que la graine a REELLEMENT produit, sans rien esperer.
+   *
+   * Quatre consignes clavier sur dix-neuf : exiger qu'il en sorte une en N
+   * manches rendrait ce point intermittent, et un test qui echoue une fois sur
+   * dix ne prouve plus rien. Quand la graine en donne une, on verifie qu'elle
+   * a bien traverse ; quand elle n'en donne pas, on le DIT — le fait que le
+   * pool elargi contienne autre chose est verrouille dans tests/multi.
+   */
+  if (auClavier.length) {
+    ok(true, `une consigne clavier est bien sortie en salon clavier (${auClavier.join(", ")})`);
+  } else {
+    info("aucune consigne clavier tiree sur ces manches — contenu du pool couvert par tests/multi");
+  }
+
+  // La mesure qui compte : si les deux cotes tiraient dans des pools
+  // differents, le pilote cliquerait systematiquement la mauvaise piece.
+  const morts = eq.flatMap((c) => c.verdicts.filter((v) => v.outcome?.kind === "death"));
+  const parMotif = {};
+  for (const m of morts) parMotif[m.outcome.reason ?? "?"] = (parMotif[m.outcome.reason ?? "?"] ?? 0) + 1;
+  const total = eq.reduce((s, c) => s + c.verdicts.length, 0);
+  info(`verdicts ${total}, morts ${morts.length} — ${JSON.stringify(parMotif)}`);
+  ok(total > 0, `des manches ont ete jouees en salon clavier (${total} verdicts)`);
+  okMarge(
+    total === 0 ? 1 : morts.length / total,
+    0.5,
+    "max",
+    "les clics tombent juste en salon clavier (un desaccord de pool les ferait tous rater)",
+    "",
+  );
+
+  // Et le controle : un salon MIXTE doit retomber sur le tactile.
+  const mixte = [];
+  for (const [n, k] of [["M1", true], ["M2", false]]) mixte.push(await client(n, "cle-" + n, false, k));
+  mixte[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const codeM = mixte[0].room.code;
+  mixte[1].ws.send(JSON.stringify({ t: "join", code: codeM }));
+  await sleep(300);
+  mixte[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+  ok(
+    mixte.every((c) => c.clavierMatch === false),
+    "un seul telephone assis suffit a refermer le pool pour tout le salon",
+  );
+
+  for (const c of [...eq, ...mixte]) c.ws.close();
   await sleep(220);
 }
 

@@ -15,7 +15,7 @@ import {
   SPEED_CHOICES,
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
-import { buildMultiRound } from "./engine/multiround";
+import { buildMultiRound, poolMulti } from "./engine/multiround";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -36,6 +36,18 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
 
 /** Libellés d'interface uniquement — le fil ne transporte que l'index. */
 const EMOTE_LABELS = ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"] as const;
+
+/**
+ * Cet appareil peut-il jouer une consigne au clavier ?
+ *
+ * Même détection que `TOUCH_ONLY` dans main.ts, prise à l'envers. Elle est
+ * DÉCLARÉE au serveur et jamais devinée par lui : un salon n'ouvre le pool
+ * clavier que si tous ses sièges l'annoncent, et un « peut-être » y coûterait
+ * une vie à quelqu'un qui ne peut pas taper. En cas de doute, c'est non.
+ */
+const CLAVIER_ICI =
+  typeof matchMedia === "undefined" ||
+  !matchMedia("(hover: none) and (pointer: coarse)").matches;
 
 export type MultiScreen = "multi-id" | "multi-join" | "multi-lobby" | "multi-end";
 
@@ -83,6 +95,8 @@ export type MultiApi = {
 type MatchState = {
   seed: number;
   rules: Record<string, string>;
+  /** Le salon joue au clavier : le pool de consignes s'élargit. Voir `poolMulti`. */
+  clavier: boolean;
   phase: "countdown" | "round" | "frozen";
   firstRoundAt: number;
   /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
@@ -828,7 +842,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     match.rule = rule;
-    match.round = buildMultiRound(match.seed, match.idx, rule);
+    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier));
     hud.setRule(rule);
   }
 
@@ -1326,6 +1340,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     match = {
       seed: msg.seed,
       rules: { ...msg.rules },
+      // Reçu, jamais déduit de la liste des joueurs : une déduction locale
+      // divergerait le temps qu'un départ se propage, et une divergence sur le
+      // tirage donne un aperçu qui contredit le verdict. Absent = tactile,
+      // c'est-à-dire ce qu'un serveur d'une version antérieure fait déjà.
+      clavier: msg.clavier === true,
       phase: "countdown",
       firstRoundAt: msg.firstRoundAt,
       countSec: -1,
@@ -1534,7 +1553,15 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       const focusRule = ruleById(rid);
       if (!focusRule && mine?.kind === "death") hud.showStamp(stampFor(mine));
       if (focusRule) {
-        const focusRound = buildMultiRound(match.seed, match.idx, focusRule);
+        // La kill-cam reconstruit la manche de la VICTIME : même graine, même
+        // index, sa règle — et le même pool, sinon on lui montrerait un
+        // tableau que personne n'a joué.
+        const focusRound = buildMultiRound(
+          match.seed,
+          match.idx,
+          focusRule,
+          poolMulti(match.clavier),
+        );
         const elim = pauseMs > 3500;
         showKillCam(victims, focusRule, focusRound, elim, alive.length);
         if (elim) {
@@ -2072,7 +2099,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // anonId est déjà l'identifiant local persistant du joueur. Le réutiliser
       // évite d'en inventer un second qui pourrait diverger — et c'est lui qui
       // permet de reprendre son siège après une coupure.
-      await net.connect(name, myGlyph(), P.load().anonId, P.load().multi.matches === 0);
+      await net.connect(
+        name,
+        myGlyph(),
+        P.load().anonId,
+        P.load().multi.matches === 0,
+        CLAVIER_ICI,
+      );
       return net;
     } catch {
       if (!errFromServer) {

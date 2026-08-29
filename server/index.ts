@@ -85,6 +85,15 @@ interface Client {
   graceTimer: ReturnType<typeof setTimeout> | null;
   /** Se déclare en première partie — annoncé publiquement, voir startMatch. */
   rookie: boolean;
+  /**
+   * Cet appareil peut-il jouer une consigne au clavier ?
+   *
+   * Faux par défaut, et jamais déduit : c'est le client qui l'annonce, parce
+   * que lui seul sait. Un client d'une version antérieure ne l'envoie pas et
+   * compte donc pour « non » — la table retombe alors sur le tirage tactile,
+   * qui est exactement ce qu'il sait reconstruire.
+   */
+  clavier: boolean;
 }
 
 interface Room {
@@ -242,7 +251,21 @@ function startMatch(room: Room): void {
   const rookies = new Set(
     [...room.clients.values()].filter((c) => c.rookie).map((c) => c.id),
   );
-  room.match = new MatchLogic(seed, ids, room.settings, rookies);
+  /*
+   * Le pool clavier n'est ouvert que si TOUT LE MONDE l'a annoncé.
+   *
+   * `every` sur une liste vide vaut `true` — sans effectif il n'y a pas de
+   * match, donc le cas est théorique, mais la garde reste écrite : un pool
+   * élargi par accident donnerait à un téléphone une consigne qu'il ne peut
+   * pas jouer, ce qui est la pire chose qu'un jeu de réflexes puisse faire.
+   *
+   * Un client d'une version antérieure n'envoie pas ce champ : il compte donc
+   * pour « pas de clavier », et la table retombe sur le tirage tactile —
+   * exactement ce que cet ancien client sait reconstruire.
+   */
+  const clavier =
+    ids.length > 0 && [...room.clients.values()].every((c) => c.clavier === true);
+  room.match = new MatchLogic(seed, ids, room.settings, rookies, clavier);
 
   const rules: Record<string, string> = {};
   for (const [id, rule] of room.match.rulesAt(0)) rules[id] = rule.id;
@@ -259,7 +282,14 @@ function startMatch(room: Room): void {
   broadcast(room, roomState(room));
 
   const firstRoundAt = now() + COUNTDOWN_MS;
-  broadcast(room, { t: "match_start", seed, rules, firstRoundAt, settings: room.settings });
+  broadcast(room, {
+    t: "match_start",
+    seed,
+    rules,
+    firstRoundAt,
+    settings: room.settings,
+    clavier: room.match.clavier,
+  });
 
   room.timer = setTimeout(() => openRound(room), COUNTDOWN_MS);
 }
@@ -412,6 +442,7 @@ wss.on("connection", (ws) => {
     key: "",
     graceTimer: null,
     rookie: false,
+    clavier: false,
   };
   client.glyph = glyphFor(client.id);
 
@@ -432,6 +463,8 @@ wss.on("connection", (ws) => {
         client.name = String(msg.name ?? "").slice(0, 14).toUpperCase() || "ANONYME";
         client.key = String(msg.key ?? "").slice(0, 32);
         client.rookie = msg.rookie === true;
+        // `=== true` et non une coercition : absent doit valoir NON.
+        client.clavier = msg.clavier === true;
         client.glyph = parseGlyph(msg.glyph, client.id);
         send(client, { t: "welcome", id: client.id });
         return;
@@ -555,6 +588,10 @@ wss.on("connection", (ws) => {
             // suivante, et le message `round` fixera les vraies dates.
             firstRoundAt: now(),
             settings: room.settings,
+            // Le mode du match EN COURS, pas celui qu'on recalculerait avec
+            // l'arrivant : il est spectateur, il n'a pas voix au tirage, et
+            // il doit reconstruire exactement ce que les autres voient.
+            clavier: m.clavier,
           });
         }
         return;

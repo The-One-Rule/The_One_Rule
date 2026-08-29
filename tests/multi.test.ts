@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { applyRule, buildMultiRound, draftShared } from "../src/engine/multiround";
-import { MULTI_RULES, MatchLogic } from "../server/match";
+import { applyRule, buildMultiRound, draftShared, poolMulti } from "../src/engine/multiround";
+import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../src/engine/instructions";
+import { MULTI_RULES, MatchLogic, multiRulesFor } from "../server/match";
 import { ONE_RULES } from "../src/engine/rules";
 import { ServerClock } from "../src/net/client";
 import {
@@ -117,6 +118,95 @@ describe("logique de match", () => {
 
   it("exclut la contrainte de maintien du pool multijoueur", () => {
     expect(MULTI_RULES.some((r) => r.watchRelease)).toBe(false);
+  });
+
+  /*
+   * Le pool s'adapte au SALON, pas au joueur.
+   *
+   * Entre PC, les consignes clavier s'ouvrent ; dès qu'un téléphone est assis,
+   * on retombe sur le tactile. La scène et la consigne restent COMMUNES —
+   * c'est ce qui fait qu'on crie ensemble. Un tirage par joueur donnerait des
+   * plateaux différents, puisque `instr.gen()` produit les pièces.
+   *
+   * Ce qui se teste ici n'est pas le confort mais deux garanties :
+   * on ne demande JAMAIS l'impossible à un téléphone, et les deux côtés du fil
+   * tirent la même chose.
+   */
+  it("ne demande jamais une consigne clavier à un salon tactile", () => {
+    // La garantie qui compte. Constaté en bêta avant qu'elle existe : deux vies
+    // perdues sur « APPUIE SUR B » puis « APPUIE SUR K », mort sans pouvoir agir.
+    const tactile = poolMulti(false);
+    expect(tactile.some((i) => !i.touch), "une consigne clavier dans le pool tactile").toBe(false);
+    expect(tactile.length).toBeGreaterThan(0);
+
+    for (let idx = 0; idx < 200; idx++) {
+      const r = draftShared(4242, idx, tactile);
+      const instr = INSTRUCTIONS.find((i) => i.id === r.instructionId)!;
+      expect(instr.touch, `manche ${idx} tire « ${instr.id} », injouable au doigt`).toBe(true);
+    }
+  });
+
+  it("ouvre bien des consignes de plus quand toute la table a un clavier", () => {
+    // Sinon le mode ne sert a rien, et personne ne s'en apercevrait.
+    expect(poolMulti(true).length).toBeGreaterThan(poolMulti(false).length);
+    const vues = new Set<string>();
+    for (let idx = 0; idx < 400; idx++) vues.add(draftShared(7, idx, poolMulti(true)).instructionId);
+    const clavier = [...vues].filter((id) => !INSTRUCTIONS.find((i) => i.id === id)!.touch);
+    expect(clavier.length, "aucune consigne clavier n'est jamais sortie").toBeGreaterThan(0);
+  });
+
+  it("le drapeau change VRAIMENT le tirage — sinon le fil transporte du vide", () => {
+    // Si les deux pools donnaient les mêmes manches, tout ce mécanisme serait
+    // decoratif et personne ne le saurait avant de le retirer.
+    let differentes = 0;
+    for (let idx = 0; idx < 200; idx++) {
+      const a = draftShared(31337, idx, poolMulti(false)).instructionId;
+      const b = draftShared(31337, idx, poolMulti(true)).instructionId;
+      if (a !== b) differentes++;
+    }
+    expect(differentes).toBeGreaterThan(0);
+  });
+
+  it("client et serveur reconstruisent la MÊME manche à drapeau égal", () => {
+    // Le risque tenu pour fatal : un aperçu qui contredit le verdict. Le
+    // serveur tire avec `poolMulti(m.clavier)`, le client avec le drapeau
+    // recu dans `match_start` — les deux doivent coïncider exactement.
+    const regle = MULTI_RULES[0]!;
+    for (const clavier of [false, true]) {
+      for (let idx = 0; idx < 60; idx++) {
+        const serveur = buildMultiRound(909, idx, regle, poolMulti(clavier));
+        const client = buildMultiRound(909, idx, regle, poolMulti(clavier));
+        expect(JSON.stringify(client)).toBe(JSON.stringify(serveur));
+      }
+    }
+  });
+
+  it("LA VOYELLE n'entre au pool de règles que si la table a un clavier", () => {
+    // Elle ne piege que sur des consignes clavier : dans un salon tactile elle
+    // ne peut jamais piéger son porteur, donc c'est un avantage gratuit et
+    // invisible — la famille de la décision n°1.
+    expect(multiRulesFor(false).some((r) => r.id === "voyelle")).toBe(false);
+    expect(multiRulesFor(true).some((r) => r.id === "voyelle")).toBe(true);
+    // LA MAIN GAUCHE reste dehors des deux cotes : tenir ESPACE en recevant la
+    // consigne par rotation est injouable meme avec un clavier.
+    for (const c of [false, true]) {
+      expect(multiRulesFor(c).some((r) => r.watchRelease), `clavier=${c}`).toBe(false);
+    }
+  });
+
+  it("un salon clavier distribue quand même une règle différente par siège", () => {
+    const m = new MatchLogic(5, ids, undefined, undefined, true);
+    const r = m.rulesAt(0);
+    expect(new Set([...r.values()].map((x) => x.id)).size).toBe(ids.length);
+    expect(m.clavier).toBe(true);
+  });
+
+  it("le défaut est TACTILE, y compris sans argument", () => {
+    // Un client d'une version anterieure n'annonce pas de clavier : il compte
+    // pour « non », et la table retombe sur ce qu'il sait reconstruire. C'est
+    // ce defaut qui rend le deploiement sur.
+    expect(new MatchLogic(5, ids).clavier).toBe(false);
+    expect(poolMulti(false)).toBe(TOUCH_INSTRUCTIONS);
   });
 
   /*

@@ -20,7 +20,7 @@
  */
 
 import { hashStr, mulberry32 } from "./rng";
-import { pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
+import { INSTRUCTIONS, pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
 import { windowForSteps } from "./difficulty";
 import { compile } from "./round";
@@ -53,19 +53,20 @@ export function draftShared(
 ): SharedRound {
   const rng = sharedRng(seed, idx);
   /*
-   * Le multijoueur tire dans le pool TACTILE, pour tout le monde, toujours.
+   * Le pool par DÉFAUT est le tactile, et ce défaut est une garantie.
    *
-   * La scène est partagée : impossible de donner des consignes différentes
-   * selon l'appareil sans casser le déterminisme. Et un salon mélange par
-   * nature téléphones et PC — on ne sait jamais à l'avance. La règle est donc
-   * celle de l'appareil le moins capable : un joueur PC perd quatre consignes
-   * clavier, un joueur mobile ne perd plus de vies sur des manches qu'il ne
-   * pouvait PAS jouer. Le premier coût est cosmétique, le second tuait des
-   * parties (constaté en bêta : deux vies perdues sur « APPUIE SUR B » puis
-   * « APPUIE SUR K », mort sans avoir pu agir).
+   * Un joueur mobile ne doit jamais perdre une vie sur une manche qu'il ne
+   * pouvait PAS jouer — constaté en bêta : deux vies perdues sur « APPUIE SUR
+   * B » puis « APPUIE SUR K », mort sans avoir pu agir. Tant qu'on ne sait pas
+   * de quoi la table est capable, on suppose le moins capable.
    *
-   * Corollaire traité dans server/match.ts : LA VOYELLE, qui ne piège que
-   * sur des consignes clavier, sort du pool de règles multijoueur.
+   * Le salon peut l'élargir en passant `poolMulti(true)`, mais seulement si
+   * TOUS ses sièges ont annoncé un clavier — voir `poolMulti`. La décision se
+   * prend au salon, jamais au joueur : la scène doit rester commune.
+   *
+   * Corollaire traité dans server/match.ts : LA VOYELLE ne piège que sur des
+   * consignes clavier, elle n'entre donc au pool de règles que dans un salon
+   * clavier. Ailleurs elle serait inerte, c'est-à-dire un avantage gratuit.
    */
   const instr = pickInstruction(rng, idx, pool ?? TOUCH_INSTRUCTIONS);
   const draft = instr.gen(rng, idx);
@@ -118,6 +119,25 @@ export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Rou
   if (rule.transform) round = rule.transform(round, ruleRng(seed, shared.idx, rule.id), shared.idx);
   return round;
 }
+
+/**
+ * Le pool d'un SALON, selon ce que tous ses joueurs peuvent faire.
+ *
+ * Le multijoueur tirait dans le pool tactile pour tout le monde, toujours,
+ * parce qu'un salon mélange par nature téléphones et PC et qu'on ne sait pas
+ * à l'avance. C'était la règle de l'appareil le moins capable, et elle coûtait
+ * quatre consignes à une table qui n'a que des claviers.
+ *
+ * Le choix se fait donc au SALON et non au joueur : entre PC, les dix-neuf
+ * consignes s'ouvrent ; dès qu'un téléphone est assis, on retombe sur les
+ * quinze tactiles. La scène et la consigne restent COMMUNES — c'est ce qui
+ * fait qu'on crie ensemble et qu'on comprend d'un coup d'œil pourquoi le
+ * voisin est tombé. Un tirage par joueur donnerait des plateaux différents,
+ * puisque `instr.gen()` produit les pièces, et la kill-cam montrerait alors un
+ * tableau que personne d'autre n'a vu.
+ */
+export const poolMulti = (clavier: boolean): Instruction[] =>
+  clavier ? INSTRUCTIONS : TOUCH_INSTRUCTIONS;
 
 /** Raccourci : la manche complète d'un joueur donné. */
 export const buildMultiRound = (

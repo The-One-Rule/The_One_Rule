@@ -10,7 +10,7 @@
 
 import { ONE_RULES } from "../src/engine/rules";
 import { mulberry32, rShuffle } from "../src/engine/rng";
-import { applyRule, draftShared } from "../src/engine/multiround";
+import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import type { SharedRound } from "../src/engine/multiround";
 import type { Action, OneRule, Round, RoundProgress } from "../src/engine/types";
@@ -43,6 +43,21 @@ import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol
 export const MULTI_RULES: OneRule[] = ONE_RULES.filter(
   (r) => !r.watchRelease && r.id !== "voyelle",
 );
+
+/**
+ * Le pool de règles d'un salon, selon ce que ses joueurs peuvent faire.
+ *
+ * LA MAIN GAUCHE reste exclue dans les deux cas : tenir ESPACE en recevant la
+ * consigne par rotation est injouable même avec un clavier.
+ *
+ * LA VOYELLE, elle, dépend du salon. Elle ne piège que sur des consignes
+ * clavier ; dans un salon tactile elle ne peut donc jamais piéger son porteur,
+ * ce qui en fait un avantage gratuit et invisible — la famille de défauts de
+ * la décision n°1. Dès que la table entière a un clavier, elle redevient une
+ * vraie contrainte et rentre au pool.
+ */
+export const multiRulesFor = (clavier: boolean): OneRule[] =>
+  clavier ? ONE_RULES.filter((r) => !r.watchRelease) : MULTI_RULES;
 
 /**
  * Décalage de graine pour le tirage des règles.
@@ -132,6 +147,15 @@ export class MatchLogic {
    * COPIE — `MULTI_RULES` reste intact d'un match à l'autre.
    */
   private readonly pool: OneRule[];
+  /**
+   * Le salon joue-t-il au clavier ?
+   *
+   * Vrai seulement si TOUS les sièges l'ont annoncé, et figé au lancement : un
+   * arrivant en cours de match devient spectateur, donc l'effectif assis ne
+   * bouge plus et le tirage ne peut pas changer sous les pieds des joueurs.
+   * Le client le reçoit dans `match_start` — il ne le déduit pas.
+   */
+  readonly clavier: boolean;
   /** Fenêtre réelle : courbe moteur × speed × tension, bornée par MIN/MAX_ROUND_MS. */
   private roundDurationMs = 0;
   private shared: SharedRound | null = null;
@@ -143,10 +167,13 @@ export class MatchLogic {
     settings: RoomSettings = DEFAULT_SETTINGS,
     /** Sièges qui jouent leur première partie — une vie de plus chacun. */
     rookies: ReadonlySet<string> = new Set(),
+    /** Tous les sièges ont un clavier : le pool s'élargit. Défaut prudent. */
+    clavier = false,
   ) {
     this.seed = seed;
     this.settings = settings;
-    this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), MULTI_RULES);
+    this.clavier = clavier;
+    this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier));
     this.seats = playerIds.map((id, i) => {
       const rookie = rookies.has(id);
       return {
@@ -239,7 +266,7 @@ export class MatchLogic {
   /** Ouvre la manche suivante. Retourne sa durée (le serveur fixe l'échéance). */
   openRound(): { idx: number; durationMs: number } {
     this.roundIdx++;
-    this.shared = draftShared(this.seed, this.roundIdx);
+    this.shared = draftShared(this.seed, this.roundIdx, poolMulti(this.clavier));
     this.states.clear();
     const rules = this.rulesAt(this.roundIdx);
     for (const s of this.alive) {

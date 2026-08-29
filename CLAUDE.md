@@ -156,8 +156,23 @@ manche). Toute nouvelle composition d'états doit suivre ce chemin.
 scènes sans les transmettre.
 
 **Netcode** — aucune scène sur le fil : `{seed, idx, deadline}` puis
-`buildMultiRound(seed, idx, rule)` = `draftShared` (scène commune) +
+`buildMultiRound(seed, idx, rule, pool)` = `draftShared` (scène commune) +
 `applyRule` (piège + déformations). Serveur autorité sur le temps.
+
+**Le pool de consignes s'adapte au SALON, pas au joueur** (`poolMulti`). Chaque
+client annonce `clavier` dans son `hello` ; le serveur n'élargit que si TOUS
+les sièges l'annoncent, fige la décision au lancement et la transmet dans
+`match_start`. Trois raisons de ne pas le faire par joueur :
+
+- `instr.gen()` produit les pièces, donc deux consignes différentes donnent
+  deux **plateaux** différents — la kill-cam montrerait un tableau que
+  personne n'a vu ;
+- tout le monde lit la même consigne au même instant, et c'est ça qui fait la
+  salle ;
+- **absent vaut NON**, donc un client d'une version antérieure fait retomber sa
+  table sur le tactile — c'est-à-dire exactement ce qu'il sait reconstruire. Un
+  aperçu qui contredit le verdict est le seul défaut tenu pour fatal, et ce
+  défaut-là le rend impossible par construction.
 
 ---
 
@@ -179,9 +194,13 @@ scènes sans les transmettre.
 | Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
 
-**`MULTI_RULES` = 10** : `mainGauche` exclue (tenir ESPACE par rotation est
-injouable) et `voyelle` exclue (ne piège que sur consignes clavier, absentes du
-pool multi). Marge zéro pour 10 joueurs, verrouillée par test.
+**`MULTI_RULES` = 10, ou 11 en salon clavier** (`multiRulesFor`) :
+`mainGauche` est exclue dans les deux cas — tenir ESPACE en recevant la
+consigne par rotation reste injouable même au clavier. `voyelle` ne sort que du
+pool TACTILE : elle ne piège que sur des consignes clavier, donc là-bas elle
+serait inerte, c'est-à-dire un avantage gratuit. Marge zéro pour 10 joueurs en
+tactile, verrouillée par test — et c'est ce que l'e2e exploite pour garantir
+qu'à effectif plein chaque règle tombe exactement une fois.
 
 ---
 
@@ -478,8 +497,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 220 tests
-(23 fichiers) · e2e 63 assertions · `vite build` — tous verts.
+**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 227 tests
+(23 fichiers) · e2e 68 assertions (~2 min) · `vite build` — tous verts.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
@@ -564,17 +583,30 @@ Le reste du jeu portait déjà un second canal : les plaques distinguent par
 remplissage plein contre liseré, le verdict porte le mot autant que le filet,
 et l'état critique parle à l'oreille au même seuil qu'à l'œil.
 
-### Backlog en cours d'arbitrage
+### Pool par salon — fait
 
-1. **Consignes par plateforme.** Chaque instruction porte déjà `touch` (15 sur
-   19). Ma proposition : le pool s'adapte au SALON, pas au joueur — entre PC,
-   les 4 consignes clavier s'ouvrent ; en salon mixte, on retombe sur les
-   tactiles. Ça évite des plateaux divergents et garde le moment partagé, qui
-   est ce qui fait la salle. La version « par joueur » est possible mais coûte
-   la scène commune. **Décision de Pierre en attente.**
-2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
-   côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
-   liste vide dit « personne ne joue ». À revoir après une soirée.
-3. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. Ce sont
+Voir §4. Entre claviers, les 19 consignes s'ouvrent et LA VOYELLE rentre au
+pool de règles ; dès qu'un téléphone s'assoit, on retombe sur les 15 tactiles
+et elle ressort. Vérifié sur le fil : salon tout-clavier, `typeLetter` tirée et
+jouée, **0 mort sur 21 verdicts** — un désaccord de pool les aurait tous fait
+rater, puisque les indices de pièces ne désigneraient pas les mêmes formes.
+
+### Backlog
+
+1. **Nouveaux modes de jeu.** Décision de Pierre : le plafond vient de là. Un
+   seul mode limite tout, et c'est ce qui rend la dilution du piège acceptable
+   « pour l'instant ». À mesurer de nouveau ensuite.
+2. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. Ce sont
    de nouveaux types d'entrée, donc de nouvelles actions sur le fil et une
-   nouvelle résolution : c'est un chantier, pas un ajout de contenu.
+   nouvelle résolution : c'est un chantier, pas un ajout de contenu. C'est aussi
+   ce qui donnerait des pièges aux sept règles qui n'en ont pas.
+3. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
+   côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
+   liste vide dit « personne ne joue ».
+
+### Ce qui a été écarté avec des chiffres
+
+**« Les joueurs de ce soir étaient plus forts »** — proposé comme explication
+alternative à la chute des morts sur la règle unique. Ne tient pas : à règle
+égale (LE SANG), le score médian du jour 240 est de **11,5** contre **13** au
+jour 239. Ils n'étaient pas plus forts. La dilution est mécanique.
