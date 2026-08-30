@@ -44,6 +44,27 @@ export interface Lien {
   idExterne: string;
 }
 
+/**
+ * Une performance VÉRIFIÉE.
+ *
+ * Le score n'est jamais celui qu'un client affirme : c'est celui que
+ * `verifyRun` produit en rejouant le journal d'entrées. Voir la migration
+ * 0002 pour la raison de ne rien mettre d'autre dans cette table.
+ */
+export interface Perf {
+  utilisateurId: string;
+  mode: string;
+  cle: string;
+  versionContenu: string;
+  jour: number | null;
+  graine: number;
+  regle: string;
+  valeur: number;
+  valeur2: number;
+  verdictBot: string;
+  creeLe: number;
+}
+
 export interface Depot {
   parLien(l: Lien): Promise<Utilisateur | null>;
   parId(id: string): Promise<Utilisateur | null>;
@@ -62,6 +83,17 @@ export interface Depot {
   /** Efface le compte : logique côté utilisateur, DÉFINITIF côté liens. */
   supprime(id: string): Promise<void>;
   touche(id: string): Promise<void>;
+
+  /**
+   * Enregistre une performance, ou améliore celle qui existe déjà sous la
+   * même clé. Renvoie `true` si quelque chose a été écrit.
+   *
+   * « Améliorer » et non « remplacer » : c'est la même loi que la fusion des
+   * agrégats. Un second envoi moins bon ne doit pas effacer le premier.
+   */
+  posePerf(p: Perf): Promise<boolean>;
+  /** L'historique personnel, du plus récent au plus ancien. */
+  mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]>;
 }
 
 /** L'état neuf d'un compte fraîchement lié. */
@@ -155,6 +187,32 @@ export class DepotMemoire implements Depot {
     // comptes sont morts. Rien à simuler ici, mais la méthode doit exister
     // pour que les tests exercent le même chemin d'appel que la production.
     void id;
+  }
+
+  private perfs: Perf[] = [];
+
+  async posePerf(p: Perf): Promise<boolean> {
+    const i = this.perfs.findIndex((x) => x.utilisateurId === p.utilisateurId && x.cle === p.cle);
+    if (i < 0) {
+      this.perfs.push({ ...p });
+      return true;
+    }
+    const avant = this.perfs[i]!;
+    // Le même ordre que l'index de classement : valeur décroissante, puis
+    // départage croissant sur la durée.
+    const mieux =
+      p.valeur > avant.valeur || (p.valeur === avant.valeur && p.valeur2 < avant.valeur2);
+    if (!mieux) return false;
+    this.perfs[i] = { ...p };
+    return true;
+  }
+
+  async mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]> {
+    return this.perfs
+      .filter((p) => p.utilisateurId === utilisateurId)
+      .sort((a, b) => b.creeLe - a.creeLe)
+      .slice(0, limite)
+      .map((p) => ({ ...p }));
   }
 }
 
@@ -338,6 +396,63 @@ export class DepotSupabase implements Depot {
       method: "PATCH",
       body: JSON.stringify({ vu_le: new Date().toISOString() }),
     }).catch(() => undefined);
+  }
+
+  async posePerf(p: Perf): Promise<boolean> {
+    const ligne = {
+      utilisateur_id: p.utilisateurId,
+      mode: p.mode,
+      cle: p.cle,
+      version_contenu: p.versionContenu,
+      jour: p.jour,
+      graine: p.graine,
+      regle: p.regle,
+      valeur: p.valeur,
+      valeur2: p.valeur2,
+      verifiee: true,
+      verdict_bot: p.verdictBot,
+    };
+
+    // On tente l'insertion. L'index unique (utilisateur, clé) refuse le
+    // doublon — c'est lui qui borne le run du jour à une soumission par
+    // compte et par jour, gratuitement.
+    const insert = await this.req("performance", { method: "POST", body: JSON.stringify(ligne) });
+    if (insert.ok) return true;
+    if (insert.status !== 409) throw new Error(`supabase perf ${insert.status}`);
+
+    // Doublon : on n'écrase que si c'est MIEUX. Le filtre porte la
+    // comparaison, donc la décision est prise par la base et non par une
+    // lecture suivie d'une écriture — deux onglets ne peuvent pas se
+    // marcher dessus.
+    const maj = await this.req(
+      `performance?utilisateur_id=eq.${encodeURIComponent(p.utilisateurId)}` +
+        `&cle=eq.${encodeURIComponent(p.cle)}&valeur=lt.${p.valeur}`,
+      { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(ligne) },
+    );
+    if (!maj.ok) throw new Error(`supabase perf maj ${maj.status}`);
+    return ((await maj.json()) as unknown[]).length > 0;
+  }
+
+  async mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]> {
+    const res = await this.req(
+      `performance?utilisateur_id=eq.${encodeURIComponent(utilisateurId)}` +
+        `&order=cree_le.desc&limit=${Math.max(1, Math.min(200, limite))}`,
+    );
+    if (!res.ok) throw new Error(`supabase perfs ${res.status}`);
+    const lignes = (await res.json()) as Record<string, unknown>[];
+    return lignes.map((l) => ({
+      utilisateurId: String(l.utilisateur_id),
+      mode: String(l.mode),
+      cle: String(l.cle),
+      versionContenu: String(l.version_contenu),
+      jour: l.jour === null ? null : Number(l.jour),
+      graine: Number(l.graine),
+      regle: String(l.regle),
+      valeur: Number(l.valeur),
+      valeur2: Number(l.valeur2),
+      verdictBot: String(l.verdict_bot ?? "humain"),
+      creeLe: Date.parse(String(l.cree_le)) || Date.now(),
+    }));
   }
 }
 

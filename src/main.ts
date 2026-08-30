@@ -44,9 +44,11 @@ import {
   estConnecte,
   fournisseurs,
   litRetourConnexion,
+  mesPerfs,
   profil,
   rafraichit,
 } from "./compte";
+import { enfile, vide } from "./compte/file";
 import { appliqueSiConnu, revendiqueSiNecessaire, signeAffiche } from "./compte/revendication";
 import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
@@ -538,6 +540,25 @@ function renderCompte(): void {
       ligneCompte("SÉRIE", `${s.streak.count} JOUR${s.streak.count > 1 ? "S" : ""}`),
     );
     hote.appendChild(ligneCompte("RECORD À L'ENTRAÎNEMENT", `${s.bestTraining} MANCHES`));
+
+    /*
+     * L'historique des runs du jour, chargé après coup.
+     *
+     * Il vient du serveur et il est VÉRIFIÉ : chaque ligne a été rejouée par
+     * `verifyRun`, le score n'est pas celui que le navigateur a annoncé. C'est
+     * la seule chose de cet écran qui soit opposable à quelqu'un d'autre — et
+     * c'est aussi ce qui rendra un classement possible sans repartir de faits
+     * invérifiables. Ne pas le confondre avec les trois lignes du dessus, qui
+     * sont des affirmations de l'appareil.
+     */
+    void mesPerfs().then((perfs) => {
+      if (screen !== "compte" || !perfs.length) return;
+      hote.appendChild(
+        ligneCompte("RUNS DU JOUR ENREGISTRÉS", `${perfs.length}`),
+      );
+      const meilleur = perfs.reduce((m, p) => (p.valeur > m.valeur ? p : m));
+      hote.appendChild(ligneCompte("MEILLEUR RUN DU JOUR", `${meilleur.valeur} MANCHES`));
+    });
     return;
   }
 
@@ -979,6 +1000,22 @@ function finishRun(): void {
       st.bestTraining = Math.max(st.bestTraining, end.score);
     }
   });
+
+  /*
+   * Le run du jour part en file, compte ou pas.
+   *
+   * Sans compte, il ATTEND — et c'est ce qui rend l'invitation honnête : si le
+   * joueur en crée un dans la foulée, ce run-là est enregistré. Lui promettre
+   * d'enregistrer une performance déjà perdue serait la promesse rompue la
+   * plus facile à commettre ici.
+   *
+   * Seul le run du jour : c'est le seul mode dont deux résultats se comparent
+   * (même graine, même règle pour tout le monde). Voir api/perf.ts.
+   */
+  if (mode === "daily" && !challenge) {
+    enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
+    void vide();
+  }
 
   track("run_end", {
     mode,
@@ -1848,6 +1885,9 @@ async function demarreCompte(): Promise<void> {
     const moi = await profil();
     if (moi) appliqueSiConnu(moi);
   }
+  // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
+  // ou joué avant que le compte n'existe.
+  await vide();
   if (screen === "home") renderHome();
 }
 

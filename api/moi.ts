@@ -186,6 +186,33 @@ export async function traite(
     return json({ moi: vue(u) });
   }
 
+  /*
+   * L'historique personnel.
+   *
+   * On ne rend QUE les performances de celui qui demande. Il n'existe aucune
+   * route qui rende celles de quelqu'un d'autre, et ce n'est pas un oubli :
+   * une telle route serait un classement, et le périmètre de ce chantier
+   * s'arrête avant.
+   */
+  if (action === "perfs") {
+    if (req.method !== "GET") return json({ error: "method" }, 405);
+    const perfs = await depot.mesPerfs(u.id, 60);
+    return json({
+      perfs: perfs.map((p) => ({
+        mode: p.mode,
+        jour: p.jour,
+        regle: p.regle,
+        valeur: p.valeur,
+        valeur2: p.valeur2,
+        // La version de contenu voyage avec : c'est elle qui dira, plus tard,
+        // qu'un chiffre d'aujourd'hui ne se compare pas à un chiffre d'après
+        // la treizième règle.
+        versionContenu: p.versionContenu,
+        creeLe: p.creeLe,
+      })),
+    });
+  }
+
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const brut = await req.text();
   if (brut.length > MAX_BODY) return json({ error: "too large" }, 413);

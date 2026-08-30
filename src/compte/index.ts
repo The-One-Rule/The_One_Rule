@@ -306,6 +306,22 @@ export async function revendique(payload: {
   return r.moi;
 }
 
+export interface PerfPublique {
+  mode: string;
+  jour: number | null;
+  regle: string;
+  valeur: number;
+  valeur2: number;
+  versionContenu: string;
+  creeLe: number;
+}
+
+/** L'historique personnel — uniquement le sien, il n'existe pas d'autre route. */
+export async function mesPerfs(): Promise<PerfPublique[]> {
+  const r = await appelMoi<{ perfs?: PerfPublique[] }>("?a=perfs");
+  return r?.perfs ?? [];
+}
+
 /** Renomme, ou change de signe. */
 export async function changeIdentite(pseudo: string, glyphe: number): Promise<Moi | null> {
   const r = await appelMoi<{ moi?: Moi; jeton?: string }>("?a=identite", {
