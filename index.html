@@ -602,6 +602,11 @@
                  fait, elle est en bas et elle est seule de sa taille. -->
             <div class="room__acts">
               <button class="btn btn--launch hidden" id="btnMultiStart">LANCER LA PARTIE</button>
+              <!-- Arrivé par un lien : on entre d'abord, on se nomme ensuite.
+                   Ce bouton n'apparaît que pour qui n'a pas encore de nom —
+                   il porte le nommage APRÈS l'entrée, là où il ne coûte plus
+                   rien à personne. Voir openFromInvite dans src/multi.ts. -->
+              <button class="btn hidden" id="btnMultiNom">CHOISIR TON NOM</button>
               <button class="btn btn--ghost" id="btnMultiLeave">QUITTER LE SALON</button>
               <p class="fineprint" id="multiInviteHint"></p>
             </div>

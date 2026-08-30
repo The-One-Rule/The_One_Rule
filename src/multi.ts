@@ -1116,6 +1116,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function paintLobby(): void {
     if (!roomCode) return;
+    /*
+     * « CHOISIR TON NOM » n'apparait que pour qui n'en a pas — donc pour qui
+     * vient d'entrer par un lien. C'est le nommage deplace APRES l'entree :
+     * la ou il ne fait plus attendre personne. Cache pendant une manche : on
+     * ne se renomme pas au milieu d'un match, la reprise de siege passerait
+     * par une reconnexion.
+     */
+    $("btnMultiNom").classList.toggle("hidden", !!savedName() || lobbyInMatch);
     renderLobby(
       roomCode,
       lastPlayers,
@@ -2115,10 +2123,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
-  async function ensureConnected(): Promise<NetClient | null> {
+  /**
+   * `anonyme` : accepter d'entrer SANS nom.
+   *
+   * Le refus par defaut n'etait pas une regle du serveur — celui-ci assied
+   * volontiers un ANONYME avec un signe derive — mais un verrou du client. Il
+   * transformait un lien d'ami en peage : ecran d'identite, saisie clavier,
+   * CONTINUER, et seulement ensuite le salon. Or c'est exactement le moment ou
+   * l'ami attend, et exactement la promesse que le jeu affiche en tete de sa
+   * documentation : « code/lien -> rejoindre -> jouer ».
+   *
+   * On garde le verrou pour l'entree DELIBEREE par la carte MULTIJOUEUR : qui
+   * cree un salon en est l'hote, et son nom compte pour ceux qui arriveront.
+   * On le leve pour le lien, ou le salon existe deja.
+   */
+  async function ensureConnected(
+    opts: { anonyme?: boolean } = {},
+  ): Promise<NetClient | null> {
     if (net?.connected) return net;
     const name = savedName();
-    if (!name) return null;
+    if (!name && !opts.anonyme) return null;
     if (connecting) return null;
     connecting = true;
     errFromServer = false;
@@ -2137,7 +2161,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // évite d'en inventer un second qui pourrait diverger — et c'est lui qui
       // permet de reprendre son siège après une coupure.
       await net.connect(
-        name,
+        name ?? "",
         myGlyph(),
         P.load().anonId,
         P.load().multi.matches === 0,
@@ -2187,6 +2211,32 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!client) return;
     show("multi-join");
     codeInput.focus();
+  }
+
+  /**
+   * Se renommer sans quitter le salon.
+   *
+   * Le serveur ne lit le nom qu'au `hello` : il faut donc une socket neuve. On
+   * s'appuie sur la reprise de siege deja en place — meme `key` locale, siege
+   * garde 25 s cote serveur — qui rend l'aller-retour invisible aux autres.
+   * C'est le meme chemin qu'une micro-coupure, et il est deja eprouve par
+   * l'e2e.
+   */
+  async function reprendPlaceAvecNom(): Promise<void> {
+    const code = roomCode || lastRoomCode;
+    if (!code) {
+      await openJoin();
+      return;
+    }
+    net?.close();
+    net = null;
+    const client = await ensureConnected({ anonyme: true });
+    if (!client) {
+      setJoinErr("RECONNEXION IMPOSSIBLE — RÉESSAIE");
+      await openJoin(code);
+      return;
+    }
+    client.joinRoom(code);
   }
 
   function exitToMenu(): void {
@@ -2427,6 +2477,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $("btnIdBack").addEventListener("click", () => {
     sfx.ui();
     apresIdentite = null;
+    // On peut arriver ici DEPUIS le salon (bouton « choisir ton nom ») : y
+    // renvoyer, sinon renoncer a se nommer ferait quitter la partie.
+    if (roomCode) {
+      paintLobby();
+      show("multi-lobby");
+      return;
+    }
     show(savedName() ? "multi-join" : "home");
   });
 
@@ -2486,6 +2543,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     sfx.ui();
     exitToMenu();
     show("home");
+  });
+
+  $("btnMultiNom").addEventListener("click", () => {
+    sfx.ui();
+    apresIdentite = () => void reprendPlaceAvecNom();
+    openIdentity();
   });
 
   $("btnMultiLeave").addEventListener("click", () => {
@@ -2609,10 +2672,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     exitToMenu,
     openFromInvite: (code: string) => {
       track("invite_opened", {});
-      // Arrivée par un lien d'ami : c'est le cas où l'identité manque le plus
-      // souvent, et celui où l'accueil compte le plus.
-      if (needIdentity(() => void openJoin(code))) return;
-      void openJoin(code);
+      /*
+       * ON ENTRE, PUIS ON SE NOMME.
+       *
+       * Ni ecran d'identite, ni ecran de saisie de code : le code est dans le
+       * lien, et le nom peut attendre d'etre dans le salon. Mesure du parcours
+       * precedent pour un joueur neuf — celui qui clique le lien d'un ami :
+       * une saisie clavier et deux clics inseres entre le lien et la partie.
+       *
+       * Repli si la connexion echoue : l'ecran de saisie avec le code
+       * pre-rempli, pour que le lien ne se perde pas dans une impasse.
+       */
+      void (async () => {
+        const client = await ensureConnected({ anonyme: true });
+        if (!client) {
+          await openJoin(code);
+          return;
+        }
+        setJoinErr(null);
+        client.joinRoom(code);
+      })();
     },
     isPlayingMulti,
     peekRound,

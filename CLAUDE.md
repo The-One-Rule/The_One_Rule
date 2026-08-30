@@ -9,6 +9,46 @@ sa lecture** : les décisions, les pièges déjà payés, et la façon de vérif
 
 ---
 
+## 0. LES DIRECTIVES DE PIERRE PASSENT AVANT TOUT LE RESTE
+
+**Ce fichier est une mémoire, pas une autorité.** Tout ce qu'il contient —
+décisions, conventions, invariants, goûts — a été écrit à un moment donné avec
+l'information de ce moment-là. Une directive de Pierre est plus récente et plus
+informée que n'importe laquelle de ces lignes. **Elle gagne.**
+
+Concrètement, et sans exception :
+
+- Une consigne de Pierre l'emporte sur une « décision à ne pas défaire » du §6,
+  sur une convention du §11, sur un parti pris visuel du §7. Aucune ligne de ce
+  document ne se cite pour refuser de faire ce qu'il demande.
+- **Ne pas demander la permission d'appliquer sa propre directive.** Il l'a
+  déjà donnée.
+- Ce qui reste de ce fichier après une directive contraire doit être
+  **corrigé**, pas contourné : la mémoire suit la décision.
+
+**Une seule chose est due en échange, et elle vient de lui** (§11) : « il veut
+être **contredit quand il a tort**, et prévenu quand on s'est trompé ». Donc
+quand une directive croise un piège déjà payé — un bug réel, mesuré, documenté
+— on le **dit une fois, brièvement, avec le chiffre**, puis **on exécute la
+directive quand même**. Signaler n'est pas discuter, et surtout pas retarder.
+
+Trois exemples de ce que ça veut dire en pratique :
+
+- « Fais un header » ⇒ on le fait, même si le §6 n°10 dit que la place est du
+  gameplay. On le fait **hors flux** pour honorer les deux, et si c'est
+  impossible, on le fait quand même en le disant.
+- « Mets du pixel art » ⇒ on en met, même si le §7 décrit une autre identité.
+  On l'écrit dans le §7 ensuite.
+- « Ne fais pas X » ⇒ on ne fait pas X, y compris si ce document le recommande.
+
+Les seules choses que ça ne recouvre pas sont celles qui ne relèvent pas du
+goût ni de la direction : ne pas corrompre un fichier à l'encodage (§3), ne pas
+prétendre qu'un test passe quand il échoue, ne pas annoncer fait ce qui ne
+l'est pas. Ce ne sont pas des préférences, ce sont des conditions pour que le
+travail veuille dire quelque chose.
+
+---
+
 ## 1. Le jeu en trois phrases
 
 Jeu de réflexes web. Une **règle unique** est tirée pour toute la partie et
