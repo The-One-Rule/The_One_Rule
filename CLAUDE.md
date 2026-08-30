@@ -123,11 +123,15 @@ Get-ChildItem -Recurse -Include *.ts,*.mjs,*.css,*.html -Path src,server,shared,
 ## 4. Architecture
 
 ```
-shared/protocol.ts   protocole typé unique, importé des deux côtés
+shared/
+  protocol.ts  protocole typé unique, importé des deux côtés
+  jeton.ts     noyau JWT PUR — la primitive HMAC vient de l'appelant (§12)
+  compte.ts    types du compte + fusion PURE + clé de comparabilité
 server/
   match.ts     logique de match PURE (règles, vies, verdicts, forfaits, tension)
   index.ts     serveur ws : salons, ordonnancement, heartbeat, arrêt propre
   origin.ts    liste blanche d'origines
+  jeton.ts     vérification SYNCHRONE du jeton (node:crypto)
 src/
   engine/      PUR — aucun DOM, aucune horloge, aucun Math.random()
     rng, scene (grille 5×3), instructions/ (19 dont 15 tactiles),
@@ -138,8 +142,11 @@ src/
   render/      scene (canvas), hud, layout (PUR et testé), option, plate, seat
   ranked/      elo, antibot, client
   analytics/   file groupée, sendBeacon, transport injectable
+  compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
-api/           fonctions edge Vercel : collect, ranked
+api/           fonctions edge Vercel : collect, ranked, auth, moi, perf
+               (`_jeton`, `_depot`, `_debit` : le `_` les exclut du routage)
+supabase/migrations/  0001 identité · 0002 performances
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
   brand/       le kit d'identité d'origine, son README et ses tokens
 scripts/       pull, report, check-deploy, check-salons
@@ -240,6 +247,27 @@ qu'à effectif plein chaque règle tombe exactement une fois.
 11. **Le run du jour reste identique pour tout le monde** — c'est ce qui donne
     un sens aux scores et aux liens de défi. Seule exception admise : une règle
     matériellement injouable sur l'appareil (voir `withoutHold`).
+12. **Aucune fonctionnalité de jeu ne dépend du compte.** Le compte est une
+    couche AU-DESSUS de l'identité d'appareil, jamais un remplacement, jamais
+    un préalable. Personne ne décide jamais de rendre un compte obligatoire :
+    chaque nouveauté « a juste besoin » d'un compte, et six mois plus tard le
+    jeu en exige un. `tests/invariants-compte.test.ts` refuse tout import de
+    `compte` depuis `engine/` et `server/match.ts`, et refuse un `if` qui
+    ferait décider `client.compte` de quoi que ce soit. Corollaire :
+    **absent vaut anonyme**, un jeton faux ou périmé aussi, et le serveur ne
+    renvoie jamais d'erreur pour ça — la même doctrine que `clavier`.
+13. **La fusion est une union et un maximum, jamais une affectation** — donc
+    idempotente, commutative, monotone (`shared/compte.ts`). C'est ce qui rend
+    inoffensifs les doubles onglets, les reprises réseau et les synchros
+    concurrentes. Et elle n'a lieu **qu'une fois par appareil**
+    (`compte.revendiquePar`) : sans ce marquage, se connecter sur le téléphone
+    d'un ami aspirerait son carnet. Un bug ici ne casse rien — il fait
+    rétrécir un carnet en silence.
+14. **Ce qui est opposable à autrui est REJOUÉ ; le reste ne l'est pas, et ne
+    doit jamais se confondre avec.** La table `performance` ne contient que du
+    vérifié par `verifyRun` ; carnet, série et records d'entraînement vivent
+    dans `utilisateur.agregats`, qui sont des affirmations du client. Mélanger
+    les deux ferait démarrer un futur classement sur des faits invérifiables.
 
 ---
 
@@ -391,9 +419,11 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Dette | Quand ça mord |
 |---|---|
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
-| Pas de comptes | l'identité meurt avec le navigateur — **bloque tout leaderboard** |
-| `api/ranked.ts` en `MemoryStore` | mode classé masqué en production |
-| Pas de version de génération sur les runs stockés | le jour où `Store` passe sur Postgres |
+| ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
+| `api/ranked.ts` en `MemoryStore` | mode classé masqué en production. **Ne pas rebrancher `a=top` tel quel** : il accepte `body.id` sans aucune vérification, donc n'importe qui peut soumettre sous n'importe quelle identité. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
+| ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
+| Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
+| Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
 | Aucun filet sur la mise en page | jsdom ne calcule pas de layout — décision Playwright en attente |
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 12 règles ; 45 combinaisons possibles à deux règles |
@@ -497,8 +527,15 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 268 tests
-(27 fichiers) · e2e 74 assertions (~2 min 15) · `vite build` — tous verts.
+**Branche** `master`. **Vérification** : `tsc` · 396 tests (34 fichiers) ·
+e2e 74 assertions (~2 min 20) · `vite build` — tous verts.
+
+⚠️ **Casser le correctif pour éprouver un test ne marche plus partout** : le
+classificateur de permissions refuse de lancer les tests quand une
+vérification de signature vient d'être neutralisée dans la source. Sur du code
+cryptographique, il faut donc donner les dents au test lui-même — par exemple
+en reconstruisant une charge modifiée avec l'ancienne signature, ce que fait
+`tests/jeton.test.ts`, plutôt qu'en désactivant le contrôle.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
@@ -623,6 +660,75 @@ régresser — et c'est vérifié par test dans les deux cas.
   construit les pièces pour qu'une seule satisfasse la sienne. C'est le vrai
   problème de génération, et il n'est pas résolu.
 - L'appariement suit l'ordre d'ARRIVÉE. Pas de choix de partenaire.
+
+### Comptes optionnels — fait, jamais vus par un joueur
+
+Quatre lots livrés d'affilée : socle d'identité, revendication, performances,
+durcissement. **Rien n'est visible tant que le déploiement n'est pas
+configuré** — sans `TOR_AUTH_SECRET`, sans Supabase ou sans fournisseur OAuth,
+le bouton COMPTE reste masqué et le jeu se comporte exactement comme avant.
+Vérifié en dev : accueil rendu, zéro erreur console, bouton masqué.
+
+```
+shared/jeton.ts       noyau JWT PUR (encodage, revendications, péremption)
+server/jeton.ts       HMAC node:crypto — SYNCHRONE
+api/_jeton.ts         HMAC crypto.subtle — asynchrone
+api/_depot.ts         interface Depot + Supabase REST + mémoire
+api/_debit.ts         limitation adossée à l'Upstash existant
+api/auth.ts           OAuth Google/Discord, jeton, rafraîchissement, révocation
+api/moi.ts            profil, fusion, identité, perfs, suppression
+api/perf.ts           soumission du run du jour, rejouée par verifyRun
+src/compte/           client : jeton local, revendication, file PERSISTÉE
+supabase/migrations/  0001 identité · 0002 performances
+```
+
+**Pourquoi DEUX implémentations HMAC.** Le `hello` de `server/index.ts` est
+traité dans un `switch` synchrone ; une vérification asynchrone ferait entrer
+le joueur dans le salon sous son identité anonyme, et son nom changerait sous
+les yeux des autres une milliseconde plus tard. `node:crypto` sait signer sans
+promesse, `crypto.subtle` non. La logique est écrite une fois dans
+`shared/jeton.ts`, et `tests/jeton.test.ts` **signe avec l'un et vérifie avec
+l'autre, dans les deux sens, plus une comparaison OCTET POUR OCTET** — sans ce
+croisement, les deux chemins divergeraient en silence et le symptôme serait
+« le multi ne me reconnaît pas », c'est-à-dire indébogable.
+
+**Le glyphe est devenu adressable** (`glyphIndex` / `glyphFromIndex`, bijection
+testée sur les 144). Il n'existait que dérivé de l'`anonId`, donc il ne
+survivait pas à un changement d'appareil — alors qu'un signe est précisément ce
+à quoi les autres vous reconnaissent. Il voyage maintenant comme une VALEUR
+dans le jeton, ce qui lui donne d'avance la forme d'un identifiant d'objet
+possédé. `utilisateur.apparence` est un **JSONB à clés ouvertes** : l'habillage
+des cartes de partie s'y ajoutera sans migration, et `apparenceAutorisee()` est
+le point d'accroche unique d'une future possession.
+
+**`VERSION_CONTENU` est CALCULÉE** (`src/engine/version.ts`), pas tenue à la
+main : ajouter une règle ou changer une pondération de consigne la change, que
+l'on y pense ou non. C'était la dette « pas de version de génération sur les
+runs stockés ». Elle ignore volontairement l'ordre de déclaration et
+l'habillage — une version qui change tout le temps ne segmente plus rien.
+
+⚠️ **La limite de fond de l'anti-triche, à ne pas oublier.** `verifyRun` prouve
+qu'un journal est COHÉRENT, pas qu'un humain l'a produit. La graine du jour
+étant publique et déterministe, on peut chercher un journal optimal hors ligne
+et y injecter des délais d'apparence humaine : `antibot` ne verra rien, il
+n'observe qu'une dispersion que le forgeur choisit. C'est la raison pour
+laquelle un classement **mondial** n'est pas la bonne première forme — un
+classement d'amis rend le problème social au lieu de le rendre technique.
+
+**Ce qui reste à faire pour que ça vive** (côté Pierre, non codable ici) :
+projet Supabase + les deux migrations, applications OAuth Google et Discord,
+puis les variables : `TOR_AUTH_SECRET` (le même des deux côtés), `TOR_APP_URL`,
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID/SECRET`,
+`DISCORD_CLIENT_ID/SECRET` sur Vercel — et `TOR_AUTH_SECRET` sur Fly.
+⚠️ `fly secrets set` redémarre la machine et tue les salons : à faire quand
+personne ne joue, puis revérifier `fly scale count 1`.
+
+**Pas de classement, et c'est délibéré.** L'index `performance_classement`
+existe, la clé de comparabilité existe, aucune route ne rend les performances
+de quelqu'un d'autre. Ce qu'il faut regarder d'abord, ce sont les trois
+événements `compte_invite` → `compte_start` → `compte_lie` : les testeurs ont
+RÉCLAMÉ les comptes, ce qui n'est pas la même chose que les utiliser — le
+partage de score aussi était réclamé, et il est resté à 0 %.
 
 ### Backlog
 

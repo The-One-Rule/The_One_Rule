@@ -94,6 +94,15 @@ export interface Depot {
   posePerf(p: Perf): Promise<boolean>;
   /** L'historique personnel, du plus récent au plus ancien. */
   mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]>;
+  /**
+   * Incrémente le cumul de suspicion.
+   *
+   * On compte, on ne sanctionne pas : le contrôle d'automatisation est un test
+   * statistique, et un joueur exceptionnel peut le déclencher. Un tricheur
+   * régulier, lui, finit par se voir — et la décision reste humaine, prise sur
+   * des chiffres plutôt qu'au jugé.
+   */
+  leveDrapeau(id: string): Promise<number>;
 }
 
 /** L'état neuf d'un compte fraîchement lié. */
@@ -180,6 +189,9 @@ export class DepotMemoire implements Depot {
     u.agregats = agregatsVides();
     u.versionJeton += 1;
     for (const [cle, cible] of [...this.liens]) if (cible === id) this.liens.delete(cle);
+    // Les performances sont des données personnelles rattachées au compte :
+    // une demande de suppression les emporte.
+    this.perfs = this.perfs.filter((p) => p.utilisateurId !== id);
   }
 
   async touche(id: string): Promise<void> {
@@ -213,6 +225,13 @@ export class DepotMemoire implements Depot {
       .sort((a, b) => b.creeLe - a.creeLe)
       .slice(0, limite)
       .map((p) => ({ ...p }));
+  }
+
+  async leveDrapeau(id: string): Promise<number> {
+    const u = this.users.get(id);
+    if (!u) return 0;
+    u.drapeaux += 1;
+    return u.drapeaux;
   }
 }
 
@@ -453,6 +472,17 @@ export class DepotSupabase implements Depot {
       verdictBot: String(l.verdict_bot ?? "humain"),
       creeLe: Date.parse(String(l.cree_le)) || Date.now(),
     }));
+  }
+
+  async leveDrapeau(id: string): Promise<number> {
+    const u = await this.parId(id);
+    if (!u) return 0;
+    const suivant = u.drapeaux + 1;
+    await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ drapeaux: suivant }),
+    });
+    return suivant;
   }
 }
 

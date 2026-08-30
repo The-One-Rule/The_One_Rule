@@ -322,6 +322,23 @@ export async function mesPerfs(): Promise<PerfPublique[]> {
   return r?.perfs ?? [];
 }
 
+/**
+ * Supprime le compte, définitivement.
+ *
+ * Efface aussi l'état local : rester « connecté » à un compte qui n'existe
+ * plus ne mènerait qu'à des 401 silencieux. La progression LOCALE, elle,
+ * reste — supprimer son compte n'est pas se punir, et le jeu doit continuer
+ * exactement comme avant.
+ */
+export async function supprimeCompte(): Promise<boolean> {
+  const r = await appelMoi<{ supprime?: boolean }>("?a=suppression", { method: "POST" });
+  if (!r?.supprime) return false;
+  etat = null;
+  charge = true;
+  ecrit(null);
+  return true;
+}
+
 /** Renomme, ou change de signe. */
 export async function changeIdentite(pseudo: string, glyphe: number): Promise<Moi | null> {
   const r = await appelMoi<{ moi?: Moi; jeton?: string }>("?a=identite", {

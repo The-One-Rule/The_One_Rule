@@ -47,6 +47,7 @@ import {
   mesPerfs,
   profil,
   rafraichit,
+  supprimeCompte,
 } from "./compte";
 import { enfile, vide } from "./compte/file";
 import { appliqueSiConnu, revendiqueSiNecessaire, signeAffiche } from "./compte/revendication";
@@ -526,6 +527,11 @@ function renderCompte(): void {
 
   $("compteAnon").classList.toggle("hidden", connecte);
   $("compteConnecte").classList.toggle("hidden", !connecte);
+  // Rouvrir l'écran DÉSARME la suppression : une confirmation qui survit à une
+  // sortie et un retour n'est plus une confirmation.
+  suppressionArmee = false;
+  $("compteDanger").classList.add("hidden");
+  $("btnCompteSupprimer").textContent = "SUPPRIMER LE COMPTE";
   $("compteTitre").textContent = connecte ? "TON COMPTE" : "ENREGISTRER TES PERFS";
 
   if (connecte) {
@@ -1518,6 +1524,47 @@ $("btnCompteInvite").addEventListener("click", () => {
   sfx.ui();
   void ouvreCompte();
 });
+/**
+ * Suppression en deux temps.
+ *
+ * Le premier clic dit exactement ce qui disparaît, le second l'exécute. Un
+ * bouton destructeur qui agit au premier clic est une trappe — et celui-ci
+ * est le seul geste irréversible de tout le jeu.
+ */
+let suppressionArmee = false;
+$("btnCompteSupprimer").addEventListener("click", () => {
+  const danger = $("compteDanger");
+  const bouton = $<HTMLButtonElement>("btnCompteSupprimer");
+  sfx.ui();
+  if (!suppressionArmee) {
+    suppressionArmee = true;
+    danger.classList.remove("hidden");
+    danger.textContent =
+      "TON COMPTE, TON HISTORIQUE ET TES RUNS ENREGISTRÉS SERONT EFFACÉS. " +
+      "TA PROGRESSION SUR CET APPAREIL RESTE. C'EST DÉFINITIF.";
+    bouton.textContent = "CONFIRMER LA SUPPRESSION";
+    return;
+  }
+  bouton.disabled = true;
+  void supprimeCompte().then((fait) => {
+    bouton.disabled = false;
+    if (!fait) {
+      danger.textContent = "SUPPRESSION IMPOSSIBLE POUR L'INSTANT. RÉESSAIE PLUS TARD.";
+      return;
+    }
+    // Le lien local part avec le compte : cet appareil redevient anonyme, et
+    // il pourra revendiquer à nouveau s'il se rattache un jour ailleurs.
+    P.mutate((st) => {
+      st.compte.revendiquePar = null;
+      st.compte.glyphe = null;
+    });
+    suppressionArmee = false;
+    bouton.textContent = "SUPPRIMER LE COMPTE";
+    danger.classList.add("hidden");
+    renderCompte();
+  });
+});
+
 $("btnCompteQuitter").addEventListener("click", () => {
   deconnexion();
   P.mutate((st) => {

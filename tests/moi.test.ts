@@ -259,6 +259,68 @@ describe("identité", () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * Suppression
+ * ------------------------------------------------------------------ */
+
+describe("suppression", () => {
+  it("efface le compte, et le lien de plateforme AVEC", async () => {
+    // L'ordre est ce qui compte : garder le lien laisserait une reconnexion
+    // avec le même compte Google ressusciter un compte supprimé, ce qu'une
+    // demande de suppression interdit exactement.
+    await appel("?a=fusion", { corps: { agregats: agregatsVides(), pseudo: "pierre" } });
+    const res = await appel("?a=suppression", { corps: {} });
+    expect(res.status).toBe(200);
+
+    expect(await depot.parLien({ fournisseur: "google", idExterne: "g1" })).toBeNull();
+    expect((await appel("")).status).toBe(401);
+  });
+
+  it("emporte les performances — ce sont des données personnelles", async () => {
+    await depot.posePerf({
+      utilisateurId: id,
+      mode: "daily",
+      cle: "daily|x",
+      versionContenu: "x",
+      jour: 240,
+      graine: 1,
+      regle: "sang",
+      valeur: 12,
+      valeur2: 0,
+      verdictBot: "humain",
+      creeLe: Date.now(),
+    });
+    await appel("?a=suppression", { corps: {} });
+    expect(await depot.mesPerfs(id, 10)).toEqual([]);
+  });
+
+  it("révoque les jetons déjà émis", async () => {
+    const avant = jeton();
+    await appel("?a=suppression", { corps: {} });
+    expect((await appel("", { jeton: avant })).status).toBe(401);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Drapeaux
+ * ------------------------------------------------------------------ */
+
+describe("drapeaux", () => {
+  it("se cumulent sans rien sanctionner", async () => {
+    // On COMPTE, on ne punit pas : `analyseReactions` est un test statistique
+    // et un joueur exceptionnel peut le déclencher. La décision reste humaine.
+    expect(await depot.leveDrapeau(id)).toBe(1);
+    expect(await depot.leveDrapeau(id)).toBe(2);
+    expect((await appel("")).status).toBe(200);
+  });
+
+  it("un compte banni n'accède plus à rien", async () => {
+    const u = (await depot.parId(id))!;
+    await depot.cree({ ...u, banniLe: Date.now() }, { fournisseur: "google", idExterne: "g1" });
+    expect((await appel("")).status).toBe(403);
+  });
+});
+
+/* ------------------------------------------------------------------ *
  * Méthodes
  * ------------------------------------------------------------------ */
 

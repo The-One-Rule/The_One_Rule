@@ -33,6 +33,7 @@ import { analyseReactions } from "../src/ranked/antibot";
 import { dailySeed, ruleOfDay } from "../src/game/daily";
 import { cleDuJour } from "../src/game/perfs";
 import { VERSION_CONTENU } from "../src/engine/version";
+import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
 import type { Depot, Perf } from "./_depot";
 import { jetonDeLaRequete, verifieJeton } from "./_jeton";
@@ -86,6 +87,9 @@ export async function traite(
   if (!u || u.supprimeLe) return json({ error: "inconnu" }, 401);
   if (u.banniLe) return json({ error: "banni" }, 403);
   if (u.versionJeton !== r.vj) return json({ error: "revoque" }, 401);
+
+  const debit = await consomme(env, "perf", u.id);
+  if (!debit.ok) return json({ error: "trop de requetes" }, 429);
 
   const brut = await req.text();
   if (brut.length > MAX_BODY) return json({ error: "too large" }, 413);
@@ -155,6 +159,19 @@ export async function traite(
     verdictBot: bot.verdict,
     creeLe: maintenant,
   };
+
+  /*
+   * Le cumul de suspicion.
+   *
+   * On n'écarte PAS le run et on ne sanctionne personne : `analyseReactions`
+   * est un test statistique, et un joueur exceptionnel peut le déclencher.
+   * On compte, c'est tout — un tricheur occasionnel finit par se voir, et la
+   * décision reste humaine. C'est aussi ce qui permettra de choisir plus tard
+   * en regardant des chiffres plutôt qu'en devinant.
+   */
+  if (bot.verdict !== "humain") {
+    await depot.leveDrapeau(u.id).catch(() => undefined);
+  }
 
   const ecrit = await depot.posePerf(perf);
 

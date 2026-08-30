@@ -26,6 +26,7 @@ import {
   normalisePseudo,
 } from "../shared/compte";
 import type { Agregats, CarnetEntree } from "../shared/compte";
+import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
 import type { Depot, Utilisateur } from "./_depot";
 import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton";
@@ -223,6 +224,12 @@ export async function traite(
     return json({ error: "bad json" }, 400);
   }
 
+  // Seules les ÉCRITURES sont limitées, et le sujet est le compte — jamais une
+  // IP : ces routes exigent déjà un jeton, donc le compte est un sujet plus
+  // précis et moins intrusif. Voir `api/_debit.ts`.
+  const debit = await consomme(env, action, u.id);
+  if (!debit.ok) return json({ error: "trop de requetes" }, 429);
+
   /* --- la revendication : une progression d'appareil rejoint un compte --- */
   if (action === "fusion") {
     const apres = await fusionneEtEcrit(depot, u.id, litAgregats(corps.agregats));
@@ -266,6 +273,25 @@ export async function traite(
     // Le jeton porte le pseudo et le signe : sans nouveau jeton, le salon
     // continuerait d'annoncer l'ancien nom jusqu'à la péremption.
     return json({ moi: vue(u), jeton: await jetonPour(u, secret, maintenant) });
+  }
+
+  /* --- suppression --- */
+  if (action === "suppression") {
+    /*
+     * Effacement LOGIQUE de l'utilisateur, DÉFINITIF des liens et des
+     * performances.
+     *
+     * L'ordre importe : les liens de plateforme partent en premier et pour de
+     * bon, sinon se reconnecter avec le même compte Google ressusciterait un
+     * compte supprimé — ce qu'une demande de suppression interdit exactement.
+     *
+     * On révoque dans la foulée : les jetons déjà émis cessent d'ouvrir quoi
+     * que ce soit là où une base est disponible. Côté salons, ils restent
+     * lisibles jusqu'à leur péremption — au plus 24 h — et c'est le prix
+     * assumé d'un serveur de salons sans base.
+     */
+    await depot.supprime(u.id);
+    return json({ supprime: true });
   }
 
   return json({ error: "action inconnue" }, 404);

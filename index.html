@@ -400,7 +400,12 @@
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
               <button class="btn btn--ghost" id="btnCompteQuitter">SE DÉCONNECTER</button>
+              <!-- Deux temps, jamais un seul : le premier clic dit ce qui va
+                   disparaître, le second le fait. Un bouton de suppression qui
+                   agit au premier clic est une trappe. -->
+              <button class="btn btn--ghost" id="btnCompteSupprimer">SUPPRIMER LE COMPTE</button>
             </div>
+            <p class="warn hidden" id="compteDanger"></p>
           </div>
 
           <div class="btnrow">
