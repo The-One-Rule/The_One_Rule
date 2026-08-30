@@ -37,6 +37,18 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { cleanEnv } from "./env";
+import {
+  compte,
+  connexion,
+  deconnexion,
+  estConnecte,
+  fournisseurs,
+  litRetourConnexion,
+  profil,
+  rafraichit,
+} from "./compte";
+import { appliqueSiConnu, revendiqueSiNecessaire, signeAffiche } from "./compte/revendication";
+import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -149,6 +161,7 @@ const SCREENS = [
   "brief",
   "over",
   "codex",
+  "compte",
   "multi-id",
   "multi-join",
   "multi-lobby",
@@ -291,6 +304,15 @@ function renderHome(): void {
   appliqueMotifs(s.daltonien);
   setEnabled(s.sound);
   setMusicEnabled(s.music);
+
+  /*
+   * Le bouton de compte n'apparaît QUE si des comptes existent réellement sur
+   * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
+   * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
+   */
+  const c = compte();
+  $("btnCompte").classList.toggle("hidden", !comptesPossibles());
+  $("btnCompte").textContent = c ? `COMPTE : ${c.pseudo || "SANS NOM"}` : "COMPTE";
 }
 
 /**
@@ -452,6 +474,125 @@ function renderCodex(): void {
     list.appendChild(row);
   }
   show("codex");
+}
+
+/* ------------------------------------------------------------------ *
+ * Compte
+ * ------------------------------------------------------------------ */
+
+/**
+ * Les fournisseurs branchés sur ce déploiement, relevés une fois.
+ *
+ * `null` = pas encore demandé, `[]` = comptes indisponibles. La distinction
+ * compte : tant qu'on ne sait pas, on ne montre RIEN. Proposer d'enregistrer
+ * une performance sur un déploiement sans comptes serait une promesse rompue,
+ * et c'est le piège de confiance le plus facile à commettre ici.
+ */
+let fournisseursDispo: string[] | null = null;
+/** Refusée une fois, l'invitation ne revient pas de la session. */
+let inviteEcartee = false;
+
+const NOM_FOURNISSEUR: Record<string, string> = {
+  google: "CONTINUER AVEC GOOGLE",
+  discord: "CONTINUER AVEC DISCORD",
+};
+
+async function chargeFournisseurs(): Promise<string[]> {
+  if (fournisseursDispo === null) fournisseursDispo = await fournisseurs();
+  return fournisseursDispo;
+}
+
+const comptesPossibles = (): boolean => (fournisseursDispo?.length ?? 0) > 0;
+
+function ligneCompte(quoi: string, valeur: string, signe?: string): HTMLElement {
+  const el = document.createElement("div");
+  el.className = "account__ligne";
+  el.innerHTML = `<span class="account__quoi"></span><span class="account__valeur"></span>`;
+  el.querySelector<HTMLElement>(".account__quoi")!.textContent = quoi;
+  const cible = el.querySelector<HTMLElement>(".account__valeur")!;
+  // Le signe est du SVG que nous produisons ; le texte, lui, vient du joueur
+  // et n'est jamais injecté en HTML. Voir tests/invariants-compte.test.ts.
+  if (signe) cible.innerHTML = signe;
+  cible.appendChild(document.createTextNode(valeur));
+  return el;
+}
+
+function renderCompte(): void {
+  const s = P.load();
+  const c = compte();
+  const connecte = c !== null;
+
+  $("compteAnon").classList.toggle("hidden", connecte);
+  $("compteConnecte").classList.toggle("hidden", !connecte);
+  $("compteTitre").textContent = connecte ? "TON COMPTE" : "ENREGISTRER TES PERFS";
+
+  if (connecte) {
+    $("compteLede").textContent =
+      "Ta progression est enregistrée. Elle te suivra sur tes autres appareils.";
+    const hote = $("compteIdentite");
+    hote.innerHTML = "";
+    const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+    hote.appendChild(ligneCompte("NOM", c.pseudo || "SANS NOM", glyphSvg(signeAffiche(s), 18)));
+    hote.appendChild(ligneCompte("CARNET", `${vues} / ${ONE_RULES.length} RÈGLES`));
+    hote.appendChild(
+      ligneCompte("SÉRIE", `${s.streak.count} JOUR${s.streak.count > 1 ? "S" : ""}`),
+    );
+    hote.appendChild(ligneCompte("RECORD À L'ENTRAÎNEMENT", `${s.bestTraining} MANCHES`));
+    return;
+  }
+
+  $("compteLede").textContent =
+    "Le jeu marche sans. Un compte ne sert qu'à garder ce que tu fais quand tu changes de navigateur ou d'appareil.";
+  $("compteQuoi").textContent =
+    "CE QUI SERAIT ENREGISTRÉ : TON CARNET, TA SÉRIE ET TES RECORDS. RIEN D'AUTRE.";
+
+  const rangee = $("compteFournisseurs");
+  rangee.innerHTML = "";
+  for (const f of fournisseursDispo ?? []) {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.textContent = NOM_FOURNISSEUR[f] ?? f.toUpperCase();
+    b.addEventListener("click", () => {
+      track("compte_start", { f });
+      sfx.ui();
+      connexion(f);
+    });
+    rangee.appendChild(b);
+  }
+  const err = $("compteErr");
+  const vide = (fournisseursDispo ?? []).length === 0;
+  err.classList.toggle("hidden", !vide);
+  err.textContent = vide ? "LES COMPTES NE SONT PAS DISPONIBLES POUR L'INSTANT." : "";
+}
+
+async function ouvreCompte(): Promise<void> {
+  await chargeFournisseurs();
+  renderCompte();
+  show("compte");
+}
+
+/**
+ * L'invitation de l'écran de fin.
+ *
+ * Elle ne s'affiche que quand les trois conditions sont réunies : les comptes
+ * existent, le joueur n'en a pas, et il y a quelque chose à perdre. Sans la
+ * troisième, l'invitation serait une réclame ; avec elle, c'est une
+ * information.
+ */
+function renderInvite(score: number, record: boolean): void {
+  const boite = $("compteInvite");
+  const montrer = comptesPossibles() && !estConnecte() && !inviteEcartee && score > 0;
+  boite.classList.toggle("hidden", !montrer);
+  if (!montrer) return;
+
+  // Le CHIFFRE, pas la fonctionnalité. « Créer un compte » est abstrait ;
+  // « ce 23 » ne l'est pas.
+  const texte = $("compteInviteText");
+  texte.innerHTML = record
+    ? `RECORD PERSONNEL · <b></b>. IL N'EXISTE QUE DANS CE NAVIGATEUR.`
+    : `<b></b> MANCHES. CE NAVIGATEUR EST LE SEUL À S'EN SOUVENIR.`;
+  texte.querySelector("b")!.textContent = String(score);
+  track("compte_invite", { score, record });
 }
 
 /**
@@ -941,6 +1082,16 @@ function finishRun(): void {
           : "REJOUER · R";
   $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
 
+  /*
+   * L'invitation à enregistrer.
+   *
+   * Posée APRÈS les boutons, donc après `btnAgain` : elle ne doit ni décaler
+   * ni retarder l'action évidente de cet écran, qui est de relancer.
+   */
+  const recordBattu =
+    mode !== "daily" && end.score > 0 && end.score >= (s.encountered[rule.id]?.best ?? 0);
+  renderInvite(end.score, recordBattu);
+
   hud.hideStamp();
   hud.setRule(null);
   show("over");
@@ -1316,6 +1467,31 @@ $("btnAgain").addEventListener("click", () => replay());
 $("btnHome").addEventListener("click", () => backHome());
 $("btnCodex").addEventListener("click", () => renderCodex());
 $("btnCodexBack").addEventListener("click", () => backHome());
+
+$("btnCompte").addEventListener("click", () => {
+  sfx.ui();
+  void ouvreCompte();
+});
+$("btnCompteBack").addEventListener("click", () => backHome());
+$("btnCompteInvite").addEventListener("click", () => {
+  // Ouvrir l'écran vaut acceptation de l'invitation : elle ne réapparaîtra
+  // plus de la session, qu'on aille au bout ou non. Une invitation qui
+  // revient à chaque run est une réclame.
+  inviteEcartee = true;
+  sfx.ui();
+  void ouvreCompte();
+});
+$("btnCompteQuitter").addEventListener("click", () => {
+  deconnexion();
+  P.mutate((st) => {
+    // La progression LOCALE reste : se déconnecter n'est pas se punir. Seul
+    // le lien avec le compte s'efface — et avec lui le droit de revendiquer à
+    // nouveau depuis cet appareil, qui a déjà donné ce qu'il avait.
+    st.compte.glyphe = null;
+  });
+  sfx.ui();
+  renderCompte();
+});
 $("btnSound").addEventListener("click", () => {
   const s = P.mutate((st) => {
     st.sound = !st.sound;
@@ -1619,7 +1795,64 @@ $("btnMetrics").addEventListener("click", () => {
 
 day = dayIndex();
 setupAnalytics();
+
+/*
+ * Le compte, s'il y en a un.
+ *
+ * Deux gestes, tous deux sans conséquence quand ils échouent :
+ *
+ *   · `litRetourConnexion()` ramasse le jeton que `api/auth.ts` a posé dans le
+ *     FRAGMENT au retour du fournisseur, puis l'efface de l'URL. Il n'efface
+ *     que son propre paramètre : un lien d'invitation `#j=CODE` peut cohabiter
+ *     et `readInvite()` doit encore le trouver juste en dessous.
+ *
+ *   · `rafraichit()` renouvelle le jeton s'il approche de sa fin. C'est ce qui
+ *     donne son sens à la durée de vie de 24 h : le serveur de salons ne peut
+ *     pas vérifier une révocation, donc c'est la péremption qui la rend
+ *     effective. Lancé sans être attendu — rien ici ne doit retarder
+ *     l'affichage, et surtout pas l'ouverture d'un lien d'invitation.
+ */
+const retourCompte = litRetourConnexion();
+
+/**
+ * Ce que le compte doit faire au démarrage, en tâche de fond.
+ *
+ * TOUT est asynchrone et rien n'est attendu : l'accueil s'affiche, le lien
+ * d'invitation s'ouvre, la partie se lance. Une panne de compte ne doit
+ * jamais retarder d'une frame le chemin « code/lien → rejoindre → jouer ».
+ */
+async function demarreCompte(): Promise<void> {
+  await rafraichit();
+  await chargeFournisseurs();
+  // Le bouton de compte dépend de ce qu'on vient d'apprendre : l'accueil a
+  // déjà été peint sans lui, il faut le repeindre.
+  if (screen === "home") renderHome();
+
+  if (!estConnecte()) return;
+
+  /*
+   * La revendication.
+   *
+   * On la tente à CHAQUE ouverture et pas seulement au retour de connexion :
+   * un aller-retour raté ne doit pas coûter sa progression à quelqu'un, et
+   * elle est idempotente — union et maximum de bout en bout. Le marquage
+   * `compte.revendiquePar` fait qu'elle ne s'exécute réellement qu'une fois.
+   */
+  const issue = await revendiqueSiNecessaire();
+  if (issue.quoi === "faite") {
+    track("compte_lie", { neuf: retourCompte.quoi === "connecte" });
+  } else if (issue.quoi === "deja") {
+    // Appareil déjà rattaché : on redescend seulement ce que le compte sait,
+    // ce qui est la façon dont un deuxième appareil retrouve le carnet du
+    // premier.
+    const moi = await profil();
+    if (moi) appliqueSiConnu(moi);
+  }
+  if (screen === "home") renderHome();
+}
+
 renderHome();
+void demarreCompte();
 
 const invite = readInvite();
 

@@ -37,6 +37,19 @@ export const EVENT_NAMES = [
   "invite_sent",
   "invite_opened",
   "optout",
+  /*
+   * Le compte, mesuré en trois points.
+   *
+   * L'entonnoir tient en deux rapports : combien voient l'invitation, combien
+   * partent se connecter, combien reviennent avec un compte. C'est la seule
+   * façon de savoir si les comptes servent à quelque chose — les testeurs les
+   * ont RÉCLAMÉS, ce qui n'est pas la même chose que les utiliser, et le
+   * projet a déjà vu une demande unanime (le partage de score) rester à 0 %
+   * d'usage réel.
+   */
+  "compte_invite",
+  "compte_start",
+  "compte_lie",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

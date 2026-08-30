@@ -4796,3 +4796,90 @@ button.chip:active:not(:disabled) {
     line-height: 1.02;
   }
 }
+
+/* ==================================================================
+ * COMPTE
+ *
+ * Rien ici ne doit ressembler à une porte. Le compte est un réglage et
+ * une invitation, jamais un préalable : il emprunte donc la matière déjà
+ * établie — le liseré de `.teaser`, la sobriété de `.fineprint` — plutôt
+ * que d'inventer une insistance qui lui est interdite.
+ * ================================================================== */
+
+/*
+ * L'invitation de l'écran de fin.
+ *
+ * Volontairement PLUS DISCRÈTE que `.teaser`, qui la surplombe : ce qui
+ * attend demain est une raison de revenir, l'invitation n'est qu'une
+ * mention. Un liseré neutre, pas l'accent `--signal` — celui-ci reste
+ * réservé à la règle unique et à l'action évidente, et l'action évidente
+ * de cet écran est REJOUER.
+ */
+.invite {
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border-left: var(--bd-frame) solid color-mix(in srgb, var(--paper-dim) 35%, transparent);
+  background: color-mix(in srgb, var(--ink-2) 50%, transparent);
+  text-align: left;
+}
+
+.invite.hidden {
+  display: none;
+}
+
+.invite__text {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+}
+
+.invite__text b {
+  color: var(--paper);
+}
+
+/* Un bouton qui ne réclame pas la place de l'action principale. */
+.btn--mini {
+  padding: 8px 14px;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  min-height: var(--tap);
+}
+
+/* L'écran de compte : ce que le compte porte, une ligne par chose. */
+.account {
+  display: grid;
+  gap: var(--sp-2);
+  margin: var(--sp-4) 0;
+  text-align: left;
+}
+
+.account__on.hidden {
+  display: none;
+}
+
+.account__ligne {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: color-mix(in srgb, var(--ink-2) 60%, transparent);
+}
+
+.account__quoi {
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.account__valeur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-lire);
+  color: var(--paper);
+}
+

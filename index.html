@@ -260,6 +260,9 @@
                    un réglage qui rend simplement les pièces plus lisibles. -->
               <button class="btn btn--ghost btn--pref" id="btnMotifs">MOTIFS : OFF</button>
               <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
+              <!-- Un réglage, pas une porte. Le compte ne conditionne aucun
+                   mode : il vit ici, avec le son et les motifs. -->
+              <button class="btn btn--ghost btn--pref hidden" id="btnCompte">COMPTE</button>
             </div>
             <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
           </div>
@@ -332,6 +335,20 @@
             <p class="eyebrow">QUÊTES DU JOUR</p>
             <div class="quests" id="overQuests"></div>
             <div class="teaser" id="teaser"></div>
+
+            <!-- L'invitation à enregistrer.
+                 Un ÉTAT, pas une interruption : le playtest a établi que la
+                 pause est un moment de respiration, pas de lecture — « les
+                 joueurs soufflent plutôt que de s'intéresser au chat ». Tout
+                 ce qui demanderait de lire et de cliquer ici perdrait contre
+                 REJOUER, ou l'agacerait. Elle vit donc dans la colonne de
+                 droite, loin de la rangée d'actions, et elle porte le CHIFFRE
+                 qu'on perdrait — « créer un compte » est abstrait, « ce 23 »
+                 ne l'est pas. -->
+            <div class="invite hidden" id="compteInvite">
+              <p class="invite__text" id="compteInviteText"></p>
+              <button class="btn btn--ghost btn--mini" id="btnCompteInvite">ENREGISTRER</button>
+            </div>
           </div>
 
           <div class="over__foot">
@@ -356,6 +373,38 @@
           <div class="codexlist" id="codexList"></div>
           <div class="btnrow">
             <button class="btn btn--ghost" id="btnCodexBack">RETOUR</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- COMPTE
+           Tout ce qui touche au compte vit ici, et NULLE PART ailleurs sur un
+           chemin de jeu. Aucun mode, aucun réglage d'hôte, aucune entrée de
+           salon n'en dépend : c'est une couche au-dessus de l'identité, pas un
+           préalable. -->
+      <section class="screen hidden" id="compte">
+        <div class="screen__scroll">
+          <p class="eyebrow">COMPTE</p>
+          <h2 class="rulename" id="compteTitre">ENREGISTRER TES PERFS</h2>
+          <p class="lede" id="compteLede"></p>
+
+          <!-- Anonyme : le choix du fournisseur. -->
+          <div id="compteAnon">
+            <p class="fineprint" id="compteQuoi"></p>
+            <div class="btnrow" id="compteFournisseurs"></div>
+            <p class="warn hidden" id="compteErr"></p>
+          </div>
+
+          <!-- Connecté : qui l'on est, et ce que le compte porte. -->
+          <div class="account__on hidden" id="compteConnecte">
+            <div class="account" id="compteIdentite"></div>
+            <div class="btnrow btnrow--tight">
+              <button class="btn btn--ghost" id="btnCompteQuitter">SE DÉCONNECTER</button>
+            </div>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn btn--ghost" id="btnCompteBack">RETOUR</button>
           </div>
         </div>
       </section>

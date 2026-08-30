@@ -20,6 +20,7 @@
  */
 
 import { decoupe, fraicheur } from "../../shared/jeton";
+import type { Agregats } from "../../shared/compte";
 import { cleanEnv } from "../env";
 import { glyphFromIndex } from "../net/glyph";
 import type { Glyph } from "../../shared/protocol";
@@ -240,4 +241,78 @@ export function poseJeton(jeton: string, maintenant: number = Date.now()): boole
 export function reinitialise(): void {
   etat = null;
   charge = false;
+}
+
+/* ------------------------------------------------------------------ *
+ * Le compte lui-même
+ * ------------------------------------------------------------------ */
+
+const POINT_MOI = cleanEnv(import.meta.env.VITE_MOI_URL as string | undefined) ?? "/api/moi";
+
+export interface Moi {
+  id: string;
+  pseudo: string;
+  glyphe: number;
+  agregats: Agregats;
+  creeLe: number;
+}
+
+async function appelMoi<T>(chemin: string, init: RequestInit = {}): Promise<T | null> {
+  try {
+    const jeton = compte()?.jeton;
+    if (!jeton) return null;
+    const res = await fetch(`${POINT_MOI}${chemin}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+        Authorization: `Bearer ${jeton}`,
+      },
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Le profil serveur, ou `null` si hors ligne — jamais une exception. */
+export async function profil(): Promise<Moi | null> {
+  const r = await appelMoi<{ moi?: Moi }>("");
+  return r?.moi ?? null;
+}
+
+/**
+ * LA revendication : la progression de cet appareil rejoint le compte.
+ *
+ * Renvoie les agrégats fusionnés par le serveur, que l'appelant réinjecte
+ * dans la sauvegarde locale. Comme la fusion est une union et un maximum, la
+ * réinjection ne peut rien perdre — même si l'appareil a continué de jouer
+ * pendant l'aller-retour.
+ */
+export async function revendique(payload: {
+  agregats: Agregats;
+  pseudo: string;
+  glyphe: number;
+}): Promise<Moi | null> {
+  const r = await appelMoi<{ moi?: Moi; jeton?: string }>("?a=fusion", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!r?.moi) return null;
+  // Le jeton porte le pseudo et le signe : sans le remplacer, le salon
+  // continuerait d'annoncer l'ancien nom jusqu'à la péremption.
+  if (r.jeton) poseJeton(r.jeton);
+  return r.moi;
+}
+
+/** Renomme, ou change de signe. */
+export async function changeIdentite(pseudo: string, glyphe: number): Promise<Moi | null> {
+  const r = await appelMoi<{ moi?: Moi; jeton?: string }>("?a=identite", {
+    method: "POST",
+    body: JSON.stringify({ pseudo, glyphe }),
+  });
+  if (!r?.moi) return null;
+  if (r.jeton) poseJeton(r.jeton);
+  return r.moi;
 }

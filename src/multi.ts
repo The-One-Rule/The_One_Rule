@@ -20,6 +20,8 @@ import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
+import { jetonPourSalon } from "./compte";
+import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
 import { cleanEnv } from "./env";
 import { NetClient } from "./net/client";
@@ -183,10 +185,16 @@ function savedName(): string | null {
 /** Nombre de signes proposés au choix. Assez pour choisir, pas pour hésiter. */
 const GLYPH_CHOICES = 8;
 
-/** Le signe du joueur : la variante qu'il a retenue de son identifiant local. */
+/**
+ * Le signe du joueur.
+ *
+ * Connecté, il appartient au COMPTE et suit donc d'un appareil à l'autre —
+ * c'est le sens d'un signe, être ce à quoi les autres vous reconnaissent.
+ * Anonyme, on retombe sur la variante dérivée de l'identifiant local, qui est
+ * exactement le comportement d'avant.
+ */
 function myGlyph(): Glyph {
-  const s = P.load();
-  return glyphVariant(s.anonId, s.multi.glyph);
+  return signeAffiche(P.load());
 }
 
 function setJoinErr(msg: string | null): void {
@@ -2134,6 +2142,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         P.load().anonId,
         P.load().multi.matches === 0,
         CLAVIER_ICI,
+        // Facultatif : `undefined` fait entrer un joueur anonyme, et c'est un
+        // état normal. Aucune attente, aucun contrôle préalable — le compte ne
+        // doit rien ajouter au chemin « code/lien → rejoindre → jouer ».
+        jetonPourSalon(),
       );
       return net;
     } catch {

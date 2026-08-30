@@ -46,6 +46,9 @@ export const ALLOWED = new Set([
   "invite_sent",
   "invite_opened",
   "optout",
+  "compte_invite",
+  "compte_start",
+  "compte_lie",
 ]);
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */

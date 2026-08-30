@@ -1,4 +1,8 @@
 import { dayIndex } from "./daily";
+import { cleEntrainement } from "./perfs";
+import { PACE_DEFAULT } from "../engine/difficulty";
+import { fusionne } from "../../shared/compte";
+import type { Agregats } from "../../shared/compte";
 
 const KEY = "oneRule.save.v1";
 
@@ -51,6 +55,44 @@ export interface Save {
   trainingPace: number;
   /** mesure d'usage : consentement, jour de première ouverture, jours vus */
   metrics: { on: boolean; asked: boolean; firstDay: number; lastDay: number };
+  /**
+   * Records, indexés par CLÉ DE COMPARABILITÉ (voir `game/perfs.ts`).
+   *
+   * Généralise `bestTraining`, qui reste écrit à côté parce que trois écrans
+   * le lisent déjà. La clé porte le mode, le régime et la version de contenu :
+   * deux chiffres obtenus dans des conditions différentes ne peuvent donc plus
+   * se retrouver dans la même case, ce qui était jusqu'ici évité à la main et
+   * seulement pour l'allure.
+   */
+  records: Record<string, number>;
+  /**
+   * Le compte, côté appareil.
+   *
+   * `revendiquePar` retient l'identifiant du compte qui a déjà absorbé la
+   * progression de CET appareil. La fusion n'a lieu qu'une fois, et c'est ce
+   * champ qui l'empêche de recommencer : sans lui, se connecter sur le
+   * téléphone d'un ami aspirerait son carnet et sa série dans son propre
+   * compte. Le cas est banal en playtest — vous êtes plusieurs sur les mêmes
+   * appareils.
+   *
+   * Le garde est volontairement LOCAL. Un attaquant qui pourrait le contourner
+   * a déjà l'appareil en main, donc déjà tout ce qu'il y a à prendre : le
+   * mettre côté serveur ne protégerait de rien de plus et coûterait une table.
+   */
+  compte: {
+    revendiquePar: string | null;
+    /**
+     * Signe du COMPTE, en index canonique (voir `net/glyph.ts`).
+     *
+     * `multi.glyph` juste au-dessus est une variante dérivée de l'`anonId` :
+     * il ne survit donc pas à un changement d'appareil, alors qu'un signe est
+     * précisément ce à quoi les autres vous reconnaissent d'un salon à
+     * l'autre. Une fois connecté, c'est celui-ci qui fait foi.
+     *
+     * `null` = anonyme, et on retombe sur la variante locale.
+     */
+    glyphe: number | null;
+  };
 }
 
 const fresh = (): Save => ({
@@ -81,6 +123,8 @@ const fresh = (): Save => ({
    */
   trainingPace: 1.5,
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
+  records: {},
+  compte: { revendiquePar: null, glyphe: null },
 });
 
 let cache: Save | null = null;
@@ -176,3 +220,50 @@ export function recentAverage(s: Save): number {
 }
 
 export const today = (): number => dayIndex();
+
+/* ------------------------------------------------------------------ *
+ * Passerelle vers le compte
+ * ------------------------------------------------------------------ */
+
+/**
+ * Ce que cet appareil apporte à un compte.
+ *
+ * `bestTraining` est publié sous la clé de l'allure de référence : c'est
+ * exactement le sens qu'il a toujours eu, il ne s'inscrivait qu'à `PACE_DEFAULT`.
+ * Le convertir ici plutôt que de le transporter tel quel évite au serveur de
+ * connaître une exception de plus.
+ */
+export function agregatsDe(s: Save): Agregats {
+  const records = { ...s.records };
+  const cle = cleEntrainement(PACE_DEFAULT);
+  records[cle] = Math.max(records[cle] ?? 0, s.bestTraining);
+  return {
+    carnet: { ...s.encountered },
+    serie: { count: s.streak.count, lastDay: s.streak.lastDay },
+    records,
+  };
+}
+
+/**
+ * Réinjecte ce que le compte sait dans l'appareil.
+ *
+ * Union et maximum, jamais une affectation — la même loi que `fusionne`, parce
+ * que c'est la même opération vue de l'autre côté. Un compte tout neuf ne doit
+ * rien pouvoir effacer, et un appareil en retard ne doit rien perdre.
+ */
+export function appliqueAgregats(s: Save, a: Agregats): void {
+  const fusionnes = fusionne(agregatsDe(s), a);
+  s.encountered = fusionnes.carnet;
+  s.streak.count = fusionnes.serie.count;
+  s.streak.lastDay = fusionnes.serie.lastDay;
+  s.records = fusionnes.records;
+  s.bestTraining = Math.max(
+    s.bestTraining,
+    fusionnes.records[cleEntrainement(PACE_DEFAULT)] ?? 0,
+  );
+}
+
+/** Inscrit un record local sous sa clé, s'il bat le précédent. */
+export function inscritRecord(s: Save, cle: string, valeur: number): void {
+  if (valeur > (s.records[cle] ?? 0)) s.records[cle] = valeur;
+}
