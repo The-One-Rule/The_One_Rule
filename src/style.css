@@ -4798,6 +4798,81 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
+ * BARRE HAUTE
+ *
+ * Hors flux et au-dessus des écrans (z-index 11 contre 10). Elle ne peut
+ * donc RIEN rogner : la scène de jeu ne la voit jamais, et la taille du
+ * champ est du gameplay (CLAUDE.md §6 n°10).
+ *
+ * Elle porte trois choses et pas une de plus — d'où l'on vient, qui l'on
+ * est, ce qu'on règle. Le pied de l'accueil mélangeait une identité et un
+ * réglage d'accessibilité au même rang ; c'est ce qu'on répare ici.
+ * ================================================================== */
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 11;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  /* Pas de fond plein : l'écran en dessous porte déjà `--ink`, et un second
+     aplat créerait une bande visible là où il n'y a pas de séparation. */
+  background: transparent;
+  pointer-events: none;
+}
+
+.topbar.hidden {
+  display: none;
+}
+
+/* Seuls les boutons reçoivent le clic : la barre elle-même laisse passer,
+   sinon elle couperait le haut de l'écran qu'elle surplombe — et `.screen`
+   défile. */
+.topbar > *,
+.topbar__right {
+  pointer-events: auto;
+}
+
+/*
+ * `margin-left: auto` et NON `justify-content: space-between`.
+ *
+ * Mesuré : sur l'accueil, MENU n'a nulle part où aller donc il est masqué —
+ * et `space-between` n'ayant plus qu'un enfant, il le collait à GAUCHE. Le
+ * groupe de droite sautait d'un bord à l'autre selon l'écran. La marge
+ * automatique le tient à droite quoi qu'il y ait en face, y compris rien.
+ */
+.topbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.btn--top {
+  padding: 9px 14px;
+  min-height: var(--tap);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+}
+
+/* La barre surplombe le contenu : on lui rend sa hauteur en padding, sinon
+   le premier élément passe dessous. Conditionné à sa présence — les écrans
+   du multijoueur ne la portent pas et n'ont pas à réserver la place. */
+#app.has-topbar .screen {
+  padding-top: 76px;
+}
+
+.prefs--screen {
+  margin-top: var(--sp-4);
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ==================================================================
  * COMPTE
  *
  * Rien ici ne doit ressembler à une porte. Le compte est un réglage et

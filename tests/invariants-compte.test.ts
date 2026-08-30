@@ -195,8 +195,28 @@ describe("l'écran de compte", () => {
     // jeu ne tient pas : c'est le piège de confiance le plus facile à
     // commettre dans ce chantier.
     const html = lit("index.html");
-    expect(html).toMatch(/id="btnCompte"[^>]*/);
-    expect(/class="[^"]*hidden[^"]*"[^>]*id="btnCompte"|id="btnCompte"/.test(html)).toBe(true);
-    expect(lit("src/main.ts")).toContain('$("btnCompte").classList.toggle("hidden"');
+    // Il vit dans la barre haute depuis qu'il était noyé dans le pied de
+    // l'accueil, entre MUSIQUE et MOTIFS.
+    expect(html).toMatch(/id="btnTopCompte"/);
+    expect(lit("src/main.ts")).toContain('$("btnTopCompte").classList.toggle("hidden"');
+  });
+
+  it("la barre haute n'existe pas pendant la partie", () => {
+    /*
+     * `show(null)` est l'écran de jeu. La barre doit alors disparaître, et
+     * `#app` perdre `has-topbar` : la taille du champ EST du gameplay
+     * (CLAUDE.md §6 n°10), donc rien ne doit pouvoir rogner la scène.
+     *
+     * La barre est aussi HORS FLUX (position absolue) — ce que la feuille
+     * doit garantir, pas seulement l'intention.
+     */
+    const src = lit("src/main.ts");
+    expect(src).toContain('$("topbar").classList.toggle("hidden", !barre)');
+    expect(src).toContain('appEl.classList.toggle("has-topbar", barre)');
+
+    const css = lit("src/style.css").replace(/\/\*[\s\S]*?\*\//g, "");
+    const bloc = /\.topbar\s*\{([^}]*)\}/.exec(css);
+    expect(bloc, "la feuille doit déclarer .topbar").not.toBeNull();
+    expect(bloc![1]).toMatch(/position:\s*absolute/);
   });
 });

@@ -25,7 +25,7 @@
 
 import * as P from "../game/progress";
 import { glyphIndex, glyphVariant, glyphFromIndex } from "../net/glyph";
-import { compte, revendique } from "./index";
+import { compte, profil, revendique } from "./index";
 import type { Moi } from "./index";
 import type { Glyph } from "../../shared/protocol";
 
@@ -107,14 +107,63 @@ export function appliqueMoi(moi: Moi, idCompte: string): void {
 }
 
 /**
- * Synchronise sans revendiquer.
+ * Applique un profil serveur reçu par ailleurs.
  *
- * Pour un appareil déjà rattaché : on redescend ce que le compte sait, sans
- * refaire monter la progression locale. C'est ce qui fait qu'un deuxième
- * appareil retrouve le carnet du premier.
+ * Sert quand on a déjà le profil sous la main et qu'on ne veut pas dépenser un
+ * second aller-retour.
  */
 export function appliqueSiConnu(moi: Moi): void {
   const c = compte();
   if (!c) return;
   appliqueMoi(moi, c.id);
+}
+
+/**
+ * LA SYNCHRONISATION CONTINUE — et pourquoi elle n'existait pas.
+ *
+ * La revendication avait été conçue comme une MIGRATION unique : elle monte ce
+ * que l'appareil portait AVANT le compte, marque `revendiquePar`, et ne
+ * repasse plus. C'était juste pour le cas qu'elle décrit, et faux pour tout le
+ * reste — rien de ce qui était joué APRÈS la connexion ne quittait plus
+ * l'appareil. Un joueur qui découvre le bouton, se connecte, puis joue avait
+ * un compte vide à vie. C'est le parcours le plus courant, pas un cas de bord.
+ *
+ * Rapporté après déploiement : « la série et le carnet ne se conservent pas ».
+ *
+ * Le correctif suit l'astuce qui a déjà servi deux fois dans ce dépôt (une
+ * pile d'une règle pour l'escalade, une équipe d'un joueur pour le duo) : LE
+ * CAS EXISTANT DEVIENT UN CAS PARTICULIER DU NOUVEAU. Revendiquer, c'est
+ * synchroniser la première fois. Il n'y a donc qu'un seul chemin, et il est
+ * sûr parce que la fusion est une union et un maximum — la rejouer ne peut
+ * rien détruire, quel que soit l'ordre.
+ *
+ * TROIS ÉTATS, et le troisième est celui qu'il ne faut pas perdre :
+ *
+ *   · `revendiquePar` absent      → première montée, puis on marque ;
+ *   · `revendiquePar` = ce compte → montée à chaque appel, librement ;
+ *   · `revendiquePar` = un AUTRE  → RIEN ne monte. C'est le garde du téléphone
+ *     prêté : la sauvegarde locale contient la progression de l'ami, et la
+ *     faire remonter dans mon compte à chaque partie serait pire que le bug
+ *     d'origine. On ne fait alors que descendre.
+ */
+export async function synchronise(): Promise<void> {
+  const c = compte();
+  if (!c) return;
+
+  const s = P.load();
+  if (s.compte.revendiquePar && s.compte.revendiquePar !== c.id) {
+    // Appareil d'un autre : on descend, on ne monte pas.
+    const moi = await profil();
+    if (moi) {
+      P.mutate((st) => P.appliqueAgregats(st, moi.agregats));
+    }
+    return;
+  }
+
+  const moi = await revendique({
+    agregats: P.agregatsDe(s),
+    pseudo: s.ranked.name,
+    glyphe: glypheLocal(s),
+  });
+  if (moi) appliqueMoi(moi, c.id);
 }

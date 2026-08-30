@@ -251,19 +251,11 @@
 
           <!-- Réglages : sous les deux colonnes. On ne choisit pas
                « MUSIQUE : ON » comme on choisit une partie. -->
+          <!-- Les réglages ont quitté cet endroit pour leur propre écran,
+               atteint par la barre haute : ils avaient le même poids visuel
+               qu'une carte de mode, et le compte s'y trouvait noyé entre
+               MUSIQUE et MOTIFS. -->
           <div class="home__foot">
-            <div class="prefs" aria-label="Réglages">
-              <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
-              <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
-              <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on
-                   ne demande à personne de se déclarer daltonien pour trouver
-                   un réglage qui rend simplement les pièces plus lisibles. -->
-              <button class="btn btn--ghost btn--pref" id="btnMotifs">MOTIFS : OFF</button>
-              <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
-              <!-- Un réglage, pas une porte. Le compte ne conditionne aucun
-                   mode : il vit ici, avec le son et les motifs. -->
-              <button class="btn btn--ghost btn--pref hidden" id="btnCompte">COMPTE</button>
-            </div>
             <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
           </div>
         </div>
@@ -373,6 +365,47 @@
           <div class="codexlist" id="codexList"></div>
           <div class="btnrow">
             <button class="btn btn--ghost" id="btnCodexBack">RETOUR</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- BARRE HAUTE.
+           Hors flux, au-dessus des écrans (z-index 11 contre 10), et ABSENTE
+           pendant la partie : la taille du champ EST du gameplay, donc rien
+           ici ne doit pouvoir rogner la scène. Voir CLAUDE.md §6 n°10.
+
+           Elle existe parce que le compte était perdu dans le pied de
+           l'accueil, entre MUSIQUE et MOTIFS — un réglage d'accessibilité et
+           une identité au même rang. Trois choses seulement : d'où l'on
+           vient, qui l'on est, ce qu'on règle. -->
+      <header id="topbar" class="topbar hidden">
+        <button class="btn btn--ghost btn--top" id="btnTopMenu">MENU</button>
+        <div class="topbar__right">
+          <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">COMPTE</button>
+          <button class="btn btn--ghost btn--top" id="btnTopReglages">RÉGLAGES</button>
+        </div>
+      </header>
+
+      <!-- RÉGLAGES
+           Ils quittent le pied de l'accueil : on ne choisit pas « MOTIFS : ON »
+           comme on choisit une partie, et les laisser là leur donnait le même
+           poids qu'une carte de mode. -->
+      <section class="screen hidden" id="reglages">
+        <div class="screen__scroll">
+          <p class="eyebrow">RÉGLAGES</p>
+          <h2 class="rulename">CE QUE TU PRÉFÈRES</h2>
+          <div class="prefs prefs--screen" aria-label="Réglages">
+            <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
+            <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
+            <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on
+                 ne demande à personne de se déclarer daltonien pour trouver
+                 un réglage qui rend simplement les pièces plus lisibles. -->
+            <button class="btn btn--ghost btn--pref" id="btnMotifs">MOTIFS : OFF</button>
+            <button class="btn btn--ghost btn--pref" id="btnMetrics">MESURE : ON</button>
+          </div>
+          <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
+          <div class="btnrow">
+            <button class="btn btn--ghost" id="btnReglagesBack">RETOUR</button>
           </div>
         </div>
       </section>

@@ -45,12 +45,11 @@ import {
   fournisseurs,
   litRetourConnexion,
   mesPerfs,
-  profil,
   rafraichit,
   supprimeCompte,
 } from "./compte";
 import { enfile, vide } from "./compte/file";
-import { appliqueSiConnu, revendiqueSiNecessaire, signeAffiche } from "./compte/revendication";
+import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
@@ -165,6 +164,7 @@ const SCREENS = [
   "over",
   "codex",
   "compte",
+  "reglages",
   "multi-id",
   "multi-join",
   "multi-lobby",
@@ -200,9 +200,37 @@ let day = dayIndex();
 /* ------------------------------------------------------------------ *
  * Écrans
  * ------------------------------------------------------------------ */
+/**
+ * Les ecrans qui portent la barre haute.
+ *
+ * Pas ceux du multijoueur : ils ont leur propre navigation, et un MENU global
+ * y ferait quitter un salon d'un clic — depuis un ecran ou l'on est en train
+ * de s'installer avec des amis. C'est un chemin qu'on ne coupe pas.
+ */
+const AVEC_BARRE: ReadonlySet<string> = new Set([
+  "home",
+  "brief",
+  "over",
+  "codex",
+  "compte",
+  "reglages",
+]);
+
 function show(id: ScreenId): void {
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  /*
+   * La barre haute vit HORS FLUX et disparait pendant la partie.
+   *
+   * `id === null` est l'ecran de jeu : rien ne doit alors surplomber la
+   * scene, et surtout rien ne doit la rogner — la taille du champ est du
+   * gameplay (CLAUDE.md §6 n°10).
+   */
+  const barre = id !== null && AVEC_BARRE.has(id);
+  $("topbar").classList.toggle("hidden", !barre);
+  appEl.classList.toggle("has-topbar", barre);
+  // Sur l'accueil, MENU n'a nulle part ou aller.
+  $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
 }
 
@@ -314,8 +342,8 @@ function renderHome(): void {
    * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
    */
   const c = compte();
-  $("btnCompte").classList.toggle("hidden", !comptesPossibles());
-  $("btnCompte").textContent = c ? `COMPTE : ${c.pseudo || "SANS NOM"}` : "COMPTE";
+  $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
+  $("btnTopCompte").textContent = c ? c.pseudo || "MON COMPTE" : "COMPTE";
 }
 
 /**
@@ -1023,6 +1051,18 @@ function finishRun(): void {
     void vide();
   }
 
+  /*
+   * Le compte apprend ce qui vient de se passer.
+   *
+   * Sans cet appel, rien de ce qui est joue APRES la connexion ne quitte
+   * l'appareil : la revendication ne passe qu'une fois. C'est le bug rapporte
+   * apres deploiement — « la serie et le carnet ne se conservent pas ».
+   *
+   * Non attendu, et sans consequence s'il echoue : la fusion est une union et
+   * un maximum, donc le prochain run, ou la prochaine ouverture, rattrapera.
+   */
+  void synchronise();
+
   track("run_end", {
     mode,
     rule: rule.id,
@@ -1511,10 +1551,19 @@ $("btnHome").addEventListener("click", () => backHome());
 $("btnCodex").addEventListener("click", () => renderCodex());
 $("btnCodexBack").addEventListener("click", () => backHome());
 
-$("btnCompte").addEventListener("click", () => {
+$("btnTopCompte").addEventListener("click", () => {
   sfx.ui();
   void ouvreCompte();
 });
+$("btnTopMenu").addEventListener("click", () => {
+  sfx.ui();
+  backHome();
+});
+$("btnTopReglages").addEventListener("click", () => {
+  sfx.ui();
+  show("reglages");
+});
+$("btnReglagesBack").addEventListener("click", () => backHome());
 $("btnCompteBack").addEventListener("click", () => backHome());
 $("btnCompteInvite").addEventListener("click", () => {
   // Ouvrir l'écran vaut acceptation de l'invitation : elle ne réapparaîtra
@@ -1926,11 +1975,10 @@ async function demarreCompte(): Promise<void> {
   if (issue.quoi === "faite") {
     track("compte_lie", { neuf: retourCompte.quoi === "connecte" });
   } else if (issue.quoi === "deja") {
-    // Appareil déjà rattaché : on redescend seulement ce que le compte sait,
-    // ce qui est la façon dont un deuxième appareil retrouve le carnet du
-    // premier.
-    const moi = await profil();
-    if (moi) appliqueSiConnu(moi);
+    // Appareil déjà rattaché : la synchronisation fait monter ce qui a été
+    // joué depuis, et descendre ce que les autres appareils ont ajouté. Elle
+    // sait aussi ne RIEN faire monter depuis l'appareil d'un autre.
+    await synchronise();
   }
   // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
   // ou joué avant que le compte n'existe.
