@@ -10,6 +10,7 @@ import {
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
+import { PALIER, PALIER_MAX, pileEscalade } from "./game/escalade";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
@@ -279,7 +280,7 @@ function renderHome(): void {
         ? "btnMulti"
         : "btnTraining"
       : "btnDaily";
-  for (const id of ["btnDaily", "btnMulti", "btnTraining"]) {
+  for (const id of ["btnDaily", "btnMulti", "btnTraining", "btnEscalade"]) {
     $(id).classList.toggle("card--primary", id === suivant);
   }
 
@@ -522,6 +523,34 @@ const regleJouableIci = (rule: OneRule): OneRule => {
   return P.load().daltonien ? withoutInk(sansMaintien) : sansMaintien;
 };
 
+/**
+ * La même décision, en prédicat.
+ *
+ * L'escalade CHOISIT ses règles au lieu d'en remplacer une : elle a besoin de
+ * savoir si une règle est jouable ici, pas par quoi la remplacer. Dérivé de
+ * `regleJouableIci` plutôt que réécrit — deux listes d'exclusions finiraient
+ * par diverger, et la divergence donnerait une règle injouable à quelqu'un.
+ */
+const estJouableIci = (rule: OneRule): boolean => regleJouableIci(rule) === rule;
+
+/**
+ * La règle telle que le BANDEAU doit la montrer.
+ *
+ * Le nom composé tient — mesuré, 45 signes à quatre règles, et la hauteur du
+ * bandeau ne bouge pas d'un pixel (56 px), donc le champ ne rétrécit pas.
+ * L'explication, elle, ne tient pas : elle vit sur UNE ligne de hauteur fixe,
+ * et quatre briefs bout à bout y sont tronqués au premier tiers du premier.
+ *
+ * On y met donc le brief de la DERNIÈRE règle acquise, préfixé de son nom. Les
+ * précédentes ont été tenues huit manches au moins ; celle-ci est la seule
+ * qu'on doive encore relire.
+ */
+function regleAffichee(s: Session): OneRule {
+  const nouvelle = s.derniereAjoutee;
+  if (!nouvelle || s.pile.length < 2) return s.rule;
+  return { ...s.rule, brief: `${nouvelle.name} — ${nouvelle.brief}` };
+}
+
 /* ------------------------------------------------------------------ *
  * Lancement d'un run
  * ------------------------------------------------------------------ */
@@ -531,6 +560,20 @@ function openBrief(mode: Mode): void {
 
   if (mode === "daily") {
     pendingRule = regleJouableIci(ruleOfDay(day));
+  } else if (mode === "escalade") {
+    /*
+     * Le brief n'annonce que la PREMIÈRE règle.
+     *
+     * Montrer la pile entière retirerait tout l'intérêt : le mode vit de
+     * l'arrivée d'une contrainte de plus quand on croyait avoir compris. Et
+     * c'est la même raison qui fait que le carnet « n'explique que les règles
+     * rencontrées » — on ne brûle pas la surprise.
+     *
+     * La règle affichée ici n'est pas tirée : `startRun` retire la pile depuis
+     * la graine du run, qui n'existe pas encore. On montre donc l'engagement
+     * du mode, pas son contenu.
+     */
+    pendingRule = ONE_RULES.find(estJouableIci) ?? ONE_RULES[0]!;
   } else {
     pendingRule = trainingRule({
       duJour: ruleOfDay(day).id,
@@ -542,14 +585,19 @@ function openBrief(mode: Mode): void {
     derniereEntrainement = pendingRule.id;
   }
 
-  $("briefEyebrow").textContent = mode === "daily" ? `RUN DU JOUR · #${day}` : "ENTRAÎNEMENT";
-  $("briefName").textContent = pendingRule.name;
-  $("briefText").textContent = pendingRule.brief;
+  $("briefEyebrow").textContent =
+    mode === "daily" ? `RUN DU JOUR · #${day}` : mode === "escalade" ? "ESCALADE" : "ENTRAÎNEMENT";
+  $("briefName").textContent = mode === "escalade" ? "UNE DE PLUS" : pendingRule.name;
+  $("briefText").textContent =
+    mode === "escalade"
+      ? `Tu commences avec une règle. Toutes les ${PALIER} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`
+      : pendingRule.brief;
 
   const warn = $("briefWarn");
-  const hold = pendingRule.watchRelease === " ";
+  const hold = mode !== "escalade" && pendingRule.watchRelease === " ";
   const lines: string[] = [];
   if (mode === "daily") lines.push(`${DAILY_LENGTH} MANCHES · UN SEUL ESSAI PAR JOUR`);
+  if (mode === "escalade") lines.push(`${PALIER_MAX} RÈGLES AU MAXIMUM · LE SCORE EST CE QUE TU TIENS`);
   if (hold) lines.push("APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE");
   warn.textContent = lines.join(" · ");
   warn.classList.toggle("hidden", lines.length === 0);
@@ -605,9 +653,22 @@ function startRun(): void {
   runId++;
   lastRoundKey = "";
   ghostLead = false;
+  /*
+   * La pile de l'escalade est tirée d'un RNG À PART.
+   *
+   * Le même flux sert à bâtir les manches : y prendre quelques nombres
+   * décalerait toute la suite, et le run cesserait d'être rejouable à
+   * l'identique par `verify.ts`. Un flux dérivé de la même graine garde le
+   * déterminisme sans toucher à l'autre.
+   */
+  const pile =
+    pendingMode === "escalade"
+      ? pileEscalade(mulberry32(seed ^ 0x5eca1ade), estJouableIci)
+      : undefined;
+
   session = new Session({
     mode: pendingMode,
-    rule: pendingRule,
+    rule: pile?.[0] ?? pendingRule,
     rng,
     now: performance.now(),
     seed,
@@ -615,14 +676,20 @@ function startRun(): void {
     // Un duel rejoue la partie d'un adversaire et se compare à ses temps de
     // passage : il garde l'allure de référence, quoi qu'ait choisi le joueur.
     pace: challenge ? PACE_DEFAULT : s.trainingPace,
+    pile,
   });
-  hud.setRule(pendingRule);
+  hud.setRule(session.rule);
   hud.hideStamp();
   hud.setFooter(
     0,
-    pendingMode === "daily" ? DAILY_LENGTH : s.bestTraining,
-    pendingMode === "daily" ? `JOUR #${day}` : "ENTRAÎNEMENT",
-    pendingMode === "daily" ? "SUR" : "RECORD",
+    pendingMode === "daily"
+      ? DAILY_LENGTH
+      : pendingMode === "escalade"
+        ? // Le chiffre de droite est ce qu'on VISE : le plafond de règles.
+          PALIER_MAX
+        : s.bestTraining,
+    pendingMode === "daily" ? `JOUR #${day}` : pendingMode === "escalade" ? "ESCALADE" : "ENTRAÎNEMENT",
+    pendingMode === "daily" ? "SUR" : pendingMode === "escalade" ? "RÈGLES" : "RECORD",
   );
   $("ghost").classList.toggle("hidden", !challenge);
   show(null);
@@ -808,12 +875,25 @@ function finishRun(): void {
         ? "ROMPU"
         : "ÉLIMINÉ";
   $("because").textContent = end.reason;
-  $("tally").textContent = String(end.score);
-  $("tallyLabel").textContent = end.cleared
-    ? "MANCHES · SANS FAUTE"
-    : mode === "daily"
-      ? `MANCHES SUR ${DAILY_LENGTH}`
-      : "MANCHES TENUES";
+  /*
+   * En escalade, le titre est le nombre de RÈGLES tenues, pas de manches.
+   *
+   * C'est ce qui fait du mode autre chose qu'une variante : « 18 manches » ne
+   * veut rien dire hors contexte, « j'ai tenu 3 règles » est un plafond, et un
+   * plafond se compare et se raconte. Le taux de partage est à 0 % — c'est
+   * peut-être exactement ce qui lui manquait. Le compte de manches reste
+   * dessous, il n'est pas perdu.
+   */
+  const paliers = mode === "escalade" ? session.paliers : 0;
+  $("tally").textContent = String(mode === "escalade" ? paliers : end.score);
+  $("tallyLabel").textContent =
+    mode === "escalade"
+      ? `RÈGLE${paliers > 1 ? "S" : ""} TENUE${paliers > 1 ? "S" : ""} · ${end.score} MANCHES`
+      : end.cleared
+        ? "MANCHES · SANS FAUTE"
+        : mode === "daily"
+          ? `MANCHES SUR ${DAILY_LENGTH}`
+          : "MANCHES TENUES";
   renderMarks($("marks"), end.marks);
 
   const reward = $("reward");
@@ -1218,6 +1298,10 @@ $("btnTraining").addEventListener("click", () => {
   sfx.ui();
   openBrief("training");
 });
+$("btnEscalade").addEventListener("click", () => {
+  sfx.ui();
+  openBrief("escalade");
+});
 $("btnRanked").addEventListener("click", () => {
   sfx.ui();
   void openRanked();
@@ -1372,7 +1456,20 @@ function loop(now: number): void {
         urgentDone = false;
         sfx.roundStart();
       }
-      if (session.tierJustCrossed) {
+      /*
+       * Une règle qui s'ajoute doit se VOIR, et prime sur le palier de vitesse.
+       *
+       * C'est une question d'équité, pas de confort : passer sous une deuxième
+       * contrainte sans qu'on te le dise, c'est mourir sur un interdit qu'on ne
+       * t'a jamais montré. Le bandeau est mis à jour dans la foulée, sinon il
+       * continuerait d'afficher l'ancienne pile.
+       */
+      if (session.regleAjoutee) {
+        hud.setRule(regleAffichee(session));
+        hud.announce(`+ ${session.regleAjoutee.name}`);
+        session.regleAjoutee = null;
+        session.tierJustCrossed = false;
+      } else if (session.tierJustCrossed) {
         session.tierJustCrossed = false;
         hud.announce(TIER_NAMES[session.tier] ?? "");
       }

@@ -42,8 +42,17 @@ export class Session {
   readonly pile: readonly OneRule[];
   /** La composée du palier courant. Recalculée seulement quand le palier change. */
   private _rule!: OneRule;
-  /** Règle qui vient d'être ajoutée, à annoncer une fois. */
+  /** Règle qui vient d'être ajoutée, à annoncer une fois. Remise à null après. */
   regleAjoutee: OneRule | null = null;
+  /**
+   * La dernière règle acquise, elle CONSERVÉE.
+   *
+   * C'est celle dont le bandeau montre l'explication : les précédentes, on les
+   * a tenues huit manches au moins, on les a automatisées. La nouvelle est la
+   * seule qu'on doive encore relire — et la ligne de brief est unique et de
+   * hauteur fixe, donc il faut choisir laquelle y mettre.
+   */
+  derniereAjoutee: OneRule | null = null;
   private rng: Rng;
   level = 0;
   round!: Round;
@@ -169,6 +178,7 @@ export class Session {
     // manche, sinon le premier tour d'un nouveau palier se jouerait encore
     // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
     this.regleAjoutee = this.majRegle();
+    if (this.regleAjoutee) this.derniereAjoutee = this.regleAjoutee;
     this.round = buildRound(this.rng, this.level, this.rule, this.pool, this.pace);
     this.progress = { step: 0 };
     this.roundStart = now;
