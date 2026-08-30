@@ -91,6 +91,14 @@ export class NetClient {
     rookie = false,
     /** Cet appareil peut jouer une consigne au clavier. Défaut prudent : non. */
     clavier = false,
+    /**
+     * Jeton de compte, s'il y en a un.
+     *
+     * Facultatif de bout en bout : absent, le serveur assoit un joueur
+     * anonyme, ce qui est un état parfaitement normal et indiscernable dans
+     * le salon. La connexion ne doit JAMAIS attendre après lui.
+     */
+    tok?: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -133,6 +141,7 @@ export class NetClient {
           key,
           rookie,
           clavier,
+          tok,
         });
         // rafale initiale : l'horloge doit être prête avant la première manche
         for (let i = 0; i < 5; i++) setTimeout(() => this.ping(), i * 120);

@@ -22,6 +22,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
 import { originAllowed, parseOrigins } from "./origin";
+import { verifieJeton } from "./jeton";
+import { cleanEnv } from "../src/env";
 import {
   COUNTDOWN_MS,
   DEFAULT_SETTINGS,
@@ -43,11 +45,23 @@ import {
 } from "../shared/protocol";
 import type { Glyph, PlayerPublic, RoundOutcome, ServerMsg } from "../shared/protocol";
 import { windowMs } from "../src/engine/difficulty";
-import { glyphFor, PATTERN_COUNT } from "../src/net/glyph";
+import { glyphFor, glyphFromIndex, PATTERN_COUNT } from "../src/net/glyph";
 
 const PORT = Number(process.env.PORT) || 8787;
 const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
 const PRODUCTION = process.env.NODE_ENV === "production";
+/**
+ * Secret de signature des jetons de compte, partagé avec les fonctions edge.
+ *
+ * Absent = ce serveur ne reconnaît aucun compte, et tout le monde joue
+ * anonymement. C'est un déploiement valable, pas une panne — et c'est
+ * l'état dans lequel tourne le développement local.
+ *
+ * ⚠️ `fly secrets set` REDÉMARRE la machine, donc tue les salons en cours.
+ * À poser quand personne ne joue, et revérifier `fly scale count 1` juste
+ * après (voir CLAUDE.md §10).
+ */
+const AUTH_SECRET = cleanEnv(process.env.TOR_AUTH_SECRET) ?? "";
 const STARTED_AT = Date.now();
 
 /**
@@ -94,6 +108,21 @@ interface Client {
    * qui est exactement ce qu'il sait reconstruire.
    */
   clavier: boolean;
+  /**
+   * Identifiant de compte TOR, si le `hello` portait un jeton valide.
+   *
+   * `null` couvre tout le reste sans le distinguer : pas de jeton, jeton
+   * périmé, signature fausse, serveur déployé sans secret. Le joueur joue,
+   * et RIEN dans le salon ne le distingue d'un joueur connecté — pas de
+   * badge, pas de couleur, pas d'ordre différent. C'est la règle du social à
+   * une seule vitesse, et elle est plus facile à tenir maintenant qu'à
+   * défaire plus tard.
+   *
+   * Ce champ n'est lu par aucun chemin de jeu. Il existe pour que le lot D
+   * puisse un jour vérifier ce que `rookie` se contente aujourd'hui de
+   * déclarer.
+   */
+  compte: string | null;
 }
 
 interface Room {
@@ -447,6 +476,7 @@ wss.on("connection", (ws) => {
     graceTimer: null,
     rookie: false,
     clavier: false,
+    compte: null,
   };
   client.glyph = glyphFor(client.id);
 
@@ -470,6 +500,32 @@ wss.on("connection", (ws) => {
         // `=== true` et non une coercition : absent doit valoir NON.
         client.clavier = msg.clavier === true;
         client.glyph = parseGlyph(msg.glyph, client.id);
+
+        /*
+         * Le compte, s'il y en a un.
+         *
+         * SYNCHRONE, et c'est la raison d'être de `server/jeton.ts` : chez la
+         * plupart des clients, `create` ou `join` arrive dans le même paquet
+         * TCP que ce `hello`. Une vérification asynchrone ferait entrer le
+         * joueur dans le salon sous son identité anonyme, et son nom
+         * changerait sous les yeux des autres une milliseconde plus tard.
+         *
+         * Tout échec — pas de jeton, périmé, signature fausse, serveur sans
+         * secret — laisse `compte` à `null` et n'envoie AUCUNE erreur : le
+         * joueur joue. Un message d'erreur ici bloquerait un chemin d'entrée
+         * pour une couche qui n'est pas censée en être un.
+         *
+         * Le pseudo et le glyphe du jeton font alors autorité sur ceux
+         * annoncés dans le `hello`. C'est ce qui règle l'usurpation de nom à
+         * l'intérieur d'un salon : un nom vérifié ne se recopie pas.
+         */
+        const revendications = verifieJeton(msg.tok, AUTH_SECRET);
+        if (revendications) {
+          client.compte = revendications.sub;
+          if (revendications.psd) client.name = revendications.psd;
+          client.glyph = glyphFromIndex(revendications.gly);
+        }
+
         send(client, { t: "welcome", id: client.id });
         return;
       }

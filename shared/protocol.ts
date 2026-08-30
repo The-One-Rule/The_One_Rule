@@ -273,6 +273,21 @@ export type ClientMsg =
    * serveur ne juge pas, et l'aperçu contredirait le verdict : le seul défaut
    * tenu pour fatal.
    */
+  /**
+   * `tok` : le jeton de compte, s'il y en a un.
+   *
+   * ⚠️ AJOUTER CE CHAMP NE DOIT PAS INCRÉMENTER `PROTOCOL_VERSION`.
+   * `server/index.ts` compare la version par ÉGALITÉ STRICTE et ferme la
+   * socket en cas d'écart : un incrément déconnecterait au déploiement tous
+   * les onglets ouverts et tous les clients en cache, pour un champ
+   * facultatif que les anciens clients n'ont aucun besoin de connaître.
+   *
+   * ABSENT VAUT ANONYME — exactement la doctrine de `clavier` ci-dessus, et
+   * pour une raison plus forte encore : un jeton invalide, périmé ou
+   * impossible à vérifier retombe lui aussi sur « anonyme, et on joue ». Le
+   * compte est une couche AU-DESSUS de l'identité, jamais un préalable. Rien
+   * dans un salon ne doit distinguer un siège avec compte d'un siège sans.
+   */
   | {
       t: "hello";
       v: number;
@@ -281,6 +296,7 @@ export type ClientMsg =
       key?: string;
       rookie?: boolean;
       clavier?: boolean;
+      tok?: string;
     }
   | { t: "create" }
   | { t: "join"; code: string }

@@ -49,6 +49,46 @@ export function glyphVariant(id: string, n: number): Glyph {
   return glyphFor(`${id}#${n}`);
 }
 
+/**
+ * Le vocabulaire entier : 3 × 8 × 6.
+ *
+ * Ce nombre existait dans un commentaire ; il devient une constante parce
+ * qu'un compte doit pouvoir DÉSIGNER un signe, et pas seulement en dériver un.
+ */
+export const GLYPH_COUNT = SHAPES.length * GLYPH_COLORS.length * PATTERN_COUNT;
+
+/**
+ * Index canonique d'un signe, et son inverse.
+ *
+ * Jusqu'ici un signe n'existait que dérivé d'un identifiant local
+ * (`glyphVariant(anonId, n)`), ce qui le rendait NON PORTABLE : changer
+ * d'appareil change l'`anonId`, donc le signe — alors qu'un signe est
+ * précisément ce à quoi les autres vous reconnaissent d'un salon à l'autre.
+ *
+ * L'index le rend nommable en un entier, donc transportable dans un jeton de
+ * compte, et surtout DÉSIGNABLE : c'est déjà la forme qu'aurait l'identifiant
+ * d'un objet possédé. Le jour où les signes se gagneront plutôt que se
+ * choisiront, il n'y aura rien à convertir — seulement une vérification à
+ * poser dans `apparenceAutorisee`.
+ *
+ * La bijection est vérifiée par test dans les deux sens sur les 144 valeurs.
+ */
+export function glyphIndex(g: Glyph): number {
+  const forme = Math.max(0, SHAPES.indexOf(g.shape));
+  const couleur = ((g.color % GLYPH_COLORS.length) + GLYPH_COLORS.length) % GLYPH_COLORS.length;
+  const motif = ((g.pattern % PATTERN_COUNT) + PATTERN_COUNT) % PATTERN_COUNT;
+  return (forme * GLYPH_COLORS.length + couleur) * PATTERN_COUNT + motif;
+}
+
+export function glyphFromIndex(n: number): Glyph {
+  const i = Number.isInteger(n) && n >= 0 ? n % GLYPH_COUNT : 0;
+  return {
+    shape: SHAPES[Math.floor(i / (GLYPH_COLORS.length * PATTERN_COUNT))]!,
+    color: Math.floor(i / PATTERN_COUNT) % GLYPH_COLORS.length,
+    pattern: i % PATTERN_COUNT,
+  };
+}
+
 export const glyphHex = (g: Glyph): string =>
   GLYPH_COLORS[g.color % GLYPH_COLORS.length] ?? GLYPH_COLORS[0];
 
