@@ -4941,39 +4941,55 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
- * LA FAILLE — le composant SOLO / MULTI
+ * LA FAILLE — le composant SOLO / MULTI, et la vitrine du site
  *
- * Un seul objet fendu en diagonale, pas deux boutons voisins. La fente
- * n'est pas une droite : c'est une DÉCHIRURE, une suite de crans qui
- * descend de la droite vers la gauche, et c'est elle qui donne au
- * composant son identité.
+ * Un seul objet fendu HORIZONTALEMENT : SOLO au-dessus, MULTI en dessous,
+ * et entre les deux une fissure qui est le vrai sujet. Elle occupe toute
+ * la largeur du conteneur — deux petites zones posées au milieu ne
+ * donneraient jamais l'impression d'un même grand composant.
  *
- * MÉCANIQUE. Deux `<button>` superposés en `position: absolute`, chacun
- * découpé par un `clip-path: polygon()`. Les deux polygones suivent la
- * MÊME suite de crans, décalée de quelques pour cent : l'écart entre les
- * deux laisse voir le fond du conteneur, et c'est lui qu'on lit comme la
- * fente. Aucun trait à dessiner.
+ * MÉCANIQUE. Deux `<button>` superposés, chacun découpé par un
+ * `clip-path: polygon()`. Les deux polygones suivent la MÊME suite de
+ * crans, décalée : l'écart laisse voir le fond, et c'est lui qu'on lit
+ * comme la déchirure. `clip-path` découpe AUSSI le test de survol, donc
+ * chaque zone ne reçoit que les clics qui tombent dedans — pas une ligne
+ * de géométrie en JS, et le clavier marche parce que ce sont de vrais
+ * boutons.
  *
- * `clip-path` découpe AUSSI le test de survol. Chaque zone ne reçoit donc
- * que les clics qui tombent réellement dedans — pas de calcul de géométrie
- * en JS, pas de zone morte au milieu, et le clavier marche parce que ce
- * sont de vrais boutons.
+ * ⚠️ TOUT CE QUI BOUGE EST DÉCORATIF ET `aria-hidden`. Aucune information
+ * n'est portée par le mouvement, donc rien ne se perd quand il est coupé.
+ * C'est la condition pour qu'un `prefers-reduced-motion` généreux reste
+ * honnête.
  *
- * Le vocabulaire reste celui de la couche pixel : les braises s'animent en
- * `steps()`, sans flou. Une flamme lissée jurerait avec des angles droits ;
- * une flamme en crans est du même monde.
+ * ⚠️ Seuls `transform` et `opacity` sont animés — la même règle que la
+ * couche `--heat`. Tout le reste ferait recalculer la mise en page à
+ * soixante images par seconde, sur l'écran qui précède immédiatement une
+ * partie jugée à 200 ms.
  * ================================================================== */
+
+/*
+ * L'ACCUEIL, ET LUI SEUL, s'elargit.
+ *
+ * `.screen__scroll` vaut 560 px partout — c'est la mise en page que Pierre a
+ * choisi de garder. Mais la faille est la VITRINE : a 560 px dans un ecran de
+ * 1200 elle redevient un bloc pose au milieu, ce qui est exactement ce qu'il
+ * demande d'eviter. On elargit donc cet ecran-la, pas les autres.
+ */
+.screen__scroll.home {
+  max-width: 880px;
+}
 
 .faille {
   position: relative;
+  /* Toute la largeur : c'est ce qui fait un GRAND composant plutôt que
+     deux zones posées au milieu. */
   width: 100%;
-  max-width: 620px;
-  margin: 0 auto;
-  /* Hauteur en `min-height` et non en `aspect-ratio` : combiné à un
-     plancher, `aspect-ratio` impose la dimension croisée — piège déjà payé
-     sur les cases du code de salon, où il forçait 248 px de rangée. */
-  min-height: clamp(240px, 42vh, 320px);
+  min-height: clamp(320px, 56vh, 460px);
   isolation: isolate;
+  /* Le pourtour respire au rythme de la fissure. Décoratif, hors flux. */
+  box-shadow:
+    0 0 0 var(--px) color-mix(in srgb, var(--signal) 14%, transparent),
+    0 0 40px -12px color-mix(in srgb, var(--signal) 30%, transparent);
 }
 
 .faille__zone {
@@ -4981,13 +4997,12 @@ button.chip:active:not(:disabled) {
   inset: 0;
   display: block;
   border: 0;
-  padding: var(--sp-4);
+  padding: clamp(20px, 4vw, 40px);
   background-color: var(--ink-2);
   color: var(--paper);
   font: inherit;
   text-align: left;
   cursor: pointer;
-  /* Le grain de la couche pixel, comme sur les autres surfaces. */
   background-image:
     repeating-linear-gradient(
       45deg,
@@ -5004,66 +5019,60 @@ button.chip:active:not(:disabled) {
       transparent var(--px)
     );
   transition:
-    clip-path 220ms cubic-bezier(0.2, 0.9, 0.3, 1),
-    filter 160ms ease-out;
+    clip-path 260ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    filter 180ms ease-out;
 }
 
 /*
- * LES DEUX POLYGONES.
+ * LA DÉCHIRURE, en crans irréguliers.
  *
- * Même nombre de points des deux côtés ET entre repos et survol : c'est la
- * condition pour que `clip-path` s'interpole. Un point de plus au survol et
- * la transition devient une bascule sèche.
+ * Horizontale à toutes les tailles : c'est elle l'identité, et une forme
+ * qui change d'axe selon l'écran n'en est pas une. Les crans sont
+ * volontairement inégaux — un zigzag régulier se lit comme une bordure
+ * décorative, pas comme une cassure.
+ *
+ * Repos et survol portent le MÊME nombre de points : c'est la condition
+ * pour que `clip-path` s'interpole. Un point de plus et la transition
+ * devient une bascule sèche.
  */
 .faille__zone--solo {
   clip-path: polygon(
-    0% 0%, 100% 0%, 100% 14%,
-    92% 22%, 85% 18%, 77% 32%, 69% 28%,
-    61% 42%, 53% 38%, 45% 52%, 37% 48%,
-    29% 62%, 21% 58%, 13% 72%, 6% 68%,
-    0% 82%
+    0% 0%, 100% 0%, 100% 44%,
+    94% 49%, 88% 45%, 81% 52%, 74% 47%,
+    67% 53%, 59% 46%, 52% 54%, 45% 48%,
+    38% 55%, 30% 47%, 23% 53%, 15% 46%,
+    8% 52%, 0% 47%
   );
 }
 
 .faille__zone--multi {
   clip-path: polygon(
-    0% 90%, 6% 76%, 13% 80%, 21% 66%, 29% 70%,
-    37% 56%, 45% 60%, 53% 46%, 61% 50%,
-    69% 36%, 77% 40%, 85% 26%, 92% 30%,
-    100% 22%, 100% 100%, 0% 100%
+    0% 57%, 8% 62%, 15% 56%, 23% 63%, 30% 57%,
+    38% 65%, 45% 58%, 52% 64%, 59% 56%,
+    67% 63%, 74% 57%, 81% 62%, 88% 55%,
+    94% 59%, 100% 54%, 100% 100%, 0% 100%
   );
-  background-color: color-mix(in srgb, var(--ink-2) 80%, var(--ink) 20%);
+  background-color: color-mix(in srgb, var(--ink-2) 72%, var(--ink) 28%);
 }
 
-/*
- * Le contenu se pose dans SA moitié, loin de la fente.
- *
- * Les deux blocs sont positionnés EXPLICITEMENT, chacun dans son coin. En
- * flux normal, celui de SOLO descendait jusque dans la déchirure : mesuré,
- * 21 % de sa description et 64 % de son état tombaient hors de sa propre
- * zone de clic — donc affichés par-dessus une surface qui ne lui répondait
- * pas. Un coin ancré ne peut pas glisser, quelle que soit la hauteur du
- * composant.
- *
- * La mesure de 20ch n'est pas cosmétique : au-delà, la ligne rejoint la
- * fente là où celle-ci remonte.
- */
+/* ---- le contenu, ancré dans sa bande ---- */
+
 .faille__corps {
   position: absolute;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  max-width: 20ch;
+  gap: 8px;
+  max-width: 34ch;
 }
 
 .faille__zone--solo .faille__corps {
-  left: var(--sp-4);
-  top: var(--sp-4);
+  left: clamp(20px, 4vw, 40px);
+  top: clamp(20px, 4vw, 40px);
 }
 
 .faille__zone--multi .faille__corps {
-  right: var(--sp-4);
-  bottom: var(--sp-4);
+  right: clamp(20px, 4vw, 40px);
+  bottom: clamp(20px, 4vw, 40px);
   align-items: flex-end;
   text-align: right;
 }
@@ -5071,16 +5080,15 @@ button.chip:active:not(:disabled) {
 .faille__titre {
   font-family: var(--display);
   font-weight: 600;
-  font-size: clamp(30px, 7vw, 44px);
-  letter-spacing: -0.02em;
-  line-height: 1;
-  /* L'ombre d'un module : la même que le logo, même famille. */
-  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--ink) 70%, transparent);
+  font-size: clamp(34px, 8vw, 62px);
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--ink) 75%, transparent);
 }
 
 .faille__desc {
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base, 0.04em);
   color: var(--paper-dim);
 }
 
@@ -5090,122 +5098,34 @@ button.chip:active:not(:disabled) {
   color: var(--paper-dim);
 }
 
-/*
- * EN BANDE ÉTROITE, LA DÉCHIRURE DEVIENT HORIZONTALE.
- *
- * Ce n'est pas un repli, c'est la bonne forme pour ce format. Sur un
- * composant étroit et court, une diagonale mange les deux coins ET ne laisse
- * a aucune des deux faces la largeur d'écrire : mesuré à 375 px, 22 % de
- * l'état de SOLO tombait hors de sa zone de clic, et le raccourcir n'aurait
- * rien réglé — le nom de la règle du jour varie, « LA MAIN GAUCHE » est plus
- * long que « LE SANG », donc un texte qui tient aujourd'hui déborde demain.
- *
- * Fendu en deux bandes, chaque face reçoit toute la largeur. La déchirure
- * reste la même — les mêmes crans, la même identité — elle change seulement
- * d'axe. L'objet reste UN objet.
- *
- * ⚠️ La première mesure disait 0 % : une grille de 7x4 points passait entre
- * les crans. C'est en échantillonnant 21x9 que le débordement est apparu.
- * Une mesure trop grossière ment dans le sens rassurant.
- */
-@media (max-width: 560px) {
-  /*
-   * Pente FAIBLE, et c'est mesuré : a 18 points d'ecart entre le bord droit
-   * et le bord gauche, la bande de SOLO passait de 190 a 167 px et son etat
-   * effleurait la fente (14 % hors zone). A 6 points, la bande est reguliere
-   * et chaque face garde la meme hauteur utile d'un bout a l'autre. Les crans
-   * restent — c'est eux qui font la dechirure, pas la pente.
-   */
-  .faille__zone--solo {
-    clip-path: polygon(
-      0% 0%, 100% 0%, 100% 50%,
-      92% 54%, 85% 51%, 77% 55%, 69% 52%,
-      61% 56%, 53% 53%, 45% 57%, 37% 54%,
-      29% 58%, 21% 55%, 13% 59%, 6% 56%,
-      0% 60%
-    );
-  }
-
-  .faille__zone--multi {
-    clip-path: polygon(
-      0% 68%, 6% 64%, 13% 67%, 21% 63%, 29% 66%,
-      37% 62%, 45% 65%, 53% 61%, 61% 64%,
-      69% 60%, 77% 63%, 85% 59%, 92% 62%,
-      100% 58%, 100% 100%, 0% 100%
-    );
-  }
-
-  .faille__zone--solo:hover,
-  .faille__zone--solo:focus-visible {
-    clip-path: polygon(
-      0% 0%, 100% 0%, 100% 53%,
-      92% 57%, 85% 54%, 77% 58%, 69% 55%,
-      61% 59%, 53% 56%, 45% 60%, 37% 57%,
-      29% 61%, 21% 58%, 13% 62%, 6% 59%,
-      0% 63%
-    );
-  }
-
-  .faille__zone--multi:hover,
-  .faille__zone--multi:focus-visible {
-    clip-path: polygon(
-      0% 65%, 6% 61%, 13% 64%, 21% 60%, 29% 63%,
-      37% 59%, 45% 62%, 53% 58%, 61% 61%,
-      69% 57%, 77% 60%, 85% 56%, 92% 59%,
-      100% 55%, 100% 100%, 0% 100%
-    );
-  }
-
-  /*
-   * Fendu en deux bandes, le composant a besoin de PLUS de hauteur, pas de
-   * moins : chaque face doit loger un titre, une description et un état.
-   * Mesuré a 240 px de haut, la bande du bas n'en laissait que 115 au texte
-   * de MULTI, dont 32 % du titre tombait hors de sa zone de clic.
-   */
-  .faille {
-    min-height: clamp(300px, 60vh, 380px);
-  }
-
-  /* Chaque bande reçoit toute la largeur : plus de raison de brider. */
-  .faille__corps {
-    max-width: none;
-    right: var(--sp-4);
-  }
-
-  .faille__zone--multi .faille__corps {
-    left: var(--sp-4);
-  }
-}
-
 /* ---- survol : la face touchée chauffe ---- */
 
 .faille__zone:hover,
 .faille__zone:focus-visible {
-  filter: brightness(1.16);
+  filter: brightness(1.14);
   outline: none;
   z-index: 2;
 }
 
+/* La fente respire : chaque cran avance de trois points. */
 .faille__zone--solo:hover,
 .faille__zone--solo:focus-visible {
-  /* La fente respire : chaque cran avance de deux ou trois points. Rien de
-     plus — « mouvement subtil », pas une bascule. */
   clip-path: polygon(
-    0% 0%, 100% 0%, 100% 16%,
-    92% 25%, 85% 20%, 77% 35%, 69% 30%,
-    61% 45%, 53% 40%, 45% 55%, 37% 50%,
-    29% 65%, 21% 60%, 13% 75%, 6% 70%,
-    0% 85%
+    0% 0%, 100% 0%, 100% 47%,
+    94% 52%, 88% 48%, 81% 55%, 74% 50%,
+    67% 56%, 59% 49%, 52% 57%, 45% 51%,
+    38% 58%, 30% 50%, 23% 56%, 15% 49%,
+    8% 55%, 0% 50%
   );
 }
 
 .faille__zone--multi:hover,
 .faille__zone--multi:focus-visible {
   clip-path: polygon(
-    0% 87%, 6% 73%, 13% 77%, 21% 63%, 29% 67%,
-    37% 53%, 45% 57%, 53% 43%, 61% 47%,
-    69% 33%, 77% 37%, 85% 23%, 92% 27%,
-    100% 19%, 100% 100%, 0% 100%
+    0% 54%, 8% 59%, 15% 53%, 23% 60%, 30% 54%,
+    38% 62%, 45% 55%, 52% 61%, 59% 53%,
+    67% 60%, 74% 54%, 81% 59%, 88% 52%,
+    94% 56%, 100% 51%, 100% 100%, 0% 100%
   );
 }
 
@@ -5219,86 +5139,301 @@ button.chip:active:not(:disabled) {
   color: var(--signal);
 }
 
-/* ---- les braises ---- */
+.faille__zone--primary {
+  background-color: color-mix(in srgb, var(--ink-2) 74%, var(--signal) 26%);
+}
 
-/*
- * Elles vivent HORS des boutons : dans le découpage, elles seraient
- * rognées à la fente au lieu de la border.
+.faille__zone:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.65) brightness(0.65);
+}
+
+.faille__zone:disabled:hover {
+  filter: grayscale(0.65) brightness(0.65);
+}
+
+/* ==================================================================
+ * LA FISSURE — la vitrine
  *
- * Des points le long de la diagonale, animés en `steps(4)` : le
- * scintillement est franc, sans flou, exactement le vocabulaire de la
- * couche pixel. Invisibles au repos.
- */
-.faille__braises {
+ * Un calque a part, HORS des boutons : dans le decoupage, tout ce qu'elle
+ * emet serait rogne a son propre bord au lieu d'en sortir.
+ *
+ * Elle est empilee en trois plans qui ne battent pas au meme rythme, de
+ * la meme facon que la couche `--heat` separe le voile et le cadre :
+ * une LUEUR qui respire, un BALAYAGE qui passe, des ECLATS qui montent.
+ * Trois vitesses donnent une impression de vie ; une seule donne une
+ * boucle.
+ * ================================================================== */
+
+.fissure {
   position: absolute;
-  inset: 0;
+  left: 0;
+  right: 0;
+  /* Centree sur la bande de crans, avec de la marge pour que ce qui en
+     sort ne soit pas coupe. */
+  top: 38%;
+  height: 26%;
   pointer-events: none;
   z-index: 3;
-  opacity: 0;
-  background-repeat: no-repeat;
-  background-image:
-    radial-gradient(var(--px) var(--px) at 12% 74%, var(--signal) 99%, transparent 100%),
-    radial-gradient(var(--px) var(--px) at 28% 62%, var(--signal-pale) 99%, transparent 100%),
-    radial-gradient(var(--px) var(--px) at 44% 52%, var(--signal) 99%, transparent 100%),
-    radial-gradient(var(--px) var(--px) at 60% 42%, var(--signal-pale) 99%, transparent 100%),
-    radial-gradient(var(--px) var(--px) at 76% 32%, var(--signal) 99%, transparent 100%),
-    radial-gradient(var(--px) var(--px) at 90% 22%, var(--signal-pale) 99%, transparent 100%);
-  transition: opacity 160ms ease-out;
+  overflow: visible;
 }
 
-.faille:hover .faille__braises,
-.faille:focus-within .faille__braises {
-  opacity: 1;
-  animation: braises 900ms steps(4, end) infinite;
+/* ---- la lueur : le coeur chaud de la cassure ---- */
+
+.fissure__lueur {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--signal) 22%, transparent) 42%,
+      color-mix(in srgb, var(--signal-pale) 34%, transparent) 50%,
+      color-mix(in srgb, var(--signal) 22%, transparent) 58%,
+      transparent 100%
+    );
+  opacity: 0.55;
+  animation: fissure-respire 3200ms ease-in-out infinite;
 }
 
-@keyframes braises {
-  0% {
-    transform: translate(0, 0);
-    opacity: 0.3;
+@keyframes fissure-respire {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scaleY(0.9);
   }
   50% {
-    transform: translate(calc(var(--px) * -1), calc(var(--px) * -2));
+    opacity: 0.85;
+    transform: scaleY(1.12);
+  }
+}
+
+/* ---- le balayage : une lumiere qui parcourt la cassure ---- */
+
+.fissure__balayage {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 40%,
+    color-mix(in srgb, var(--signal-pale) 55%, transparent) 50%,
+    transparent 60%
+  );
+  opacity: 0.7;
+  animation: fissure-balaye 5200ms linear infinite;
+}
+
+@keyframes fissure-balaye {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+/* ---- les eclats : des fragments qui se detachent ---- */
+
+.fissure__eclats,
+.fissure__sortie {
+  position: absolute;
+  inset: 0;
+}
+
+.fissure__eclats i {
+  position: absolute;
+  top: 50%;
+  /* Reparti sur la largeur ; le pas de 8,3 % evite l'alignement regulier. */
+  left: calc(2% + var(--i) * 8.3%);
+  width: var(--px);
+  height: var(--px);
+  background: var(--signal-pale);
+  opacity: 0;
+  /*
+   * `steps()` et non `ease` : le scintillement est franc, sans flou, du
+   * meme monde que la couche pixel. Une braise lissee jurerait avec des
+   * angles droits.
+   */
+  animation: eclat 2600ms steps(6, end) infinite;
+  animation-delay: calc(var(--i) * -217ms);
+}
+
+/* Un eclat sur trois part vers le bas : la cassure emet des deux cotes. */
+.fissure__eclats i:nth-child(3n) {
+  animation-name: eclat-bas;
+  background: var(--signal);
+}
+
+/* Un eclat sur quatre est plus gros et plus lent — de la profondeur. */
+.fissure__eclats i:nth-child(4n) {
+  width: calc(var(--px) * 1.5);
+  height: calc(var(--px) * 1.5);
+  animation-duration: 3900ms;
+}
+
+@keyframes eclat {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  15% {
     opacity: 1;
   }
   100% {
-    transform: translate(0, calc(var(--px) * -4));
+    transform: translateY(-46px) translateX(6px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+@keyframes eclat-bas {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(42px) translateX(-8px) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* ==================================================================
+ * CE QUI SORT DE LA FISSURE — un monde par moitie
+ *
+ * Deux familles, et c'est tout l'interet : au survol de SOLO ce sont des
+ * fleches qui MONTENT — la progression, l'escalade, le record a battre
+ * seul. Au survol de MULTI ce sont des epees qui TOMBENT — l'affrontement.
+ * On doit sentir que les deux mondes derriere la cassure ne sont pas le
+ * meme.
+ *
+ * Les pictogrammes sont des SVG en `data:` : aucun fichier, aucune
+ * requete, et `crispEdges` les garde nets a n'importe quelle taille — le
+ * vocabulaire pixel jusqu'au bout. Pas d'emoji : leur rendu change d'un
+ * systeme a l'autre, et une epee qui devient un carre blanc chez un
+ * joueur sur trois n'est pas un effet, c'est un bug.
+ * ================================================================== */
+
+.fissure__sortie i {
+  position: absolute;
+  top: 50%;
+  left: calc(8% + var(--i) * 16%);
+  width: 14px;
+  height: 18px;
+  opacity: 0;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  image-rendering: pixelated;
+}
+
+.fissure__sortie--solo i {
+  /* Une fleche qui monte : progression, escalade. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath fill='%239184d9' d='M6 1l5 5H8v5H4V6H1z'/%3E%3C/svg%3E");
+}
+
+.fissure__sortie--multi i {
+  /* Une epee, lame en bas : elle tombe de la cassure. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23cfc9f2' d='M5 0h2v4H5z'/%3E%3Cpath fill='%239184d9' d='M2 4h8v2H2z'/%3E%3Cpath fill='%23cfc9f2' d='M5 6h2v10H5z'/%3E%3C/svg%3E");
+}
+
+/* Elles ne s'allument qu'au survol de LEUR moitie. */
+.faille:has(.faille__zone--solo:hover) .fissure__sortie--solo i,
+.faille:has(.faille__zone--solo:focus-visible) .fissure__sortie--solo i {
+  animation: sortie-haut 1500ms ease-out infinite;
+  animation-delay: calc(var(--i) * -250ms);
+}
+
+.faille:has(.faille__zone--multi:hover) .fissure__sortie--multi i,
+.faille:has(.faille__zone--multi:focus-visible) .fissure__sortie--multi i {
+  animation: sortie-bas 1600ms ease-in infinite;
+  animation-delay: calc(var(--i) * -266ms);
+}
+
+@keyframes sortie-haut {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(0.6);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-74px) rotate(-14deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes sortie-bas {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(0.7);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(76px) rotate(22deg) scale(1);
     opacity: 0;
   }
 }
 
 /*
- * L'accent, quand il y a une action évidente. Il colore la face concernée
- * plutôt que d'ajouter un cadre : le composant est déjà une forme forte,
- * une bordure de plus la brouillerait.
+ * La cassure REAGIT a la moitie survolee : elle se decale vers celle qui
+ * est touchee, comme si le monde d'en face poussait.
  */
-.faille__zone--primary {
-  background-color: color-mix(in srgb, var(--ink-2) 76%, var(--signal) 24%);
+.faille:has(.faille__zone--solo:hover) .fissure__lueur {
+  animation-duration: 1400ms;
+  opacity: 0.95;
 }
 
-.faille__zone:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.6) brightness(0.7);
+.faille:has(.faille__zone--multi:hover) .fissure__lueur {
+  animation-duration: 1100ms;
+  opacity: 1;
 }
 
-.faille__zone:disabled:hover {
-  filter: grayscale(0.6) brightness(0.7);
+.faille:has(.faille__zone--multi:hover) .fissure__balayage {
+  animation-duration: 2200ms;
 }
 
+.faille:has(.faille__zone:hover) .fissure__eclats i {
+  animation-duration: 1300ms;
+}
+
+/* ==================================================================
+ * MOUVEMENT REDUIT
+ *
+ * Tout s'arrete, et la LISIBILITE reste : la fissure garde sa lueur fixe,
+ * les eclats restent visibles. Neutraliser une animation sans remettre
+ * l'etat visible laisse un element invisible — piege deja paye avec
+ * `animation-fill-mode: backwards`.
+ *
+ * Le composant ne perd RIEN d'informatif : tout ce qui bouge est
+ * decoratif et `aria-hidden`.
+ * ================================================================== */
 @media (prefers-reduced-motion: reduce) {
-  /*
-   * Le mouvement s'arrête, la LISIBILITÉ reste : on garde le changement de
-   * luminosité et on montre les braises fixes. Neutraliser une animation
-   * sans remettre l'état visible laisse un élément invisible — piège déjà
-   * payé avec `animation-fill-mode: backwards`.
-   */
-  .faille__zone {
-    transition: filter 160ms ease-out;
+  .fissure__lueur,
+  .fissure__balayage,
+  .fissure__eclats i,
+  .fissure__sortie i {
+    animation: none !important;
   }
-  .faille:hover .faille__braises,
-  .faille:focus-within .faille__braises {
-    animation: none;
-    opacity: 0.75;
+
+  .fissure__lueur {
+    opacity: 0.7;
+  }
+
+  .fissure__balayage {
+    opacity: 0.25;
+  }
+
+  .fissure__eclats i {
+    opacity: 0.85;
+  }
+
+  .faille__zone {
+    transition: filter 180ms ease-out;
   }
 }
 
@@ -5507,3 +5642,183 @@ button.chip:active:not(:disabled) {
   color: var(--paper);
 }
 
+/* ==================================================================
+ * LE MOTIF DE FISSURE, PARTOUT AILLEURS
+ *
+ * La faille de l'accueil est la vitrine ; ce bloc en tire le vocabulaire
+ * et le pose sur le reste du site, pour que ce soit une direction et pas
+ * un effet isolé.
+ *
+ * Une seule primitive, réutilisée : un liseré dentelé produit par un
+ * `repeating-linear-gradient` en escalier. Aucune image, aucune requête,
+ * et il s'aligne sur `--px` comme tout le reste.
+ *
+ * ⚠️ Tout est posé en `::before` / `::after` ABSOLUS, donc hors flux.
+ * C'est la contrainte n°10 de CLAUDE.md — la place est du gameplay — et
+ * elle vaut aussi pour ce qui n'est que décor.
+ * ================================================================== */
+
+/*
+ * Le trait entre la barre haute et le contenu.
+ *
+ * Demandé « discret mais clairement perceptible » : un liseré dentelé de
+ * deux modules, en dégradé qui s'éteint aux extrémités pour qu'il se lise
+ * comme une cassure et non comme une bordure de tableau.
+ *
+ * En `::after` absolu : la barre est déjà hors flux, et ce trait ne doit
+ * rien ajouter à la hauteur qu'elle occupe.
+ */
+.topbar::after {
+  content: "";
+  position: absolute;
+  left: var(--sp-3);
+  right: var(--sp-3);
+  bottom: 0;
+  height: var(--px);
+  pointer-events: none;
+  background:
+    linear-gradient(
+      to right,
+      transparent 0%,
+      color-mix(in srgb, var(--signal) 55%, transparent) 12%,
+      color-mix(in srgb, var(--signal) 55%, transparent) 88%,
+      transparent 100%
+    );
+  /* La dentelure : un masque en créneaux, aligné sur le module. */
+  mask-image: repeating-linear-gradient(
+    to right,
+    #000 0,
+    #000 calc(var(--px) * 3),
+    transparent calc(var(--px) * 3),
+    transparent calc(var(--px) * 4),
+    #000 calc(var(--px) * 4),
+    #000 calc(var(--px) * 9),
+    transparent calc(var(--px) * 9),
+    transparent calc(var(--px) * 11)
+  );
+  opacity: 0.75;
+}
+
+/*
+ * Les intitulés de section portent la cassure.
+ *
+ * `.eyebrow` est le seul élément présent sur TOUS les écrans : y accrocher
+ * le motif le fait apparaître partout sans toucher à chaque écran un par
+ * un, et sans ajouter un seul nœud au document.
+ */
+.eyebrow {
+  position: relative;
+  padding-left: calc(var(--px) * 4);
+}
+
+.eyebrow::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.15em;
+  bottom: 0.15em;
+  width: var(--px);
+  background: var(--signal);
+  /* Le même créneau que le trait de la barre, en vertical. */
+  mask-image: repeating-linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(var(--px) * 2),
+    transparent calc(var(--px) * 2),
+    transparent calc(var(--px) * 3)
+  );
+}
+
+/*
+ * Les surfaces qui portent une décision — cartes de mode, panneaux —
+ * gagnent une arête vive à gauche, qui s'allume au survol.
+ *
+ * `transform: scaleY()` et `opacity` uniquement : rien qui recalcule une
+ * mise en page.
+ */
+.card,
+.panel {
+  position: relative;
+}
+
+.card::after,
+.panel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--px);
+  background: var(--signal);
+  opacity: 0;
+  transform: scaleY(0.3);
+  transform-origin: center;
+  transition:
+    opacity 180ms ease-out,
+    transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  pointer-events: none;
+}
+
+.card:hover::after,
+.card:focus-visible::after,
+.panel:hover::after {
+  opacity: 0.9;
+  transform: scaleY(1);
+}
+
+.card--primary::after {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+/*
+ * Les titres d'écran prennent l'ombre décalée du logo : un seul module,
+ * sans flou. C'est ce qui relie visuellement un écran de réglages à la
+ * vitrine de l'accueil.
+ */
+.rulename {
+  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--signal) 18%, transparent);
+}
+
+/*
+ * Le verdict de fin de run PULSE une fois à l'arrivée.
+ *
+ * Une seule fois, pas en boucle : c'est un événement, pas un état. Une
+ * pulsation infinie sur l'écran le plus vu du jeu deviendrait du bruit en
+ * trois parties.
+ */
+.verdict {
+  animation: verdict-frappe 420ms cubic-bezier(0.2, 0.9, 0.3, 1) 1;
+}
+
+@keyframes verdict-frappe {
+  0% {
+    transform: scale(1.06);
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(0.99);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * On coupe le mouvement en laissant les états VISIBLES : une arête à
+   * `scaleY(0.3)` et une opacité à 0 disparaîtraient, ce qui retirerait
+   * une information de survol au lieu de retirer une animation.
+   */
+  .card::after,
+  .panel::after {
+    transition: none;
+    transform: scaleY(1);
+  }
+
+  .verdict {
+    animation: none;
+  }
+}

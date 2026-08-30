@@ -349,7 +349,45 @@ du terrain tombent à 85–102 % du rayon, donc en pleine zone assombrie. Le jeu
 occupe presque toute la surface. D'où le halo de bord (60 px, pour une
 gouttière mesurée à 64).
 
-### La faille, et la couche pixel
+### La faille : la vitrine du site
+
+**Le composant SOLO / MULTI est UN objet fendu horizontalement**, pleine
+largeur, et la FISSURE entre les deux est le sujet — pas la séparation.
+
+Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
+suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est lui
+qu'on lit comme la déchirure. Aucun trait n'est dessiné. `clip-path` découpe
+**aussi le test de survol** — chaque zone ne reçoit que les clics qui tombent
+dedans, sans une ligne de géométrie en JS, et le clavier marche parce que ce
+sont de vrais boutons. Mesuré : 50 % SOLO · 41 % MULTI · 9 % de couture.
+
+**La fissure est un calque HORS des boutons.** Dans le découpage, tout ce
+qu'elle émet serait rogné à son propre bord au lieu d'en sortir.
+
+Trois plans qui ne battent pas au même rythme — même principe que `--heat`,
+qui sépare le voile et le cadre : une **lueur** qui respire (3,2 s), un
+**balayage** qui passe (5,2 s), des **éclats** qui montent (2,6 s). Trois
+vitesses donnent de la vie ; une seule donne une boucle.
+
+**Deux mondes derrière la cassure.** Au survol de SOLO, des flèches *montent*
+(progression, escalade) ; au survol de MULTI, des épées *tombent*. Vérifié :
+au repos les deux émetteurs sont à `animation: none`, et chacun ne s'allume
+que sur sa moitié. La lueur accélère différemment — 1,4 s côté solo, 1,1 s
+côté multi.
+
+Les pictogrammes sont des **SVG en `data:`**, pas des emoji : le rendu d'un
+emoji change d'un système à l'autre, et une épée qui devient un carré blanc
+chez un joueur sur trois n'est pas un effet, c'est un bug.
+
+⚠️ **Tout ce qui bouge est décoratif et `aria-hidden`.** C'est la condition
+pour qu'un `prefers-reduced-motion` généreux reste honnête : rien ne se perd
+quand le mouvement est coupé. Et seuls `transform` et `opacity` sont animés —
+la même règle que `--heat`.
+
+⚠️ **Aucun coût pendant une partie** : l'accueil est en `display: none` en
+jeu, et une animation sur un élément non affiché ne compose pas.
+
+### La couche pixel
 
 **Le composant SOLO / MULTI est UN objet fendu**, pas deux boutons voisins.
 Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui

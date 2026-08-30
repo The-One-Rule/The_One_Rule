@@ -208,17 +208,19 @@
             </p>
           </div>
 
-          <!-- LA FAILLE — un seul objet, deux faces.
-               Pas deux boutons cote a cote : une composition unique fendue en
-               diagonale, SOLO en haut a gauche, MULTI en bas a droite. La
-               fente n'est pas une droite — c'est une dechirure, et c'est elle
-               qui donne son identite au composant.
+          <!-- LA FAILLE — un seul objet, deux mondes.
+               SOLO au-dessus, MULTI en dessous, et entre les deux une
+               FISSURE qui est le vrai sujet : c'est elle qui porte
+               l'identite du site, et c'est autour d'elle que tout bouge.
 
-               Deux vrais `<button>` superposes et decoupes par `clip-path` :
-               le decoupage porte AUSSI le test de survol, donc chaque zone ne
-               recoit que les clics qui tombent dedans. Pas de calcul de
-               geometrie en JS, pas de zone morte, et le clavier fonctionne
-               parce que ce sont des boutons. -->
+               Deux vrais `<button>` decoupes par `clip-path` : le decoupage
+               porte AUSSI le test de survol, donc chaque zone ne recoit que
+               les clics qui tombent dedans. Pas de geometrie en JS, pas de
+               zone morte, et le clavier fonctionne.
+
+               La fissure est un calque a part, HORS des boutons : dans le
+               decoupage, tout ce qu'elle emet serait rogne a son propre bord
+               au lieu d'en sortir. -->
           <div class="faille" aria-label="Modes de jeu">
             <button class="faille__zone faille__zone--solo" id="btnSolo">
               <span class="faille__corps">
@@ -236,9 +238,34 @@
               </span>
             </button>
 
-            <!-- Les braises vivent hors des boutons : dans le decoupage,
-                 elles seraient rognees a la fente au lieu de la border. -->
-            <span class="faille__braises" aria-hidden="true"></span>
+            <!-- LA VITRINE.
+                 Tout est decoratif et `aria-hidden` : rien ici ne porte
+                 d'information, donc rien ne se perd si le mouvement est
+                 coupe. Les particules sont un nombre FIXE d'elements
+                 decales par `--i` — aucun JS, aucun cout a l'execution
+                 au-dela de la composition. -->
+            <span class="fissure" aria-hidden="true">
+              <span class="fissure__lueur"></span>
+              <span class="fissure__balayage"></span>
+              <span class="fissure__eclats">
+                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
+                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
+                <i style="--i: 6"></i><i style="--i: 7"></i><i style="--i: 8"></i>
+                <i style="--i: 9"></i><i style="--i: 10"></i><i style="--i: 11"></i>
+              </span>
+              <!-- Ce qui sort de la fissure change selon le monde survole :
+                   des fleches qui montent pour SOLO, des epees qui tombent
+                   pour MULTI. Les deux jeux existent en permanence et ne
+                   s'allument qu'au survol de leur moitie. -->
+              <span class="fissure__sortie fissure__sortie--solo">
+                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
+                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
+              </span>
+              <span class="fissure__sortie fissure__sortie--multi">
+                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
+                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
+              </span>
+            </span>
           </div>
 
           <div class="home__foot">
