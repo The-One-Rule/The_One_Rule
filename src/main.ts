@@ -161,6 +161,7 @@ function syncField(): void {
 
 const SCREENS = [
   "home",
+  "solo",
   "brief",
   "over",
   "codex",
@@ -210,6 +211,7 @@ let day = dayIndex();
  */
 const AVEC_BARRE: ReadonlySet<string> = new Set([
   "home",
+  "solo",
   "brief",
   "over",
   "codex",
@@ -249,16 +251,79 @@ const multi = initMulti((id) => {
   show(id);
 }, hud);
 
+/**
+ * L'accueil : DEUX portes, et rien d'autre.
+ *
+ * Il portait quatre cartes de mode, un logo, 39 mots d'explication, la série,
+ * les quêtes et le carnet. Mesuré sur mobile 375x812 : 1271 px de contenu,
+ * première chose cliquable à y=465 — 57 % de l'écran à franchir avant de
+ * pouvoir agir — et la série, les quêtes et le carnet entièrement sous la
+ * ligne de flottaison, c'est-à-dire toute la mécanique de rétention invisible.
+ *
+ * L'état du run du jour reste ICI, sur le bouton SOLO. C'est le seul mode à un
+ * essai par jour et le porteur de la série : le ranger d'un cran sans rien en
+ * dire aurait été le seul vrai coût de ce découpage.
+ */
 function renderHome(): void {
   const s = P.load();
   ensureDay(s, day);
   P.save(s);
 
-  const rule = ruleOfDay(day);
   hud.setRule(null);
   hud.clearRound();
   hud.setMeta("");
   hud.setFooter(0, s.bestTraining, "—");
+
+  const rule = ruleOfDay(day);
+  const morceaux = [
+    s.daily.played ? `RUN DU JOUR FAIT · ${s.daily.score}` : `RUN DU JOUR : ${rule.name}`,
+  ];
+  if (s.streak.count > 0) morceaux.push(`SÉRIE ${s.streak.count}`);
+  $("soloEtat").textContent = morceaux.join(" · ");
+
+  $("cardMultiState").textContent = multi.available
+    ? "DE 2 À 10 JOUEURS"
+    : "SERVEUR DE SALONS HORS LIGNE";
+  $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
+
+  /*
+   * L'accent va au multijoueur SEULEMENT si le run du jour est fait.
+   *
+   * Un écran a une action évidente, et elle ne peut pas être un bouton mort ;
+   * mais elle ne peut pas non plus envoyer un nouveau venu vers le seul mode
+   * irréversible du jeu. Tant qu'il reste quelque chose à faire en solo,
+   * l'accent y va.
+   */
+  const versMulti = s.daily.played && multi.available;
+  $("btnSolo").classList.toggle("porte--primary", !versMulti);
+  $("btnMulti").classList.toggle("porte--primary", versMulti);
+
+  appliqueMotifs(s.daltonien);
+  setEnabled(s.sound);
+  setMusicEnabled(s.music);
+
+  /*
+   * Le bouton de compte n'apparaît QUE si des comptes existent réellement sur
+   * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
+   * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
+   */
+  const c = compte();
+  $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
+  $("btnTopCompte").textContent = c ? c.pseudo || "MON COMPTE" : "COMPTE";
+}
+
+/**
+ * L'écran SOLO : les trois modes, et ce qui les entoure.
+ *
+ * Tout ce qui vivait sous la ligne de flottaison de l'accueil est ici — série,
+ * quêtes, carnet — là où il a la place d'exister et où on vient le chercher.
+ */
+function renderSolo(): void {
+  const s = P.load();
+  ensureDay(s, day);
+  P.save(s);
+
+  const rule = ruleOfDay(day);
 
   const strip = $("homeStreak");
   strip.innerHTML = "";
@@ -277,14 +342,12 @@ function renderHome(): void {
   renderQuests("homeQuests");
 
   const neuf = s.recent.length === 0;
-  const btn = $<HTMLButtonElement>("btnDaily");
-  btn.disabled = s.daily.played;
+  $<HTMLButtonElement>("btnDaily").disabled = s.daily.played;
 
   /*
    * L'état va dans `.card__state`, jamais dans le textContent de la carte :
    * l'écrire sur le bouton effacerait son titre et sa description.
    */
-  // L'accroche taquine la règle du jour ; l'état dit ce qui est en jeu.
   $("cardDailyDesc").textContent = s.daily.played
     ? "C'est fait pour aujourd'hui."
     : teaserDuJour(rule.id, day);
@@ -294,18 +357,7 @@ function renderHome(): void {
   $("cardTrainingState").textContent = neuf
     ? "COMMENCE ICI · TU NE PERDS RIEN"
     : `RECORD · ${s.bestTraining} MANCHES`;
-  $("cardMultiState").textContent = multi.available
-    ? "DE 2 À 10 JOUEURS"
-    : "SERVEUR DE SALONS HORS LIGNE";
-  $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
-  /*
-   * Un écran a UNE action évidente, et elle ne peut pas être un bouton mort.
-   *
-   * Le run du jour gardait l'accent même une fois joué : l'œil était appelé
-   * vers le seul bouton désactivé de la page, et rien ne disait quoi faire
-   * ensuite. L'accent passe donc au premier mode encore disponible.
-   */
   /*
    * Un nouveau venu ne doit PAS voir le run du jour comme action évidente.
    *
@@ -314,37 +366,31 @@ function renderHome(): void {
    * lui tendre un piège : constaté sur un vrai testeur, qui l'a brûlé en
    * quinze secondes sans avoir compris la règle unique.
    *
-   * L'accent va donc à l'entraînement, qui pardonne et qui enseigne. Le run du
-   * jour reste accessible, il cesse seulement d'être ce vers quoi l'œil est
-   * appelé.
+   * L'accent va donc à l'entraînement, qui pardonne et qui enseigne.
    */
-  const suivant = neuf
-    ? "btnTraining"
-    : s.daily.played
-      ? multi.available
-        ? "btnMulti"
-        : "btnTraining"
-      : "btnDaily";
-  for (const id of ["btnDaily", "btnMulti", "btnTraining", "btnEscalade"]) {
+  const suivant = neuf ? "btnTraining" : s.daily.played ? "btnTraining" : "btnDaily";
+  for (const id of ["btnDaily", "btnTraining", "btnEscalade"]) {
     $(id).classList.toggle("card--primary", id === suivant);
   }
 
   $("btnRanked").classList.toggle("hidden", !rankedAvailable());
   $("cardRankedState").textContent = `${divisionOf(s.ranked.rating).name} · ${s.ranked.rating}`;
+}
+
+/**
+ * Les libellés des réglages.
+ *
+ * Ils étaient rafraîchis par `renderHome` du temps où ils vivaient dans son
+ * pied. Depuis qu'ils ont leur écran, c'est lui qui les porte — sinon SON et
+ * MUSIQUE affichent l'état d'avant le dernier changement, ce qui est
+ * exactement le genre de mensonge qu'un bouton bascule ne pardonne pas.
+ */
+function renderReglages(): void {
+  const s = P.load();
   $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
   $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
   appliqueMotifs(s.daltonien);
-  setEnabled(s.sound);
-  setMusicEnabled(s.music);
-
-  /*
-   * Le bouton de compte n'apparaît QUE si des comptes existent réellement sur
-   * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
-   * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
-   */
-  const c = compte();
-  $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
-  $("btnTopCompte").textContent = c ? c.pseudo || "MON COMPTE" : "COMPTE";
+  refreshMetricsButton();
 }
 
 /**
@@ -1578,8 +1624,19 @@ $("btnBriefTraining").addEventListener("click", () => {
 $("btnBack").addEventListener("click", () => backHome());
 $("btnAgain").addEventListener("click", () => replay());
 $("btnHome").addEventListener("click", () => backHome());
+$("btnSolo").addEventListener("click", () => {
+  sfx.ui();
+  renderSolo();
+  show("solo");
+});
 $("btnCodex").addEventListener("click", () => renderCodex());
-$("btnCodexBack").addEventListener("click", () => backHome());
+$("btnCodexBack").addEventListener("click", () => {
+  // Le carnet s'ouvre depuis SOLO : RETOUR doit y ramener, pas remonter d'un
+  // cran de plus que celui qu'on a descendu.
+  sfx.ui();
+  renderSolo();
+  show("solo");
+});
 
 $("btnTopCompte").addEventListener("click", () => {
   sfx.ui();
@@ -1591,6 +1648,7 @@ $("btnTopMenu").addEventListener("click", () => {
 });
 $("btnTopReglages").addEventListener("click", () => {
   sfx.ui();
+  renderReglages();
   show("reglages");
 });
 $("btnReglagesBack").addEventListener("click", () => backHome());

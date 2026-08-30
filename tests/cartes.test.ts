@@ -21,7 +21,17 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-const CARTES = ["btnDaily", "btnMulti", "btnTraining", "btnRanked"];
+/*
+ * Deux familles, meme piege.
+ *
+ * `#btnMulti` a quitte la famille des cartes pour celle des PORTES : l'accueil
+ * ne propose plus que SOLO et MULTIJOUEUR, et les modes solo vivent sur leur
+ * propre ecran. Les deux familles sont des `<button>` a trois `<span>`, donc
+ * les deux se detruisent d'un `textContent` — ce que ce fichier existe pour
+ * refuser.
+ */
+const CARTES = ["btnDaily", "btnTraining", "btnRanked", "btnEscalade"];
+const PORTES = ["btnSolo", "btnMulti"];
 const SOURCES = ["src/main.ts", "src/multi.ts"];
 
 beforeAll(() => {
@@ -40,6 +50,16 @@ describe("cartes de l'accueil", () => {
     }
   });
 
+  it("chaque porte porte bien un titre, une description et un état", () => {
+    for (const id of PORTES) {
+      const porte = document.getElementById(id);
+      expect(porte, `#${id} absent du document`).not.toBeNull();
+      for (const part of ["__titre", "__desc", "__etat"]) {
+        expect(porte!.querySelector(`.porte${part}`), `#${id} sans .porte${part}`).not.toBeNull();
+      }
+    }
+  });
+
   it("aucune source n'écrit dans le textContent d'une carte", () => {
     const fautes: string[] = [];
     for (const f of SOURCES) {
@@ -48,7 +68,7 @@ describe("cartes de l'accueil", () => {
       const src = readFileSync(f, "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/^\s*\/\/.*$/gm, "");
-      for (const id of CARTES) {
+      for (const id of [...CARTES, ...PORTES]) {
         // `btnMulti.textContent =` comme `$("btnDaily").textContent =`
         const motifs = [
           new RegExp(`\\b${id}\\s*\\.\\s*(textContent|innerHTML|innerText)\\s*=`),

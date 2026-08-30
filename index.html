@@ -181,47 +181,70 @@
       </div>
 
       <!-- ACCUEIL -->
+      <!-- ACCUEIL
+           DEUX portes, et c'est tout.
+
+           Mesure de l'accueil precedent, mobile 375x812, defilement en haut :
+           1271 px de contenu pour 812 de haut, la premiere carte cliquable a
+           y=465 — 57 % de l'ecran a franchir avant de pouvoir faire quoi que
+           ce soit — et le bloc serie/quetes/carnet ENTIEREMENT sous la ligne
+           de flottaison. Quatre cartes de mode, dont la quatrieme coupee sur
+           les deux tailles testees.
+
+           L'etat du run du jour vit desormais SUR le bouton SOLO plutot que
+           dans un troisieme element : c'est le seul mode a un essai par jour,
+           et celui qui porte la serie. L'enterrer sans le dire aurait ete le
+           seul vrai cout de ce rangement. -->
       <section class="screen" id="home">
-        <!-- Deux colonnes au-dessus de 900 px, empilées en dessous : à gauche
-             qui l'on est et où l'on en est, à droite ce qu'on peut faire. -->
-        <div class="screen__scroll screen__scroll--wide home">
-          <!-- Le logo coiffe les deux colonnes ; les réglages les referment. -->
+        <div class="screen__scroll home">
           <div class="home__brand">
             <h1 class="logo">THE<br />ONE <em>RULE</em></h1>
-            <p class="lede">
-              Une <b>règle unique</b> est tirée pour toute la partie et reste affichée en haut.
-              Par-dessus, une consigne change toutes les deux secondes.
-              Quand la consigne te demande d'enfreindre la règle unique,
-              la bonne réponse est de <b>ne rien faire</b>.
+            <!-- Une ligne, pas un paragraphe. L'ancienne faisait 39 mots et
+                 262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
+                 sur un ecran qu'on revoit vingt fois. Le brief et
+                 l'entrainement font ce travail mieux qu'elle. -->
+            <p class="lede lede--court">
+              Une <b>règle unique</b>. Parfois, obéir est la faute.
             </p>
           </div>
 
-          <div class="col home__state">
-            <div class="strip" id="homeStreak"></div>
-            <div id="homeQuests" class="quests"></div>
-            <!-- Le carnet vit du côté de l'état : c'est ce qu'on a déjà
-                 rencontré, pas ce qu'on peut lancer. -->
-            <div class="btnrow btnrow--tight">
-              <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
-            </div>
+          <div class="portes" aria-label="Modes de jeu">
+            <button class="porte" id="btnSolo">
+              <span class="porte__titre">SOLO</span>
+              <span class="porte__desc">Le run du jour, l'escalade, l'entraînement.</span>
+              <span class="porte__etat" id="soloEtat"></span>
+            </button>
+
+            <button class="porte" id="btnMulti">
+              <span class="porte__titre">MULTIJOUEUR</span>
+              <span class="porte__desc">Ton code, tes potes, une règle chacun.</span>
+              <span class="porte__etat" id="cardMultiState"></span>
+            </button>
+          </div>
+
+          <div class="home__foot">
+            <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SOLO
+           Les trois modes, et ce qui les entoure : la serie, les quetes, le
+           carnet. Tout ce qui etait sous la ligne de flottaison de l'accueil
+           est ici, ou il a la place d'exister. -->
+      <section class="screen hidden" id="solo">
+        <div class="screen__scroll screen__scroll--wide home">
+          <div class="home__brand">
+            <p class="eyebrow">SOLO</p>
+            <h2 class="rulename">TU JOUES CONTRE TOI</h2>
           </div>
 
           <div class="col home__cards">
-            <!-- Chaque mode dit ce qu'il engage. Un nouveau venu ne pouvait pas
-                 deviner qu'un run du jour se joue une seule fois — c'est ce qui
-                 le lui faisait brûler. -->
-            <div class="cards" aria-label="Modes de jeu">
+            <div class="cards" aria-label="Modes solo">
               <button class="card" id="btnDaily">
                 <span class="card__title">RUN DU JOUR</span>
-                <!-- Accroche tirée de la règle du jour, posée par renderHome. -->
                 <span class="card__desc" id="cardDailyDesc"></span>
                 <span class="card__state" id="cardDailyState"></span>
-              </button>
-
-              <button class="card" id="btnMulti">
-                <span class="card__title">MULTIJOUEUR</span>
-                <span class="card__desc">Tu veux te marrer avec tes potes ?</span>
-                <span class="card__state" id="cardMultiState"></span>
               </button>
 
               <!-- L'escalade existe pour une raison chiffrée : les morts sur
@@ -246,17 +269,14 @@
                 <span class="card__state" id="cardRankedState"></span>
               </button>
             </div>
-
           </div>
 
-          <!-- Réglages : sous les deux colonnes. On ne choisit pas
-               « MUSIQUE : ON » comme on choisit une partie. -->
-          <!-- Les réglages ont quitté cet endroit pour leur propre écran,
-               atteint par la barre haute : ils avaient le même poids visuel
-               qu'une carte de mode, et le compte s'y trouvait noyé entre
-               MUSIQUE et MOTIFS. -->
-          <div class="home__foot">
-            <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
+          <div class="col home__state">
+            <div class="strip" id="homeStreak"></div>
+            <div id="homeQuests" class="quests"></div>
+            <div class="btnrow btnrow--tight">
+              <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
+            </div>
           </div>
         </div>
       </section>

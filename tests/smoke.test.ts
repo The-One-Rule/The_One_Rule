@@ -80,8 +80,21 @@ describe("application", () => {
 
     await import("../src/main.ts");
 
-    // l'accueil est monté
+    // l'accueil est monté — DEUX portes, et rien d'autre
     expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
+    expect(document.getElementById("btnSolo")).not.toBeNull();
+    expect(document.getElementById("btnMulti")).not.toBeNull();
+
+    /*
+     * Les modes solo ont quitté l'accueil pour leur propre écran.
+     *
+     * Mesuré sur l'ancien accueil, mobile 375x812 : 1271 px de contenu pour
+     * 812 de haut, première chose cliquable à y=465, et la série, les quêtes
+     * et le carnet entièrement sous la ligne de flottaison. Le parcours passe
+     * donc par SOLO — et ce test le suit, parce qu'un joueur le suit.
+     */
+    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("solo")!.classList.contains("hidden")).toBe(false);
     expect(document.querySelectorAll("#homeQuests .quest").length).toBe(3);
 
     // entraînement → brief → run
@@ -122,6 +135,7 @@ describe("application", () => {
     expect(Object.keys(P.load().encountered).length).toBeGreaterThan(0);
 
     document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.getElementById("btnDaily")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -131,8 +145,11 @@ describe("application", () => {
     expect(teaser.textContent).toContain("DEMAIN");
     expect(teaser.querySelector("b")!.textContent!.length).toBeGreaterThan(2);
 
-    // un seul essai par jour : le bouton doit être verrouillé au retour
+    // un seul essai par jour : le bouton doit être verrouillé au retour.
+    // Le verrou est posé par `renderSolo`, donc il faut repasser par SOLO —
+    // c'est aussi ce que fait un joueur.
     document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect((document.getElementById("btnDaily") as HTMLButtonElement).disabled).toBe(true);
   });
 });

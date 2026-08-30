@@ -4798,6 +4798,94 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
+ * LES DEUX PORTES
+ *
+ * L'accueil ne propose plus que SOLO et MULTIJOUEUR. Elles doivent donc
+ * être grandes, tenir ensemble dans un écran sans défiler, et se
+ * distinguer d'une carte de mode — ce sont des directions, pas des choix.
+ *
+ * Mesure de l'accueil précédent, mobile 375x812 : 1271 px de contenu pour
+ * 812 de haut, première chose cliquable à y=465. C'est ce chiffre-là que
+ * ce bloc existe pour corriger.
+ * ================================================================== */
+.portes {
+  display: grid;
+  gap: var(--sp-3);
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.porte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  /* Généreux : c'est la seule chose à faire sur cet écran. */
+  padding: var(--sp-4) var(--sp-4);
+  min-height: 116px;
+  justify-content: center;
+  border: var(--bd-hair) solid var(--line);
+  border-left: var(--bd-frame) solid var(--line);
+  background: var(--ink-2);
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.porte:hover:not(:disabled),
+.porte:focus-visible {
+  border-color: var(--paper-dim);
+  background: color-mix(in srgb, var(--ink-2) 70%, var(--paper) 6%);
+}
+
+.porte:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/*
+ * L'accent ne va jamais sur un bouton mort, et jamais sur le run du jour
+ * pour un nouveau venu — c'est le seul mode irréversible du jeu. Voir
+ * `renderHome`.
+ */
+.porte--primary {
+  border-color: var(--signal);
+}
+
+.porte__titre {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(26px, 6vw, 34px);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.porte__desc {
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire, 0.02em);
+  color: var(--paper-dim);
+}
+
+.porte__etat {
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+.porte--primary .porte__etat {
+  color: var(--signal);
+}
+
+/* Une ligne, pas un paragraphe : l'ancienne faisait 39 mots et 262 px. */
+.lede--court {
+  max-width: 34ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* ==================================================================
  * BARRE HAUTE
  *
  * Hors flux et au-dessus des écrans (z-index 11 contre 10). Elle ne peut
