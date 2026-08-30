@@ -264,8 +264,21 @@ qu'à effectif plein chaque règle tombe exactement une fois.
    qui contredit le verdict = « le jeu triche », seul risque tenu pour fatal.
 4. **Une coupure n'est pas une défaite.**
 5. **Le piège n'est révélé qu'après la mort.** Jamais pendant.
-6. **`.screen` ne centre pas par `align-items`** mais par `margin: auto` —
-   sinon le haut d'un contenu débordant devient inatteignable. Même famille :
+6. **`.screen` NE CENTRE PLUS DU TOUT** — le contenu part du haut et de la
+   gauche. Le centrage par `margin: auto` était lui-même un correctif : avec
+   `align-items: center`, le haut d'un contenu débordant devenait
+   inatteignable (mesuré, le logo tombait à top = -196 en 375×812). Partir de
+   l'origine du défilement rend ce défaut impossible par construction — et
+   règle le reproche revenu DEUX fois, « tu concentres toujours tout au
+   centre ». Les écrans occupent 97 % de la largeur (mesuré à 1440), contre
+   39 % avant. La mesure de lecture est portée par chaque BLOC de prose
+   (`max-width: 68ch`), jamais par le conteneur : élargir le conteneur donnait
+   des lignes de 180 caractères, élargir sans borner les blocs les ramène.
+   **L'écran de JEU n'est pas concerné** : il n'est pas un `.screen`, sa scène
+   reste centrée, et sa géométrie est du gameplay.
+   Corollaire du même retour : **jamais deux items collés aux deux bords avec
+   du vide entre** (`justify-content: space-between` sur une barre à trois
+   boutons). Occuper l'espace n'est pas repousser des choses contre les bords. Même famille :
    `justify-content: flex-end` dans un conteneur en défilement rend le début du
    contenu **définitivement** inatteignable (`scrollHeight === clientHeight`).
    Le remède est `margin-top: auto` sur le premier enfant.
