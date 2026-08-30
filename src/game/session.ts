@@ -1,11 +1,13 @@
 import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, tierOf } from "../engine/difficulty";
 import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
+import { combineRules } from "../engine/rules/combine";
+import { pileA } from "./escalade";
 import { resolveAction, resolveTimeout } from "../engine/resolve";
 import type { Action, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
 import type { LoggedInput } from "../engine/verify";
 
-export type Mode = "daily" | "training" | "ranked";
+export type Mode = "daily" | "training" | "ranked" | "escalade";
 export type Phase = "playing" | "freeze" | "over";
 
 export interface SessionEnd {
@@ -28,7 +30,20 @@ const FREEZE_MS = 520;
  */
 export class Session {
   readonly mode: Mode;
-  readonly rule: OneRule;
+  /**
+   * La pile de règles du run.
+   *
+   * Un seul élément partout sauf en ESCALADE, où elle est tirée d'avance et
+   * se révèle par paliers. La garder ici plutôt que dans le mode permet à tout
+   * le reste — `buildRound`, `resolveAction`, `verify.ts`, le bandeau — de
+   * continuer à ne connaître qu'UNE règle : c'est `combineRules` qui fait le
+   * pont, et c'est ce qui a évité de toucher au moteur.
+   */
+  readonly pile: readonly OneRule[];
+  /** La composée du palier courant. Recalculée seulement quand le palier change. */
+  private _rule!: OneRule;
+  /** Règle qui vient d'être ajoutée, à annoncer une fois. */
+  regleAjoutee: OneRule | null = null;
   private rng: Rng;
   level = 0;
   round!: Round;
@@ -58,6 +73,23 @@ export class Session {
 
   private runStart: number;
 
+  /**
+   * La règle en vigueur À CETTE MANCHE.
+   *
+   * Un accesseur et non un champ : en escalade elle change au palier. Elle
+   * n'est recomposée que dans `majRegle`, pas à chaque lecture — `buildRound`
+   * et `resolveAction` l'interrogent plusieurs fois par manche, et
+   * `combineRules` alloue.
+   */
+  get rule(): OneRule {
+    return this._rule;
+  }
+
+  /** Nombre de règles tenues à cette manche — c'est le score de l'escalade. */
+  get paliers(): number {
+    return pileA(this.pile, this.level).length;
+  }
+
   constructor(opts: {
     mode: Mode;
     rule: OneRule;
@@ -67,9 +99,11 @@ export class Session {
     touchOnly?: boolean;
     /** Allure — n'a d'effet qu'en entraînement, voir PACE_CHOICES. */
     pace?: number;
+    /** ESCALADE : la pile complète, tirée d'avance. Voir game/escalade.ts. */
+    pile?: readonly OneRule[];
   }) {
     this.mode = opts.mode;
-    this.rule = opts.rule;
+    this.pile = opts.pile?.length ? opts.pile : [opts.rule];
     this.rng = opts.rng;
     this.seed = opts.seed;
     this.runStart = opts.now;
@@ -88,7 +122,23 @@ export class Session {
      */
     this.grace = GRACE_ROUNDS;
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
+    this.majRegle();
     this.nextRound(opts.now);
+  }
+
+  /**
+   * Recompose la règle du palier courant.
+   *
+   * Renvoie la règle nouvellement acquise, ou `null` si rien n'a changé —
+   * c'est ce qui permet de l'annoncer UNE fois. Hors escalade, la pile ne
+   * contient qu'un élément et `combineRules` rend cet élément lui-même : le
+   * mode ordinaire ne paie donc rien de tout ça.
+   */
+  private majRegle(): OneRule | null {
+    const avant = this._rule ? pileA(this.pile, this.level - 1).length : 0;
+    const tenue = pileA(this.pile, this.level);
+    this._rule = combineRules(tenue);
+    return tenue.length > avant && avant > 0 ? (tenue[tenue.length - 1] ?? null) : null;
   }
 
   get maxRounds(): number {
@@ -115,6 +165,10 @@ export class Session {
   }
 
   private nextRound(now: number): void {
+    // L'ordre compte : la règle du palier doit être à jour AVANT de bâtir la
+    // manche, sinon le premier tour d'un nouveau palier se jouerait encore
+    // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
+    this.regleAjoutee = this.majRegle();
     this.round = buildRound(this.rng, this.level, this.rule, this.pool, this.pace);
     this.progress = { step: 0 };
     this.roundStart = now;

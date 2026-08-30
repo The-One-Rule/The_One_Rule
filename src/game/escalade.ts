@@ -14,6 +14,23 @@
  * Le score change aussi de nature. « 18 manches » ne veut rien dire hors
  * contexte ; « j'ai tenu 3 règles » est un plafond, comparable et racontable.
  * Le taux de partage est à 0 %, et c'est peut-être ce qui lui manquait.
+ *
+ * MESURÉ — proportion de manches PIÉGEUSES, sur 400 manches par point :
+ *
+ *     catalogue actuel, moyenne des 12 règles     5,4 %
+ *     escalade palier 1                          11,3 %   (5,8 % au pire)
+ *     escalade palier 2                          23,4 %   (12,0 % au pire)
+ *     escalade palier 3                          32,7 %   (25,0 % au pire)
+ *     escalade palier 4                          39,4 %   (35,8 % au pire)
+ *
+ * Le palier 1 double déjà la moyenne, parce que la première règle piège
+ * toujours (voir `pileEscalade`). Au palier 4, c'est sept fois.
+ *
+ * ⚠️ 39 % de manches piégeuses veut dire que quatre manches sur dix demandent
+ * de NE RIEN FAIRE. C'est beaucoup, et ça peut basculer d'« exigeant » à
+ * « passif » — le jeu deviendrait une épreuve d'inhibition plutôt que de
+ * réflexe. Le plafond à 4 est un pari, pas une certitude : c'est la première
+ * chose à regarder en soirée, et `PALIER_MAX` est le bouton pour le corriger.
  */
 import { ONE_RULES } from "../engine/rules";
 import { compatibleAvec } from "../engine/rules/combine";
