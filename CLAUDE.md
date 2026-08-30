@@ -352,28 +352,39 @@ gouttière mesurée à 64).
 ### La faille : la vitrine du site
 
 **Le composant SOLO / MULTI est UN objet fendu horizontalement**, pleine
-largeur, et la FISSURE entre les deux est le sujet — pas la séparation.
+largeur du `#app` (plus de padding latéral sur `#home`), et la FISSURE
+entre les deux est le sujet — pas la séparation.
 
 Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
 suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est lui
 qu'on lit comme la déchirure. Aucun trait n'est dessiné. `clip-path` découpe
 **aussi le test de survol** — chaque zone ne reçoit que les clics qui tombent
 dedans, sans une ligne de géométrie en JS, et le clavier marche parce que ce
-sont de vrais boutons. Mesuré : 50 % SOLO · 41 % MULTI · 9 % de couture.
+sont de vrais boutons. Mesuré à 1440 × 900, animations coupées : faille
+1407 px / `#app` 1424 px (**98,8 %**, `left: 1`) — c'est un objet pleine
+largeur, plus deux zones posées au milieu. Hits (grille 28 × 16) : **51 %
+SOLO · 31 % MULTI · 18 % de couture**. La couture a grossi avec la hauteur
+(451 px) : le ruban garde la même amplitude en %, donc plus de pixels morts
+au milieu. C'est le prix de la vitrine, pas un oubli.
 
 **La fissure est un calque HORS des boutons.** Dans le découpage, tout ce
 qu'elle émet serait rogné à son propre bord au lieu d'en sortir.
 
-Trois plans qui ne battent pas au même rythme — même principe que `--heat`,
-qui sépare le voile et le cadre : une **lueur** qui respire (3,2 s), un
-**balayage** qui passe (5,2 s), des **éclats** qui montent (2,6 s). Trois
-vitesses donnent de la vie ; une seule donne une boucle.
+⚠️ **Un abîme trop sombre est invisible.** Premier essai : poches chaudes
+sur du `#0a0715`, presque `--ink`. La fente se lisait comme une couture,
+pas comme une déchirure. L'abîme est maintenant un ruban LUMINEUX — noir
+d'abord, mais percés de `--signal` / `--signal-pale` / `--paper` francs.
+C'est le contraste, pas la largeur, qui fait la cassure.
 
-**Deux mondes derrière la cassure.** Au survol de SOLO, des flèches *montent*
-(progression, escalade) ; au survol de MULTI, des épées *tombent*. Vérifié :
-au repos les deux émetteurs sont à `animation: none`, et chacun ne s'allume
-que sur sa moitié. La lueur accélère différemment — 1,4 s côté solo, 1,1 s
-côté multi.
+Plusieurs plans qui ne battent pas au même rythme — même principe que
+`--heat` : balayage, braises, débris, éclats, traversées. Pas de halo
+pulsant : il se lisait comme une lampe, pas comme une cassure. Une seule
+vitesse donne une boucle.
+
+**Deux mondes derrière la cassure.** Au survol de SOLO, des chevrons
+*montent* et l'abîme blanchit ; au survol de MULTI, des lames *tombent* et
+l'abîme s'embrase. Vérifié : au repos les deux émetteurs sont à
+`animation: none`, et chacun ne s'allume que sur sa moitié.
 
 Les pictogrammes sont des **SVG en `data:`**, pas des emoji : le rendu d'un
 emoji change d'un système à l'autre, et une épée qui devient un carré blanc

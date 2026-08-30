@@ -208,6 +208,11 @@
             </p>
           </div>
 
+          <!-- Le trait entre l'enseigne et le corps. Discret, dentelé,
+               même vocabulaire que la faille : c'est lui qui dit où
+               commence le jeu. -->
+          <hr class="coupe" aria-hidden="true" />
+
           <!-- LA FAILLE — un seul objet, deux mondes.
                SOLO au-dessus, MULTI en dessous, et entre les deux une
                FISSURE qui est le vrai sujet : c'est elle qui porte
@@ -220,7 +225,9 @@
 
                La fissure est un calque a part, HORS des boutons : dans le
                decoupage, tout ce qu'elle emet serait rogne a son propre bord
-               au lieu d'en sortir. -->
+               au lieu d'en sortir. Elle couvre TOUTE la faille — meme repere
+               que les deux decoupes — pour que le vide entre les levres se
+               decrive dans le meme systeme de coordonnees qu'elles. -->
           <div class="faille" aria-label="Modes de jeu">
             <button class="faille__zone faille__zone--solo" id="btnSolo">
               <span class="faille__corps">
@@ -241,29 +248,88 @@
             <!-- LA VITRINE.
                  Tout est decoratif et `aria-hidden` : rien ici ne porte
                  d'information, donc rien ne se perd si le mouvement est
-                 coupe. Les particules sont un nombre FIXE d'elements
-                 decales par `--i` — aucun JS, aucun cout a l'execution
-                 au-dela de la composition. -->
+                 coupe. Les particules sont un nombre FIXE d'elements, et
+                 chacune porte son abscisse et son ordonnee — posees SUR la
+                 ligne de cassure, qui serpente entre 44 et 61 % de la
+                 hauteur. Un `top: 50%` uniforme en aurait fait naitre la
+                 moitie au milieu d'une face, loin de la fente.
+
+                 Les valeurs sont generees une fois, pas calculees a
+                 l'execution : aucun JS ne touche cette vitrine. -->
             <span class="fissure" aria-hidden="true">
-              <span class="fissure__lueur"></span>
-              <span class="fissure__balayage"></span>
-              <span class="fissure__eclats">
-                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
-                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
-                <i style="--i: 6"></i><i style="--i: 7"></i><i style="--i: 8"></i>
-                <i style="--i: 9"></i><i style="--i: 10"></i><i style="--i: 11"></i>
+              <!-- Le vide, decoupe par `--ruban` : c'est la seule chose de
+                   l'ecran qui montre le fond a travers l'objet. -->
+              <span class="fissure__abime"></span>
+              <!-- La lumiere qui parcourt la fente. Clippee au ruban comme
+                   l'abime : sans ca elle deborde du composant et forme une
+                   tache laiteuse a cote — defaut mesure de la version
+                   precedente. -->
+              <span class="fissure__fenetre"><span class="fissure__balayage"></span></span>
+
+              <!-- Les arcs : de brefs eclairs en travers de la cassure. -->
+              <span class="fissure__arcs">
+                <i style="--i: 0; --x: 12%; --y: 49.7%"></i><i style="--i: 1; --x: 31%; --y: 55.9%"></i><i style="--i: 2; --x: 50%; --y: 47.8%"></i>
+                <i style="--i: 3; --x: 69%; --y: 55.5%"></i><i style="--i: 4; --x: 88%; --y: 57.1%"></i>
               </span>
-              <!-- Ce qui sort de la fissure change selon le monde survole :
-                   des fleches qui montent pour SOLO, des epees qui tombent
+
+              <!-- Les braises : elles montent, elles tombent, elles ne font
+                   rien d'autre. C'est le fond sonore visuel de la fente. -->
+              <span class="fissure__braises">
+                <i style="--i: 0; --x: 2%; --y: 47.1%"></i><i style="--i: 1; --x: 6.6%; --y: 50.7%"></i><i style="--i: 2; --x: 11.1%; --y: 49.7%"></i>
+                <i style="--i: 3; --x: 15.7%; --y: 47.9%"></i><i style="--i: 4; --x: 20.3%; --y: 47.3%"></i><i style="--i: 5; --x: 24.9%; --y: 56.8%"></i>
+                <i style="--i: 6; --x: 29.4%; --y: 55.9%"></i><i style="--i: 7; --x: 34%; --y: 50.1%"></i><i style="--i: 8; --x: 38.6%; --y: 58.4%"></i>
+                <i style="--i: 9; --x: 43.1%; --y: 57.5%"></i><i style="--i: 10; --x: 47.7%; --y: 57.5%"></i><i style="--i: 11; --x: 52.3%; --y: 53.1%"></i>
+                <i style="--i: 12; --x: 56.9%; --y: 53.1%"></i><i style="--i: 13; --x: 61.4%; --y: 52%"></i><i style="--i: 14; --x: 66%; --y: 55.5%"></i>
+                <i style="--i: 15; --x: 70.6%; --y: 55.5%"></i><i style="--i: 16; --x: 75.1%; --y: 53.3%"></i><i style="--i: 17; --x: 79.7%; --y: 50.2%"></i>
+                <i style="--i: 18; --x: 84.3%; --y: 50%"></i><i style="--i: 19; --x: 88.9%; --y: 57.1%"></i><i style="--i: 20; --x: 93.4%; --y: 47.7%"></i>
+                <i style="--i: 21; --x: 98%; --y: 47.9%"></i>
+              </span>
+
+              <!-- Les debris : des fragments de matiere qui se detachent et
+                   tournent. Plus gros, plus lents, moins nombreux — c'est ce
+                   qui donne de la profondeur aux braises. -->
+              <span class="fissure__debris">
+                <i style="--i: 0; --x: 7%; --y: 50.7%"></i><i style="--i: 1; --x: 19.3%; --y: 47.3%"></i><i style="--i: 2; --x: 31.6%; --y: 55.9%"></i>
+                <i style="--i: 3; --x: 43.9%; --y: 57.5%"></i><i style="--i: 4; --x: 56.1%; --y: 53.1%"></i><i style="--i: 5; --x: 68.4%; --y: 55.5%"></i>
+                <i style="--i: 6; --x: 80.7%; --y: 50.2%"></i><i style="--i: 7; --x: 93%; --y: 47.7%"></i>
+              </span>
+
+              <!-- Les eclats : des etincelles qui claquent sur place.
+                   Plus rares que les braises, plus vives — c'est le
+                   scintillement, pas le fond. -->
+              <span class="fissure__eclats">
+                <i style="--i: 0; --x: 10%; --y: 49.7%"></i><i style="--i: 1; --x: 27%; --y: 55.9%"></i>
+                <i style="--i: 2; --x: 44%; --y: 57.5%"></i><i style="--i: 3; --x: 61%; --y: 52%"></i>
+                <i style="--i: 4; --x: 78%; --y: 50.2%"></i><i style="--i: 5; --x: 91%; --y: 47.7%"></i>
+                <i style="--i: 6; --x: 18%; --y: 47.3%"></i><i style="--i: 7; --x: 53%; --y: 53.1%"></i>
+              </span>
+
+              <!-- Ce qui TRAVERSE la fente : un eclat qui la parcourt
+                   d'un bout a l'autre, comme quelque chose qui court
+                   derriere la cassure. -->
+              <span class="fissure__traverse">
+                <i style="--i: 0; --x: 8%; --y: 50.7%"></i><i style="--i: 1; --x: 28%; --y: 55.9%"></i>
+                <i style="--i: 2; --x: 52%; --y: 53.1%"></i><i style="--i: 3; --x: 74%; --y: 53.3%"></i>
+                <i style="--i: 4; --x: 90%; --y: 47.7%"></i>
+              </span>
+
+              <!-- Ce qui SORT de la fissure change selon le monde survole :
+                   des chevrons qui montent pour SOLO, des lames qui tombent
                    pour MULTI. Les deux jeux existent en permanence et ne
                    s'allument qu'au survol de leur moitie. -->
               <span class="fissure__sortie fissure__sortie--solo">
-                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
-                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
+                <i style="--i: 0; --x: 6%; --y: 50.7%"></i><i style="--i: 1; --x: 16%; --y: 47.3%"></i>
+                <i style="--i: 2; --x: 28%; --y: 55.9%"></i><i style="--i: 3; --x: 40%; --y: 58.4%"></i>
+                <i style="--i: 4; --x: 50%; --y: 47.8%"></i><i style="--i: 5; --x: 62%; --y: 52%"></i>
+                <i style="--i: 6; --x: 74%; --y: 53.3%"></i><i style="--i: 7; --x: 86%; --y: 54.5%"></i>
+                <i style="--i: 8; --x: 94%; --y: 47.7%"></i>
               </span>
               <span class="fissure__sortie fissure__sortie--multi">
-                <i style="--i: 0"></i><i style="--i: 1"></i><i style="--i: 2"></i>
-                <i style="--i: 3"></i><i style="--i: 4"></i><i style="--i: 5"></i>
+                <i style="--i: 0; --x: 6%; --y: 50.7%"></i><i style="--i: 1; --x: 16%; --y: 47.3%"></i>
+                <i style="--i: 2; --x: 28%; --y: 55.9%"></i><i style="--i: 3; --x: 40%; --y: 58.4%"></i>
+                <i style="--i: 4; --x: 50%; --y: 47.8%"></i><i style="--i: 5; --x: 62%; --y: 52%"></i>
+                <i style="--i: 6; --x: 74%; --y: 53.3%"></i><i style="--i: 7; --x: 86%; --y: 54.5%"></i>
+                <i style="--i: 8; --x: 94%; --y: 47.7%"></i>
               </span>
             </span>
           </div>
@@ -445,7 +511,13 @@
            une identité au même rang. Trois choses seulement : d'où l'on
            vient, qui l'on est, ce qu'on règle. -->
       <header id="topbar" class="topbar hidden">
-        <button class="btn btn--ghost btn--top" id="btnTopMenu">MENU</button>
+        <div class="topbar__left">
+          <button class="btn btn--ghost btn--top" id="btnTopMenu">MENU</button>
+        </div>
+        <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, retour à l'accueil">
+          <img class="topbar__mark" src="./favicon.svg" alt="" width="22" height="22" />
+          <span class="topbar__name">THE ONE <em>RULE</em></span>
+        </button>
         <div class="topbar__right">
           <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">COMPTE</button>
           <button class="btn btn--ghost btn--top" id="btnTopReglages">RÉGLAGES</button>

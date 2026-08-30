@@ -230,8 +230,10 @@ function show(id: ScreenId): void {
    * gameplay (CLAUDE.md §6 n°10).
    */
   const barre = id !== null && AVEC_BARRE.has(id);
-  $("topbar").classList.toggle("hidden", !barre);
+  const bar = $("topbar");
+  bar.classList.toggle("hidden", !barre);
   appEl.classList.toggle("has-topbar", barre);
+  if (bar.parentElement !== appEl) appEl.appendChild(bar);
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
@@ -1643,6 +1645,11 @@ $("btnTopCompte").addEventListener("click", () => {
   void ouvreCompte();
 });
 $("btnTopMenu").addEventListener("click", () => {
+  sfx.ui();
+  backHome();
+});
+$("btnTopBrand").addEventListener("click", () => {
+  if (screen === "home") return;
   sfx.ui();
   backHome();
 });

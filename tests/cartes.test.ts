@@ -25,8 +25,8 @@ import { readFileSync } from "node:fs";
  * Deux familles, meme piege.
  *
  * `#btnMulti` a quitte la famille des cartes pour LA FAILLE : l'accueil ne
- * propose plus qu'un seul objet fendu en diagonale, SOLO et MULTI, et les
- * modes solo vivent sur leur propre ecran. Les deux familles sont des
+ * propose plus qu'un seul objet fendu en deux, SOLO au-dessus et MULTI en
+ * dessous, et les modes solo vivent sur leur propre ecran. Les deux familles sont des
  * `<button>` a plusieurs `<span>`, donc les deux se detruisent d'un
  * `textContent` — ce que ce fichier existe pour refuser.
  */

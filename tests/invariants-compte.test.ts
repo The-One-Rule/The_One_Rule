@@ -210,9 +210,18 @@ describe("l'écran de compte", () => {
      * La barre est aussi HORS FLUX (position absolue) — ce que la feuille
      * doit garantir, pas seulement l'intention.
      */
+    /*
+     * On cherche le COMPORTEMENT, pas une chaine de source.
+     *
+     * La version precedente exigeait `$("topbar").classList.toggle(...)` mot
+     * pour mot ; elle est tombee des qu'un `const bar = $("topbar")` a ete
+     * introduit, alors que la regle etait parfaitement respectee. Un test
+     * d'invariant qui casse sur un renommage de variable locale ne protege
+     * pas l'invariant : il decourage de toucher au fichier.
+     */
     const src = lit("src/main.ts");
-    expect(src).toContain('$("topbar").classList.toggle("hidden", !barre)');
-    expect(src).toContain('appEl.classList.toggle("has-topbar", barre)');
+    expect(src).toMatch(/classList\.toggle\(\s*"hidden"\s*,\s*!barre\s*\)/);
+    expect(src).toMatch(/classList\.toggle\(\s*"has-topbar"\s*,\s*barre\s*\)/);
 
     const css = lit("src/style.css").replace(/\/\*[\s\S]*?\*\//g, "");
     const bloc = /\.topbar\s*\{([^}]*)\}/.exec(css);
