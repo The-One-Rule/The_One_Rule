@@ -4941,95 +4941,375 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
- * LES DEUX PORTES
+ * LA FAILLE — le composant SOLO / MULTI
  *
- * L'accueil ne propose plus que SOLO et MULTIJOUEUR. Elles doivent donc
- * être grandes, tenir ensemble dans un écran sans défiler, et se
- * distinguer d'une carte de mode — ce sont des directions, pas des choix.
+ * Un seul objet fendu en diagonale, pas deux boutons voisins. La fente
+ * n'est pas une droite : c'est une DÉCHIRURE, une suite de crans qui
+ * descend de la droite vers la gauche, et c'est elle qui donne au
+ * composant son identité.
  *
- * Mesure de l'accueil précédent, mobile 375x812 : 1271 px de contenu pour
- * 812 de haut, première chose cliquable à y=465. C'est ce chiffre-là que
- * ce bloc existe pour corriger.
+ * MÉCANIQUE. Deux `<button>` superposés en `position: absolute`, chacun
+ * découpé par un `clip-path: polygon()`. Les deux polygones suivent la
+ * MÊME suite de crans, décalée de quelques pour cent : l'écart entre les
+ * deux laisse voir le fond du conteneur, et c'est lui qu'on lit comme la
+ * fente. Aucun trait à dessiner.
+ *
+ * `clip-path` découpe AUSSI le test de survol. Chaque zone ne reçoit donc
+ * que les clics qui tombent réellement dedans — pas de calcul de géométrie
+ * en JS, pas de zone morte au milieu, et le clavier marche parce que ce
+ * sont de vrais boutons.
+ *
+ * Le vocabulaire reste celui de la couche pixel : les braises s'animent en
+ * `steps()`, sans flou. Une flamme lissée jurerait avec des angles droits ;
+ * une flamme en crans est du même monde.
  * ================================================================== */
-.portes {
-  display: grid;
-  gap: var(--sp-3);
+
+.faille {
+  position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: 620px;
   margin: 0 auto;
+  /* Hauteur en `min-height` et non en `aspect-ratio` : combiné à un
+     plancher, `aspect-ratio` impose la dimension croisée — piège déjà payé
+     sur les cases du code de salon, où il forçait 248 px de rangée. */
+  min-height: clamp(240px, 42vh, 320px);
+  isolation: isolate;
 }
 
-.porte {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  /* Généreux : c'est la seule chose à faire sur cet écran. */
-  padding: var(--sp-4) var(--sp-4);
-  min-height: 116px;
-  justify-content: center;
-  border: var(--bd-hair) solid var(--line);
-  border-left: var(--bd-frame) solid var(--line);
-  background: var(--ink-2);
+.faille__zone {
+  position: absolute;
+  inset: 0;
+  display: block;
+  border: 0;
+  padding: var(--sp-4);
+  background-color: var(--ink-2);
   color: var(--paper);
+  font: inherit;
   text-align: left;
   cursor: pointer;
-  font: inherit;
-}
-
-.porte:hover:not(:disabled),
-.porte:focus-visible {
-  border-color: var(--paper-dim);
-  background: color-mix(in srgb, var(--ink-2) 70%, var(--paper) 6%);
-}
-
-.porte:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+  /* Le grain de la couche pixel, comme sur les autres surfaces. */
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+  transition:
+    clip-path 220ms cubic-bezier(0.2, 0.9, 0.3, 1),
+    filter 160ms ease-out;
 }
 
 /*
- * L'accent ne va jamais sur un bouton mort, et jamais sur le run du jour
- * pour un nouveau venu — c'est le seul mode irréversible du jeu. Voir
- * `renderHome`.
+ * LES DEUX POLYGONES.
+ *
+ * Même nombre de points des deux côtés ET entre repos et survol : c'est la
+ * condition pour que `clip-path` s'interpole. Un point de plus au survol et
+ * la transition devient une bascule sèche.
  */
-.porte--primary {
-  border-color: var(--signal);
+.faille__zone--solo {
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 14%,
+    92% 22%, 85% 18%, 77% 32%, 69% 28%,
+    61% 42%, 53% 38%, 45% 52%, 37% 48%,
+    29% 62%, 21% 58%, 13% 72%, 6% 68%,
+    0% 82%
+  );
 }
 
-.porte__titre {
+.faille__zone--multi {
+  clip-path: polygon(
+    0% 90%, 6% 76%, 13% 80%, 21% 66%, 29% 70%,
+    37% 56%, 45% 60%, 53% 46%, 61% 50%,
+    69% 36%, 77% 40%, 85% 26%, 92% 30%,
+    100% 22%, 100% 100%, 0% 100%
+  );
+  background-color: color-mix(in srgb, var(--ink-2) 80%, var(--ink) 20%);
+}
+
+/*
+ * Le contenu se pose dans SA moitié, loin de la fente.
+ *
+ * Les deux blocs sont positionnés EXPLICITEMENT, chacun dans son coin. En
+ * flux normal, celui de SOLO descendait jusque dans la déchirure : mesuré,
+ * 21 % de sa description et 64 % de son état tombaient hors de sa propre
+ * zone de clic — donc affichés par-dessus une surface qui ne lui répondait
+ * pas. Un coin ancré ne peut pas glisser, quelle que soit la hauteur du
+ * composant.
+ *
+ * La mesure de 20ch n'est pas cosmétique : au-delà, la ligne rejoint la
+ * fente là où celle-ci remonte.
+ */
+.faille__corps {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 20ch;
+}
+
+.faille__zone--solo .faille__corps {
+  left: var(--sp-4);
+  top: var(--sp-4);
+}
+
+.faille__zone--multi .faille__corps {
+  right: var(--sp-4);
+  bottom: var(--sp-4);
+  align-items: flex-end;
+  text-align: right;
+}
+
+.faille__titre {
   font-family: var(--display);
   font-weight: 600;
-  font-size: clamp(26px, 6vw, 34px);
+  font-size: clamp(30px, 7vw, 44px);
   letter-spacing: -0.02em;
   line-height: 1;
+  /* L'ombre d'un module : la même que le logo, même famille. */
+  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--ink) 70%, transparent);
 }
 
-.porte__desc {
-  font-size: var(--t-lire);
-  letter-spacing: var(--ls-lire, 0.02em);
+.faille__desc {
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
   color: var(--paper-dim);
 }
 
-.porte__etat {
+.faille__etat {
   font-size: var(--t-micro);
   letter-spacing: var(--ls-micro);
   color: var(--paper-dim);
 }
 
-.porte--primary .porte__etat {
+/*
+ * EN BANDE ÉTROITE, LA DÉCHIRURE DEVIENT HORIZONTALE.
+ *
+ * Ce n'est pas un repli, c'est la bonne forme pour ce format. Sur un
+ * composant étroit et court, une diagonale mange les deux coins ET ne laisse
+ * a aucune des deux faces la largeur d'écrire : mesuré à 375 px, 22 % de
+ * l'état de SOLO tombait hors de sa zone de clic, et le raccourcir n'aurait
+ * rien réglé — le nom de la règle du jour varie, « LA MAIN GAUCHE » est plus
+ * long que « LE SANG », donc un texte qui tient aujourd'hui déborde demain.
+ *
+ * Fendu en deux bandes, chaque face reçoit toute la largeur. La déchirure
+ * reste la même — les mêmes crans, la même identité — elle change seulement
+ * d'axe. L'objet reste UN objet.
+ *
+ * ⚠️ La première mesure disait 0 % : une grille de 7x4 points passait entre
+ * les crans. C'est en échantillonnant 21x9 que le débordement est apparu.
+ * Une mesure trop grossière ment dans le sens rassurant.
+ */
+@media (max-width: 560px) {
+  /*
+   * Pente FAIBLE, et c'est mesuré : a 18 points d'ecart entre le bord droit
+   * et le bord gauche, la bande de SOLO passait de 190 a 167 px et son etat
+   * effleurait la fente (14 % hors zone). A 6 points, la bande est reguliere
+   * et chaque face garde la meme hauteur utile d'un bout a l'autre. Les crans
+   * restent — c'est eux qui font la dechirure, pas la pente.
+   */
+  .faille__zone--solo {
+    clip-path: polygon(
+      0% 0%, 100% 0%, 100% 50%,
+      92% 54%, 85% 51%, 77% 55%, 69% 52%,
+      61% 56%, 53% 53%, 45% 57%, 37% 54%,
+      29% 58%, 21% 55%, 13% 59%, 6% 56%,
+      0% 60%
+    );
+  }
+
+  .faille__zone--multi {
+    clip-path: polygon(
+      0% 68%, 6% 64%, 13% 67%, 21% 63%, 29% 66%,
+      37% 62%, 45% 65%, 53% 61%, 61% 64%,
+      69% 60%, 77% 63%, 85% 59%, 92% 62%,
+      100% 58%, 100% 100%, 0% 100%
+    );
+  }
+
+  .faille__zone--solo:hover,
+  .faille__zone--solo:focus-visible {
+    clip-path: polygon(
+      0% 0%, 100% 0%, 100% 53%,
+      92% 57%, 85% 54%, 77% 58%, 69% 55%,
+      61% 59%, 53% 56%, 45% 60%, 37% 57%,
+      29% 61%, 21% 58%, 13% 62%, 6% 59%,
+      0% 63%
+    );
+  }
+
+  .faille__zone--multi:hover,
+  .faille__zone--multi:focus-visible {
+    clip-path: polygon(
+      0% 65%, 6% 61%, 13% 64%, 21% 60%, 29% 63%,
+      37% 59%, 45% 62%, 53% 58%, 61% 61%,
+      69% 57%, 77% 60%, 85% 56%, 92% 59%,
+      100% 55%, 100% 100%, 0% 100%
+    );
+  }
+
+  /*
+   * Fendu en deux bandes, le composant a besoin de PLUS de hauteur, pas de
+   * moins : chaque face doit loger un titre, une description et un état.
+   * Mesuré a 240 px de haut, la bande du bas n'en laissait que 115 au texte
+   * de MULTI, dont 32 % du titre tombait hors de sa zone de clic.
+   */
+  .faille {
+    min-height: clamp(300px, 60vh, 380px);
+  }
+
+  /* Chaque bande reçoit toute la largeur : plus de raison de brider. */
+  .faille__corps {
+    max-width: none;
+    right: var(--sp-4);
+  }
+
+  .faille__zone--multi .faille__corps {
+    left: var(--sp-4);
+  }
+}
+
+/* ---- survol : la face touchée chauffe ---- */
+
+.faille__zone:hover,
+.faille__zone:focus-visible {
+  filter: brightness(1.16);
+  outline: none;
+  z-index: 2;
+}
+
+.faille__zone--solo:hover,
+.faille__zone--solo:focus-visible {
+  /* La fente respire : chaque cran avance de deux ou trois points. Rien de
+     plus — « mouvement subtil », pas une bascule. */
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 16%,
+    92% 25%, 85% 20%, 77% 35%, 69% 30%,
+    61% 45%, 53% 40%, 45% 55%, 37% 50%,
+    29% 65%, 21% 60%, 13% 75%, 6% 70%,
+    0% 85%
+  );
+}
+
+.faille__zone--multi:hover,
+.faille__zone--multi:focus-visible {
+  clip-path: polygon(
+    0% 87%, 6% 73%, 13% 77%, 21% 63%, 29% 67%,
+    37% 53%, 45% 57%, 53% 43%, 61% 47%,
+    69% 33%, 77% 37%, 85% 23%, 92% 27%,
+    100% 19%, 100% 100%, 0% 100%
+  );
+}
+
+.faille__zone:hover .faille__titre,
+.faille__zone:focus-visible .faille__titre {
+  color: var(--signal-pale);
+}
+
+.faille__zone:hover .faille__etat,
+.faille__zone:focus-visible .faille__etat {
   color: var(--signal);
 }
 
+/* ---- les braises ---- */
+
 /*
- * L'habillage pixel posé sur les surfaces existantes.
+ * Elles vivent HORS des boutons : dans le découpage, elles seraient
+ * rognées à la fente au lieu de la border.
  *
- * En CSS et non par des classes dans le HTML : ces surfaces existent déjà,
- * elles n'ont pas à savoir qu'on les habille, et un jour où l'on retire la
- * couche il n'y a qu'un bloc à supprimer. C'est aussi ce qui garantit que
- * le canvas n'est pas concerné — il n'apparaît dans aucun de ces sélecteurs.
+ * Des points le long de la diagonale, animés en `steps(4)` : le
+ * scintillement est franc, sans flou, exactement le vocabulaire de la
+ * couche pixel. Invisibles au repos.
  */
-.porte,
+.faille__braises {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  opacity: 0;
+  background-repeat: no-repeat;
+  background-image:
+    radial-gradient(var(--px) var(--px) at 12% 74%, var(--signal) 99%, transparent 100%),
+    radial-gradient(var(--px) var(--px) at 28% 62%, var(--signal-pale) 99%, transparent 100%),
+    radial-gradient(var(--px) var(--px) at 44% 52%, var(--signal) 99%, transparent 100%),
+    radial-gradient(var(--px) var(--px) at 60% 42%, var(--signal-pale) 99%, transparent 100%),
+    radial-gradient(var(--px) var(--px) at 76% 32%, var(--signal) 99%, transparent 100%),
+    radial-gradient(var(--px) var(--px) at 90% 22%, var(--signal-pale) 99%, transparent 100%);
+  transition: opacity 160ms ease-out;
+}
+
+.faille:hover .faille__braises,
+.faille:focus-within .faille__braises {
+  opacity: 1;
+  animation: braises 900ms steps(4, end) infinite;
+}
+
+@keyframes braises {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(calc(var(--px) * -1), calc(var(--px) * -2));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(0, calc(var(--px) * -4));
+    opacity: 0;
+  }
+}
+
+/*
+ * L'accent, quand il y a une action évidente. Il colore la face concernée
+ * plutôt que d'ajouter un cadre : le composant est déjà une forme forte,
+ * une bordure de plus la brouillerait.
+ */
+.faille__zone--primary {
+  background-color: color-mix(in srgb, var(--ink-2) 76%, var(--signal) 24%);
+}
+
+.faille__zone:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+.faille__zone:disabled:hover {
+  filter: grayscale(0.6) brightness(0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * Le mouvement s'arrête, la LISIBILITÉ reste : on garde le changement de
+   * luminosité et on montre les braises fixes. Neutraliser une animation
+   * sans remettre l'état visible laisse un élément invisible — piège déjà
+   * payé avec `animation-fill-mode: backwards`.
+   */
+  .faille__zone {
+    transition: filter 160ms ease-out;
+  }
+  .faille:hover .faille__braises,
+  .faille:focus-within .faille__braises {
+    animation: none;
+    opacity: 0.75;
+  }
+}
+
+/*
+ * L'habillage pixel pose sur les surfaces existantes.
+ *
+ * En CSS et non par des classes dans le HTML : ces surfaces existent deja,
+ * elles n'ont pas a savoir qu'on les habille, et un jour ou l'on retire la
+ * couche il n'y a qu'un bloc a supprimer. C'est aussi ce qui garantit que
+ * le canvas n'est pas concerne — il n'apparait dans aucun de ces selecteurs.
+ */
 .card,
 .panel,
 .account__ligne,
@@ -5049,25 +5329,6 @@ button.chip:active:not(:disabled) {
       transparent 1px,
       transparent var(--px)
     );
-}
-
-/* Les marches ne vont QUE sur les portes : elles portent l'accent de
-   l'écran d'accueil, et généraliser un cadre épais partout ferait perdre
-   sa valeur au signal. */
-.porte {
-  box-shadow:
-    var(--px) 0 0 0 var(--ink-2),
-    calc(var(--px) * -1) 0 0 0 var(--ink-2),
-    0 var(--px) 0 0 var(--ink-2),
-    0 calc(var(--px) * -1) 0 0 var(--ink-2);
-}
-
-.porte--primary {
-  box-shadow:
-    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 30%, transparent);
 }
 
 /* Une ligne, pas un paragraphe : l'ancienne faisait 39 mots et 262 px. */
@@ -5096,7 +5357,16 @@ button.chip:active:not(:disabled) {
   z-index: 11;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /*
+   * GROUPES, pas extremites.
+   *
+   * `space-between` collait MENU contre le bord gauche et le reste contre le
+   * droit, avec plus de mille pixels de vide au milieu sur un ecran large.
+   * Nomme par Pierre : « une mise en page aux deux extremites totalement
+   * inutile ». Cette critique-la est independante de celle du centrage, et
+   * elle survit donc au retour a l'ancienne mise en page.
+   */
+  justify-content: flex-start;
   gap: var(--sp-2);
   padding: var(--sp-3);
   /* Pas de fond plein : l'écran en dessous porte déjà `--ink`, et un second
@@ -5129,7 +5399,6 @@ button.chip:active:not(:disabled) {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  margin-left: auto;
 }
 
 .btn--top {

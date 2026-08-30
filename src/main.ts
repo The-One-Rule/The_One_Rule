@@ -252,7 +252,7 @@ const multi = initMulti((id) => {
 }, hud);
 
 /**
- * L'accueil : DEUX portes, et rien d'autre.
+ * L'accueil : UN objet fendu en deux, et rien d'autre.
  *
  * Il portait quatre cartes de mode, un logo, 39 mots d'explication, la série,
  * les quêtes et le carnet. Mesuré sur mobile 375x812 : 1271 px de contenu,
@@ -295,8 +295,8 @@ function renderHome(): void {
    * l'accent y va.
    */
   const versMulti = s.daily.played && multi.available;
-  $("btnSolo").classList.toggle("porte--primary", !versMulti);
-  $("btnMulti").classList.toggle("porte--primary", versMulti);
+  $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
+  $("btnMulti").classList.toggle("faille__zone--primary", versMulti);
 
   appliqueMotifs(s.daltonien);
   setEnabled(s.sound);

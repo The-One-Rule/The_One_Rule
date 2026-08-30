@@ -349,6 +349,53 @@ du terrain tombent à 85–102 % du rayon, donc en pleine zone assombrie. Le jeu
 occupe presque toute la surface. D'où le halo de bord (60 px, pour une
 gouttière mesurée à 64).
 
+### La faille, et la couche pixel
+
+**Le composant SOLO / MULTI est UN objet fendu**, pas deux boutons voisins.
+Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
+suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est
+lui qu'on lit comme la déchirure. Aucun trait n'est dessiné.
+
+`clip-path` découpe **aussi le test de survol** — chaque zone ne reçoit que
+les clics qui tombent dedans, sans une ligne de géométrie en JS, et le clavier
+marche parce que ce sont de vrais boutons.
+
+Deux formes, pour une raison mesurée :
+
+| | large | étroit (≤ 560 px) |
+|---|---|---|
+| axe | diagonale, 82 % à gauche → 15 % à droite | bande, 60 % → 51 % |
+| répartition des clics | 45 / 48 / 8 % de couture | 55 / 37 / 8 % |
+
+Sur un composant étroit ET court, une diagonale mange les deux coins et ne
+laisse à aucune face la largeur d'écrire : **22 % de l'état de SOLO tombait
+hors de sa propre zone de clic**. Raccourcir le texte n'aurait rien réglé —
+le nom de la règle du jour varie, « LA MAIN GAUCHE » est plus long que
+« LE SANG », donc ce qui tient aujourd'hui déborde demain. C'est la fente qui
+change d'axe, et la correction devient indépendante du contenu.
+
+⚠️ **Deux pièges de mesure payés sur ce seul composant.**
+
+- **Une grille d'échantillonnage trop grossière ment dans le sens
+  rassurant.** Un relevé 7×4 annonçait 0 % de débordement ; en 21×9, le même
+  élément en montrait 22 %. Les points passaient entre les crans.
+- **Le HMR de Vite n'applique pas toujours une media query ajoutée.** Trois
+  relevés successifs ont lu du CSS périmé et donné le même chiffre après des
+  correctifs pourtant réels. **Recharger la page avant de conclure qu'un
+  correctif CSS ne fait rien.**
+
+**La couche pixel** est de la MATIÈRE, pas une identité de remplacement :
+`--px` comme module, un grain en `repeating-linear-gradient` à 45°/-45°, un
+cadre en marches en `box-shadow` étagées, une ombre décalée d'un module sur le
+logo, `image-rendering: pixelated` sur les glyphes. Les braises s'animent en
+`steps()` — une flamme lissée jurerait avec des angles droits, une flamme en
+crans est du même monde.
+
+**Elle ne touche pas au canvas**, et c'est vérifié à chaque fois plutôt
+qu'affirmé : buffer et `fieldRect()` identiques avant/après. Les pièces
+gardent couleur, forme et trame — second canal du mode daltonien et géométrie
+de test de collision.
+
 ### Autres pièges CSS déjà payés
 
 - **Il n'y a pas de `.hidden` générique** dans la feuille, et c'est délibéré :

@@ -24,11 +24,11 @@ import { readFileSync } from "node:fs";
 /*
  * Deux familles, meme piege.
  *
- * `#btnMulti` a quitte la famille des cartes pour celle des PORTES : l'accueil
- * ne propose plus que SOLO et MULTIJOUEUR, et les modes solo vivent sur leur
- * propre ecran. Les deux familles sont des `<button>` a trois `<span>`, donc
- * les deux se detruisent d'un `textContent` — ce que ce fichier existe pour
- * refuser.
+ * `#btnMulti` a quitte la famille des cartes pour LA FAILLE : l'accueil ne
+ * propose plus qu'un seul objet fendu en diagonale, SOLO et MULTI, et les
+ * modes solo vivent sur leur propre ecran. Les deux familles sont des
+ * `<button>` a plusieurs `<span>`, donc les deux se detruisent d'un
+ * `textContent` — ce que ce fichier existe pour refuser.
  */
 const CARTES = ["btnDaily", "btnTraining", "btnRanked", "btnEscalade"];
 const PORTES = ["btnSolo", "btnMulti"];
@@ -50,12 +50,12 @@ describe("cartes de l'accueil", () => {
     }
   });
 
-  it("chaque porte porte bien un titre, une description et un état", () => {
+  it("chaque face de la faille porte un titre, une description et un état", () => {
     for (const id of PORTES) {
       const porte = document.getElementById(id);
       expect(porte, `#${id} absent du document`).not.toBeNull();
       for (const part of ["__titre", "__desc", "__etat"]) {
-        expect(porte!.querySelector(`.porte${part}`), `#${id} sans .porte${part}`).not.toBeNull();
+        expect(porte!.querySelector(`.faille${part}`), `#${id} sans .faille${part}`).not.toBeNull();
       }
     }
   });

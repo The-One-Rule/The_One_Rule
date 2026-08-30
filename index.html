@@ -208,18 +208,37 @@
             </p>
           </div>
 
-          <div class="portes" aria-label="Modes de jeu">
-            <button class="porte" id="btnSolo">
-              <span class="porte__titre">SOLO</span>
-              <span class="porte__desc">Le run du jour, l'escalade, l'entraînement.</span>
-              <span class="porte__etat" id="soloEtat"></span>
+          <!-- LA FAILLE — un seul objet, deux faces.
+               Pas deux boutons cote a cote : une composition unique fendue en
+               diagonale, SOLO en haut a gauche, MULTI en bas a droite. La
+               fente n'est pas une droite — c'est une dechirure, et c'est elle
+               qui donne son identite au composant.
+
+               Deux vrais `<button>` superposes et decoupes par `clip-path` :
+               le decoupage porte AUSSI le test de survol, donc chaque zone ne
+               recoit que les clics qui tombent dedans. Pas de calcul de
+               geometrie en JS, pas de zone morte, et le clavier fonctionne
+               parce que ce sont des boutons. -->
+          <div class="faille" aria-label="Modes de jeu">
+            <button class="faille__zone faille__zone--solo" id="btnSolo">
+              <span class="faille__corps">
+                <span class="faille__titre">SOLO</span>
+                <span class="faille__desc">Run du jour, escalade, entraînement.</span>
+                <span class="faille__etat" id="soloEtat"></span>
+              </span>
             </button>
 
-            <button class="porte" id="btnMulti">
-              <span class="porte__titre">MULTIJOUEUR</span>
-              <span class="porte__desc">Ton code, tes potes, une règle chacun.</span>
-              <span class="porte__etat" id="cardMultiState"></span>
+            <button class="faille__zone faille__zone--multi" id="btnMulti">
+              <span class="faille__corps">
+                <span class="faille__titre">MULTI</span>
+                <span class="faille__desc">Ton code, tes potes, une règle chacun.</span>
+                <span class="faille__etat" id="cardMultiState"></span>
+              </span>
             </button>
+
+            <!-- Les braises vivent hors des boutons : dans le decoupage,
+                 elles seraient rognees a la fente au lieu de la border. -->
+            <span class="faille__braises" aria-hidden="true"></span>
           </div>
 
           <div class="home__foot">
