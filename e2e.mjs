@@ -398,6 +398,67 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   await sleep(220);
 }
 
+/*
+ * DUO : deux joueurs, une reserve — verifie sur le fil.
+ *
+ * La propriete centrale du mode ne peut pas se prouver en unitaire : il faut
+ * qu'un vrai serveur apparie, qu'une vraie faute traverse, et que les DEUX
+ * clients voient la reserve baisser. Si les vies n'etaient partagees que dans
+ * la memoire du serveur, l'ecran continuerait d'afficher trois vies a un
+ * partenaire qui n'en a plus que deux — et il mourrait sans comprendre.
+ */
+{
+  const eq = [];
+  for (const n of ["D1", "D2", "D3", "D4"]) eq.push(await client(n, "cle-" + n));
+  eq[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = eq[0].room.code;
+  for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(150); }
+  await sleep(250);
+  eq[0].ws.send(JSON.stringify({ t: "settings", settings: { duo: true, lives: 3 } }));
+  await sleep(300);
+  ok(eq[0].room?.settings?.duo === true, "le reglage EQUIPES se propage a tout le salon");
+
+  // D2 ne repond jamais : il mourra par depassement de temps, et c'est la
+  // reserve de D1 qu'on regarde baisser.
+  eq[1].manuel = true;
+  eq[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+
+  const equipeDe = (c, id) =>
+    (c.verdicts[c.verdicts.length - 1]?.players ?? c.room?.players ?? []).find(
+      (p) => p.name === id,
+    )?.team;
+  ok(equipeDe(eq[0], "D1") === equipeDe(eq[0], "D2"), "D1 et D2 forment une equipe");
+  ok(equipeDe(eq[0], "D1") !== equipeDe(eq[0], "D3"), "D3 est dans une AUTRE equipe");
+
+  const regles = eq[0].rules;
+  ok(
+    regles[eq[0].id] === regles[eq[1].id],
+    `les deux partenaires portent la meme regle (${regles[eq[0].id]} / ${regles[eq[1].id]})`,
+  );
+
+  // On laisse D2 mourir plusieurs fois, puis on compare les reserves.
+  //
+  // Les vies se lisent dans le dernier VERDICT et non dans `room` : `roomState`
+  // n'est pas rediffuse a chaque manche, donc `room.players` reste sur les
+  // vies du lancement. C'est le meme flux que le vrai client utilise.
+  await sleep(9000);
+  const dernier = eq[0].verdicts[eq[0].verdicts.length - 1];
+  const vies = (nom) => dernier?.players?.find((p) => p.name === nom)?.lives;
+  const v1 = vies("D1");
+  const v2 = vies("D2");
+  const v3 = vies("D3");
+  info(`verdicts recus : ${eq[0].verdicts.length}`);
+  info(`vies vues par D1 : D1=${v1} D2=${v2} D3=${v3} (D2 ne joue pas)`);
+  ok(v1 === v2, `la reserve est COMMUNE : D1 et D2 affichent le meme compte (${v1} / ${v2})`);
+  ok(v1 < 3, `les fautes de D2 ont entame la reserve de D1 (${v1} sur 3)`);
+  ok(v3 === 3, `l'autre equipe n'a rien perdu (${v3})`);
+
+  for (const c of eq) c.ws.close();
+  await sleep(220);
+}
+
 // LE GAUCHER : un clic HORS de la zone interdite ne doit pas tuer.
 //
 // Le fil ne transporte qu'un index de piece, jamais de coordonnees. Le serveur

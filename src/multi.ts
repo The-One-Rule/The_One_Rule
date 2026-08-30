@@ -453,6 +453,25 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     level: (_n, i) => i,
     steps: rotations.length - 1,
   });
+
+  /*
+   * ÉQUIPES : un choix binaire, donc deux boutons plutôt qu'une bascule.
+   *
+   * `fill` travaille sur des nombres — 0 et 1 font l'affaire, et le réglage
+   * repart en booléen dans `onSetting`. Une bascule aurait été plus courte,
+   * mais les trois autres réglages sont des barres segmentées : un composant
+   * différent pour le quatrième se lirait comme un réglage d'une autre nature.
+   */
+  fill("optDuo", [0, 1], settings.duo ? 1 : 0, {
+    label: (n) => (n === 1 ? "DUOS" : "CHACUN"),
+    aria: (n) =>
+      n === 1
+        ? "Duos : deux joueurs par équipe, une réserve de vies commune"
+        : "Chacun pour soi",
+    icon: "dots",
+    level: (n) => n + 1,
+    steps: 2,
+  });
 }
 
 function toWire(
@@ -1221,13 +1240,23 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         existing.delete(p.id);
       }
 
-      el.className = plateClasses({
-        isMe: p.id === myId,
-        lives: p.lives,
-        rookie: !!p.rookie,
-        pulse: platePulse.get(p.id) ?? null,
-        inRound: match!.phase === "round",
-      }).join(" ");
+      /*
+       * En duo, la plaque porte l'équipe.
+       *
+       * `is-equipe-N` colore le liseré : deux plaques du même liseré sont un
+       * duo, et ça se voit sans lire. C'est indispensable — les partenaires
+       * affichent le MÊME nombre de vies, et sans repère visuel un joueur
+       * croirait à un bug plutôt qu'à une réserve commune.
+       */
+      const equipe = p.team;
+      el.className =
+        plateClasses({
+          isMe: p.id === myId,
+          lives: p.lives,
+          rookie: !!p.rookie,
+          pulse: platePulse.get(p.id) ?? null,
+          inRound: match!.phase === "round",
+        }).join(" ") + (equipe === undefined ? "" : ` is-equipe-${equipe % 5}`);
 
       el.querySelector(".plate__glyph")!.innerHTML = glyphSvg(
         playerGlyph(p),
@@ -2491,14 +2520,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const chip = (ev.target as HTMLElement).closest("button.opt") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const row = chip.closest(".settings__row") as HTMLElement | null;
-    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | undefined;
+    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "duo" | undefined;
     if (!key) return;
     const value = Number(chip.dataset.value);
     if (!Number.isFinite(value)) return;
     const me = lastPlayers.find((p) => p.id === net!.myId);
     if (!me?.host || lobbyInMatch) return;
     sfx.ui();
-    net.setSettings({ [key]: value });
+    // `duo` voyage en booléen : le protocole le sanitise avec `=== true`, donc
+    // un nombre y vaudrait « non » en silence.
+    net.setSettings(key === "duo" ? { duo: value === 1 } : { [key]: value });
   });
 
   watchTargets.addEventListener("click", (ev) => {

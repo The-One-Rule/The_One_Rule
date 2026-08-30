@@ -497,8 +497,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 227 tests
-(23 fichiers) · e2e 68 assertions (~2 min) · `vite build` — tous verts.
+**Branche** `master`, propre, poussée. **Vérification** : `tsc` · 268 tests
+(27 fichiers) · e2e 74 assertions (~2 min 15) · `vite build` — tous verts.
 
 Fait récemment, dans l'ordre : refonte de l'espace des 6 écrans · boutons
 d'option lisibles · correction des plaques · bande de chat · revue complète du
@@ -591,16 +591,46 @@ et elle ressort. Vérifié sur le fil : salon tout-clavier, `typeLetter` tirée 
 jouée, **0 mort sur 21 verdicts** — un désaccord de pool les aurait tous fait
 rater, puisque les indices de pièces ne désigneraient pas les mêmes formes.
 
+### Deux modes ajoutés — à mesurer
+
+**ESCALADE** (solo). Une règle, puis une de plus toutes les 8 manches, plafond
+à 4. Le score est le nombre de règles TENUES, pas de manches. Existe pour
+remonter la densité de pièges, et le fait — mesuré, proportion de manches
+piégeuses : catalogue actuel 5,4 % · palier 1 **11,3 %** · palier 2 23,4 % ·
+palier 3 32,7 % · palier 4 **39,4 %**.
+
+⚠️ 39 % veut dire quatre manches sur dix où il faut NE RIEN FAIRE. Ça peut
+basculer d'exigeant à passif — une épreuve d'inhibition plutôt que de réflexe.
+`PALIER_MAX` est le bouton. **C'est la première chose à regarder en soirée.**
+
+**DUO** (multi). Réglage de salon ÉQUIPES. Deux joueurs par équipe, une réserve
+commune, même règle pour les deux, consignes identiques. Un impair joue seul
+avec une réserve réduite de moitié.
+
+Les deux reposent sur la même astuce, qui vaut d'être retenue : **le mode
+existant devient un cas particulier du nouveau.** Une pile d'une règle rend
+cette règle elle-même ; une équipe d'un joueur est un joueur. Aucun
+branchement de mode dans les chemins chauds, donc l'existant ne peut pas
+régresser — et c'est vérifié par test dans les deux cas.
+
+### Ce qui reste sur DUO
+
+- Les **règles coordonnées** (une action à deux) ne sont pas faites : c'est un
+  nouveau modèle de résolution, le serveur juge aujourd'hui chaque joueur
+  séparément.
+- Les **consignes différentes entre partenaires** non plus. Elles supposeraient
+  une scène qui satisfait DEUX consignes sans ambiguïté — `instr.gen()`
+  construit les pièces pour qu'une seule satisfasse la sienne. C'est le vrai
+  problème de génération, et il n'est pas résolu.
+- L'appariement suit l'ordre d'ARRIVÉE. Pas de choix de partenaire.
+
 ### Backlog
 
-1. **Nouveaux modes de jeu.** Décision de Pierre : le plafond vient de là. Un
-   seul mode limite tout, et c'est ce qui rend la dilution du piège acceptable
-   « pour l'instant ». À mesurer de nouveau ensuite.
-2. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. Ce sont
-   de nouveaux types d'entrée, donc de nouvelles actions sur le fil et une
-   nouvelle résolution : c'est un chantier, pas un ajout de contenu. C'est aussi
-   ce qui donnerait des pièges aux sept règles qui n'en ont pas.
-3. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
+1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De
+   nouveaux types d'entrée, donc de nouvelles actions sur le fil et une
+   nouvelle résolution : un chantier, pas un ajout de contenu. C'est aussi ce
+   qui donnerait des pièges aux sept règles qui n'en ont pas.
+2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
    côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
    liste vide dit « personne ne joue ».
 
