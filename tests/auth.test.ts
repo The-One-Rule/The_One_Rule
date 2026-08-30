@@ -119,10 +119,20 @@ describe("départ vers le fournisseur", () => {
     expect(url.origin + url.pathname).toBe("https://accounts.google.com/o/oauth2/v2/auth");
     expect(url.searchParams.get("client_id")).toBe("google-id");
     expect(url.searchParams.get("response_type")).toBe("code");
-    expect(url.searchParams.get("redirect_uri")).toBe(
-      "https://www.theonerule.party/api/auth?a=callback",
-    );
     expect(url.searchParams.get("state")).toBeTruthy();
+  });
+
+  it("l'URI de retour ne porte AUCUNE query string", () => {
+    // Google refuse d'enregistrer une URI de redirection qui en porte une
+    // (« Invalid Redirect: cannot contain a query string »), et il n'y a aucun
+    // contournement. Cette assertion existe pour qu'on ne réintroduise pas le
+    // `?a=callback` en refactorant les routes.
+    const uri = "https://www.theonerule.party/api/authcb";
+    expect(new URL(uri).search).toBe("");
+    return appel("?a=start&f=google").then((res) => {
+      const url = new URL(res.headers.get("location")!);
+      expect(url.searchParams.get("redirect_uri")).toBe(uri);
+    });
   });
 
   it("ne demande à Discord que « identify »", async () => {

@@ -122,7 +122,20 @@ function litConfig(
   return { secret, appUrl: appUrl.replace(/\/+$/, ""), depot, identifiants };
 }
 
-const redirection = (c: Config): string => `${c.appUrl}/api/auth?a=callback`;
+/**
+ * L'URI de retour déclarée chez le fournisseur.
+ *
+ * SANS QUERY STRING, et ce n'est pas un choix de style : Google refuse
+ * d'enregistrer une URI de redirection qui en porte une (« Invalid Redirect:
+ * cannot contain a query string »). D'où `api/authcb.ts`, un point d'entrée
+ * dédié qui ne fait que rappeler `traite` avec l'action forcée.
+ *
+ * Elle doit être déclarée AU CARACTÈRE PRÈS dans les deux consoles : Google
+ * et Discord comparent la chaîne exacte, et un `/` de trop suffit à faire
+ * échouer l'échange de code avec un message qui ne dit pas lequel des deux
+ * côtés a tort.
+ */
+const redirection = (c: Config): string => `${c.appUrl}/api/authcb`;
 
 /* ------------------------------------------------------------------ *
  * État signé
