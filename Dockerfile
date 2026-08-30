@@ -25,12 +25,24 @@ RUN npm ci --omit=dev --ignore-scripts
 
 # Uniquement ce dont le serveur a besoin — le front est déployé ailleurs.
 # src/engine pour rejouer exactement les mêmes scènes que le client,
-# src/net pour glyphFor() : le signe d'un joueur est calculé côté serveur.
+# src/net pour glyphFor() : le signe d'un joueur est calculé côté serveur,
+# src/env.ts pour cleanEnv() : le secret de signature des jetons passe par un
+#   shell et une interface web avant d'arriver ici, donc il peut porter un BOM.
+#
+# ⚠️ CETTE LISTE EST UNE DÉPENDANCE, ET ELLE NE SE PLAINT PAS.
+#
+# Un import ajouté dans `server/` vers un fichier absent d'ici passe tsc, passe
+# les tests, passe le build, et TUE l'instance au démarrage : Node ne résout
+# pas le module, le process meurt, la sonde échoue, et Fly répond 502 — ce qui
+# se lit comme « le serveur est tombé », pas comme « il manque un fichier dans
+# l'image ». Payé le 30/08/2026 en ajoutant `cleanEnv` au serveur.
+# `tests/image.test.ts` refuse désormais tout import qui sort de cette liste.
 COPY tsconfig.json ./
 COPY shared ./shared
 COPY server ./server
 COPY src/engine ./src/engine
 COPY src/net ./src/net
+COPY src/env.ts ./src/env.ts
 
 ENV NODE_ENV=production
 ENV PORT=8080
