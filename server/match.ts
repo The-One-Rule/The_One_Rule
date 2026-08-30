@@ -78,9 +78,39 @@ export interface SeatStats {
   bestStreak: number;
 }
 
+/**
+ * Une ÉQUIPE — l'unité qui possède les vies et qui meurt.
+ *
+ * En solo, chaque joueur est une équipe d'un seul membre. Ce n'est pas un
+ * artifice : c'est ce qui permet à tout le reste — élimination, courbe de
+ * tension, duel, vainqueur — de ne connaître QUE des équipes, sans un seul
+ * branchement de mode dans les chemins chauds. Le mode existant devient le cas
+ * particulier, donc il ne peut pas régresser.
+ */
+export interface Team {
+  /** Index dans l'ordre de constitution. */
+  id: number;
+  /** LA réserve. En duo, une faute de l'un la vide pour les deux. */
+  lives: number;
+  eliminated: boolean;
+  /** Identifiants des joueurs, un en solo, deux en duo. */
+  members: string[];
+}
+
 export interface Seat {
   id: string;
+  /**
+   * Vies du joueur — MIROIR de celles de son équipe.
+   *
+   * Le fil porte les vies par JOUEUR (`PlayerPublic.lives`), et les deux
+   * partenaires affichent donc le même nombre : c'est exactement ce qu'on veut
+   * leur faire lire. Le champ reste ici pour ne pas toucher au protocole, mais
+   * l'AUTORITÉ est `Team.lives` — ne jamais l'écrire directement, passer par
+   * `perdUneVie`.
+   */
   lives: number;
+  /** L'équipe à laquelle ce siège appartient. */
+  team: number;
   score: number;
   /** index dans l'ordre des sièges — la rotation tourne sur cet ordre */
   seat: number;
@@ -161,6 +191,15 @@ export class MatchLogic {
   private shared: SharedRound | null = null;
   private states = new Map<string, PlayerRoundState>();
 
+  /**
+   * Les équipes. Une par joueur en solo, une pour deux en duo.
+   *
+   * L'autorité sur les vies et sur l'élimination est ICI, jamais sur le siège.
+   */
+  readonly teams: Team[];
+  /** Duo : les sièges sont appariés deux à deux et partagent tout. */
+  readonly duo: boolean;
+
   constructor(
     seed: number,
     playerIds: string[],
@@ -169,24 +208,92 @@ export class MatchLogic {
     rookies: ReadonlySet<string> = new Set(),
     /** Tous les sièges ont un clavier : le pool s'élargit. Défaut prudent. */
     clavier = false,
+    /** DUO : deux joueurs par équipe, une seule réserve de vies. */
+    duo = false,
   ) {
     this.seed = seed;
     this.settings = settings;
     this.clavier = clavier;
+    this.duo = duo;
     this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier));
+
+    /*
+     * Appariement : deux sièges consécutifs par équipe.
+     *
+     * L'ordre des sièges est l'ordre d'ARRIVÉE, donc on apparie les gens dans
+     * l'ordre où ils sont entrés. C'est le seul appariement qu'on puisse
+     * défendre sans classement ni historique : au moins il est prévisible, et
+     * deux amis qui rejoignent l'un après l'autre se retrouvent ensemble.
+     */
+    this.teams = [];
+    for (let i = 0; i < playerIds.length; i += duo ? 2 : 1) {
+      const membres = playerIds.slice(i, i + (duo ? 2 : 1));
+      const bonus = membres.some((id) => rookies.has(id)) ? ROOKIE_BONUS_LIVES : 0;
+      /*
+       * Un impair joue SEUL, avec une réserve réduite.
+       *
+       * Cinq joueurs font deux duos et un orphelin. Le laisser dehors serait
+       * exclure justement la personne qu'on risque de perdre ; lui laisser la
+       * réserve entière serait un avantage net, puisqu'une équipe de deux la
+       * vide avec deux sources d'erreur au lieu d'une. La moitié arrondie au
+       * supérieur rétablit à peu près la parité — 2 sur 3, 3 sur 5.
+       *
+       * Ce n'est pas exact et ça ne peut pas l'être : deux joueurs ne font pas
+       * exactement deux fois plus de fautes qu'un seul. C'est un point à
+       * regarder en soirée, pas un calcul à raffiner sur le papier.
+       */
+      const seul = duo && membres.length === 1;
+      const base = seul ? Math.ceil(settings.lives / 2) : settings.lives;
+      this.teams.push({
+        id: this.teams.length,
+        lives: base + bonus,
+        eliminated: false,
+        members: membres,
+      });
+    }
+
     this.seats = playerIds.map((id, i) => {
-      const rookie = rookies.has(id);
+      const team = this.teams.findIndex((t) => t.members.includes(id));
       return {
         id,
-        lives: settings.lives + (rookie ? ROOKIE_BONUS_LIVES : 0),
+        lives: this.teams[team]!.lives,
+        team,
         score: 0,
         seat: i,
         eliminated: false,
         away: false,
-        rookie,
+        rookie: rookies.has(id),
         stats: emptySeatStats(),
       };
     });
+  }
+
+  /** L'équipe d'un siège. */
+  teamOf(seat: Seat): Team {
+    return this.teams[seat.team]!;
+  }
+
+  /**
+   * Retire une vie à l'ÉQUIPE, et répercute sur ses membres.
+   *
+   * Point unique de vérité : `Seat.lives` et `Seat.eliminated` ne sont que des
+   * miroirs, parce que le protocole transporte les vies par joueur. Les écrire
+   * ailleurs ferait diverger ce que le serveur juge de ce que l'écran montre.
+   */
+  private perdUneVie(seat: Seat): void {
+    const t = this.teamOf(seat);
+    t.lives--;
+    if (t.lives <= 0) t.eliminated = true;
+    for (const s of this.seats) {
+      if (s.team !== t.id) continue;
+      s.lives = Math.max(0, t.lives);
+      s.eliminated = t.eliminated;
+    }
+  }
+
+  /** Équipes encore en lice. C'est l'unité qui compte pour la fin du match. */
+  get teamsAlive(): Team[] {
+    return this.teams.filter((t) => !t.eliminated);
   }
 
   /**
@@ -212,7 +319,16 @@ export class MatchLogic {
     const shift = Math.floor(idx / every);
     const out = new Map<string, OneRule>();
     for (const s of this.seats) {
-      const rule = this.pool[(s.seat + shift) % this.pool.length]!;
+      /*
+       * L'index parcourt l'ÉQUIPE, pas le siège.
+       *
+       * En solo les deux coïncident — un joueur, une équipe — donc rien ne
+       * change. En duo, les deux partenaires reçoivent la même règle : c'est
+       * ce qui leur permet de se surveiller mutuellement, et ce qui rend une
+       * faute de l'un compréhensible pour l'autre. Sans ça, chacun jouerait
+       * une contrainte que son partenaire n'aurait aucune raison de connaître.
+       */
+      const rule = this.pool[(s.team + shift) % this.pool.length]!;
       out.set(s.id, rule);
     }
     return out;
@@ -240,8 +356,17 @@ export class MatchLogic {
    * 1v1 pur, sans élimination intermédiaire, accélère quand même.
    */
   tensionAt(idx: number): number {
-    const seats = this.seats.length;
-    const alive = this.alive.length;
+    /*
+     * La tension se compte en ÉQUIPES.
+     *
+     * En solo, une équipe par joueur : les chiffres sont identiques à avant, et
+     * les tests de la courbe le vérifient. En duo, la vis doit se resserrer
+     * quand une ÉQUIPE tombe — pas quand un partenaire tombe, sinon un duo
+     * amputé déclencherait à lui seul l'apnée du duel alors que quatre
+     * personnes jouent encore.
+     */
+    const seats = this.teams.length;
+    const alive = this.teamsAlive.length;
     const eliminated = seats - alive;
     /*
      * Duel : resserré, mais plus étranglé.
@@ -404,18 +529,33 @@ export class MatchLogic {
         if (out.trap) s.stats.trapsAvoided++;
         if (st.firstInputMs !== null) s.stats.reactions.push(st.firstInputMs);
       } else if (out.kind === "death") {
-        s.lives--;
-        if (s.lives <= 0) s.eliminated = true;
+        /*
+         * CHAQUE mort coûte une vie à la réserve commune.
+         *
+         * Si les deux partenaires tombent la même manche, l'équipe en perd
+         * deux. C'est la lecture la plus dure et la plus claire de « une erreur
+         * d'un membre affecte directement son partenaire » — et c'est elle qui
+         * donne sa valeur à la coordination : se rattraper l'un l'autre change
+         * réellement l'issue.
+         */
+        this.perdUneVie(s);
         s.stats.streak = 0;
       }
       outcomes.set(s.id, out);
     }
 
     const alive = this.alive;
-    // Fin immédiate au dernier survivant : cycle party game, écran de fin
-    // tout de suite. On ne fait PLUS jouer le vainqueur jusqu'à sa mort —
-    // sinon les spectateurs regardent un solo interminable.
-    const matchOver = alive.length === 0 || (this.seats.length > 1 && alive.length <= 1);
+    /*
+     * La fin se compte en ÉQUIPES, pas en joueurs.
+     *
+     * En solo chaque joueur est son équipe, donc rien ne change. En duo, un
+     * partenaire survivant ne suffit pas à finir le match : il reste deux
+     * équipes tant que deux réserves tiennent. C'est ce qui fait qu'un duo
+     * amputé continue de jouer — et c'est exactement le moment intéressant.
+     */
+    const equipes = this.teamsAlive;
+    const matchOver =
+      equipes.length === 0 || (this.teams.length > 1 && equipes.length <= 1) || alive.length === 0;
     const winnerId = matchOver ? this.winner() : null;
     const interludeMs = matchOver ? 0 : this.pauseAfter(alive.length, outcomes);
     return { outcomes, matchOver, winnerId, interludeMs };
@@ -483,11 +623,30 @@ export class MatchLogic {
   /** Départ anticipé : le siège reste (les règles ne re-tournent pas), la vie s'arrête. */
   forfeit(playerId: string): void {
     const s = this.seats.find((x) => x.id === playerId);
-    if (s && !s.eliminated) {
+    if (!s || s.eliminated) return;
+    s.eliminated = true;
+    const st = this.states.get(playerId);
+    if (st && !st.outcome) st.outcome = { kind: "death", reason: "PARTI" };
+
+    /*
+     * Un départ élimine le SIÈGE ; l'ÉQUIPE ne tombe que si plus personne n'y
+     * joue.
+     *
+     * En solo les deux coïncident, donc rien ne change — c'est ce que
+     * vérifient les tests de la courbe de tension, qui simulent leurs
+     * éliminations par des forfaits.
+     *
+     * En duo, c'est un vrai choix : le partenaire resté continue avec la
+     * réserve commune, telle qu'elle est. On ne lui rend pas les vies déjà
+     * perdues, et on ne le punit pas non plus du départ de l'autre. Un duo
+     * amputé qui s'accroche est exactement le moment qu'on veut voir.
+     */
+    const t = this.teamOf(s);
+    const restants = this.seats.filter((x) => x.team === t.id && !x.eliminated);
+    if (restants.length === 0) {
+      t.lives = 0;
+      t.eliminated = true;
       s.lives = 0;
-      s.eliminated = true;
-      const st = this.states.get(playerId);
-      if (st && !st.outcome) st.outcome = { kind: "death", reason: "PARTI" };
     }
   }
 }

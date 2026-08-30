@@ -136,9 +136,23 @@ export interface RoomSettings {
   speed: number;
   lives: number;
   rotationEvery: number;
+  /**
+   * DUO : les joueurs sont appariés deux à deux et partagent une réserve.
+   *
+   * Un réglage de salon et non de joueur — on ne choisit pas d'être en duo
+   * tout seul. Fixé au lancement : le mode d'un match ne change pas en cours
+   * de route, sinon des vies apparaîtraient ou disparaîtraient sous les yeux
+   * des joueurs.
+   */
+  duo: boolean;
 }
 
-export const DEFAULT_SETTINGS: RoomSettings = { speed: 1, lives: 3, rotationEvery: 8 };
+export const DEFAULT_SETTINGS: RoomSettings = {
+  speed: 1,
+  lives: 3,
+  rotationEvery: 8,
+  duo: false,
+};
 /**
  * Vitesses de salon, du plus lent au plus vif.
  *
@@ -163,6 +177,10 @@ export function sanitizeSettings(raw: unknown): RoomSettings {
     speed: pick(r.speed, SPEED_CHOICES, 1),
     lives: pick(r.lives, LIVES_CHOICES, 3),
     rotationEvery: pick(r.rotationEvery, ROTATION_CHOICES, 8),
+    // `=== true` : un réglage absent ou douteux vaut NON. Basculer un salon en
+    // duo par accident diviserait les réserves sans que personne ne l'ait
+    // demandé.
+    duo: r.duo === true,
   };
 }
 
@@ -191,6 +209,15 @@ export interface PlayerPublic {
   glyph: Glyph;
   /** Première partie : porte une vie de plus, et tout le salon le voit. */
   rookie: boolean;
+  /**
+   * DUO : l'équipe à laquelle ce joueur appartient.
+   *
+   * Absent hors duo. Les vies transportées restent celles du JOUEUR, et les
+   * deux partenaires affichent donc le même nombre — c'est exactement ce
+   * qu'on veut leur faire lire. Ce champ ne sert qu'à les rapprocher à
+   * l'écran ; le serveur reste seul juge de la réserve.
+   */
+  team?: number;
   stats: PlayerStats;
 }
 

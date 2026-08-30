@@ -217,6 +217,10 @@ function publicPlayers(room: Room): PlayerPublic[] {
       // Hors match, on montre son intention ; en match, ce que le siège porte
       // réellement — sinon un joueur pourrait s'annoncer débutant après coup.
       rookie: seat ? seat.rookie : c.rookie,
+      // L'équipe n'existe que pendant un match en duo : hors match, personne
+      // n'est encore apparié, et prétendre le contraire afficherait des paires
+      // qui bougeraient au lancement.
+      team: room.match?.duo && seat ? seat.team : undefined,
       // Un joueur au-delà de INPUT_TOLERANCE_MS de latence voit ses temps
       // gonflés : le serveur refuse d'horodater plus de 120 ms dans le passé
       // (anti-triche). La médiane limite le bruit sans corriger ce biais —
@@ -265,7 +269,7 @@ function startMatch(room: Room): void {
    */
   const clavier =
     ids.length > 0 && [...room.clients.values()].every((c) => c.clavier === true);
-  room.match = new MatchLogic(seed, ids, room.settings, rookies, clavier);
+  room.match = new MatchLogic(seed, ids, room.settings, rookies, clavier, room.settings.duo);
 
   const rules: Record<string, string> = {};
   for (const [id, rule] of room.match.rulesAt(0)) rules[id] = rule.id;

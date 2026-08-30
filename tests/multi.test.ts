@@ -51,6 +51,19 @@ function playPerfect(m: MatchLogic, id: string, atMs = 300): void {
   });
 }
 
+/**
+ * Met un joueur a `n` vies.
+ *
+ * Passe par l'EQUIPE, qui en est l'autorite depuis le mode duo : `Seat.lives`
+ * n'est plus qu'un miroir, et l'ecrire seul ne changeait plus rien au verdict.
+ * En solo une equipe vaut un joueur, donc ce chemin est aussi le vrai.
+ */
+function setVies(m: MatchLogic, id: string, n: number): void {
+  const s = m.seats.find((x) => x.id === id)!;
+  m.teamOf(s).lives = n;
+  s.lives = n;
+}
+
 /** Force une mort sur la manche ouverte (mauvais clic). */
 function playDie(m: MatchLogic, id: string) {
   return m.input(id, m.roundIdx, { kind: "click", ent: null, x: 0, y: 0 }, 200);
@@ -376,7 +389,7 @@ describe("logique de match", () => {
 
   it("pause INTERLUDE_ELIM_MS après une élimination (≥3 vivants restants)", () => {
     const m = new MatchLogic(51, ["a", "b", "c", "d"]);
-    m.seats.find((s) => s.id === "b")!.lives = 1;
+    setVies(m, "b", 1);
     m.openRound();
     for (const id of ["a", "c", "d"]) playPerfect(m, id);
     playDie(m, "b");
@@ -409,8 +422,8 @@ describe("logique de match", () => {
 
   it("termine immédiatement au dernier survivant (sans tuer le vainqueur)", () => {
     const m = new MatchLogic(53, ["a", "b", "c"]);
-    m.seats.find((s) => s.id === "b")!.lives = 1;
-    m.seats.find((s) => s.id === "c")!.lives = 1;
+    setVies(m, "b", 1);
+    setVies(m, "c", 1);
     m.openRound();
     playPerfect(m, "a");
     playDie(m, "b");
@@ -622,7 +635,7 @@ describe("courbe de tension", () => {
       for (const seats of [2, 3, 6, 10]) {
         const ids = Array.from({ length: seats }, (_, i) => `p${i}`);
         for (const morts of [0, seats - 2]) {
-          const m = new MatchLogic(1, ids, { speed, lives: 3, rotationEvery: 8 });
+          const m = new MatchLogic(1, ids, { speed, lives: 3, rotationEvery: 8, duo: false });
           for (let i = 0; i < morts; i++) m.forfeit(ids[i]!);
           for (let idx = 0; idx < 60; idx++) {
             const { durationMs } = m.openRound();
@@ -641,7 +654,7 @@ describe("courbe de tension", () => {
     // Lire un nom de règle ne suffit pas : il faut l'appliquer. Cette manche
     // demande le même effort conscient qu'à un débutant.
     const ids = Array.from({ length: 4 }, (_, i) => `p${i}`);
-    const m = new MatchLogic(1, ids, { speed: 1, lives: 3, rotationEvery: 8 });
+    const m = new MatchLogic(1, ids, { speed: 1, lives: 3, rotationEvery: 8, duo: false });
     const durees = [];
     for (let idx = 0; idx <= 8; idx++) durees.push(m.openRound().durationMs);
     // La manche 8 est la première d'une nouvelle attribution.
@@ -662,6 +675,7 @@ describe("courbe de tension", () => {
       speed: 0.65,
       lives: 3,
       rotationEvery: 8,
+      duo: false,
     });
     for (const id of ["a", "b", "c", "d"]) m.forfeit(id);
     for (let i = 0; i < 50; i++) {
@@ -675,6 +689,7 @@ describe("courbe de tension", () => {
       speed: 1.3,
       lives: 3,
       rotationEvery: 8,
+      duo: false,
     });
     for (let i = 0; i < 50; i++) {
       const { durationMs } = m.openRound();
@@ -760,7 +775,7 @@ describe("accueil du débutant", () => {
     const { MatchLogic: ML } = await import("../server/match");
     const { ROOKIE_BONUS_LIVES } = await import("../shared/protocol");
     for (const lives of [1, 3, 5]) {
-      const m = new ML(7, ["n"], { speed: 1, lives, rotationEvery: 8 }, new Set(["n"]));
+      const m = new ML(7, ["n"], { speed: 1, lives, rotationEvery: 8, duo: false }, new Set(["n"]));
       expect(m.seats[0]!.lives).toBe(lives + ROOKIE_BONUS_LIVES);
     }
   });
