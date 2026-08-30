@@ -2463,13 +2463,50 @@ body {
   padding-top: 20px;
 }
 
-@media (min-width: 900px) {
+/*
+ * En bande etroite, les DEUX panneaux d'ouverture tiennent cote a cote.
+ *
+ * Mesure : a trois panneaux empiles, `multi-join` passait de 88 a 239 px de
+ * defilement sur 375x812 — l'ajout du mode DUO avait empire l'ecran qu'on
+ * venait corriger. Leurs contenus sont courts (un titre, une ligne, un
+ * bouton), donc la colonne les accueille sans les ecraser ; REJOINDRE, lui,
+ * garde toute la largeur puisqu'il porte un champ de saisie.
+ */
+@media (max-width: 899px) {
   .join {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .join__head,
+  .join__foot,
+  .panel--large {
+    grid-column: 1 / -1;
+  }
+
+  .join .panel {
+    padding: var(--sp-3);
+  }
+
+  .join .panel .btnrow {
+    padding-top: 12px;
+  }
+}
+
+@media (min-width: 900px) {
+  /*
+   * Deux colonnes pour les DEUX modes d'ouverture, et toute la largeur pour
+   * REJOINDRE — qui vient en premier parce que c'est ce que font la plupart
+   * des gens : le code est déjà dans leur presse-papier ou dans leur oreille.
+   */
+  .join {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 26px 52px;
   }
 
   .join__head,
-  .join__foot {
+  .join__foot,
+  .panel--large {
     grid-column: 1 / -1;
   }
 
@@ -4798,6 +4835,112 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
+ * PIXEL ART — une couche de MATIÈRE, pas un changement d'identité
+ *
+ * L'identité Nocturne tient : pas de dégradé, pas d'arrondi, capitales,
+ * angles droits. Le pixel art ne la remplace pas, il lui donne le grain
+ * qui lui manquait — CLAUDE.md notait déjà que ce qui manquait était « une
+ * hiérarchie de MATIÈRE (épaisseurs, espacements), pas des arrondis ».
+ *
+ * ⚠️ RIEN ICI NE TOUCHE AU CANVAS. Les pièces gardent leur couleur, leur
+ * forme et leur trame : ce sont le second canal du mode daltonien et la
+ * géométrie de test de collision (`fieldRect()`). Tout ce bloc vit sur
+ * l'habillage — portes, cartes, panneaux, barre haute — où il ne peut
+ * rien casser.
+ *
+ * Trois primitives seulement, et elles se composent :
+ *   · `--px` : le module. Tout s'aligne dessus, sinon ce n'est pas du
+ *     pixel art, c'est du bruit ;
+ *   · une trame de fond en `repeating-linear-gradient` — un damier de 2 px
+ *     qui ne coûte ni image ni requête ;
+ *   · un cadre en marches d'escalier, dessiné en `box-shadow` étagées :
+ *     c'est ce qui fait « pixel » plutôt que « bordure fine ».
+ * ================================================================== */
+:root {
+  /** Le module du pixel art. Tout ce qui s'en réclame est un multiple. */
+  --px: 4px;
+  /** Le grain : presque invisible seul, structurant sur une grande surface. */
+  --grain: color-mix(in srgb, var(--paper) 4%, transparent);
+}
+
+/*
+ * La trame. Deux dégradés répétés à 45° et -45° font un damier régulier
+ * dont la période est le module. On la pose en `background-image` pour
+ * qu'elle se compose avec la couleur de fond de l'élément.
+ */
+.pixelise {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+}
+
+/*
+ * Le cadre en marches.
+ *
+ * Quatre ombres portées sans flou, décalées d'un module : les coins
+ * naissent en escalier au lieu d'être nets. `box-shadow` plutôt qu'une
+ * bordure parce qu'elle ne prend AUCUNE place dans le flux — la taille du
+ * champ est du gameplay, et cette règle vaut aussi pour ce qui l'entoure.
+ */
+.marches {
+  box-shadow:
+    var(--px) 0 0 0 var(--ink-2),
+    calc(var(--px) * -1) 0 0 0 var(--ink-2),
+    0 var(--px) 0 0 var(--ink-2),
+    0 calc(var(--px) * -1) 0 0 var(--ink-2);
+}
+
+.marches--signal {
+  box-shadow:
+    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 30%, transparent);
+}
+
+/*
+ * Le rendu net des images et des SVG d'interface.
+ *
+ * Les glyphes de joueur sont des SVG de 24 unités affichés à 18 ou 22 px :
+ * le lissage du navigateur les rend mous. `crisp-edges` leur rend l'arête
+ * franche, ce qui est exactement le vocabulaire recherché — et ça ne coûte
+ * rien, puisque la forme ne change pas.
+ */
+.glyph svg,
+.plate__glyph svg,
+.account__valeur svg,
+.lobbyrow__glyph svg {
+  image-rendering: pixelated;
+  shape-rendering: crispEdges;
+}
+
+/*
+ * Le logo prend le grain et une ombre d'un module — l'ombre « 8 bits »,
+ * celle d'un titre d'écran-titre, sans flou et alignée sur la grille.
+ */
+.logo {
+  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--signal) 22%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Rien à neutraliser ici : la couche est entièrement statique. C'est
+     délibéré — un grain qui bouge devient du bruit, et le jeu se joue en
+     200 ms de lecture. */
+}
+
+/* ==================================================================
  * LES DEUX PORTES
  *
  * L'accueil ne propose plus que SOLO et MULTIJOUEUR. Elles doivent donc
@@ -4876,6 +5019,55 @@ button.chip:active:not(:disabled) {
 
 .porte--primary .porte__etat {
   color: var(--signal);
+}
+
+/*
+ * L'habillage pixel posé sur les surfaces existantes.
+ *
+ * En CSS et non par des classes dans le HTML : ces surfaces existent déjà,
+ * elles n'ont pas à savoir qu'on les habille, et un jour où l'on retire la
+ * couche il n'y a qu'un bloc à supprimer. C'est aussi ce qui garantit que
+ * le canvas n'est pas concerné — il n'apparaît dans aucun de ces sélecteurs.
+ */
+.porte,
+.card,
+.panel,
+.account__ligne,
+.invite {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+}
+
+/* Les marches ne vont QUE sur les portes : elles portent l'accent de
+   l'écran d'accueil, et généraliser un cadre épais partout ferait perdre
+   sa valeur au signal. */
+.porte {
+  box-shadow:
+    var(--px) 0 0 0 var(--ink-2),
+    calc(var(--px) * -1) 0 0 0 var(--ink-2),
+    0 var(--px) 0 0 var(--ink-2),
+    0 calc(var(--px) * -1) 0 0 var(--ink-2);
+}
+
+.porte--primary {
+  box-shadow:
+    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
+    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 30%, transparent);
 }
 
 /* Une ligne, pas un paragraphe : l'ancienne faisait 39 mots et 262 px. */

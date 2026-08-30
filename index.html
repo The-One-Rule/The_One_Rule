@@ -498,42 +498,30 @@
       </section>
 
       <!-- MULTI — REJOINDRE -->
+      <!-- MULTI — REJOINDRE OU OUVRIR
+           TROIS intentions, plus deux : rejoindre le salon de quelqu'un, ou
+           ouvrir le sien dans l'un des DEUX modes. DUO était un réglage caché
+           dans le salon — un mode qu'il fallait connaître pour trouver. Il est
+           désormais une porte, à égalité avec l'autre.
+
+           REJOINDRE occupe toute la largeur et vient en premier : c'est ce que
+           font la plupart des gens, et le code est déjà dans leur presse-papier
+           ou dans leur oreille. -->
       <section class="screen hidden" id="multi-join">
-        <!-- Deux intentions, pas une liste de boutons : ouvrir un salon et
-             entrer dans celui d'un autre n'ont rien à voir. Empilées, elles se
-             confondaient — on ne savait pas s'il fallait remplir le code AVANT
-             de cliquer CRÉER. Elles sont maintenant côte à côte, chacune avec
-             son propre bouton, et rien entre les deux. -->
         <div class="screen__scroll screen__scroll--wide join">
           <div class="join__head">
             <p class="eyebrow">MULTIJOUEUR</p>
             <h2 class="rulename">JOUER À PLUSIEURS</h2>
-            <p class="lede">
-              Chaque joueur porte sa <b>propre règle unique</b> — et les autres la voient.
-              De 2 à 10 joueurs.
-            </p>
           </div>
 
-          <div class="col panel">
-            <p class="eyebrow">TU OUVRES</p>
-            <h3 class="panel__title">CRÉER UN SALON</h3>
-            <p class="panel__text">
-              Tu obtiens un code de quatre caractères à dicter, et un lien à envoyer.
-              La vitesse, les vies et la rotation, c'est toi qui les règles.
-            </p>
-            <div class="btnrow">
-              <button class="btn btn--primary" id="btnMultiCreate">CRÉER UN SALON</button>
-            </div>
-          </div>
-
-          <div class="col panel">
+          <div class="col panel panel--large">
             <p class="eyebrow">ON T'ATTEND</p>
             <h3 class="panel__title">REJOINDRE</h3>
             <!-- « caractères » et non « lettres » : l'alphabet des codes
                  contient aussi des chiffres (CODE_ALPHABET, sans I/L/O/0/1
                  pour qu'un code se dicte). Un joueur à qui l'on annonce
                  quatre LETTRES et qui reçoit « 3PS8 » croit s'être trompé. -->
-            <p class="panel__text">Entre le code de quatre caractères qu'on t'a donné.</p>
+            <p class="panel__text">Le code de quatre caractères qu'on t'a donné.</p>
             <div class="fieldrow">
               <input
                 class="field"
@@ -548,7 +536,29 @@
             </div>
             <p class="warn hidden" id="multiJoinErr"></p>
             <div class="btnrow">
-              <button class="btn" id="btnMultiJoin">REJOINDRE</button>
+              <button class="btn btn--primary" id="btnMultiJoin">REJOINDRE</button>
+            </div>
+          </div>
+
+          <div class="col panel">
+            <p class="eyebrow">TU OUVRES</p>
+            <h3 class="panel__title">SEUL CONTRE TOUS</h3>
+            <p class="panel__text">Chacun sa règle. Le dernier debout gagne. De 2 à 10.</p>
+            <div class="btnrow">
+              <button class="btn" id="btnMultiCreate">OUVRIR UN SALON</button>
+            </div>
+          </div>
+
+          <!-- DUO : les joueurs sont appariés deux à deux et partagent une
+               réserve de vies. C'est un réglage de SALON — on ne choisit pas
+               d'être en duo tout seul — donc l'ouvrir ici le pose d'emblée,
+               et l'hôte peut encore le changer dans le salon. -->
+          <div class="col panel">
+            <p class="eyebrow">TU OUVRES</p>
+            <h3 class="panel__title">DUO</h3>
+            <p class="panel__text">À deux, une seule réserve de vies. Jusqu'à 5 équipes.</p>
+            <div class="btnrow">
+              <button class="btn" id="btnMultiCreateDuo">OUVRIR UN SALON</button>
             </div>
           </div>
 

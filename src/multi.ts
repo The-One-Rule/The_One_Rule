@@ -2513,17 +2513,33 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     void openJoin();
   });
 
-  $("btnMultiCreate").addEventListener("click", () => {
-    void (async () => {
-      sfx.ui();
-      setJoinErr(null);
-      // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
-      // que l'app passe en arrière-plan. Un send() sur socket morte ne fait
-      // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
-      const client = await ensureConnected();
-      client?.createRoom();
-    })();
-  });
+  /**
+   * Ouvrir un salon dans un mode donne.
+   *
+   * DUO n'est pas un mecanisme separe : c'est le reglage de salon `duo`, pose
+   * d'emblee au lieu d'etre cherche dans les reglages. Le mode existant reste
+   * donc un cas particulier du nouveau — meme astuce que la pile d'une regle
+   * pour l'escalade et l'equipe d'un joueur pour le duo lui-meme.
+   *
+   * Le reglage part JUSTE APRES la creation, sur la meme socket : les messages
+   * y sont ordonnes, et le serveur nous reconnait comme hote puisque c'est
+   * nous qui venons d'ouvrir. L'hote peut encore le changer dans le salon —
+   * ouvrir en DUO est un depart, pas un verrou.
+   */
+  async function ouvreSalon(duo: boolean): Promise<void> {
+    sfx.ui();
+    setJoinErr(null);
+    // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
+    // que l'app passe en arrière-plan. Un send() sur socket morte ne fait
+    // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
+    const client = await ensureConnected();
+    if (!client) return;
+    client.createRoom();
+    if (duo) client.setSettings({ duo: true });
+  }
+
+  $("btnMultiCreate").addEventListener("click", () => void ouvreSalon(false));
+  $("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon(true));
 
   $("btnMultiJoin").addEventListener("click", () => {
     void (async () => {

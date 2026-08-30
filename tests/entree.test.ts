@@ -92,3 +92,36 @@ describe("le verrou d'identité reste là où il a un sens", () => {
     expect(retour).toContain('show("multi-lobby")');
   });
 });
+
+describe("deux modes d'ouverture, separes et nommes", () => {
+  it("SEUL CONTRE TOUS et DUO sont deux portes, pas un reglage cache", () => {
+    // DUO existait comme reglage `ÉQUIPES` DANS le salon : il fallait
+    // connaitre le mode pour le trouver. Il est desormais une intention
+    // annoncee a l'entree, a egalite avec l'autre.
+    const html = readFileSync("index.html", "utf8");
+    expect(html).toContain('id="btnMultiCreate"');
+    expect(html).toContain('id="btnMultiCreateDuo"');
+    expect(html).toContain("SEUL CONTRE TOUS");
+  });
+
+  it("ouvrir en DUO pose le reglage, et seulement dans ce cas", () => {
+    const f = corps("async function ouvreSalon(duo: boolean)");
+    expect(f).toContain("createRoom()");
+    expect(f).toContain("setSettings({ duo: true })");
+    // Le reglage ne part que si on l'a demande : ouvrir en SEUL CONTRE TOUS
+    // ne doit rien envoyer de plus qu'avant.
+    expect(f).toMatch(/if \(duo\)\s*client\.setSettings/);
+  });
+
+  it("les deux boutons passent par le meme chemin", () => {
+    // Deux implementations de « ouvrir un salon » finiraient par diverger, et
+    // le symptome serait un mode qui marche et l'autre non.
+    expect(src).toContain('$("btnMultiCreate").addEventListener("click", () => void ouvreSalon(false))');
+    expect(src).toContain('$("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon(true))');
+  });
+
+  it("l'hote peut encore changer d'avis dans le salon", () => {
+    // Ouvrir en DUO est un depart, pas un verrou : le reglage ÉQUIPES reste.
+    expect(readFileSync("index.html", "utf8")).toContain('id="optDuo"');
+  });
+});
