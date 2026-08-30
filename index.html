@@ -514,9 +514,12 @@
         <div class="topbar__left">
           <button class="btn btn--ghost btn--top" id="btnTopMenu">MENU</button>
         </div>
+        <!-- Le signe seul. Le nom etait redondant : il est deja en grand
+             sur l'accueil, et sur les autres ecrans il n'apprend rien a
+             quelqu'un qui est deja dans le jeu. L'`aria-label` le porte
+             pour ceux qui ne voient pas le signe. -->
         <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, retour à l'accueil">
-          <img class="topbar__mark" src="./favicon.svg" alt="" width="22" height="22" />
-          <span class="topbar__name">THE ONE <em>RULE</em></span>
+          <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
         </button>
         <div class="topbar__right">
           <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">COMPTE</button>

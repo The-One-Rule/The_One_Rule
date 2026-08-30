@@ -6231,6 +6231,12 @@ button.chip:active:not(:disabled) {
 .topbar {
   position: absolute;
   top: 0;
+  /*
+   * `.screen` n'a AUCUN padding horizontal — mesure, 0 px des deux cotes.
+   * Des marges negatives poussaient donc la barre 24 px hors du cadre de
+   * chaque cote, soit 1326 px de large dans un `#app` de 1280 : le
+   * debordement lateral qu'on venait de corriger, revenu par la fenetre.
+   */
   left: 0;
   right: 0;
   z-index: 11;
@@ -6238,8 +6244,13 @@ button.chip:active:not(:disabled) {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--sp-2);
-  min-height: 68px;
-  padding: 12px 20px 14px;
+  /*
+   * Plus basse : 68 px prenaient trop de place pour trois commandes et un
+   * signe. 52 px suffisent — le plancher tactile de 44 px plus la respiration
+   * qu'il faut pour que ca ne colle pas au bord.
+   */
+  min-height: 52px;
+  padding: 6px 16px 8px;
   background:
     repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px)
       0 50% / 6px 28px no-repeat,
@@ -6287,8 +6298,10 @@ button.chip:active:not(:disabled) {
 }
 
 .topbar__mark {
-  width: 22px;
-  height: 22px;
+  /* Le signe porte seul l'enseigne depuis que le nom est parti : il peut
+     grandir sans ecraser les trois commandes, qui font 44 px de haut. */
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
   image-rendering: pixelated;
 }

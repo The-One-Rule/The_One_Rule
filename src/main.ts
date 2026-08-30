@@ -230,10 +230,27 @@ function show(id: ScreenId): void {
    * gameplay (CLAUDE.md §6 n°10).
    */
   const barre = id !== null && AVEC_BARRE.has(id);
+  /*
+   * LA BARRE VIT DANS L'ECRAN, PAS AU-DESSUS DE LUI.
+   *
+   * Elle etait posee en absolu dans `#app`, alors que c'est `.screen` qui
+   * defile : elle restait donc collee en haut pendant que le contenu glissait
+   * dessous. Rapporte tel quel — « quand je scrolle il reste affiche en haut
+   * et ca rend mal ».
+   *
+   * Un enfant en position absolue d'un conteneur qui defile SUIT le
+   * defilement — seuls `fixed` et `sticky` y echappent. La deplacer dans
+   * l'ecran actif suffit donc, sans un seul ecouteur de defilement : elle
+   * remonte avec le reste et sort du cadre.
+   *
+   * Le `padding-top` de `.has-topbar` reste : il reserve la place qu'elle
+   * occupe en haut du contenu, sinon le premier element passerait dessous.
+   */
   const bar = $("topbar");
   bar.classList.toggle("hidden", !barre);
   appEl.classList.toggle("has-topbar", barre);
-  if (bar.parentElement !== appEl) appEl.appendChild(bar);
+  const hote = barre && id !== null ? $(id) : appEl;
+  if (bar.parentElement !== hote) hote.appendChild(bar);
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
