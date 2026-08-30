@@ -30,6 +30,20 @@ let shares = 0;
  */
 const social = { duelSent: 0, duelOpened: 0, duelPlayed: 0, inviteSent: 0, inviteOpened: 0 };
 
+/**
+ * Entonnoir du COMPTE — vu, cliqué, lié.
+ *
+ * Trois crans, et on compte des JOUEURS et non des affichages : l'invitation
+ * peut apparaître à chaque fin de run, donc un compte d'affichages dirait
+ * surtout combien de fois les gens ont joué.
+ *
+ * Ce que ce bloc existe pour trancher : tous les testeurs ont RÉCLAMÉ un
+ * compte, ce qui n'est pas la même chose que d'en créer un. Ce projet a déjà
+ * vu une demande unanime — le partage de score — rester à 0 % d'usage réel.
+ * On ne conclura donc rien de la demande, seulement de ces trois nombres.
+ */
+const compte = { vu: 0, parti: 0, lie: 0 };
+
 for await (const line of rl) {
   const start = line.indexOf("{");
   if (start < 0) continue;
@@ -43,7 +57,8 @@ for await (const line of rl) {
 
   let u = users.get(e.id);
   if (!u) {
-    u = { first: e.day, days: new Set(), sessions: [], shares: 0, runs: 0, sent: 0 };
+    u = { first: e.day, days: new Set(), sessions: [], shares: 0, runs: 0, sent: 0,
+          voitCompte: false, partCompte: false, aCompte: false };
     users.set(e.id, u);
   }
   u.first = Math.min(u.first, e.day);
@@ -70,6 +85,20 @@ for await (const line of rl) {
     u.sent++;
   }
   if (e.ev === "invite_opened") social.inviteOpened++;
+
+  // Un joueur compte UNE fois par cran, pas une fois par affichage.
+  if (e.ev === "compte_invite" && !u.voitCompte) {
+    u.voitCompte = true;
+    compte.vu++;
+  }
+  if (e.ev === "compte_start" && !u.partCompte) {
+    u.partCompte = true;
+    compte.parti++;
+  }
+  if (e.ev === "compte_lie" && !u.aCompte) {
+    u.aCompte = true;
+    compte.lie++;
+  }
 }
 
 const pct = (x) => (x * 100).toFixed(1) + " %";
@@ -150,6 +179,28 @@ console.log(`  envois / run           ${ratio(sentTotal, runs.length).padStart(7
 console.log(`  ouverts / envoyés      ${ratio(openedTotal, sentTotal).padStart(7)}`);
 console.log(`  joués / ouverts (duel) ${ratio(social.duelPlayed, social.duelOpened).padStart(7)}`);
 console.log(`  joueurs qui invitent   ${ratio(inviters, users.size).padStart(7)}   (n=${users.size})`);
+console.log("");
+console.log("");
+console.log("ENTONNOIR DU COMPTE");
+console.log(`  invitation vue         ${String(compte.vu).padStart(7)}   joueur(s)`);
+console.log(`  parti se connecter     ${String(compte.parti).padStart(7)}   ${ratio(compte.parti, compte.vu).padStart(7)} de ceux qui l'ont vue`);
+console.log(`  compte lié             ${String(compte.lie).padStart(7)}   ${ratio(compte.lie, compte.parti).padStart(7)} de ceux qui sont partis`);
+console.log("");
+console.log("  Les trois crans échouent pour des raisons différentes, et la réparation");
+console.log("  n'est pas la même : personne ne voit l'invitation (elle est trop discrète,");
+console.log("  ou les comptes ne sont pas configurés) · on la voit sans partir (la");
+console.log("  promesse ne vaut pas le détour) · on part sans revenir (le fournisseur");
+console.log("  ou le retour est cassé — et là c'est un BUG, pas un arbitrage).");
+console.log("");
+console.log("  ⚠️ Tous les testeurs ont RÉCLAMÉ un compte. Ce n'est pas la même chose que");
+console.log("  d'en créer un : le partage de score aussi était réclamé, et il est resté à");
+console.log("  0 %. Ne conclure que de ces trois nombres, jamais de la demande.");
+if (compte.parti > 0 && compte.lie === 0) {
+  console.log("");
+  console.log("  ⇒ Des joueurs sont partis se connecter et AUCUN n'est revenu avec un");
+  console.log("    compte. Ce n'est pas un signal produit, c'est une panne : vérifier");
+  console.log("    l'URI de retour déclarée chez Google et Discord, et /api/auth?a=fournisseurs.");
+}
 console.log("");
 console.log("  'ouverts / envoyés' peut dépasser 100 % sans que ce soit une erreur : un lien");
 console.log("  envoyé une fois peut être ouvert par plusieurs personnes. C'est même le signal");
