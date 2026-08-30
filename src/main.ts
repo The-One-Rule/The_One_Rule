@@ -49,6 +49,7 @@ import {
   supprimeCompte,
 } from "./compte";
 import { enfile, vide } from "./compte/file";
+import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
@@ -520,6 +521,14 @@ function renderCodex(): void {
  * et c'est le piège de confiance le plus facile à commettre ici.
  */
 let fournisseursDispo: string[] | null = null;
+/**
+ * Ce que le retour du fournisseur a donné, gardé pour l'écran de compte.
+ *
+ * Déclaré ICI et non au point d'appel : `renderCompte` le lit, et une `const`
+ * posée plus bas dans le module ne serait accessible que par chance — au
+ * premier appel qui remonterait, ce serait une zone morte temporelle.
+ */
+let retourCompte: RetourConnexion = { quoi: "aucun" };
 /** Refusée une fois, l'invitation ne revient pas de la session. */
 let inviteEcartee = false;
 
@@ -598,6 +607,23 @@ function renderCompte(): void {
 
   $("compteLede").textContent =
     "Le jeu marche sans. Un compte ne sert qu'à garder ce que tu fais quand tu changes de navigateur ou d'appareil.";
+
+  /*
+   * La raison d'un retour raté, montrée plutôt qu'avalée.
+   *
+   * `litRetourConnexion` efface le fragment de l'URL dès qu'il l'a lu — c'est
+   * nécessaire, un jeton n'a rien à faire dans une barre d'adresse. Mais quand
+   * le retour ÉCHOUE, ça effaçait aussi la seule trace exploitable, et il ne
+   * restait plus que « ça ne marche pas ». Les trois causes ne se réparent
+   * pas au même endroit, donc les distinguer vaut le peu de place que ça prend.
+   */
+  const RAISONS: Record<string, string> = {
+    annule: "CONNEXION ANNULÉE.",
+    echec: "LE FOURNISSEUR A REFUSÉ L'ÉCHANGE. VÉRIFIE L'URI DE RETOUR DÉCLARÉE CHEZ LUI.",
+    etat_invalide: "LIEN DE RETOUR EXPIRÉ OU ROUVERT DEUX FOIS. RÉESSAIE.",
+    banni: "CE COMPTE EST SUSPENDU.",
+    indisponible: "LES COMPTES NE SONT PAS CONFIGURÉS SUR CE DÉPLOIEMENT.",
+  };
   $("compteQuoi").textContent =
     "CE QUI SERAIT ENREGISTRÉ : TON CARNET, TA SÉRIE ET TES RECORDS. RIEN D'AUTRE.";
 
@@ -616,8 +642,12 @@ function renderCompte(): void {
   }
   const err = $("compteErr");
   const vide = (fournisseursDispo ?? []).length === 0;
-  err.classList.toggle("hidden", !vide);
-  err.textContent = vide ? "LES COMPTES NE SONT PAS DISPONIBLES POUR L'INSTANT." : "";
+  const refus =
+    retourCompte.quoi === "refus"
+      ? (RAISONS[retourCompte.code] ?? `RETOUR REFUSÉ (${retourCompte.code}).`)
+      : "";
+  err.classList.toggle("hidden", !vide && !refus);
+  err.textContent = refus || (vide ? "LES COMPTES NE SONT PAS DISPONIBLES POUR L'INSTANT." : "");
 }
 
 async function ouvreCompte(): Promise<void> {
@@ -1945,7 +1975,7 @@ setupAnalytics();
  *     effective. Lancé sans être attendu — rien ici ne doit retarder
  *     l'affichage, et surtout pas l'ouverture d'un lien d'invitation.
  */
-const retourCompte = litRetourConnexion();
+retourCompte = litRetourConnexion();
 
 /**
  * Ce que le compte doit faire au démarrage, en tâche de fond.
