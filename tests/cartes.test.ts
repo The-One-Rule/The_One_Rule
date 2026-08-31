@@ -32,7 +32,7 @@ import { readFileSync } from "node:fs";
  */
 const CARTES = ["btnDaily", "btnTraining", "btnRanked", "btnEscalade"];
 const PORTES = ["btnSolo", "btnMulti"];
-const SOURCES = ["src/main.ts", "src/multi.ts"];
+const SOURCES = ["src/main.ts", "src/multi.ts", "src/i18n.ts"];
 
 beforeAll(() => {
   const html = readFileSync("index.html", "utf8");

@@ -81,7 +81,7 @@
       <header id="band">
         <div class="band__mark" aria-hidden="true"></div>
         <div class="band__body">
-          <span class="band__tag">RÈGLE UNIQUE</span>
+          <span class="band__tag" data-i18n="hud.regle">RÈGLE UNIQUE</span>
           <span class="band__rule" id="bandRule">—</span>
           <p class="band__brief" id="bandBrief"></p>
         </div>
@@ -93,7 +93,7 @@
         <div id="sub"></div>
         <div id="timer"><div id="timerFill"></div></div>
         <div id="ghost" class="ghost hidden">
-          <span class="ghost__tag">FANTÔME</span>
+          <span class="ghost__tag" data-i18n="hud.fantome">FANTÔME</span>
           <div class="ghost__track"><div class="ghost__fill" id="ghostFill"></div></div>
           <span class="ghost__num" id="ghostNum">0</span>
         </div>
@@ -118,7 +118,7 @@
         <div class="plates__col" id="platesR"></div>
       </div>
       <div id="watchBar" class="watchbar hidden" aria-label="Spectateur">
-        <span class="watchbar__label">JE REGARDE</span>
+        <span class="watchbar__label" data-i18n="hud.regarde">JE REGARDE</span>
         <div class="watchbar__targets" id="watchTargets"></div>
       </div>
 
@@ -137,7 +137,7 @@
       <footer id="foot">
         <div class="foot__cell">
           <b class="foot__value" id="fScore">0</b>
-          <span class="foot__label">MANCHE</span>
+          <span class="foot__label" data-i18n="hud.manche">MANCHE</span>
         </div>
         <div class="foot__cell foot__cell--mid">
           <b class="foot__value" id="fBest">0</b>
@@ -145,7 +145,7 @@
         </div>
         <div class="foot__cell foot__cell--mode">
           <b class="foot__value foot__value--mode" id="fMode">—</b>
-          <span class="foot__label">MODE</span>
+          <span class="foot__label" data-i18n="hud.mode">MODE</span>
         </div>
       </footer>
 
@@ -175,8 +175,8 @@
           aucune donnée personnelle. Ça sert uniquement à savoir si le jeu mérite d'être continué.
         </p>
         <div class="notice__btns">
-          <button class="btn btn--ghost" id="btnMetricsOff">REFUSER</button>
-          <button class="btn" id="btnMetricsOk">D'ACCORD</button>
+          <button class="btn btn--ghost" id="btnMetricsOff" data-i18n="mesure.refuser">REFUSER</button>
+          <button class="btn" id="btnMetricsOk" data-i18n="mesure.accord">D'ACCORD</button>
         </div>
       </div>
 
@@ -203,9 +203,15 @@
                  262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
                  sur un ecran qu'on revoit vingt fois. Le brief et
                  l'entrainement font ce travail mieux qu'elle. -->
-            <p class="lede lede--court">
+            <p class="lede lede--court" id="ledeHome">
               Une <b>règle unique</b>. Parfois, obéir est la faute.
             </p>
+            <!-- Langue de l'accueil seulement. Les règles du jeu
+                 restent en français : LE SANG ne s'appelle pas autrement. -->
+            <div class="lang" id="lang" role="group" aria-label="Langue">
+              <button type="button" class="lang__btn is-on" id="btnLangFr" lang="fr" aria-pressed="true">FR</button>
+              <button type="button" class="lang__btn" id="btnLangEn" lang="en" aria-pressed="false">EN</button>
+            </div>
           </div>
 
           <!-- Le trait entre l'enseigne et le corps. Discret, dentelé,
@@ -228,11 +234,11 @@
                au lieu d'en sortir. Elle couvre TOUTE la faille — meme repere
                que les deux decoupes — pour que le vide entre les levres se
                decrive dans le meme systeme de coordonnees qu'elles. -->
-          <div class="faille" aria-label="Modes de jeu">
+          <div class="faille" id="faille" aria-label="Modes de jeu">
             <button class="faille__zone faille__zone--solo" id="btnSolo">
               <span class="faille__corps">
-                <span class="faille__titre">SOLO</span>
-                <span class="faille__desc">Run du jour, escalade, entraînement.</span>
+                <span class="faille__titre" data-i18n="solo.eyebrow">SOLO</span>
+                <span class="faille__desc" id="failleSoloDesc">Run du jour, escalade, entraînement.</span>
                 <span class="faille__etat" id="soloEtat"></span>
               </span>
             </button>
@@ -240,7 +246,7 @@
             <button class="faille__zone faille__zone--multi" id="btnMulti">
               <span class="faille__corps">
                 <span class="faille__titre">MULTI</span>
-                <span class="faille__desc">Ton code, tes potes, une règle chacun.</span>
+                <span class="faille__desc" id="failleMultiDesc">Ton code, tes potes, une règle chacun.</span>
                 <span class="faille__etat" id="cardMultiState"></span>
               </span>
             </button>
@@ -335,7 +341,7 @@
           </div>
 
           <div class="home__foot">
-            <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
+            <p class="fineprint" id="homeFineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
           </div>
         </div>
       </section>
@@ -347,14 +353,14 @@
       <section class="screen hidden" id="solo">
         <div class="screen__scroll screen__scroll--wide home">
           <div class="home__brand">
-            <p class="eyebrow">SOLO</p>
-            <h2 class="rulename">TU JOUES CONTRE TOI</h2>
+            <p class="eyebrow" data-i18n="solo.eyebrow">SOLO</p>
+            <h2 class="rulename" data-i18n="solo.titre">TU JOUES CONTRE TOI</h2>
           </div>
 
           <div class="col home__cards">
             <div class="cards" aria-label="Modes solo">
               <button class="card" id="btnDaily">
-                <span class="card__title">RUN DU JOUR</span>
+                <span class="card__title" data-i18n="carte.daily.titre">RUN DU JOUR</span>
                 <span class="card__desc" id="cardDailyDesc"></span>
                 <span class="card__state" id="cardDailyState"></span>
               </button>
@@ -364,20 +370,20 @@
                    douze seulement piègent. Empiler les multiplie sans écrire
                    une règle de plus. Voir src/game/escalade.ts. -->
               <button class="card" id="btnEscalade">
-                <span class="card__title">ESCALADE</span>
-                <span class="card__desc">Une règle. Puis deux. Puis trois.</span>
+                <span class="card__title" data-i18n="carte.escalade.titre">ESCALADE</span>
+                <span class="card__desc" data-i18n="carte.escalade.desc">Une règle. Puis deux. Puis trois.</span>
                 <span class="card__state" id="cardEscaladeState">JUSQU'OÙ TU TIENS ?</span>
               </button>
 
               <button class="card" id="btnTraining">
-                <span class="card__title">ENTRAÎNEMENT</span>
-                <span class="card__desc">Un petit échauffement ?</span>
+                <span class="card__title" data-i18n="carte.training.titre">ENTRAÎNEMENT</span>
+                <span class="card__desc" data-i18n="carte.training.desc">Un petit échauffement ?</span>
                 <span class="card__state" id="cardTrainingState"></span>
               </button>
 
               <button class="card hidden" id="btnRanked">
-                <span class="card__title">CLASSÉ</span>
-                <span class="card__desc">Quelqu'un de ton niveau. La même partie que lui.</span>
+                <span class="card__title" data-i18n="carte.ranked.titre">CLASSÉ</span>
+                <span class="card__desc" data-i18n="carte.ranked.desc">Quelqu'un de ton niveau. La même partie que lui.</span>
                 <span class="card__state" id="cardRankedState"></span>
               </button>
             </div>
@@ -387,7 +393,7 @@
             <div class="strip" id="homeStreak"></div>
             <div id="homeQuests" class="quests"></div>
             <div class="btnrow btnrow--tight">
-              <button class="btn btn--ghost" id="btnCodex">CARNET DES RÈGLES</button>
+              <button class="btn btn--ghost" id="btnCodex" data-i18n="carnet.titre">CARNET DES RÈGLES</button>
             </div>
           </div>
         </div>
@@ -404,11 +410,11 @@
           <p class="lede" id="briefText"></p>
           <p class="warn hidden" id="briefWarn"></p>
           <div class="btnrow">
-            <button class="btn btn--primary" id="btnGo">COMMENCER</button>
+            <button class="btn btn--primary" id="btnGo" data-i18n="brief.go">COMMENCER</button>
             <!-- Proposé uniquement à qui n'a jamais joué et choisit le run du
                  jour : on offre le chemin qui pardonne, on ne bloque pas. -->
-            <button class="btn hidden" id="btnBriefTraining">D'ABORD S'ENTRAÎNER</button>
-            <button class="btn btn--ghost" id="btnBack">RETOUR</button>
+            <button class="btn hidden" id="btnBriefTraining" data-i18n="brief.training">D'ABORD S'ENTRAÎNER</button>
+            <button class="btn btn--ghost" id="btnBack" data-i18n="commun.retour">RETOUR</button>
           </div>
           <!-- Allure : entraînement uniquement. Le run du jour et le classé
                doivent rester identiques pour tout le monde.
@@ -421,7 +427,7 @@
                donc personne n'a à la trouver pour bien commencer. -->
           <div class="settings settings--foot hidden" id="briefPace" aria-label="Allure">
             <div class="settings__row">
-              <span class="settings__label">ALLURE</span>
+              <span class="settings__label" data-i18n="brief.allure">ALLURE</span>
               <div class="settings__opts" id="optPace"></div>
             </div>
             <p class="settings__hint hidden" id="briefPaceHint"></p>
@@ -456,7 +462,7 @@
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
                  seule page qui les montrait était l'accueil, qu'on ne revoit
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->
-            <p class="eyebrow">QUÊTES DU JOUR</p>
+            <p class="eyebrow" data-i18n="fin.quetes">QUÊTES DU JOUR</p>
             <div class="quests" id="overQuests"></div>
             <div class="teaser" id="teaser"></div>
 
@@ -471,16 +477,16 @@
                  ne l'est pas. -->
             <div class="invite hidden" id="compteInvite">
               <p class="invite__text" id="compteInviteText"></p>
-              <button class="btn btn--ghost btn--mini" id="btnCompteInvite">ENREGISTRER</button>
+              <button class="btn btn--ghost btn--mini" id="btnCompteInvite" data-i18n="fin.enregistrer">ENREGISTRER</button>
             </div>
           </div>
 
           <div class="over__foot">
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnAgain">REJOUER · R</button>
-              <button class="btn" id="btnShare">PARTAGER</button>
-              <button class="btn" id="btnDuel">DÉFIER UN AMI</button>
-              <button class="btn btn--ghost" id="btnHome">MENU</button>
+              <button class="btn btn--primary" id="btnAgain" data-i18n="fin.rejouer">REJOUER · R</button>
+              <button class="btn" id="btnShare" data-i18n="fin.partager">PARTAGER</button>
+              <button class="btn" id="btnDuel" data-i18n="fin.defier">DÉFIER UN AMI</button>
+              <button class="btn btn--ghost" id="btnHome" data-i18n="commun.menu">MENU</button>
             </div>
           </div>
         </div>
@@ -489,14 +495,14 @@
       <!-- CARNET -->
       <section class="screen hidden" id="codex">
         <div class="screen__scroll">
-          <p class="eyebrow">CARNET DES RÈGLES</p>
-          <h2 class="rulename">TON PALMARÈS</h2>
+          <p class="eyebrow" data-i18n="carnet.titre">CARNET DES RÈGLES</p>
+          <h2 class="rulename" data-i18n="carnet.palmares">TON PALMARÈS</h2>
           <!-- Combien en reste-t-il : la question qu'on vient poser ici, et
                qu'il fallait résoudre en comptant les lignes soi-même. -->
           <p class="codexprogress" id="codexProgress"></p>
           <div class="codexlist" id="codexList"></div>
           <div class="btnrow">
-            <button class="btn btn--ghost" id="btnCodexBack">RETOUR</button>
+            <button class="btn btn--ghost" id="btnCodexBack" data-i18n="commun.retour">RETOUR</button>
           </div>
         </div>
       </section>
@@ -533,8 +539,8 @@
            poids qu'une carte de mode. -->
       <section class="screen hidden" id="reglages">
         <div class="screen__scroll">
-          <p class="eyebrow">RÉGLAGES</p>
-          <h2 class="rulename">CE QUE TU PRÉFÈRES</h2>
+          <p class="eyebrow" data-i18n="reglages.titre">RÉGLAGES</p>
+          <h2 class="rulename" data-i18n="reglages.sous">CE QUE TU PRÉFÈRES</h2>
           <div class="prefs prefs--screen" aria-label="Réglages">
             <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIQUE : ON</button>
             <button class="btn btn--ghost btn--pref" id="btnSound">SON : ON</button>
@@ -546,7 +552,7 @@
           </div>
           <p class="fineprint">SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU</p>
           <div class="btnrow">
-            <button class="btn btn--ghost" id="btnReglagesBack">RETOUR</button>
+            <button class="btn btn--ghost" id="btnReglagesBack" data-i18n="commun.retour">RETOUR</button>
           </div>
         </div>
       </section>
@@ -558,7 +564,7 @@
            préalable. -->
       <section class="screen hidden" id="compte">
         <div class="screen__scroll">
-          <p class="eyebrow">COMPTE</p>
+          <p class="eyebrow" data-i18n="compte.eyebrow">COMPTE</p>
           <h2 class="rulename" id="compteTitre">ENREGISTRER TES PERFS</h2>
           <p class="lede" id="compteLede"></p>
 
@@ -573,17 +579,17 @@
           <div class="account__on hidden" id="compteConnecte">
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
-              <button class="btn btn--ghost" id="btnCompteQuitter">SE DÉCONNECTER</button>
+              <button class="btn btn--ghost" id="btnCompteQuitter" data-i18n="compte.deconnexion">SE DÉCONNECTER</button>
               <!-- Deux temps, jamais un seul : le premier clic dit ce qui va
                    disparaître, le second le fait. Un bouton de suppression qui
                    agit au premier clic est une trappe. -->
-              <button class="btn btn--ghost" id="btnCompteSupprimer">SUPPRIMER LE COMPTE</button>
+              <button class="btn btn--ghost" id="btnCompteSupprimer" data-i18n="compte.supprimer">SUPPRIMER LE COMPTE</button>
             </div>
             <p class="warn hidden" id="compteDanger"></p>
           </div>
 
           <div class="btnrow">
-            <button class="btn btn--ghost" id="btnCompteBack">RETOUR</button>
+            <button class="btn btn--ghost" id="btnCompteBack" data-i18n="commun.retour">RETOUR</button>
           </div>
         </div>
       </section>
@@ -591,12 +597,9 @@
       <!-- MULTI — IDENTITÉ -->
       <section class="screen hidden" id="multi-id">
         <div class="screen__scroll">
-          <p class="eyebrow">MULTIJOUEUR</p>
-          <h2 class="rulename">TON SIGNE</h2>
-          <p class="lede">
-            Ton nom et ton signe te suivent dans tous les salons.
-            C'est à ça que les autres te reconnaissent.
-          </p>
+          <p class="eyebrow" data-i18n="multi.eyebrow">MULTIJOUEUR</p>
+          <h2 class="rulename" data-i18n="multi.signe">TON SIGNE</h2>
+          <p class="lede" data-i18n="multi.signe.lede">Ton nom et ton signe te suivent dans tous les salons. C'est à ça que les autres te reconnaissent.</p>
           <div class="fieldrow">
             <input
               class="field field--name"
@@ -612,8 +615,8 @@
           <div class="glyphpick" id="idGlyphs" role="radiogroup" aria-label="Ton signe"></div>
           <p class="warn hidden" id="idErr"></p>
           <div class="btnrow">
-            <button class="btn btn--primary" id="btnIdOk">CONTINUER</button>
-            <button class="btn btn--ghost" id="btnIdBack">RETOUR</button>
+            <button class="btn btn--primary" id="btnIdOk" data-i18n="multi.continuer">CONTINUER</button>
+            <button class="btn btn--ghost" id="btnIdBack" data-i18n="commun.retour">RETOUR</button>
           </div>
         </div>
       </section>
@@ -631,18 +634,18 @@
       <section class="screen hidden" id="multi-join">
         <div class="screen__scroll screen__scroll--wide join">
           <div class="join__head">
-            <p class="eyebrow">MULTIJOUEUR</p>
-            <h2 class="rulename">JOUER À PLUSIEURS</h2>
+            <p class="eyebrow" data-i18n="multi.eyebrow">MULTIJOUEUR</p>
+            <h2 class="rulename" data-i18n="multi.titre">JOUER À PLUSIEURS</h2>
           </div>
 
           <div class="col panel panel--large">
-            <p class="eyebrow">ON T'ATTEND</p>
-            <h3 class="panel__title">REJOINDRE</h3>
+            <p class="eyebrow" data-i18n="multi.attend">ON T'ATTEND</p>
+            <h3 class="panel__title" data-i18n="multi.rejoindre">REJOINDRE</h3>
             <!-- « caractères » et non « lettres » : l'alphabet des codes
                  contient aussi des chiffres (CODE_ALPHABET, sans I/L/O/0/1
                  pour qu'un code se dicte). Un joueur à qui l'on annonce
                  quatre LETTRES et qui reçoit « 3PS8 » croit s'être trompé. -->
-            <p class="panel__text">Le code de quatre caractères qu'on t'a donné.</p>
+            <p class="panel__text" data-i18n="multi.code.aide">Le code de quatre caractères qu'on t'a donné.</p>
             <div class="fieldrow">
               <input
                 class="field"
@@ -657,16 +660,16 @@
             </div>
             <p class="warn hidden" id="multiJoinErr"></p>
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnMultiJoin">REJOINDRE</button>
+              <button class="btn btn--primary" id="btnMultiJoin" data-i18n="multi.rejoindre">REJOINDRE</button>
             </div>
           </div>
 
           <div class="col panel">
-            <p class="eyebrow">TU OUVRES</p>
-            <h3 class="panel__title">SEUL CONTRE TOUS</h3>
-            <p class="panel__text">Chacun sa règle. Le dernier debout gagne. De 2 à 10.</p>
+            <p class="eyebrow" data-i18n="multi.ouvres">TU OUVRES</p>
+            <h3 class="panel__title" data-i18n="multi.royale">SEUL CONTRE TOUS</h3>
+            <p class="panel__text" data-i18n="multi.royale.desc">Chacun sa règle. Le dernier debout gagne. De 2 à 10.</p>
             <div class="btnrow">
-              <button class="btn" id="btnMultiCreate">OUVRIR UN SALON</button>
+              <button class="btn" id="btnMultiCreate" data-i18n="multi.ouvrir">OUVRIR UN SALON</button>
             </div>
           </div>
 
@@ -675,18 +678,18 @@
                d'être en duo tout seul — donc l'ouvrir ici le pose d'emblée,
                et l'hôte peut encore le changer dans le salon. -->
           <div class="col panel">
-            <p class="eyebrow">TU OUVRES</p>
-            <h3 class="panel__title">DUO</h3>
-            <p class="panel__text">À deux, une seule réserve de vies. Jusqu'à 5 équipes.</p>
+            <p class="eyebrow" data-i18n="multi.ouvres">TU OUVRES</p>
+            <h3 class="panel__title" data-i18n="multi.duo">DUO</h3>
+            <p class="panel__text" data-i18n="multi.duo.desc">À deux, une seule réserve de vies. Jusqu'à 5 équipes.</p>
             <div class="btnrow">
-              <button class="btn" id="btnMultiCreateDuo">OUVRIR UN SALON</button>
+              <button class="btn" id="btnMultiCreateDuo" data-i18n="multi.ouvrir">OUVRIR UN SALON</button>
             </div>
           </div>
 
           <div class="join__foot">
             <div class="btnrow">
-              <button class="btn btn--ghost" id="btnMultiIdentity">CHANGER DE SIGNE</button>
-              <button class="btn btn--ghost" id="btnMultiJoinBack">RETOUR</button>
+              <button class="btn btn--ghost" id="btnMultiIdentity" data-i18n="multi.changerSigne">CHANGER DE SIGNE</button>
+              <button class="btn btn--ghost" id="btnMultiJoinBack" data-i18n="commun.retour">RETOUR</button>
             </div>
           </div>
         </div>
@@ -710,11 +713,11 @@
                    S, 8 » au téléphone, on ne lit pas un mot. Les cases sont
                    remplies par `setRoomCode`, jamais par `textContent` sur le
                    conteneur, qui les détruirait (même piège que les cartes). -->
-              <p class="eyebrow">CODE DU SALON</p>
+              <p class="eyebrow" data-i18n="salon.code">CODE DU SALON</p>
               <div class="roomcode" id="multiLobbyCode" aria-label="Code du salon"></div>
               <div class="btnrow btnrow--tight">
-                <button class="btn" id="btnMultiCopyCode">COPIER LE CODE</button>
-                <button class="btn btn--ghost" id="btnMultiInvite">COPIER LE LIEN</button>
+                <button class="btn" id="btnMultiCopyCode" data-i18n="salon.copierCode">COPIER LE CODE</button>
+                <button class="btn btn--ghost" id="btnMultiInvite" data-i18n="salon.copierLien">COPIER LE LIEN</button>
               </div>
               <p class="fineprint" id="multiLobbyCodeHint">DICTE-LE, OU ENVOIE LE LIEN</p>
             </div>
@@ -724,18 +727,18 @@
             <div class="settings settings--seg" id="multiSettings" aria-label="Réglages du salon">
               <p class="settings__who" id="settingsWho">RÉGLAGES</p>
               <div class="settings__row" data-key="speed">
-                <span class="settings__label">VITESSE</span>
+                <span class="settings__label" data-i18n="salon.vitesse">VITESSE</span>
                 <div class="settings__opts" id="optSpeed"></div>
               </div>
               <!-- Deux réglages à trois ou quatre valeurs courtes : côte à côte
                    ils tiennent sur une ligne, et la colonne respire. -->
               <div class="settings__pair">
                 <div class="settings__row" data-key="lives">
-                  <span class="settings__label">VIES</span>
+                  <span class="settings__label" data-i18n="salon.vies">VIES</span>
                   <div class="settings__opts" id="optLives"></div>
                 </div>
                 <div class="settings__row" data-key="rotationEvery">
-                  <span class="settings__label">ROTATION</span>
+                  <span class="settings__label" data-i18n="salon.rotation">ROTATION</span>
                   <div class="settings__opts" id="optRotation"></div>
                 </div>
               </div>
@@ -744,7 +747,7 @@
                    en duo tout seul — et fixé au lancement, sinon des vies
                    apparaîtraient sous les yeux des joueurs. -->
               <div class="settings__row" data-key="duo">
-                <span class="settings__label">ÉQUIPES</span>
+                <span class="settings__label" data-i18n="salon.equipes">ÉQUIPES</span>
                 <div class="settings__opts" id="optDuo"></div>
               </div>
               <p class="settings__hint" id="settingsHint"></p>
@@ -752,13 +755,13 @@
             <!-- Le lancement ferme la colonne : c'est la dernière chose qu'on
                  fait, elle est en bas et elle est seule de sa taille. -->
             <div class="room__acts">
-              <button class="btn btn--launch hidden" id="btnMultiStart">LANCER LA PARTIE</button>
+              <button class="btn btn--launch hidden" id="btnMultiStart" data-i18n="salon.lancer">LANCER LA PARTIE</button>
               <!-- Arrivé par un lien : on entre d'abord, on se nomme ensuite.
                    Ce bouton n'apparaît que pour qui n'a pas encore de nom —
                    il porte le nommage APRÈS l'entrée, là où il ne coûte plus
                    rien à personne. Voir openFromInvite dans src/multi.ts. -->
-              <button class="btn hidden" id="btnMultiNom">CHOISIR TON NOM</button>
-              <button class="btn btn--ghost" id="btnMultiLeave">QUITTER LE SALON</button>
+              <button class="btn hidden" id="btnMultiNom" data-i18n="salon.nom">CHOISIR TON NOM</button>
+              <button class="btn btn--ghost" id="btnMultiLeave" data-i18n="salon.quitter">QUITTER LE SALON</button>
               <p class="fineprint" id="multiInviteHint"></p>
             </div>
           </div>
@@ -796,15 +799,15 @@
           </div>
 
           <div class="col end__titles">
-            <p class="eyebrow">TITRES DU MATCH</p>
+            <p class="eyebrow" data-i18n="fin.titres">TITRES DU MATCH</p>
             <div id="multiTitles" class="titles hidden" aria-label="Titres du match"></div>
           </div>
 
           <div class="end__foot">
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnMultiReplay">REJOUER</button>
-              <button class="btn" id="btnMultiEndInvite">COPIER LE LIEN</button>
-              <button class="btn btn--ghost" id="btnMultiEndHome">QUITTER</button>
+              <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">REJOUER</button>
+              <button class="btn" id="btnMultiEndInvite" data-i18n="salon.copierLien">COPIER LE LIEN</button>
+              <button class="btn btn--ghost" id="btnMultiEndHome" data-i18n="fin.quitter">QUITTER</button>
             </div>
             <p class="fineprint" id="multiEndInviteHint">LIEN D'INVITATION · UN CLIC POUR COPIER</p>
           </div>

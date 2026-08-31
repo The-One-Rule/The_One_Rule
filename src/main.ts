@@ -55,6 +55,8 @@ import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
+import { appliqueLangue, estLang, etatSolo, libelleCompte, TEXTES } from "./i18n";
+import type { Lang } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -294,15 +296,22 @@ function renderHome(): void {
   hud.setFooter(0, s.bestTraining, "—");
 
   const rule = ruleOfDay(day);
-  const morceaux = [
-    s.daily.played ? `RUN DU JOUR FAIT · ${s.daily.score}` : `RUN DU JOUR : ${rule.name}`,
-  ];
-  if (s.streak.count > 0) morceaux.push(`SÉRIE ${s.streak.count}`);
-  $("soloEtat").textContent = morceaux.join(" · ");
+  const lang: Lang = estLang(s.lang) ? s.lang : "fr";
+  const c = compte();
+  appliqueLangue(document, lang, {
+    compte: libelleCompte(lang, c ? c.pseudo : null),
+  });
+
+  $("soloEtat").textContent = etatSolo(lang, {
+    played: s.daily.played,
+    score: s.daily.score,
+    ruleName: rule.name,
+    streak: s.streak.count,
+  });
 
   $("cardMultiState").textContent = multi.available
-    ? "DE 2 À 10 JOUEURS"
-    : "SERVEUR DE SALONS HORS LIGNE";
+    ? TEXTES[lang].multiOk
+    : TEXTES[lang].multiOff;
   $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
   /*
@@ -326,9 +335,16 @@ function renderHome(): void {
    * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
    * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
    */
-  const c = compte();
   $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
-  $("btnTopCompte").textContent = c ? c.pseudo || "MON COMPTE" : "COMPTE";
+}
+
+function choisitLangue(lang: Lang): void {
+  const s = P.load();
+  if (s.lang === lang) return;
+  s.lang = lang;
+  P.save(s);
+  sfx.ui();
+  renderHome();
 }
 
 /**
@@ -1675,6 +1691,8 @@ $("btnTopReglages").addEventListener("click", () => {
   renderReglages();
   show("reglages");
 });
+$("btnLangFr").addEventListener("click", () => choisitLangue("fr"));
+$("btnLangEn").addEventListener("click", () => choisitLangue("en"));
 $("btnReglagesBack").addEventListener("click", () => backHome());
 $("btnCompteBack").addEventListener("click", () => backHome());
 $("btnCompteInvite").addEventListener("click", () => {

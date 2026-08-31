@@ -44,6 +44,15 @@ export interface Save {
    * règle matériellement injouable sur l'appareil.
    */
   daltonien: boolean;
+  /**
+   * Langue de l'accueil. Le jeu (règles, consignes, canvas) ne suit pas.
+   *
+   * `"fr"` par défaut : une sauvegarde ancienne n'a pas ce champ, et
+   * `load()` reprend alors `fresh()`. Une valeur hors `{fr,en}` retombe
+   * aussi sur le français — on ne laisse pas un localStorage trafiqué
+   * éteindre l'écran.
+   */
+  lang: "fr" | "en";
   bestTraining: number;
   /**
    * Allure choisie pour l'entraînement (voir PACE_CHOICES).
@@ -109,6 +118,7 @@ const fresh = (): Save => ({
   sound: true,
   music: true,
   daltonien: false,
+  lang: "fr",
   bestTraining: 0,
   /*
    * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.
@@ -136,8 +146,10 @@ export function load(): Save {
     if (raw) {
       const parsed = JSON.parse(raw) as Save;
       if (parsed.v === 1) {
-        cache = { ...fresh(), ...parsed };
-        return cache;
+        const s = { ...fresh(), ...parsed };
+        if (s.lang !== "fr" && s.lang !== "en") s.lang = "fr";
+        cache = s;
+        return s;
       }
     }
   } catch {

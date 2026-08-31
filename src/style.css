@@ -5068,6 +5068,48 @@ button.chip:active:not(:disabled) {
     0 0 / 6px 100% no-repeat;
 }
 
+/*
+ * FR / EN. Deux vrais boutons, capitales, angles droits : le même
+ * vocabulaire que le chrome. La langue choisie est pleine, l'autre
+ * est un liseré — comme une plaque vivante contre une plaque morte.
+ */
+.lang {
+  display: inline-flex;
+  margin-top: var(--sp-3);
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
+}
+
+.lang__btn {
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  color: var(--paper-dim);
+  font-family: var(--display);
+  font-size: var(--t-intitule);
+  font-weight: 600;
+  letter-spacing: var(--ls-intitule);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.lang__btn + .lang__btn {
+  border-left: var(--bd-hair) solid var(--line);
+}
+
+.lang__btn:hover,
+.lang__btn:focus-visible {
+  color: var(--paper);
+  background: var(--ink-2);
+}
+
+.lang__btn.is-on {
+  color: var(--ink);
+  background: var(--paper);
+}
+
 .faille {
   position: relative;
   /*
