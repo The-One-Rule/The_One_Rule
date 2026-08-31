@@ -174,10 +174,14 @@ server/
   jeton.ts     vérification SYNCHRONE du jeton (node:crypto)
 src/
   engine/      PUR — aucun DOM, aucune horloge, aucun Math.random()
+    escalade     tirage de la pile de règles (ici, pas dans game/ : `verify`
+                 en a besoin côté serveur)
     rng, scene (grille 5×3), instructions/ (19 dont 15 tactiles),
     rules/ (12 règles + withoutHold), round, multiround, resolve,
     verify, difficulty (windowMs, windowForSteps, STEP_MS)
   game/        daily (ruleOfDay, trainingRule), session, quests, progress, replay
+  i18n.ts      FR/EN : chaînes statiques, dynamiques, et COMPOSITION des
+               consignes depuis leur forme structurée (`Phrase`)
   net/         NetClient + ServerClock + glyphes, zéro DOM
   render/      scene (canvas), hud, layout (PUR et testé), option, plate, seat
   ranked/      elo, antibot, client
@@ -663,8 +667,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 396 tests (34 fichiers) ·
-e2e 74 assertions (~2 min 20) · `vite build` — tous verts.
+**Branche** `master`. **Vérification** : `tsc` · 476 tests (42 fichiers) ·
+e2e 75 assertions (~2 min 10) · `vite build` — tous verts.
 
 ⚠️ **Casser le correctif pour éprouver un test ne marche plus partout** : le
 classificateur de permissions refuse de lancer les tests quand une
@@ -865,6 +869,88 @@ de quelqu'un d'autre. Ce qu'il faut regarder d'abord, ce sont les trois
 événements `compte_invite` → `compte_start` → `compte_lie` : les testeurs ont
 RÉCLAMÉ les comptes, ce qui n'est pas la même chose que les utiliser — le
 partage de score aussi était réclamé, et il est resté à 0 %.
+
+### Deux langues — et pourquoi ce n'était pas un confort
+
+Trois playtesters anglophones sur trois ont abandonné, et **aucun ne parlait
+de traduction manquante — ils parlaient de TEMPS** :
+
+> « the text on the top bar only loaded halfway through my time to complete
+> the action » · « waiting to translate and then clicking, I was always
+> running out of time »
+
+La cause est structurelle, pas une lenteur : la consigne mute à **chaque
+manche**, Chrome retraduit les nœuds mutés de façon **asynchrone**, et la
+fenêtre de décision fait 760 à 1500 ms. Le texte arrivait donc après une bonne
+partie de la fenêtre, à chaque manche. Aucune optimisation n'aurait réglé ça.
+
+**Le moteur ne rend plus une phrase, il rend une `Phrase` structurée** — un
+verbe et ses opérandes — et l'affichage compose. L'ordre des mots change entre
+les langues (« CLIQUE LE CARRÉ ROUGE » → « CLICK THE RED SQUARE »), ce qu'une
+table de mot à mot ne sait pas faire.
+
+`text` reste le **français canonique** : LE MENTEUR compare des textes pour
+emprunter une phrase plausible. `tests/consignes.test.ts` exige que composer
+la phrase en français redonne EXACTEMENT `text`, sur 760 tirages.
+
+⚠️ **Une consigne changeait ce qui est JUGÉ.** « TAPE L'INITIALE DE LA
+COULEUR » attend la première lettre du nom français : V pour VERT, J pour
+JAUNE. Un anglophone tape G et Y et échoue une manche sur deux. Les trois
+issues étaient : exclure la consigne du pool anglais (le run du jour ne serait
+plus identique pour tous, décision n°11), faire dépendre le jugement de la
+langue (client et serveur divergeraient — le défaut fatal), ou **accepter les
+deux lettres pour tout le monde**. C'est `Want.keyAlt`, et son coût est assumé :
+sur VERT et JAUNE, deux lettres passent au lieu d'une.
+
+**La langue suit le navigateur à la première visite.** Le défaut était « fr »
+pour tous : un anglophone atterrissait en français, Chrome proposait de
+traduire, il acceptait — et on retombait dans la panne. Traduire sans corriger
+ça n'aurait servi à rien.
+
+⚠️ **Reste connu** : le texte mensonger du MENTEUR reste français, et 84
+littéraux hors partie (écran de compte, quêtes, aides du salon). Un CLIQUET
+dans `tests/i18n.test.ts` fige le nombre et refuse qu'il remonte. Sa limite est
+écrite : il ne voit que l'ACCENT, donc « VIES RESTANTES » lui échappe.
+
+### L'escalade est la même épreuve pour tout le monde — mesuré
+
+Prérequis du classement global, et la mesure a **changé la conception**.
+
+Je m'apprêtais à faire entrer les capacités de l'appareil dans la clé de
+comparabilité : un téléphone ne tient pas ESPACE, sa pile aurait donc exclu LA
+MAIN GAUCHE, et son classement se serait séparé. À 50 joueurs, ça vide un
+podium.
+
+**Sondé : `pileEscalade` ne tire JAMAIS LA MAIN GAUCHE ni LE DALTONIEN.** Elle
+sert d'abord les règles piégeuses et plafonne à quatre — sur 400 graines,
+**cinq règles seulement** apparaissent (colosse, gaucher, pointe, sang,
+voyelle). Les deux filtres d'appareil sont inertes ici, donc aucune
+fragmentation. Un test le vérifie sur 400 graines et tombera le jour où le
+tirage changera.
+
+⚠️ **Un bug grave trouvé par ce test** : le rejeu jugeait avec la règle
+annoncée dans `ruleId` au lieu de la règle du PALIER. Le même journal donnait
+**3 sous « sang » et 12 sous « jumeau »** — le joueur choisissait sa propre
+contrainte en remplissant un champ.
+
+`engine/escalade.ts` a quitté `game/` : `verify.ts` en a besoin côté serveur,
+et le laisser dans `game/` faisait remonter persistance et quêtes dans une
+fonction edge.
+
+### Référencement — l'hygiène est faite, le canal n'existe pas
+
+Relevé avant : `robots.txt` 404, `sitemap.xml` 404, pas de canonique, pas de
+données structurées, `<title>` sans un mot-clé. Tout est corrigé et gardé par
+`tests/seo.test.ts` — qui existe parce que **ces pannes-là sont muettes** :
+un `Disallow: /` de trop et le site disparaît sans que rien ne casse. J'ai
+d'ailleurs écrit `sitemap.org` au lieu de `sitemaps.org` en le créant.
+
+**Mais « the one rule » est une phrase anglaise banale**, sur un domaine de
+trois semaines sans lien entrant. Aucun réglage ne fera passer devant des
+millions de pages. La découverte viendra d'itch.io, de Reddit et du lien de
+partage — pas de Google. Le slogan **« sometimes, obeying is the mistake »**
+est ce qui rend le titre cherchable, et il remplace « jusqu'où tu tiens ? »,
+qui décrivait l'endurance — la partie *copiable* du jeu.
 
 ### Backlog
 
