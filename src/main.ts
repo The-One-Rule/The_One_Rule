@@ -262,7 +262,12 @@ function show(id: ScreenId): void {
   bar.classList.toggle("hidden", !barre);
   appEl.classList.toggle("has-topbar", barre);
   const hote = barre && id !== null ? $(id) : appEl;
-  if (bar.parentElement !== hote) hote.appendChild(bar);
+  /*
+   * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
+   * l'ecran, « ajoutee a la fin » veut dire « posee en bas ». Mesuree a
+   * y=788 sur un ecran de 812 avant correction.
+   */
+  if (bar.parentElement !== hote) hote.prepend(bar);
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
@@ -436,8 +441,8 @@ function renderSolo(): void {
  */
 function renderReglages(): void {
   const s = P.load();
-  $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
-  $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
+  $("btnSound").textContent = `${t("prefSon")} : ${s.sound ? t("on") : t("off")}`;
+  $("btnMusic").textContent = `${t("prefMusique")} : ${s.music ? t("on") : t("off")}`;
   appliqueMotifs(s.daltonien);
   refreshMetricsButton();
 }
@@ -458,7 +463,7 @@ function renderReglages(): void {
 function appliqueMotifs(on: boolean): void {
   scene.daltonien = on;
   appEl.classList.toggle("is-motifs", on);
-  $("btnMotifs").textContent = `MOTIFS : ${on ? "ON" : "OFF"}`;
+  $("btnMotifs").textContent = `${t("prefMotifs")} : ${on ? t("on") : t("off")}`;
 }
 
 /**
@@ -1659,6 +1664,17 @@ $("btnBriefTraining").addEventListener("click", () => {
 $("btnBack").addEventListener("click", () => backHome());
 $("btnAgain").addEventListener("click", () => replay());
 $("btnHome").addEventListener("click", () => backHome());
+/*
+ * JOUER : le chemin le plus court vers une manche.
+ *
+ * Il mene a l'ENTRAINEMENT et pas au run du jour — celui-ci est irreversible
+ * et suppose de connaitre la mecanique. Le brief reste sur le chemin : c'est
+ * la que le joueur lit sa regle unique, et le sauter a deja ete un bug.
+ */
+$("btnPlay").addEventListener("click", () => {
+  sfx.ui();
+  openBrief("training");
+});
 $("btnSolo").addEventListener("click", () => {
   sfx.ui();
   renderSolo();
@@ -1761,7 +1777,7 @@ $("btnSound").addEventListener("click", () => {
   });
   setEnabled(s.sound);
   $("btnRanked").classList.toggle("hidden", !rankedAvailable());
-  $("btnSound").textContent = `SON : ${s.sound ? "ON" : "OFF"}`;
+  $("btnSound").textContent = `${t("prefSon")} : ${s.sound ? t("on") : t("off")}`;
   sfx.ui();
 });
 
@@ -1770,7 +1786,7 @@ $("btnMusic").addEventListener("click", () => {
     st.music = !st.music;
   });
   setMusicEnabled(s.music);
-  $("btnMusic").textContent = `MUSIQUE : ${s.music ? "ON" : "OFF"}`;
+  $("btnMusic").textContent = `${t("prefMusique")} : ${s.music ? t("on") : t("off")}`;
   sfx.ui();
 });
 
@@ -2033,7 +2049,7 @@ function setupAnalytics(): void {
 }
 
 function refreshMetricsButton(): void {
-  $("btnMetrics").textContent = `MESURE : ${P.load().metrics.on ? "ON" : "OFF"}`;
+  $("btnMetrics").textContent = `${t("prefMesure")} : ${P.load().metrics.on ? t("on") : t("off")}`;
 }
 
 function decideMetrics(on: boolean): void {

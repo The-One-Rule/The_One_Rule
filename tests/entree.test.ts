@@ -101,7 +101,9 @@ describe("deux modes d'ouverture, separes et nommes", () => {
     const html = readFileSync("index.html", "utf8");
     expect(html).toContain('id="btnMultiCreate"');
     expect(html).toContain('id="btnMultiCreateDuo"');
-    expect(html).toContain("SEUL CONTRE TOUS");
+    // Le document est servi en ANGLAIS ; le français vit dans le
+    // dictionnaire et revient à l'affichage pour un navigateur français.
+    expect(html).toContain("FREE FOR ALL");
   });
 
   it("ouvrir en DUO pose le reglage, et seulement dans ce cas", () => {

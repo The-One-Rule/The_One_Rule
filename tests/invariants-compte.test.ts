@@ -223,9 +223,14 @@ describe("l'écran de compte", () => {
     expect(src).toMatch(/classList\.toggle\(\s*"hidden"\s*,\s*!barre\s*\)/);
     expect(src).toMatch(/classList\.toggle\(\s*"has-topbar"\s*,\s*barre\s*\)/);
 
+    /*
+     * Elle n'a plus besoin d'etre hors flux : elle vit DANS un `.screen`, qui
+     * est une surcouche. Le terrain, lui, est dans le flux de `#app` et n'a
+     * jamais la barre pour voisine. Ce qui compte est donc qu'elle DISPARAISSE
+     * en partie — ce que les deux assertions ci-dessus exigent — pas la façon
+     * dont elle est positionnee.
+     */
     const css = lit("src/style.css").replace(/\/\*[\s\S]*?\*\//g, "");
-    const bloc = /\.topbar\s*\{([^}]*)\}/.exec(css);
-    expect(bloc, "la feuille doit déclarer .topbar").not.toBeNull();
-    expect(bloc![1]).toMatch(/position:\s*absolute/);
+    expect(/\.topbar\s*\{/.test(css), "la feuille doit déclarer .topbar").toBe(true);
   });
 });

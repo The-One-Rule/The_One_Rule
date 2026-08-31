@@ -26,12 +26,17 @@ beforeAll(() => {
 });
 
 describe("sélecteur de langue", () => {
-  it("vit sur l'accueil, pas ailleurs", () => {
-    const home = document.getElementById("home");
+  it("vit dans la barre haute, avec les autres réglages", () => {
+    /*
+     * Il était sur l'accueil, où il concurrençait la seule action de l'écran.
+     * La langue est un réglage : sa place est auprès de COMPTE et RÉGLAGES.
+     */
+    const topbar = document.getElementById("topbar");
     const lang = document.getElementById("lang");
-    expect(home, "#home absent").not.toBeNull();
+    expect(topbar, "#topbar absent").not.toBeNull();
     expect(lang, "#lang absent").not.toBeNull();
-    expect(home!.contains(lang!)).toBe(true);
+    expect(topbar!.contains(lang!)).toBe(true);
+    expect(document.getElementById("home")!.contains(lang!)).toBe(false);
     expect(document.getElementById("btnLangFr")?.textContent).toBe("FR");
     expect(document.getElementById("btnLangEn")?.textContent).toBe("EN");
   });
@@ -140,17 +145,23 @@ describe("les chaînes statiques", () => {
     expect(orphelines, `traduites mais jamais posées :\n${orphelines.join("\n")}`).toEqual([]);
   });
 
-  it("le français du dictionnaire est CELUI du document", () => {
+  it("l'ANGLAIS du dictionnaire est CELUI du document", () => {
     /*
-     * Sans ça, repasser en français afficherait autre chose que le texte
-     * d'origine — une dérive invisible tant qu'on ne rebascule pas.
+     * Le HTML servi est en anglais : c'est ce que voient les robots et ce
+     * qu'un inconnu lit pendant la première image, avant que le JS n'applique
+     * sa langue. Le laisser en français faisait voir un éclair de français à
+     * un anglophone — et Chrome lui proposait alors de traduire, ce qui rend
+     * le jeu injouable.
+     *
+     * Le dictionnaire et le document doivent donc dire la même chose EN
+     * ANGLAIS, sinon la première image ment sur ce qui suit.
      */
     const ecarts: string[] = [];
     for (const m of html.matchAll(
       /<(p|span|h1|h2|h3|button|label|li)\b[^>]*data-i18n="([^"]+)"[^>]*>([^<>]*)<\/\1>/g,
     )) {
       const [, , cle, texte] = m;
-      const attendu = CHAINES.fr[cle!];
+      const attendu = CHAINES.en[cle!];
       if (attendu !== undefined && texte!.trim() !== attendu) {
         ecarts.push(`${cle} : document « ${texte!.trim()} » ≠ dictionnaire « ${attendu} »`);
       }

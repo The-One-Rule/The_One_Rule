@@ -126,6 +126,9 @@ export const TEXTES: Record<Lang, Textes> = {
  */
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
+    "home.play": "JOUER",
+    "mesure.texte":
+      "Ce jeu compte les parties jouées, les scores et les jours de retour, sous un identifiant aléatoire. Pas de compte, pas de cookie, pas de revente, aucune donnée personnelle. Ça sert uniquement à savoir si le jeu mérite d'être continué.",
     "hud.regle": "RÈGLE UNIQUE",
     "hud.fantome": "FANTÔME",
     "hud.regarde": "JE REGARDE",
@@ -190,6 +193,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.quitter": "QUITTER LE SALON",
   },
   en: {
+    "home.play": "PLAY",
+    "mesure.texte":
+      "This game counts games played, scores and return days, under a random identifier. No account, no cookie, nothing sold, no personal data. It only serves to know whether the game deserves to go on.",
     "hud.regle": "ONE RULE",
     "hud.fantome": "GHOST",
     "hud.regarde": "WATCHING",
@@ -370,6 +376,13 @@ type Dyn = {
   trainingNeuf: string;
   trainingRecord: (n: number) => string;
   teaserDefaut: string;
+  /* --- bascules de reglages : « SON : ON » --- */
+  prefSon: string;
+  prefMusique: string;
+  prefMotifs: string;
+  prefMesure: string;
+  on: string;
+  off: string;
 };
 
 const DYN: Record<Lang, Dyn> = {
@@ -463,6 +476,12 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "COMMENCE ICI · TU NE PERDS RIEN",
     trainingRecord: (n) => `RECORD · ${n} MANCHES`,
     teaserDefaut: "Une règle t'attend.",
+    prefSon: "SON",
+    prefMusique: "MUSIQUE",
+    prefMotifs: "MOTIFS",
+    prefMesure: "MESURE",
+    on: "ON",
+    off: "OFF",
   },
   en: {
     compteSupprimer: "DELETE ACCOUNT",
@@ -554,6 +573,12 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "START HERE · NOTHING TO LOSE",
     trainingRecord: (n) => `BEST · ${n} ROUNDS`,
     teaserDefaut: "A rule is waiting for you.",
+    prefSon: "SOUND",
+    prefMusique: "MUSIC",
+    prefMotifs: "PATTERNS",
+    prefMesure: "METRICS",
+    on: "ON",
+    off: "OFF",
   },
 };
 
@@ -634,6 +659,7 @@ export function appliqueLangue(
 
   poseHtml(doc.getElementById("ledeHome"), t.ledeHtml);
   poseHtml(doc.getElementById("homeFineprint"), t.fineprintHtml);
+  poseHtml(doc.getElementById("reglagesFineprint"), t.fineprintHtml);
   poseTexte(doc.getElementById("failleSoloDesc"), t.soloDesc);
   poseTexte(doc.getElementById("failleMultiDesc"), t.multiDesc);
 

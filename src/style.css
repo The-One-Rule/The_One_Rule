@@ -4974,6 +4974,38 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
+ * JOUER — la reponse par defaut
+ *
+ * Mesure : 92 % des nouveaux joueurs n'ont jamais atteint une manche, et il
+ * fallait TROIS gestes pour y arriver. Ce bouton en retire un et donne a
+ * l'ecran une action evidente.
+ *
+ * Il domine la faille SANS la remplacer : la hierarchie se lit « on joue, ou
+ * on choisit ». Un troisieme bouton de meme poids aurait casse la
+ * composition a deux faces, qui est l'identite de l'accueil.
+ * ================================================================== */
+.btnrow--play {
+  justify-content: center;
+  margin-bottom: var(--sp-3);
+}
+
+.btn--play {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(20px, 4vw, 28px);
+  letter-spacing: 0.04em;
+  padding: var(--sp-3) clamp(40px, 12vw, 96px);
+  min-height: 60px;
+  /* Le meme cadre en marches que la couche pixel, en accent : c'est le seul
+     endroit de l'accueil qui le porte, donc il ne se dispute avec rien. */
+  box-shadow:
+    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
+    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
+    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
+    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+/* ==================================================================
  * LA FAILLE — le composant SOLO / MULTI, et la vitrine du site
  *
  * Un seul objet fendu HORIZONTALEMENT : SOLO au-dessus, MULTI en dessous,
@@ -5023,6 +5055,24 @@ button.chip:active:not(:disabled) {
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  /*
+   * Espacement RESSERRE, et mesure a l'appui : entre l'enseigne, la coupe,
+   * JOUER et la faille, 196 px partaient en interstices sur un ecran de 860,
+   * ce qui repoussait le bas de la faille hors du cadre. Or c'est la vitrine.
+   *
+   * ⚠️ PAS de `justify-content: center`, essaye et rejete : il affichait
+   * `scrollHeight === clientHeight` — donc AUCUN defilement possible — alors
+   * que la faille depassait de 31 px. C'est le piege que la decision n°6
+   * documente depuis longtemps : centrer dans un conteneur qui defile rend le
+   * debordement DEFINITIVEMENT inatteignable. Un `gap` resserre fait le meme
+   * travail sans rien rendre inaccessible.
+   */
+  gap: var(--sp-3);
+}
+
+#home .screen__scroll > * {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 /* Le texte, lui, garde sa mesure : élargir un bloc n'est pas élargir une
@@ -5131,7 +5181,13 @@ button.chip:active:not(:disabled) {
   /* Toute la largeur du #app, pas de la colonne de texte : c'est ce
      qui fait UN grand composant plutôt que deux zones posées au milieu. */
   width: 100%;
-  min-height: clamp(360px, 56vh, 580px);
+  /*
+   * Reduite de 56 a 44 vh : la barre haute a grandi de 68 px en accueillant
+   * la langue, et JOUER en ajoute 76. Sans ca l'accueil defilait de 194 px et
+   * le bas de la faille passait sous la ligne de flottaison — or c'est la
+   * vitrine, et une vitrine coupee ne montre rien.
+   */
+  min-height: clamp(300px, 44vh, 440px);
   margin-top: var(--sp-2);
   flex: 1 1 auto;
   isolation: isolate;
@@ -6270,8 +6326,25 @@ button.chip:active:not(:disabled) {
  * ne bouge pas. Pendant la partie elle n'existe pas — la taille du
  * champ est du gameplay (CLAUDE.md §6 n°10).
  * ================================================================== */
+/*
+ * DANS LE FLUX de l'ecran, et non plus en absolu.
+ *
+ * Elle etait absolue avec un `padding-top` sur `.screen` pour lui reserver sa
+ * place. Deux hauteurs a tenir d'accord, donc : en passant la langue SOUS les
+ * boutons, la barre est passee de 58 a 126 px et la reserve est restee a 68 —
+ * elle recouvrait alors le logo de 58 px, et un doigt sur le titre touchait la
+ * barre. Mesure.
+ *
+ * Dans le flux, elle prend exactement la place qu'elle occupe, quelle que
+ * soit sa hauteur. Il n'y a plus deux grandeurs a synchroniser, donc plus de
+ * recouvrement possible — et elle continue de defiler avec le contenu.
+ *
+ * ⚠️ Ca ne rogne toujours PAS le champ de jeu : la barre vit a l'interieur
+ * d'un `.screen`, qui est une surcouche. Le terrain, lui, est dans le flux de
+ * `#app` et n'a jamais la barre pour voisine — `show(null)` la masque.
+ */
 .topbar {
-  position: absolute;
+  position: relative;
   top: 0;
   /*
    * `.screen` n'a AUCUN padding horizontal — mesure, 0 px des deux cotes.
@@ -6311,10 +6384,16 @@ button.chip:active:not(:disabled) {
 }
 
 .topbar__left,
+/*
+ * En COLONNE : la langue se pose SOUS COMPTE et REGLAGES plutot qu'a cote.
+ * Cote a cote, la barre s'elargissait et les trois commandes se serraient
+ * sur mobile ; empilees, chacune garde ses 44 px tactiles.
+ */
 .topbar__right {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -6382,8 +6461,29 @@ button.chip:active:not(:disabled) {
  * `.screen > * { margin: auto }` la centrerait et la rétrécirait — on
  * l'annule, et on tire les bords pour qu'elle touche les flancs.
  */
+/*
+ * L'ecran qui porte la barre devient une COLONNE.
+ *
+ * `.screen` est un conteneur flex en ligne par defaut, et ses enfants portent
+ * `margin: auto` pour se centrer. Passee dans le flux, la barre devenait donc
+ * un second element flex : posee A COTE du contenu et centree verticalement —
+ * mesuree a y=331 au lieu de 0.
+ *
+ * En colonne, elle reprend sa place en haut, sans marge et sans grandir.
+ */
 #app.has-topbar .screen {
-  padding-top: 68px;
+  flex-direction: column;
+  padding-top: 0;
+}
+
+#app.has-topbar .screen > .topbar {
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+/* Le contenu reprend le centrage horizontal que la barre ne doit pas avoir. */
+#app.has-topbar .screen > .screen__scroll {
+  margin: auto;
 }
 
 @media (max-width: 420px) {
