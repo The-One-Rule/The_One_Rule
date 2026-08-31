@@ -6479,11 +6479,40 @@ button.chip:active:not(:disabled) {
 #app.has-topbar .screen > .topbar {
   margin: 0;
   flex: 0 0 auto;
+  /*
+   * `align-self: stretch` : en COLONNE, l'axe transversal est horizontal, et
+   * `.screen` porte `align-items: flex-start`. La barre se retractait donc sur
+   * son contenu — mesuree a 285 px de large dans une fenetre de 800, calee a
+   * gauche. Elle doit tenir toute la largeur, sinon son fond forme un bandeau
+   * partiel et son contenu n'est centre que sur lui-meme.
+   */
+  align-self: stretch;
+  width: 100%;
 }
 
 /* Le contenu reprend le centrage horizontal que la barre ne doit pas avoir. */
 #app.has-topbar .screen > .screen__scroll {
   margin: auto;
+}
+
+/*
+ * LE PADDING HORIZONTAL PASSE DE L'ECRAN AU CONTENU.
+ *
+ * `.screen` porte 24 px de chaque cote ; la barre etant desormais son enfant,
+ * elle en heritait et ne faisait que 750 px dans un cadre de 800 — un bandeau
+ * flottant au lieu d'une barre. Mesure sur les six ecrans concernes.
+ *
+ * `#home` est exclu : il a deja un padding nul pour que la faille aille d'un
+ * bord a l'autre, et lui rendre une marge interieure rognerait la vitrine.
+ */
+#app.has-topbar .screen:not(#home) {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+#app.has-topbar .screen:not(#home) > .screen__scroll {
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
 @media (max-width: 420px) {
