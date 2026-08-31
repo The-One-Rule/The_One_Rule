@@ -31,6 +31,13 @@ export interface SharedRound {
   idx: number;
   instructionId: string;
   text: string;
+  /*
+   * La consigne structuree voyage avec la scene partagee — mais pas sur le
+   * fil : le multi RECONSTRUIT la scene depuis la graine, il ne la transmet
+   * pas. Voir `buildMultiRound`. Elle est donc gratuite pour le reseau.
+   */
+  phrase?: Round["phrase"];
+  sousPhrase?: string;
   sub?: string;
   glyph?: string;
   colorWord?: Round["colorWord"];
@@ -76,6 +83,8 @@ export function draftShared(
     idx,
     instructionId: instr.id,
     text: draft.text,
+    phrase: draft.phrase,
+    sousPhrase: draft.sousPhrase,
     sub: draft.sub,
     glyph: draft.glyph,
     colorWord: draft.colorWord,
@@ -106,6 +115,8 @@ export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Rou
   let round: Round = {
     instructionId: shared.instructionId,
     text: shared.text,
+    phrase: shared.phrase,
+    sousPhrase: shared.sousPhrase,
     sub: shared.sub,
     glyph: shared.glyph,
     colorWord: shared.colorWord,

@@ -1,5 +1,5 @@
 import { colorHex } from "./scene";
-import { t } from "../i18n";
+import { composePhrase, composeSous, t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -103,7 +103,19 @@ export class Hud {
    * doit rester calée sur l'horloge réelle plutôt que sur une transition CSS.
    */
   updateRound(round: Round, elapsedMs: number, ratio: number): void {
-    let text = round.text;
+    /*
+     * La consigne est COMPOSEE dans la langue du joueur a partir de sa forme
+     * structuree ; `round.text` (francais) ne sert que de secours si une cle
+     * manquait. Une consigne muette en pleine manche serait pire qu'une
+     * consigne dans la mauvaise langue.
+     *
+     * ⚠️ LE MENTEUR (`falseText`) n'est PAS compose : c'est une phrase
+     * empruntee a une autre consigne, deja fabriquee, et la remplacer par sa
+     * version composee demanderait de transporter la phrase du mensonge. Elle
+     * reste donc en francais — a corriger quand on traduira le mensonge, et
+     * c'est le seul reste connu de l'ecran de jeu.
+     */
+    let text = composePhrase(round.phrase, round.text);
     if (round.falseText && round.revealAtMs !== undefined && elapsedMs < round.revealAtMs) {
       text = round.falseText;
     }
@@ -117,7 +129,7 @@ export class Hud {
     this.instr.className = round.glyph && !hidden ? "is-glyph" : "";
     this.instr.style.color = round.inkColor ? colorHex(round.inkColor) : "";
 
-    const subText = hidden ? "" : round.glyph ? text : (round.sub ?? "");
+    const subText = hidden ? "" : round.glyph ? text : composeSous(round.sousPhrase, round.sub ?? "");
     if (this.sub.textContent !== subText) this.sub.textContent = subText;
 
     /*

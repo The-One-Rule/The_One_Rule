@@ -12,6 +12,33 @@ export type Lang = "fr" | "en";
 
 export const estLang = (v: unknown): v is Lang => v === "fr" || v === "en";
 
+/**
+ * La langue du navigateur, pour la PREMIERE visite seulement.
+ *
+ * Le defaut etait « fr » pour tout le monde, quel que soit le navigateur. Un
+ * anglophone atterrissait donc en francais, Chrome lui proposait de traduire,
+ * il acceptait — et la traduction automatique rendait le jeu injouable : elle
+ * retraduit les noeuds mutes de facon asynchrone, or la consigne mute a chaque
+ * manche. Les trois retours de playtest disent exactement ca.
+ *
+ * Traduire le jeu sans corriger ce defaut n'aurait servi a rien : personne
+ * n'aurait vu l'anglais sans cliquer sur EN, et personne ne clique sur EN
+ * quand la page est deja en francais et que le navigateur propose de faire le
+ * travail.
+ *
+ * Tout ce qui n'est pas francais tombe en anglais : ce sont les deux seules
+ * langues qu'on sait dire, et l'anglais est le repli le moins mauvais pour un
+ * hispanophone ou un germanophone — certainement meilleur que le francais.
+ *
+ * Pur : la liste des langues est passee, jamais lue depuis `navigator`. C'est
+ * ce qui le rend testable sans navigateur.
+ */
+export function langueDuNavigateur(langues: readonly string[] | undefined): Lang {
+  const premiere = langues?.[0];
+  if (typeof premiere !== "string") return "fr";
+  return premiere.toLowerCase().startsWith("fr") ? "fr" : "en";
+}
+
 type Textes = {
   ledeHtml: string;
   failleLabel: string;
@@ -585,4 +612,134 @@ export function libelleCompte(lang: Lang, pseudo: string | null): string {
   const t = TEXTES[lang];
   if (pseudo === null) return t.compte;
   return pseudo || t.monCompte;
+}
+
+/* ------------------------------------------------------------------ *
+ * LA CONSIGNE, COMPOSÉE
+ *
+ * Le moteur décrit ce qu'il demande (`Phrase`) ; c'est ici qu'on en fait
+ * une phrase, donc dans la langue du joueur.
+ *
+ * ⚠️ POURQUOI CETTE COUCHE EXISTE. La consigne change toutes les deux
+ * secondes et la fenêtre de décision fait 760 à 1500 ms. Les trois
+ * playtesters anglophones passaient par la traduction automatique du
+ * navigateur, qui retraduit les nœuds mutés de façon ASYNCHRONE : le texte
+ * arrivait après une bonne partie de leur fenêtre, à chaque manche. « I was
+ * always running out of time ». Ce n'était pas un problème de vitesse mais
+ * d'incompatibilité de structure, et aucune optimisation ne l'aurait réglé.
+ *
+ * ⚠️ L'ORDRE DES MOTS CHANGE ENTRE LES DEUX LANGUES. « CLIQUE LE CARRÉ
+ * ROUGE » devient « CLICK THE RED SQUARE » : la forme et la couleur
+ * s'inversent. C'est précisément ce qu'une table de mots à mots ne sait pas
+ * faire, et la raison pour laquelle la consigne est structurée plutôt que
+ * traduite.
+ * ------------------------------------------------------------------ */
+
+/** Les couleurs et formes telles que le joueur les lit. */
+const MOTS: Record<Lang, { couleur: Record<string, string>; forme: Record<string, string> }> = {
+  fr: {
+    couleur: { garance: "ROUGE", azur: "BLEU", jade: "VERT", ambre: "JAUNE" },
+    forme: { carre: "CARRÉ", rond: "ROND", triangle: "TRIANGLE" },
+  },
+  en: {
+    couleur: { garance: "RED", azur: "BLUE", jade: "GREEN", ambre: "YELLOW" },
+    forme: { carre: "SQUARE", rond: "CIRCLE", triangle: "TRIANGLE" },
+  },
+};
+
+/** Les sous-titres, rares mais lus au même moment. */
+const SOUS: Record<Lang, Record<string, string>> = {
+  fr: { nImporteOu: "N'IMPORTE OÙ" },
+  en: { nImporteOu: "ANYWHERE" },
+};
+
+type Compo = (m: { couleur: string; couleur2: string; forme: string; lettre: string }) => string;
+
+const PHRASES: Record<Lang, Record<string, Compo>> = {
+  fr: {
+    clicCouleur: (m) => `CLIQUE LE ${m.couleur}`,
+    clicForme: (m) => `CLIQUE LE ${m.forme}`,
+    clic: () => "CLIQUE",
+    rienFaire: () => "NE FAIS RIEN",
+    nePasCliquer: () => "NE CLIQUE PAS",
+    clicGrosse: () => "CLIQUE LA PLUS GROSSE",
+    clicPetite: () => "CLIQUE LA PLUS PETITE",
+    tapeLettre: (m) => `TAPE ${m.lettre}`,
+    tapeAffichee: () => "TAPE LA LETTRE AFFICHÉE",
+    tape: () => "TAPE",
+    clicFormeCouleur: (m) => `CLIQUE LE ${m.forme} ${m.couleur}`,
+    clicPasCouleur: (m) => `CLIQUE CELUI QUI N'EST PAS ${m.couleur}`,
+    clicPasForme: (m) => `CLIQUE CELUI QUI N'EST PAS UN ${m.forme}`,
+    clicIntrus: () => "CLIQUE L'INTRUS",
+    clicImmobile: () => "CLIQUE CELUI QUI NE BOUGE PAS",
+    clicMobile: () => "CLIQUE CELUI QUI BOUGE",
+    clicGauche: () => "CLIQUE LE PLUS À GAUCHE",
+    clicDroite: () => "CLIQUE LE PLUS À DROITE",
+    clicPlusGrosCouleur: (m) => `CLIQUE LE PLUS GROS ${m.couleur}`,
+    clicPlusPetitCouleur: (m) => `CLIQUE LE PLUS PETIT ${m.couleur}`,
+    tapeInitiale: () => "TAPE L'INITIALE DE LA COULEUR",
+    couleurPuis: (m) => `${m.couleur} PUIS ${m.couleur2}`,
+    clicSauf: (m) => `CLIQUE PARTOUT SAUF SUR DU ${m.couleur}`,
+  },
+  en: {
+    clicCouleur: (m) => `CLICK THE ${m.couleur}`,
+    clicForme: (m) => `CLICK THE ${m.forme}`,
+    clic: () => "CLICK",
+    rienFaire: () => "DO NOTHING",
+    nePasCliquer: () => "DON'T CLICK",
+    clicGrosse: () => "CLICK THE BIGGEST",
+    clicPetite: () => "CLICK THE SMALLEST",
+    tapeLettre: (m) => `TYPE ${m.lettre}`,
+    tapeAffichee: () => "TYPE THE LETTER SHOWN",
+    tape: () => "TYPE",
+    // L'ordre s'inverse : couleur puis forme.
+    clicFormeCouleur: (m) => `CLICK THE ${m.couleur} ${m.forme}`,
+    clicPasCouleur: (m) => `CLICK THE ONE THAT ISN'T ${m.couleur}`,
+    clicPasForme: (m) => `CLICK THE ONE THAT ISN'T A ${m.forme}`,
+    clicIntrus: () => "CLICK THE ODD ONE OUT",
+    clicImmobile: () => "CLICK THE ONE THAT ISN'T MOVING",
+    clicMobile: () => "CLICK THE ONE THAT'S MOVING",
+    clicGauche: () => "CLICK THE LEFTMOST",
+    clicDroite: () => "CLICK THE RIGHTMOST",
+    clicPlusGrosCouleur: (m) => `CLICK THE BIGGEST ${m.couleur}`,
+    clicPlusPetitCouleur: (m) => `CLICK THE SMALLEST ${m.couleur}`,
+    /*
+     * Les DEUX initiales sont acceptees par le moteur (`Want.keyAlt`), donc
+     * cette formulation est honnete dans les deux langues : le joueur tape
+     * l'initiale de la couleur telle QU'IL la nomme.
+     */
+    tapeInitiale: () => "TYPE THE COLOUR'S INITIAL",
+    couleurPuis: (m) => `${m.couleur} THEN ${m.couleur2}`,
+    clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
+  },
+};
+
+/**
+ * Compose une consigne dans la langue courante.
+ *
+ * `secours` est le texte français que le moteur produit déjà : une clé
+ * inconnue rend ce texte plutôt qu'une chaîne vide. Une consigne muette au
+ * milieu d'une partie serait pire qu'une consigne dans la mauvaise langue.
+ */
+export function composePhrase(
+  phrase: { cle: string; couleur?: string; couleur2?: string; forme?: string; lettre?: string } | undefined,
+  secours: string,
+  lang: Lang = courante,
+): string {
+  if (!phrase) return secours;
+  const compo = PHRASES[lang][phrase.cle];
+  if (!compo) return secours;
+  const mots = MOTS[lang];
+  return compo({
+    couleur: phrase.couleur ? (mots.couleur[phrase.couleur] ?? phrase.couleur) : "",
+    couleur2: phrase.couleur2 ? (mots.couleur[phrase.couleur2] ?? phrase.couleur2) : "",
+    forme: phrase.forme ? (mots.forme[phrase.forme] ?? phrase.forme) : "",
+    lettre: phrase.lettre ?? "",
+  });
+}
+
+/** Le sous-titre d'une consigne, même principe. */
+export function composeSous(cle: string | undefined, secours: string, lang: Lang = courante): string {
+  if (!cle) return secours;
+  return SOUS[lang][cle] ?? secours;
 }

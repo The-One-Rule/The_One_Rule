@@ -80,6 +80,8 @@ export function buildRound(
   let round: Round = {
     instructionId: instr.id,
     text: draft.text,
+    phrase: draft.phrase,
+    sousPhrase: draft.sousPhrase,
     sub: draft.sub,
     glyph: draft.glyph,
     colorWord: draft.colorWord,

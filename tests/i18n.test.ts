@@ -17,6 +17,7 @@ import {
   TEXTES,
   CHAINES,
   DYNAMIQUES,
+  langueDuNavigateur,
 } from "../src/i18n";
 
 beforeAll(() => {
@@ -367,5 +368,33 @@ describe("la langue ne contraint pas le joueur en partie", () => {
     expect(version).toContain("minLevel");
     expect(version).toContain("weight");
     expect(/\.label|\.text\b|\.name\b/.test(version.split("fnv1a")[0] ?? "")).toBe(false);
+  });
+});
+
+describe("la langue suit le navigateur a la premiere visite", () => {
+  it("un navigateur francais donne le francais", () => {
+    for (const l of [["fr"], ["fr-FR"], ["FR-ca"], ["fr-BE", "en"]]) {
+      expect(langueDuNavigateur(l), l.join(",")).toBe("fr");
+    }
+  });
+
+  it("tout le reste donne l'anglais", () => {
+    /*
+     * L'anglais est le repli, pas le francais : on ne sait dire que deux
+     * langues, et un hispanophone lit mieux l'anglais que le francais. C'est
+     * aussi ce qui evite qu'il laisse Chrome traduire — ce qui rend le jeu
+     * injouable, la consigne mutant a chaque manche.
+     */
+    for (const l of [["en"], ["en-GB"], ["es-ES"], ["de"], ["ja", "en"], ["pt-BR"]]) {
+      expect(langueDuNavigateur(l), l.join(",")).toBe("en");
+    }
+  });
+
+  it("l'absence de navigateur ne casse rien", () => {
+    // `navigator` manque en test et au rendu serveur. Le defaut est le
+    // francais, langue du projet.
+    expect(langueDuNavigateur(undefined)).toBe("fr");
+    expect(langueDuNavigateur([])).toBe("fr");
+    expect(langueDuNavigateur([undefined as unknown as string])).toBe("fr");
   });
 });

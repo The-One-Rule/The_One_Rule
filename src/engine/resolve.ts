@@ -1,6 +1,14 @@
 import type { Action, Entity, Outcome, Round, RoundProgress, Step } from "./types";
 
-function stepMatches(step: Step, action: Action): boolean {
+/**
+ * Une action satisfait-elle une etape ?
+ *
+ * Exportee pour etre eprouvee directement : c'est le predicat que le client
+ * ET le serveur appliquent, donc le seul endroit ou une divergence de
+ * jugement pourrait naitre. Le tester a travers une manche entiere reviendrait
+ * a le tester par accident.
+ */
+export function stepMatches(step: Step, action: Action): boolean {
   switch (step.kind) {
     case "click":
       return action.kind === "click" && action.ent?.idx === step.idx;
@@ -9,7 +17,12 @@ function stepMatches(step: Step, action: Action): boolean {
     case "clickAnyExcept":
       return action.kind === "click" && (!action.ent || action.ent.color !== step.color);
     case "key":
-      return action.kind === "key" && action.key === step.key;
+      // `keyAlt` : la seconde lettre acceptee, identique pour tous. Voir
+      // le commentaire de `Want` dans `engine/types.ts`.
+      return (
+        action.kind === "key" &&
+        (action.key === step.key || (step.keyAlt !== undefined && action.key === step.keyAlt))
+      );
   }
 }
 

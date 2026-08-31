@@ -59,7 +59,32 @@ export type Want =
   | { kind: "click"; idx: number }
   | { kind: "clickAny" }
   | { kind: "clickAnyExcept"; color: ColorId }
-  | { kind: "key"; key: string }
+  | {
+      kind: "key";
+      key: string;
+      /**
+       * Une SECONDE touche acceptee, identique pour tout le monde.
+       *
+       * « TAPE L'INITIALE DE LA COULEUR » juge la premiere lettre du nom
+       * FRANCAIS : V pour VERT, J pour JAUNE. Un anglophone tape G et Y, et
+       * echoue une manche sur deux — la traduction rendait la consigne
+       * injouable au lieu de la rendre lisible.
+       *
+       * Les trois issues possibles etaient : exclure la consigne du pool
+       * anglais (mais le run du jour ne serait plus identique pour tout le
+       * monde, decision n°11), faire dependre le jugement de la langue (mais
+       * client et serveur divergeraient — le seul defaut tenu pour fatal), ou
+       * accepter les DEUX lettres pour tous. C'est la troisieme : elle est
+       * deterministe, identique des deux cotes puisque `resolve` est partage,
+       * et elle ne scinde rien.
+       *
+       * ⚠️ Elle a un cout assume : sur VERT et JAUNE, deux lettres passent au
+       * lieu d'une. ROUGE et BLEU sont inchanges (R et B dans les deux
+       * langues). La consigne devient donc marginalement plus indulgente sur
+       * la moitie des couleurs, pour tout le monde.
+       */
+      keyAlt?: string;
+    }
   | { kind: "sequence"; idxs: number[] }
   | { kind: "none" };
 
@@ -67,16 +92,98 @@ export type Step =
   | { kind: "click"; idx: number }
   | { kind: "clickAny" }
   | { kind: "clickAnyExcept"; color: ColorId }
-  | { kind: "key"; key: string };
+  | {
+      kind: "key";
+      key: string;
+      /**
+       * Une SECONDE touche acceptee, identique pour tout le monde.
+       *
+       * « TAPE L'INITIALE DE LA COULEUR » juge la premiere lettre du nom
+       * FRANCAIS : V pour VERT, J pour JAUNE. Un anglophone tape G et Y, et
+       * echoue une manche sur deux — la traduction rendait la consigne
+       * injouable au lieu de la rendre lisible.
+       *
+       * Les trois issues possibles etaient : exclure la consigne du pool
+       * anglais (mais le run du jour ne serait plus identique pour tout le
+       * monde, decision n°11), faire dependre le jugement de la langue (mais
+       * client et serveur divergeraient — le seul defaut tenu pour fatal), ou
+       * accepter les DEUX lettres pour tous. C'est la troisieme : elle est
+       * deterministe, identique des deux cotes puisque `resolve` est partage,
+       * et elle ne scinde rien.
+       *
+       * ⚠️ Elle a un cout assume : sur VERT et JAUNE, deux lettres passent au
+       * lieu d'une. ROUGE et BLEU sont inchanges (R et B dans les deux
+       * langues). La consigne devient donc marginalement plus indulgente sur
+       * la moitie des couleurs, pour tout le monde.
+       */
+      keyAlt?: string;
+    };
 
 export type Action =
   | { kind: "click"; ent: Entity | null; x: number; y: number }
-  | { kind: "key"; key: string }
+  | {
+      kind: "key";
+      key: string;
+      /**
+       * Une SECONDE touche acceptee, identique pour tout le monde.
+       *
+       * « TAPE L'INITIALE DE LA COULEUR » juge la premiere lettre du nom
+       * FRANCAIS : V pour VERT, J pour JAUNE. Un anglophone tape G et Y, et
+       * echoue une manche sur deux — la traduction rendait la consigne
+       * injouable au lieu de la rendre lisible.
+       *
+       * Les trois issues possibles etaient : exclure la consigne du pool
+       * anglais (mais le run du jour ne serait plus identique pour tout le
+       * monde, decision n°11), faire dependre le jugement de la langue (mais
+       * client et serveur divergeraient — le seul defaut tenu pour fatal), ou
+       * accepter les DEUX lettres pour tous. C'est la troisieme : elle est
+       * deterministe, identique des deux cotes puisque `resolve` est partage,
+       * et elle ne scinde rien.
+       *
+       * ⚠️ Elle a un cout assume : sur VERT et JAUNE, deux lettres passent au
+       * lieu d'une. ROUGE et BLEU sont inchanges (R et B dans les deux
+       * langues). La consigne devient donc marginalement plus indulgente sur
+       * la moitie des couleurs, pour tout le monde.
+       */
+      keyAlt?: string;
+    }
   | { kind: "release"; key: string };
+
+/**
+ * La consigne, sous forme STRUCTUREE.
+ *
+ * Le moteur n'ecrit pas une phrase, il decrit ce qu'il demande : un verbe et
+ * ses operandes. C'est l'affichage qui compose la phrase, donc dans la langue
+ * du joueur.
+ *
+ * Pourquoi ca ne pouvait pas rester une chaine : la consigne change toutes les
+ * deux secondes et la fenetre de decision fait 760 a 1500 ms. Un anglophone
+ * qui passait par la traduction automatique du navigateur recevait le texte
+ * APRES une bonne partie de sa fenetre — a chaque manche. Rapporte par trois
+ * playtesters sur trois. Ce n'est pas un probleme de vitesse, c'est une
+ * incompatibilite de structure : Chrome retraduit les noeuds mutes de facon
+ * asynchrone, et ce noeud-ci mute a chaque manche.
+ *
+ * ⚠️ `text` RESTE le francais canonique. LE MENTEUR compare des textes pour
+ * emprunter une phrase plausible a une autre consigne, et plusieurs tests s'y
+ * adossent. `tests/consignes.test.ts` exige que composer `phrase` en francais
+ * redonne EXACTEMENT `text` : une seule verite, verifiee, deux ecritures.
+ */
+export interface Phrase {
+  cle: string;
+  couleur?: ColorId;
+  couleur2?: ColorId;
+  forme?: ShapeId;
+  lettre?: string;
+}
 
 /** Ce qu'une consigne produit. Volontairement minimal. */
 export interface RoundDraft {
   text: string;
+  /** La meme consigne, structuree — voir `Phrase`. */
+  phrase?: Phrase;
+  /** Sous-titre structure, meme principe. */
+  sousPhrase?: string;
   sub?: string;
   /** grand symbole affiché à la place du texte (lettre à recopier, flèche…) */
   glyph?: string;
@@ -113,6 +220,9 @@ export interface Instruction {
 export interface Round {
   instructionId: string;
   text: string;
+  /** La consigne structuree, composee a l'affichage. Voir `Phrase`. */
+  phrase?: Phrase;
+  sousPhrase?: string;
   sub?: string;
   glyph?: string;
   colorWord?: ColorId;

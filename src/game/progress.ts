@@ -1,4 +1,5 @@
 import { dayIndex } from "./daily";
+import { langueDuNavigateur } from "../i18n";
 import { cleEntrainement } from "./perfs";
 import { PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
@@ -47,10 +48,16 @@ export interface Save {
   /**
    * Langue de l'accueil. Le jeu (règles, consignes, canvas) ne suit pas.
    *
-   * `"fr"` par défaut : une sauvegarde ancienne n'a pas ce champ, et
-   * `load()` reprend alors `fresh()`. Une valeur hors `{fr,en}` retombe
-   * aussi sur le français — on ne laisse pas un localStorage trafiqué
-   * éteindre l'écran.
+   * À la PREMIÈRE visite, elle suit le navigateur (`langueDuNavigateur`) :
+   * un anglophone qui arrivait en français laissait Chrome traduire, et la
+   * traduction automatique rend le jeu injouable — elle retraduit les nœuds
+   * mutés de façon asynchrone, or la consigne mute à chaque manche.
+   *
+   * Ensuite c'est un choix, et il ne change plus tout seul : quelqu'un qui a
+   * cliqué FR sur un navigateur anglais veut du français.
+   *
+   * Une valeur hors `{fr,en}` retombe sur le français — on ne laisse pas un
+   * localStorage trafiqué éteindre l'écran.
    */
   lang: "fr" | "en";
   bestTraining: number;
@@ -118,7 +125,13 @@ const fresh = (): Save => ({
   sound: true,
   music: true,
   daltonien: false,
-  lang: "fr",
+  /*
+   * Suit le navigateur a la premiere visite. `navigator` peut manquer (test,
+   * rendu serveur) : `langueDuNavigateur` retombe alors sur le francais.
+   */
+  lang: langueDuNavigateur(
+    typeof navigator === "undefined" ? undefined : navigator.languages ?? [navigator.language],
+  ),
   bestTraining: 0,
   /*
    * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.
