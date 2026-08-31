@@ -33,6 +33,12 @@ import { plateClasses } from "./render/plate";
 import type { PlateFlash } from "./render/plate";
 import { seatClasses, seatStatus } from "./render/seat";
 import { musicApi, sfx, unlock } from "./audio";
+/*
+ * Importee sous un autre nom : `multi.ts` a deja plusieurs `t` locaux — un
+ * minuteur, une ligne de titre, un horodatage. Un import nomme `t` les
+ * masquerait, et TypeScript le signale au mieux, l'accepte au pire.
+ */
+import { t as tr } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -321,9 +327,9 @@ function renderLobby(
       const muteBtn = document.createElement("button");
       muteBtn.type = "button";
       muteBtn.className = "seat__act" + (muted.has(p.id) ? " is-on" : "");
-      muteBtn.title = muted.has(p.id) ? "Réactiver ses messages" : "Couper ses messages";
-      muteBtn.setAttribute("aria-label", `${muted.has(p.id) ? "Réactiver" : "Couper"} ${p.name}`);
-      muteBtn.textContent = muted.has(p.id) ? "MUET" : "SOURDINE";
+      muteBtn.title = muted.has(p.id) ? tr("reactiverMessages") : tr("couperMessages");
+      muteBtn.setAttribute("aria-label", `${muted.has(p.id) ? tr("reactiver") : tr("couper")} ${p.name}`);
+      muteBtn.textContent = muted.has(p.id) ? tr("muet") : tr("sourdine");
       muteBtn.addEventListener("click", () => onToggleMute(p.id));
       acts.appendChild(muteBtn);
       if (me?.host) {
@@ -331,7 +337,7 @@ function renderLobby(
         kickBtn.type = "button";
         kickBtn.className = "seat__act seat__act--kick";
         kickBtn.setAttribute("aria-label", `Exclure ${p.name}`);
-        kickBtn.textContent = "EXCLURE";
+        kickBtn.textContent = tr("exclure");
         kickBtn.addEventListener("click", () => onKick(p.id));
         acts.appendChild(kickBtn);
       }
@@ -361,7 +367,7 @@ function renderLobby(
     ?.classList.toggle("is-few", players.length > 0 && players.length < 5);
 
   const seul = players.length <= 1;
-  $("multiLobbyTitle").textContent = seul ? "INVITE QUELQU'UN" : "EN ATTENTE";
+  $("multiLobbyTitle").textContent = seul ? tr("inviteQuelquun") : tr("enAttente");
   // L'effectif est chiffré à côté du titre : c'est la question qu'on se pose
   // en regardant cet écran, et elle a une réponse exacte.
   $("multiLobbyCount").textContent = `${players.length} / ${MAX_PLAYERS} JOUEURS`;
@@ -378,7 +384,7 @@ function renderLobby(
 function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean): void {
   const box = $("multiSettings");
   box.classList.toggle("is-guest", !isHost);
-  $("settingsWho").textContent = isHost ? "RÉGLAGES · HÔTE" : "RÉGLAGES DU SALON";
+  $("settingsWho").textContent = isHost ? tr("reglagesHote") : tr("reglagesSalon");
   // Dire qui décide, plutôt que de laisser un invité cliquer sans effet et
   // conclure que l'interface est cassée.
   $("settingsHint").textContent = locked
@@ -511,7 +517,7 @@ function vueServeur(action: Action): Action {
 }
 
 function previewLabel(o: Outcome): string {
-  if (o.kind === "survive") return o.trap ? "PIÈGE DÉJOUÉ…" : "TENU…";
+  if (o.kind === "survive") return o.trap ? `${tr("piegeDejoue")}…` : `${tr("tenu")}…`;
   if (o.kind === "death") return o.reason;
   return "";
 }
@@ -784,7 +790,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.add("drama--rule");
     dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = rotation ? "TA RÈGLE CHANGE" : "TA RÈGLE UNIQUE";
+    dramaEyebrow.textContent = rotation ? tr("regleChange") : tr("regleUnique");
     dramaNames.textContent = rule.name;
     // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
     // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
@@ -803,7 +809,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.remove("hidden", "drama--kill", "drama--elim");
     dramaEl.classList.add("drama--duel");
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = "DUEL";
+    dramaEyebrow.textContent = tr("duel");
     dramaNames.textContent = `${a.name}  ·  ${b.name}`;
     dramaRule.textContent = "";
     dramaReason.textContent = "";
@@ -817,12 +823,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const tid = viewTargetId();
     const shown = tid === net.myId ? null : match.players.find((p) => p.id === tid);
     if (isSpectating() && shown) {
-      hud.setFooterLives(shown.score, Math.max(0, shown.lives), match.maxLives, "SPECTATEUR");
+      hud.setFooterLives(shown.score, Math.max(0, shown.lives), match.maxLives, tr("piedSpectateur"));
       const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
       if (!rotating) hud.setMeta(`JE REGARDE ${shown.name}`);
       return;
     }
-    hud.setFooterLives(match.score, Math.max(0, match.lives), match.maxLives, "MULTI");
+    hud.setFooterLives(match.score, Math.max(0, match.lives), match.maxLives, tr("piedMulti"));
   }
 
   function setPlatesVisible(on: boolean): void {
@@ -931,7 +937,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     qui.textContent = nom;
     const pourquoi = document.createElement("span");
     pourquoi.className = "feed__why";
-    pourquoi.textContent = elim ? `ÉLIMINÉ · ${motif}` : motif;
+    pourquoi.textContent = elim ? tr("elimineSous")(motif) : motif;
     ligne.append(qui, pourquoi);
     feedEl.appendChild(ligne);
     while (feedEl.children.length > 3) feedEl.firstElementChild?.remove();
@@ -1825,21 +1831,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
     ecran.classList.toggle("is-victory", jeGagne);
     if (msg.winnerId === null) {
-      kicker.textContent = "MATCH TERMINÉ";
-      title.textContent = "ÉGALITÉ";
+      kicker.textContent = tr("matchTermine");
+      title.textContent = tr("egalite");
       title.classList.remove("is-win");
     } else {
       const winner =
         lastPlayers.find((p) => p.id === msg.winnerId) ??
         msg.players.find((p) => p.id === msg.winnerId);
-      kicker.textContent = jeGagne ? "TU AS GAGNÉ" : "VAINQUEUR";
-      title.textContent = winner?.name ?? "FIN DU MATCH";
+      kicker.textContent = jeGagne ? tr("tuAsGagne") : tr("vainqueur");
+      title.textContent = winner?.name ?? tr("finDuMatch");
       title.classList.toggle("is-win", jeGagne);
     }
 
     renderTitles(msg.players);
     renderPodium(msg.players);
-    $("multiEndInviteHint").textContent = "LIEN D'INVITATION · UN CLIC POUR COPIER";
+    $("multiEndInviteHint").textContent = tr("lienInvitation");
 
     if (msg.winnerId === net.myId) sfx.win();
     show("multi-end");
@@ -1855,7 +1861,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // main, mais on ne saura jamais s'il l'a fait — mieux vaut sous-compter
       // l'envoi que gonfler le haut d'un entonnoir dont on lit le bas.
       track("invite_sent", { players: lastPlayers.length });
-      $(hintId).textContent = "LIEN COPIÉ";
+      $(hintId).textContent = tr("lienCopie");
     } catch {
       $(hintId).textContent = link;
     }
@@ -2117,7 +2123,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // jour les deux ne diront plus la même chose.
     if (occupee) {
       etatMultiAvant = etat.textContent ?? "";
-      etat.textContent = "CONNEXION…";
+      etat.textContent = tr("connexion");
     } else {
       etat.textContent = etatMultiAvant;
     }
@@ -2379,7 +2385,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       hud.setMeta(previewLabel(match.preview));
     } else if (match.phase === "frozen" && match.authority) {
       const a = match.authority;
-      if (a.kind === "survive") hud.setMeta(a.trap ? "PIÈGE DÉJOUÉ" : "TENU");
+      if (a.kind === "survive") hud.setMeta(a.trap ? tr("piegeDejoue") : tr("tenu"));
       else if (a.kind === "death") hud.setMeta(a.reason);
       else if (!(match.lives <= 0 || match.spectator)) hud.setMeta("SPECTATEUR");
       // spectateur : syncFooter a déjà posé JE REGARDE (sauf pendant rotation)
@@ -2450,7 +2456,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $("btnIdOk").addEventListener("click", () => {
     const brut = $<HTMLInputElement>("idName").value.trim();
     if (!brut) {
-      $("idErr").textContent = "IL FAUT UN NOM POUR QUE LES AUTRES TE VOIENT";
+      $("idErr").textContent = tr("ilFautUnNom");
       $("idErr").classList.remove("hidden");
       $<HTMLInputElement>("idName").focus();
       return;
@@ -2494,7 +2500,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     void navigator.clipboard
       .writeText(roomCode)
       .then(() => {
-        hint.textContent = `CODE ${roomCode} COPIÉ`;
+        hint.textContent = tr("codeCopie")(roomCode);
       })
       .catch(() => {
         // Presse-papiers refusé : le code reste lisible à l'écran, c'est

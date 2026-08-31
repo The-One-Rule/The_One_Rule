@@ -1,4 +1,5 @@
 import { colorHex } from "./scene";
+import { t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -61,7 +62,7 @@ export class Hud {
     this.bandMeta.textContent = text;
   }
 
-  setFooter(score: number, best: number, mode: string, midLabel = "RECORD"): void {
+  setFooter(score: number, best: number, mode: string, midLabel = t("piedRecord")): void {
     this.fScore.textContent = String(score);
     this.fBest.className = "foot__value";
     this.fBest.textContent = String(best);
@@ -76,7 +77,7 @@ export class Hud {
    */
   setFooterLives(score: number, lives: number, max: number, mode: string): void {
     this.fScore.textContent = String(score);
-    this.fMidLabel.textContent = "VIES";
+    this.fMidLabel.textContent = t("piedVies");
     this.fBest.className = "foot__value lifedots";
     this.fBest.innerHTML = livesDots(lives, max);
     this.fMode.textContent = mode;

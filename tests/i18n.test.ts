@@ -16,6 +16,7 @@ import {
   libelleCompte,
   TEXTES,
   CHAINES,
+  DYNAMIQUES,
 } from "../src/i18n";
 
 beforeAll(() => {
@@ -200,5 +201,171 @@ describe("les chaînes statiques", () => {
     expect(fautes, `data-i18n sur un élément écrit à l'exécution : ${fautes.join(", ")}`).toEqual(
       [],
     );
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * La traduction ne doit rien coûter EN PARTIE
+ * ------------------------------------------------------------------ */
+
+describe("la langue ne contraint pas le joueur en partie", () => {
+  const main = readFileSync("src/main.ts", "utf8");
+  const multi = readFileSync("src/multi.ts", "utf8");
+  const ACCENTS = /[\u00C0-\u00FF]/;
+
+  /**
+   * Les littéraux ACCENTUÉS d'une source, commentaires retirés.
+   *
+   * Les commentaires de ce dépôt sont en français par convention : les
+   * garder ferait un compte inexploitable.
+   *
+   * ⚠️ SA LIMITE, mesurée plutôt que supposée : il ne voit que l'ACCENT.
+   * Une chaîne française sans accent — « VIES RESTANTES », « MODE SOLO » —
+   * lui échappe entièrement ; éprouvé en en réintroduisant une, le test
+   * passait. Il n'existe pas de moyen fiable de reconnaître du français en
+   * ASCII pur, donc ce filet attrape la majorité des cas et pas tous. Le
+   * savoir vaut mieux que de le croire complet.
+   */
+  const litteraux = (src: string): string[] => {
+    const propre = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    return [...propre.matchAll(/"([^"\\]*)"|`([^`]*)`/g)]
+      .map((m) => m[1] ?? m[2] ?? "")
+      .filter((v) => ACCENTS.test(v));
+  };
+
+  it("`appliqueLangue` n'est jamais appelée depuis la boucle", () => {
+    /*
+     * Elle parcourt 73 nœuds du document. Dans `loop()`, à soixante images
+     * par seconde, ce serait 4 400 lectures de DOM par seconde sur l'écran
+     * dont la lecture se juge en 200 ms.
+     *
+     * On vérifie qu'elle ne figure QUE dans `renderHome` : on isole le corps
+     * de `loop()` et on exige qu'elle n'y soit pas, plutôt que de compter les
+     * occurrences — un comptage casserait au premier appel légitime ajouté
+     * ailleurs.
+     */
+    const debut = main.indexOf("function loop(now: number): void {");
+    expect(debut, "loop() introuvable — l'extraction a cassé").toBeGreaterThan(-1);
+    let profondeur = 0;
+    let fin = debut;
+    for (let i = main.indexOf("{", debut); i < main.length; i++) {
+      if (main[i] === "{") profondeur++;
+      else if (main[i] === "}") {
+        profondeur--;
+        if (profondeur === 0) {
+          fin = i;
+          break;
+        }
+      }
+    }
+    const corpsLoop = main.slice(debut, fin);
+    expect(corpsLoop.length, "corps de loop() vide").toBeGreaterThan(200);
+    expect(
+      corpsLoop.includes("appliqueLangue"),
+      "appliqueLangue dans la boucle de jeu : elle parcourt tout le document",
+    ).toBe(false);
+  });
+
+  it("les deux langues portent EXACTEMENT les mêmes clés", () => {
+    /*
+     * Une clé présente d'un seul côté rendrait `undefined` — donc un libellé
+     * vide en pleine partie, là où il porte une information de survie (les
+     * vies, le mode, l'échauffement). Le typage l'empêche déjà ; ce test
+     * tient le cas où quelqu'un élargirait le type.
+     */
+    const fr = Object.keys(DYNAMIQUES.fr).sort();
+    const en = Object.keys(DYNAMIQUES.en).sort();
+    expect(fr.length, "dictionnaire dynamique vide").toBeGreaterThan(30);
+    expect(en).toEqual(fr);
+  });
+
+  it("aucune valeur n'est vide dans l'une des deux langues", () => {
+    const vides: string[] = [];
+    for (const lang of ["fr", "en"] as const) {
+      for (const [cle, val] of Object.entries(DYNAMIQUES[lang])) {
+        if (typeof val === "string" && val.trim() === "") vides.push(`${lang}.${cle}`);
+      }
+    }
+    expect(vides, `libellés vides : ${vides.join(", ")}`).toEqual([]);
+  });
+
+  it("le HUD de partie ne contient PLUS aucun français en dur", () => {
+    /*
+     * Strict, et tenable : `render/hud.ts` est le bandeau et le pied lus
+     * PENDANT la partie. Il est entièrement passé par `t()`, donc zéro est
+     * la bonne borne — et toute régression y saute aux yeux.
+     */
+    const hud = readFileSync("src/render/hud.ts", "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    const fautes = litteraux(hud);
+    expect(fautes, `français en dur dans le HUD : ${fautes.join(" · ")}`).toEqual([]);
+  });
+
+  it("le français en dur de main.ts et multi.ts ne REMONTE pas", () => {
+    /*
+     * UN CLIQUET, PAS UNE VICTOIRE.
+     *
+     * La traduction n'est pas finie : il reste du français littéral dans ces
+     * deux fichiers — écran de compte, quêtes, aides du salon, motifs de
+     * chute. Prétendre le contraire par un test qui passe serait pire que ne
+     * rien tester.
+     *
+     * Ce test fige donc le nombre ACTUEL et refuse qu'il augmente. Quand on
+     * en traduit, on baisse la borne — et le jour où elle atteint zéro, on
+     * remplace ce cliquet par la règle stricte ci-dessus.
+     *
+     * ⚠️ Le premier garde-fou écrit ici était CREUX : il ne regardait que les
+     * lignes contenant `textContent =`. Or l'essentiel passe par des aides —
+     * `hud.setMeta`, `setJoinErr`, `ligneCompte`. Éprouvé en réintroduisant
+     * une chaîne française : le test passait quand même. C'est la raison
+     * d'être de la vérification « casse le correctif, relance ».
+     */
+    // Les bornes sont celles que CE test mesure, pas celles d'un script
+    // extérieur : les deux comptaient différemment les guillemets échappés,
+    // et c'est le compte d'ici qui fait foi puisque c'est lui qui garde.
+    const PLAFOND = { "main.ts": 50, "multi.ts": 34 };
+    const comptes: Record<string, number> = {};
+    for (const [nom, src] of [
+      ["main.ts", main],
+      ["multi.ts", multi],
+    ] as const) {
+      comptes[nom] = litteraux(src).length;
+    }
+    const remontees = Object.entries(comptes).filter(
+      ([nom, n]) => n > PLAFOND[nom as keyof typeof PLAFOND],
+    );
+    expect(
+      remontees,
+      `du français en dur est REVENU : ${JSON.stringify(comptes)} contre ${JSON.stringify(PLAFOND)}`,
+    ).toEqual([]);
+    // Et si quelqu'un traduit, qu'il baisse la borne plutôt que de la laisser
+    // mentir sur ce qui reste à faire.
+    const trop = Object.entries(comptes).filter(
+      ([nom, n]) => n < PLAFOND[nom as keyof typeof PLAFOND],
+    );
+    expect(trop, `bornes à baisser dans ce test : ${JSON.stringify(comptes)}`).toEqual([]);
+  });
+
+  it("la consigne du moteur reste française, et c'est documenté", () => {
+    /*
+     * LA LIMITE ASSUMÉE, écrite noir sur blanc pour qu'elle ne passe pas
+     * pour un oubli.
+     *
+     * Le texte de la consigne est fabriqué DANS `gen()`, au cœur du moteur
+     * pur, et c'est le texte le plus lu du jeu — un par manche, sous deux
+     * secondes. Le traduire demande de rendre la consigne STRUCTURÉE (un
+     * verbe et des opérandes) au lieu d'une phrase, puis de la composer à
+     * l'affichage. C'est une refonte du cœur, pas une traduction.
+     *
+     * Ce que ce test garantit en attendant : `calculeVersion` ne hache ni
+     * les libellés ni les textes — seulement `id`, `minLevel`, `weight` et
+     * `touch`. Le jour où on traduira, `VERSION_CONTENU` ne bougera donc pas
+     * et aucun historique ne deviendra incomparable.
+     */
+    const version = readFileSync("src/engine/version.ts", "utf8");
+    expect(version).toContain("minLevel");
+    expect(version).toContain("weight");
+    expect(/\.label|\.text\b|\.name\b/.test(version.split("fnv1a")[0] ?? "")).toBe(false);
   });
 });

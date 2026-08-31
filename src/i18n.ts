@@ -227,6 +227,276 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
 /** Le dictionnaire statique, exposé pour que les tests puissent l'éprouver. */
 export const CHAINES = STATIQUE;
 
+
+/* ------------------------------------------------------------------ *
+ * LES CHAÎNES ÉCRITES À L'EXÉCUTION
+ *
+ * Celles-ci ne peuvent PAS porter d'attribut `data-i18n` : elles sont
+ * posées par le code au moment où quelque chose arrive — un verdict, un
+ * état de salon, une erreur. Un attribut sur ces éléments-là ferait
+ * effacer la valeur vivante au changement de langue.
+ *
+ * ⚠️ CERTAINES SONT ÉCRITES EN PARTIE (verdicts, bandeau de manche,
+ * panneau de chute). L'accès doit donc être une simple lecture de table —
+ * pas de parcours du DOM, pas de construction d'objet, rien qui alloue par
+ * image. `t()` est un accès à un `Record` déjà construit au chargement du
+ * module, et `langue()` lit une variable. C'est ce qui permet de traduire
+ * l'écran de jeu sans rien coûter à la boucle.
+ * ------------------------------------------------------------------ */
+
+type Dyn = {
+  compteSupprimer: string;
+  compteConfirmer: string;
+  compteTitreConnecte: string;
+  compteTitreAnonyme: string;
+  compteIndispo: string;
+  compteSuppressionKo: string;
+  briefUneDePlus: string;
+  briefEspace: string;
+  rankedRecherche: string;
+  rankedNom: string;
+  rankedIndispo: string;
+  rankedEnvoi: string;
+  rankedInjoignable: string;
+  rankedEyebrow: (division: string, elo: number) => string;
+  goMaintiens: string;
+  goEntrer: string;
+  goDefi: string;
+  quetesValidees: (pieces: number) => string;
+  serieEnCours: string;
+  defiRecu: string;
+  defiDe: (qui: string) => string;
+  defiMemeOrdre: (manches: number) => string;
+  defierAmi: string;
+  defierHorsLigne: string;
+  lienCopie: string;
+  partager: string;
+  copieOk: string;
+  /* --- salon --- */
+  reactiverMessages: string;
+  couperMessages: string;
+  reactiver: string;
+  couper: string;
+  muet: string;
+  sourdine: string;
+  exclure: string;
+  inviteQuelquun: string;
+  enAttente: string;
+  reglagesHote: string;
+  reglagesSalon: string;
+  connexion: string;
+  ilFautUnNom: string;
+  codeCopie: (code: string) => string;
+  lienInvitation: string;
+  /* --- ce qui s'écrit PENDANT la partie --- */
+  regleChange: string;
+  regleUnique: string;
+  duel: string;
+  elimineSous: (regle: string) => string;
+  matchTermine: string;
+  egalite: string;
+  tuAsGagne: string;
+  vainqueur: string;
+  finDuMatch: string;
+  /* --- le brief, vu avant CHAQUE partie --- */
+  modeDaily: (jour: number) => string;
+  modeEscalade: string;
+  modeTraining: string;
+  piedDaily: (jour: number) => string;
+  piedSur: string;
+  piedRegles: string;
+  piedRecord: string;
+  briefEscalade: (palier: number) => string;
+  briefDailyLignes: (manches: number) => string;
+  briefEscaladeLignes: (max: number) => string;
+  briefTiens: string;
+  goCommencer: string;
+  goUnSeulEssai: string;
+  /* --- ce que le pied et le bandeau affichent EN PARTIE --- */
+  piedVies: string;
+  piedSpectateur: string;
+  piedMulti: string;
+  echauffement: string;
+  piegeDejoue: string;
+  tenu: string;
+};
+
+const DYN: Record<Lang, Dyn> = {
+  fr: {
+    compteSupprimer: "SUPPRIMER LE COMPTE",
+    compteConfirmer: "CONFIRMER LA SUPPRESSION",
+    compteTitreConnecte: "TON COMPTE",
+    compteTitreAnonyme: "ENREGISTRER TES PERFS",
+    compteIndispo: "LES COMPTES NE SONT PAS DISPONIBLES POUR L'INSTANT.",
+    compteSuppressionKo: "SUPPRESSION IMPOSSIBLE POUR L'INSTANT. RÉESSAIE PLUS TARD.",
+    briefUneDePlus: "UNE DE PLUS",
+    briefEspace: "APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE POUR LANCER",
+    rankedRecherche: "RECHERCHE…",
+    rankedNom: "CLASSÉ",
+    rankedIndispo: "CLASSÉ INDISPONIBLE",
+    rankedEnvoi: "ENVOI DU RUN…",
+    rankedInjoignable: "SERVEUR INJOIGNABLE · RUN NON CLASSÉ",
+    rankedEyebrow: (d, e) => `CLASSÉ · ${d} · ${e}`,
+    goMaintiens: "MAINTIENS ESPACE",
+    goEntrer: "ENTRER EN LICE",
+    goDefi: "RELEVER LE DÉFI",
+    quetesValidees: (p) => `QUÊTES VALIDÉES · +${p} PIÈCES`,
+    serieEnCours: "SÉRIE EN COURS",
+    defiRecu: "DÉFI REÇU",
+    defiDe: (q) => `DÉFI DE ${q}`,
+    defiMemeOrdre: (m) => `MÊME PARTIE, MÊME ORDRE · L'ADVERSAIRE A TENU ${m} MANCHES`,
+    defierAmi: "DÉFIER UN AMI",
+    defierHorsLigne: "OUVRE LE JEU EN LIGNE POUR DÉFIER",
+    lienCopie: "LIEN COPIÉ ✓",
+    partager: "PARTAGER",
+    copieOk: "COPIÉ ✓",
+    reactiverMessages: "Réactiver ses messages",
+    couperMessages: "Couper ses messages",
+    reactiver: "Réactiver",
+    couper: "Couper",
+    muet: "MUET",
+    sourdine: "SOURDINE",
+    exclure: "EXCLURE",
+    inviteQuelquun: "INVITE QUELQU'UN",
+    enAttente: "EN ATTENTE",
+    reglagesHote: "RÉGLAGES · HÔTE",
+    reglagesSalon: "RÉGLAGES DU SALON",
+    connexion: "CONNEXION…",
+    ilFautUnNom: "IL FAUT UN NOM POUR QUE LES AUTRES TE VOIENT",
+    codeCopie: (c) => `CODE ${c} COPIÉ`,
+    lienInvitation: "LIEN D'INVITATION · UN CLIC POUR COPIER",
+    regleChange: "TA RÈGLE CHANGE",
+    regleUnique: "TA RÈGLE UNIQUE",
+    duel: "DUEL",
+    elimineSous: (r) => `ÉLIMINÉ · ${r}`,
+    matchTermine: "MATCH TERMINÉ",
+    egalite: "ÉGALITÉ",
+    tuAsGagne: "TU AS GAGNÉ",
+    vainqueur: "VAINQUEUR",
+    finDuMatch: "FIN DU MATCH",
+    modeDaily: (j) => `RUN DU JOUR · #${j}`,
+    modeEscalade: "ESCALADE",
+    modeTraining: "ENTRAÎNEMENT",
+    piedDaily: (j) => `JOUR #${j}`,
+    piedSur: "SUR",
+    piedRegles: "RÈGLES",
+    piedRecord: "RECORD",
+    briefEscalade: (p) =>
+      `Tu commences avec une règle. Toutes les ${p} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`,
+    briefDailyLignes: (m) => `${m} MANCHES · UN SEUL ESSAI PAR JOUR`,
+    briefEscaladeLignes: (m) => `${m} RÈGLES AU MAXIMUM · LE SCORE EST CE QUE TU TIENS`,
+    briefTiens: "APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE",
+    goCommencer: "COMMENCER",
+    goUnSeulEssai: "COMMENCER · UN SEUL ESSAI",
+    piedVies: "VIES",
+    piedSpectateur: "SPECTATEUR",
+    piedMulti: "MULTI",
+    echauffement: "ÉCHAUFFEMENT — TU NE PEUX PAS MOURIR",
+    piegeDejoue: "PIÈGE DÉJOUÉ",
+    tenu: "TENU",
+  },
+  en: {
+    compteSupprimer: "DELETE ACCOUNT",
+    compteConfirmer: "CONFIRM DELETION",
+    compteTitreConnecte: "YOUR ACCOUNT",
+    compteTitreAnonyme: "SAVE YOUR RUNS",
+    compteIndispo: "ACCOUNTS ARE NOT AVAILABLE RIGHT NOW.",
+    compteSuppressionKo: "DELETION FAILED FOR NOW. TRY AGAIN LATER.",
+    briefUneDePlus: "ONE MORE",
+    briefEspace: "PRESS SPACE AND HOLD IT DOWN TO START",
+    rankedRecherche: "SEARCHING…",
+    rankedNom: "RANKED",
+    rankedIndispo: "RANKED UNAVAILABLE",
+    rankedEnvoi: "SENDING THE RUN…",
+    rankedInjoignable: "SERVER UNREACHABLE · RUN NOT RANKED",
+    rankedEyebrow: (d, e) => `RANKED · ${d} · ${e}`,
+    goMaintiens: "HOLD SPACE",
+    goEntrer: "ENTER THE ARENA",
+    goDefi: "TAKE THE CHALLENGE",
+    quetesValidees: (p) => `QUESTS CLEARED · +${p} COINS`,
+    serieEnCours: "STREAK RUNNING",
+    defiRecu: "CHALLENGE RECEIVED",
+    defiDe: (q) => `CHALLENGE FROM ${q}`,
+    defiMemeOrdre: (m) => `SAME RUN, SAME ORDER · THEY HELD ${m} ROUNDS`,
+    defierAmi: "CHALLENGE A FRIEND",
+    defierHorsLigne: "OPEN THE GAME ONLINE TO CHALLENGE",
+    lienCopie: "LINK COPIED ✓",
+    partager: "SHARE",
+    copieOk: "COPIED ✓",
+    reactiverMessages: "Unmute their messages",
+    couperMessages: "Mute their messages",
+    reactiver: "Unmute",
+    couper: "Mute",
+    muet: "MUTED",
+    sourdine: "MUTE",
+    exclure: "KICK",
+    inviteQuelquun: "INVITE SOMEONE",
+    enAttente: "WAITING",
+    reglagesHote: "SETTINGS · HOST",
+    reglagesSalon: "ROOM SETTINGS",
+    connexion: "CONNECTING…",
+    ilFautUnNom: "YOU NEED A NAME SO THE OTHERS CAN SEE YOU",
+    codeCopie: (c) => `CODE ${c} COPIED`,
+    lienInvitation: "INVITE LINK · ONE CLICK TO COPY",
+    regleChange: "YOUR RULE CHANGES",
+    regleUnique: "YOUR ONE RULE",
+    duel: "DUEL",
+    elimineSous: (r) => `OUT · ${r}`,
+    matchTermine: "MATCH OVER",
+    egalite: "DRAW",
+    tuAsGagne: "YOU WON",
+    vainqueur: "WINNER",
+    finDuMatch: "MATCH OVER",
+    modeDaily: (j) => `DAILY RUN · #${j}`,
+    modeEscalade: "CLIMB",
+    modeTraining: "TRAINING",
+    piedDaily: (j) => `DAY #${j}`,
+    piedSur: "OF",
+    piedRegles: "RULES",
+    piedRecord: "BEST",
+    briefEscalade: (p) =>
+      `You start with one rule. Every ${p} rounds another one is added — and you hold them all. How far?`,
+    briefDailyLignes: (m) => `${m} ROUNDS · ONE ATTEMPT PER DAY`,
+    briefEscaladeLignes: (m) => `${m} RULES AT MOST · YOUR SCORE IS WHAT YOU HOLD`,
+    briefTiens: "PRESS SPACE AND HOLD IT DOWN",
+    goCommencer: "START",
+    goUnSeulEssai: "START · ONE ATTEMPT ONLY",
+    piedVies: "LIVES",
+    piedSpectateur: "SPECTATING",
+    piedMulti: "MULTI",
+    echauffement: "WARM-UP — YOU CANNOT DIE",
+    piegeDejoue: "TRAP AVOIDED",
+    tenu: "HELD",
+  },
+};
+
+/**
+ * La langue courante du module.
+ *
+ * Une variable et non un paramètre traîné partout : les chaînes ci-dessus
+ * sont écrites depuis des dizaines d'endroits, dont la boucle de jeu, et
+ * faire passer la langue à chacun d'eux serait du bruit dans des chemins
+ * qui doivent rester lisibles.
+ *
+ * `appliqueLangue` la pose. Les tests la posent aussi — c'est pour ça que
+ * `poseLangue` est exportée.
+ */
+let courante: Lang = "fr";
+
+export const langue = (): Lang => courante;
+
+export function poseLangue(l: Lang): void {
+  courante = l;
+}
+
+/** Un accès à une table déjà construite. Rien n'alloue, rien ne parcourt. */
+export function t<K extends keyof Dyn>(cle: K): Dyn[K] {
+  return DYN[courante][cle];
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const DYNAMIQUES = DYN;
+
 const poseHtml = (el: HTMLElement | null, html: string): void => {
   if (el) el.innerHTML = html;
 };
@@ -247,6 +517,7 @@ export function appliqueLangue(
   extra?: { compte?: string },
 ): void {
   const t = TEXTES[lang];
+  poseLangue(lang);
   doc.documentElement.lang = lang;
 
   /*

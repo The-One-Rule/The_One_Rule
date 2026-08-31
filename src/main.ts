@@ -55,7 +55,7 @@ import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
-import { appliqueLangue, estLang, etatSolo, libelleCompte, TEXTES } from "./i18n";
+import { appliqueLangue, estLang, etatSolo, libelleCompte, t, TEXTES } from "./i18n";
 import type { Lang } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -649,8 +649,8 @@ function renderCompte(): void {
   // sortie et un retour n'est plus une confirmation.
   suppressionArmee = false;
   $("compteDanger").classList.add("hidden");
-  $("btnCompteSupprimer").textContent = "SUPPRIMER LE COMPTE";
-  $("compteTitre").textContent = connecte ? "TON COMPTE" : "ENREGISTRER TES PERFS";
+  $("btnCompteSupprimer").textContent = t("compteSupprimer");
+  $("compteTitre").textContent = connecte ? t("compteTitreConnecte") : t("compteTitreAnonyme");
 
   if (connecte) {
     $("compteLede").textContent =
@@ -728,7 +728,7 @@ function renderCompte(): void {
       ? (RAISONS[retourCompte.code] ?? `RETOUR REFUSÉ (${retourCompte.code}).`)
       : "";
   err.classList.toggle("hidden", !vide && !refus);
-  err.textContent = refus || (vide ? "LES COMPTES NE SONT PAS DISPONIBLES POUR L'INSTANT." : "");
+  err.textContent = refus || (vide ? t("compteIndispo") : "");
 }
 
 async function ouvreCompte(): Promise<void> {
@@ -893,19 +893,19 @@ function openBrief(mode: Mode): void {
   }
 
   $("briefEyebrow").textContent =
-    mode === "daily" ? `RUN DU JOUR · #${day}` : mode === "escalade" ? "ESCALADE" : "ENTRAÎNEMENT";
-  $("briefName").textContent = mode === "escalade" ? "UNE DE PLUS" : pendingRule.name;
+    mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
+  $("briefName").textContent = mode === "escalade" ? t("briefUneDePlus") : pendingRule.name;
   $("briefText").textContent =
     mode === "escalade"
-      ? `Tu commences avec une règle. Toutes les ${PALIER} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`
+      ? t("briefEscalade")(PALIER)
       : pendingRule.brief;
 
   const warn = $("briefWarn");
   const hold = mode !== "escalade" && pendingRule.watchRelease === " ";
   const lines: string[] = [];
-  if (mode === "daily") lines.push(`${DAILY_LENGTH} MANCHES · UN SEUL ESSAI PAR JOUR`);
-  if (mode === "escalade") lines.push(`${PALIER_MAX} RÈGLES AU MAXIMUM · LE SCORE EST CE QUE TU TIENS`);
-  if (hold) lines.push("APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE");
+  if (mode === "daily") lines.push(t("briefDailyLignes")(DAILY_LENGTH));
+  if (mode === "escalade") lines.push(t("briefEscaladeLignes")(PALIER_MAX));
+  if (hold) lines.push(t("briefTiens"));
   warn.textContent = lines.join(" · ");
   warn.classList.toggle("hidden", lines.length === 0);
 
@@ -926,10 +926,10 @@ function openBrief(mode: Mode): void {
   const btnTry = $<HTMLButtonElement>("btnBriefTraining");
   btnTry.classList.toggle("hidden", !neuf);
   $("btnGo").textContent = hold
-    ? "MAINTIENS ESPACE"
+    ? t("goMaintiens")
     : neuf
-      ? "COMMENCER · UN SEUL ESSAI"
-      : "COMMENCER";
+      ? t("goUnSeulEssai")
+      : t("goCommencer");
   $("btnGo").classList.toggle("btn--primary", !neuf);
   btnTry.classList.toggle("btn--primary", neuf);
 
@@ -940,7 +940,7 @@ function openBrief(mode: Mode): void {
 function startRun(): void {
   if (!pendingRule) return;
   if (pendingRule.watchRelease === " " && !spaceDown) {
-    $("briefWarn").textContent = "APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE POUR LANCER";
+    $("briefWarn").textContent = t("briefEspace");
     $("briefWarn").classList.remove("hidden");
     return;
   }
@@ -995,8 +995,8 @@ function startRun(): void {
         ? // Le chiffre de droite est ce qu'on VISE : le plafond de règles.
           PALIER_MAX
         : s.bestTraining,
-    pendingMode === "daily" ? `JOUR #${day}` : pendingMode === "escalade" ? "ESCALADE" : "ENTRAÎNEMENT",
-    pendingMode === "daily" ? "SUR" : pendingMode === "escalade" ? "RÈGLES" : "RECORD",
+    pendingMode === "daily" ? t("piedDaily")(day) : pendingMode === "escalade" ? t("modeEscalade") : t("modeTraining"),
+    pendingMode === "daily" ? t("piedSur") : pendingMode === "escalade" ? t("piedRegles") : t("piedRecord"),
   );
   $("ghost").classList.toggle("hidden", !challenge);
   show(null);
@@ -1025,18 +1025,18 @@ async function openRanked(): Promise<void> {
   queueing = true;
   const btn = $<HTMLButtonElement>("btnRanked");
   btn.disabled = true;
-  btn.textContent = "RECHERCHE…";
+  btn.textContent = t("rankedRecherche");
 
   const me = P.load().ranked;
   const offer = await findMatch(s.anonId, me.name, 0);
   queueing = false;
   btn.disabled = false;
-  btn.textContent = "CLASSÉ";
+  btn.textContent = t("rankedNom");
 
   if (!offer) {
     // Le serveur est absent : on le dit et on n'enferme pas le joueur.
-    btn.textContent = "CLASSÉ INDISPONIBLE";
-    setTimeout(() => (btn.textContent = "CLASSÉ"), 2200);
+    btn.textContent = t("rankedIndispo");
+    setTimeout(() => (btn.textContent = t("rankedNom")), 2200);
     return;
   }
 
@@ -1053,7 +1053,7 @@ async function openRanked(): Promise<void> {
   pendingRule = rule;
 
   const div = offer.me.division ?? divisionOf(offer.me.rating);
-  $("briefEyebrow").textContent = `CLASSÉ · ${div.name} · ${offer.me.rating}`;
+  $("briefEyebrow").textContent = t("rankedEyebrow")(div.name, offer.me.rating);
   $("briefName").textContent = rule.name;
   $("briefText").textContent = rule.brief;
   const warn = $("briefWarn");
@@ -1061,7 +1061,7 @@ async function openRanked(): Promise<void> {
     ? `CONTRE ${offer.opponent.name} (${offer.opponent.rating}) · IL A TENU ${offer.opponent.score} MANCHES`
     : "AUCUN ADVERSAIRE DISPONIBLE · CE RUN SERVIRA D'ÉTALON AUX SUIVANTS";
   warn.classList.remove("hidden");
-  $("btnGo").textContent = rule.watchRelease === " " ? "MAINTIENS ESPACE" : "ENTRER EN LICE";
+  $("btnGo").textContent = rule.watchRelease === " " ? t("goMaintiens") : t("goEntrer");
   renderPace();
   show("brief");
 }
@@ -1070,7 +1070,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
   const s = P.load();
   const box = $("rankResult");
   box.classList.remove("hidden");
-  box.innerHTML = "ENVOI DU RUN…";
+  box.innerHTML = t("rankedEnvoi");
 
   const res = await submitRun({
     id: s.anonId,
@@ -1083,7 +1083,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
   });
 
   if (!res) {
-    box.innerHTML = "SERVEUR INJOIGNABLE · RUN NON CLASSÉ";
+    box.innerHTML = t("rankedInjoignable");
     return;
   }
   if (res.rejected) {
@@ -1233,7 +1233,7 @@ function finishRun(): void {
 
   const reward = $("reward");
   reward.classList.toggle("hidden", gained <= 0);
-  reward.textContent = gained > 0 ? `QUÊTES VALIDÉES · +${gained} PIÈCES` : "";
+  reward.textContent = gained > 0 ? t("quetesValidees")(gained) : "";
 
   const box = $("rankResult");
   if (mode === "ranked") {
@@ -1259,7 +1259,7 @@ function finishRun(): void {
     teaser.querySelector("b")!.textContent = tomorrowRule(day).name;
     teaser.classList.remove("hidden");
   } else {
-    teaser.innerHTML = `SÉRIE EN COURS<b></b>`;
+    teaser.innerHTML = `${t("serieEnCours")}<b></b>`;
     teaser.querySelector("b")!.textContent = `${s.streak.count} JOUR${s.streak.count > 1 ? "S" : ""}`;
   }
 
@@ -1560,13 +1560,13 @@ function loadChallenge(r: Replay): void {
   challenge = r;
   pendingMode = "training";
   pendingRule = rule;
-  $("briefEyebrow").textContent = r.who ? `DÉFI DE ${r.who.toUpperCase()}` : "DÉFI REÇU";
+  $("briefEyebrow").textContent = r.who ? t("defiDe")(r.who.toUpperCase()) : t("defiRecu");
   $("briefName").textContent = rule.name;
   $("briefText").textContent = rule.brief;
   const warn = $("briefWarn");
-  warn.textContent = `MÊME PARTIE, MÊME ORDRE · L'ADVERSAIRE A TENU ${ghostFinal(r)} MANCHES`;
+  warn.textContent = t("defiMemeOrdre")(ghostFinal(r));
   warn.classList.remove("hidden");
-  $("btnGo").textContent = rule.watchRelease === " " ? "MAINTIENS ESPACE" : "RELEVER LE DÉFI";
+  $("btnGo").textContent = rule.watchRelease === " " ? t("goMaintiens") : t("goDefi");
   renderPace();
   show("brief");
 }
@@ -1721,14 +1721,14 @@ $("btnCompteSupprimer").addEventListener("click", () => {
     danger.textContent =
       "TON COMPTE, TON HISTORIQUE ET TES RUNS ENREGISTRÉS SERONT EFFACÉS. " +
       "TA PROGRESSION SUR CET APPAREIL RESTE. C'EST DÉFINITIF.";
-    bouton.textContent = "CONFIRMER LA SUPPRESSION";
+    bouton.textContent = t("compteConfirmer");
     return;
   }
   bouton.disabled = true;
   void supprimeCompte().then((fait) => {
     bouton.disabled = false;
     if (!fait) {
-      danger.textContent = "SUPPRESSION IMPOSSIBLE POUR L'INSTANT. RÉESSAIE PLUS TARD.";
+      danger.textContent = t("compteSuppressionKo");
       return;
     }
     // Le lien local part avec le compte : cet appareil redevient anonyme, et
@@ -1738,7 +1738,7 @@ $("btnCompteSupprimer").addEventListener("click", () => {
       st.compte.glyphe = null;
     });
     suppressionArmee = false;
-    bouton.textContent = "SUPPRIMER LE COMPTE";
+    bouton.textContent = t("compteSupprimer");
     danger.classList.add("hidden");
     renderCompte();
   });
@@ -1787,8 +1787,8 @@ $("btnDuel").addEventListener("click", async () => {
   // Ouvert depuis un fichier local, il n'y a pas d'origine partageable :
   // mieux vaut le dire que produire un lien mort.
   if (location.protocol === "file:") {
-    $("btnDuel").textContent = "OUVRE LE JEU EN LIGNE POUR DÉFIER";
-    setTimeout(() => ($("btnDuel").textContent = "DÉFIER UN AMI"), 2200);
+    $("btnDuel").textContent = t("defierHorsLigne");
+    setTimeout(() => ($("btnDuel").textContent = t("defierAmi")), 2200);
     return;
   }
   const url = challengeUrl({
@@ -1805,8 +1805,8 @@ $("btnDuel").addEventListener("click", async () => {
     // compter l'intention comme un envoi gonflerait le haut de l'entonnoir
     // exactement là où on cherche à savoir si le bas se remplit.
     track("duel_sent", { rule: lastRun.rule.id, score: lastRun.end.score });
-    $("btnDuel").textContent = "LIEN COPIÉ ✓";
-    setTimeout(() => ($("btnDuel").textContent = "DÉFIER UN AMI"), 1600);
+    $("btnDuel").textContent = t("lienCopie");
+    setTimeout(() => ($("btnDuel").textContent = t("defierAmi")), 1600);
   } catch {
     /* partage annulé */
   }
@@ -1822,8 +1822,8 @@ $("btnShare").addEventListener("click", async () => {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     track("share", { mode, rule: rule.id, score: end.score });
-    $("btnShare").textContent = "COPIÉ ✓";
-    setTimeout(() => ($("btnShare").textContent = "PARTAGER"), 1500);
+    $("btnShare").textContent = t("copieOk");
+    setTimeout(() => ($("btnShare").textContent = t("partager")), 1500);
   } catch {
     /* partage annulé */
   }
@@ -1928,10 +1928,10 @@ function loop(now: number): void {
       hud.setFooter(
         session.level,
         session.mode === "daily" ? DAILY_LENGTH : P.load().bestTraining,
-        session.mode === "daily" ? `JOUR #${day}` : "ENTRAÎNEMENT",
-        session.mode === "daily" ? "SUR" : "RECORD",
+        session.mode === "daily" ? t("piedDaily")(day) : t("modeTraining"),
+        session.mode === "daily" ? t("piedSur") : t("piedRecord"),
       );
-      hud.setMeta(session.inGrace ? "ÉCHAUFFEMENT — TU NE PEUX PAS MOURIR" : "");
+      hud.setMeta(session.inGrace ? t("echauffement") : "");
     }
   } else if (multi.isPlayingMulti()) {
     multiDraw = multi.syncFrame();
