@@ -4,8 +4,51 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0E1520" />
-    <title>THE ONE RULE</title>
-    <meta name="description" content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute." />
+    <!-- LE TITRE PORTE LE SLOGAN, et c'est ce qui le rend cherchable.
+         « THE ONE RULE » seul est une phrase anglaise banale : on y est en
+         concurrence avec des millions de pages. « sometimes, obeying is the
+         mistake » ne ressemble a rien d'autre — quelqu'un qui a vu le jeu
+         peut le retrouver avec ces mots.
+         Il est reecrit dans la langue du joueur au chargement (`i18n.ts`) ;
+         cette version-ci est celle que voient les robots. -->
+    <title>THE ONE RULE — sometimes, obeying is the mistake</title>
+    <meta
+      name="description"
+      content="Une règle unique tenue toute la partie. Une consigne toutes les deux secondes. Quand elle contredit la règle, ne rien faire est la bonne réponse. Jeu de réflexes gratuit dans le navigateur, seul ou jusqu'à 10 joueurs."
+    />
+
+    <!-- Une seule URL : l'application tient sur une page. Sans canonique, un
+         partage avec `?utm=...` ou `#compte=ok` devient une page distincte
+         aux yeux d'un robot, et l'audience se dilue entre des doublons. -->
+    <link rel="canonical" href="https://www.theonerule.party/" />
+
+    <!-- Pas de `hreflang` : il exige des URL DISTINCTES par langue. Le
+         francais et l'anglais partagent la meme page et se choisissent a
+         l'execution. L'annoncer serait mentir aux robots. -->
+
+    <!-- Ce que Google affiche dans ses resultats de jeux. Sans ce bloc, la
+         page est « un site » ; avec, elle est un JEU, gratuit, jouable dans
+         le navigateur. C'est la seule chose de ce fichier qui change la
+         FORME du resultat et pas seulement son texte. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "THE ONE RULE",
+        "alternateName": "The One Rule",
+        "url": "https://www.theonerule.party/",
+        "image": "https://www.theonerule.party/og.png",
+        "description": "One rule holds for the whole run. A new order every two seconds. When the order breaks the rule, doing nothing is the right answer.",
+        "genre": ["Reflex", "Party", "Arcade"],
+        "gamePlatform": "Web browser",
+        "playMode": ["SinglePlayer", "MultiPlayer"],
+        "applicationCategory": "Game",
+        "operatingSystem": "Any",
+        "inLanguage": ["fr", "en"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" }
+      }
+    </script>
 
     <!-- ONGLET ET ÉCRAN D'ACCUEIL.
          Le signe est un panneau d'interdiction reconstruit avec le vocabulaire
@@ -37,7 +80,8 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="The One Rule" />
     <meta property="og:locale" content="fr_FR" />
-    <meta property="og:title" content="THE ONE RULE" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="THE ONE RULE — sometimes, obeying is the mistake" />
     <meta
       property="og:description"
       content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."
@@ -50,7 +94,7 @@
     <meta property="og:image:alt" content="The One Rule — le signe et le nom sur fond nocturne." />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="THE ONE RULE" />
+    <meta name="twitter:title" content="THE ONE RULE — sometimes, obeying is the mistake" />
     <meta
       name="twitter:description"
       content="Une règle unique. Deux secondes par consigne. Parfois, obéir est la faute."

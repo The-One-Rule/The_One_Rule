@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  UNE SEULE URL, et c'est exact : THE ONE RULE est une application d'une
+  page. Tous les ecrans — solo, salon, carnet, compte — vivent derriere la
+  meme adresse et ne sont pas adressables separement.
+
+  Pas de `hreflang` non plus, et ce n'est pas un oubli : il exige des URL
+  DISTINCTES par langue. Le francais et l'anglais partagent ici la meme page
+  et se choisissent a l'execution, donc annoncer un hreflang serait mentir
+  aux robots.
+
+  `changefreq` et `priority` sont volontairement absents : Google les ignore
+  depuis des annees, et les ecrire donnerait l'illusion d'un reglage.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://www.theonerule.party/</loc>
+  </url>
+</urlset>

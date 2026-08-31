@@ -56,6 +56,8 @@ type Textes = {
   serie: (n: number) => string;
   multiOk: string;
   multiOff: string;
+  /** Le titre de l'onglet — il porte le slogan. */
+  titre: string;
 };
 
 export const TEXTES: Record<Lang, Textes> = {
@@ -77,6 +79,7 @@ export const TEXTES: Record<Lang, Textes> = {
     serie: (n) => `SÉRIE ${n}`,
     multiOk: "DE 2 À 10 JOUEURS",
     multiOff: "SERVEUR DE SALONS HORS LIGNE",
+    titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
     ledeHtml: "One <b>unique rule</b>. Sometimes, obeying is the mistake.",
@@ -96,6 +99,7 @@ export const TEXTES: Record<Lang, Textes> = {
     serie: (n) => `STREAK ${n}`,
     multiOk: "2 TO 10 PLAYERS",
     multiOff: "LOBBY SERVER OFFLINE",
+    titre: "THE ONE RULE — sometimes, obeying is the mistake",
   },
 };
 
@@ -546,6 +550,12 @@ export function appliqueLangue(
   const t = TEXTES[lang];
   poseLangue(lang);
   doc.documentElement.lang = lang;
+  /*
+   * Le titre de l'onglet suit la langue. Celui du HTML servi est l'anglais —
+   * c'est lui que voient les robots, et l'anglais porte plus loin en
+   * recherche. Un joueur francais, lui, doit lire du francais dans son onglet.
+   */
+  doc.title = t.titre;
 
   /*
    * Les chaines statiques d'abord, par leur attribut.

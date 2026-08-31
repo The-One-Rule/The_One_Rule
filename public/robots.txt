@@ -1,0 +1,13 @@
+# THE ONE RULE
+#
+# Tout est ouvert : il n'y a rien de prive sur ce site, et une page de jeu
+# n'a pas d'espace d'administration a cacher.
+#
+# `Disallow:` VIDE veut dire « rien n'est interdit ». Ecrire `Disallow: /`
+# interdirait tout le site — l'erreur classique, et elle est silencieuse :
+# le fichier est valide, le site disparait simplement de la recherche.
+
+User-agent: *
+Disallow:
+
+Sitemap: https://www.theonerule.party/sitemap.xml
