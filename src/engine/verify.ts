@@ -13,7 +13,9 @@
  */
 
 import { mulberry32 } from "./rng";
-import { ONE_RULES } from "./rules";
+import { ONE_RULES, withoutHold, withoutInk } from "./rules";
+import { combineRules } from "./rules/combine";
+import { pileA, pileEscalade } from "./escalade";
 import { buildRound } from "./round";
 import { resolveAction, resolveTimeout } from "./resolve";
 import { DAILY_LENGTH, GRACE_ROUNDS } from "./difficulty";
@@ -29,8 +31,23 @@ export type LoggedInput =
 export interface RunClaim {
   seed: number;
   ruleId: string;
-  mode: "daily" | "training" | "ranked";
+  mode: "daily" | "training" | "ranked" | "escalade";
   inputs: LoggedInput[];
+  /**
+   * ESCALADE : ce que l'appareil du joueur savait jouer.
+   *
+   * La pile de regles est tiree d'un flux derive de la graine, mais FILTREE
+   * par les capacites de l'appareil : un telephone ne peut pas tenir ESPACE
+   * (`withoutHold`), et le mode motifs rend LE DALTONIEN inerte
+   * (`withoutInk`). Si le serveur rejouait avec un autre filtre, il tirerait
+   * une AUTRE pile — et rejetterait tous les runs.
+   *
+   * ⚠️ Ces deux drapeaux entrent donc dans la cle de comparabilite : un run
+   * joue sans les regles a maintien n'est pas la meme epreuve, et il ne se
+   * compare qu'a ses semblables. Les declarer ne donne aucun avantage — cela
+   * change la pile, pas sa difficulte — mais cela change a QUI on se compare.
+   */
+  capacites?: { maintien: boolean; encre: boolean };
 }
 
 export interface Verdict {
@@ -108,6 +125,23 @@ export function verifyRun(claim: RunClaim): Verdict {
     return fail("run trop long");
   }
 
+  /*
+   * ESCALADE : la pile, tiree du MEME flux derive que le jeu.
+   *
+   * `seed ^ 0x5eca1ade` — le decalage existe pour ne pas consommer le flux
+   * des manches, qui doit rester identique a une graine donnee. Reproduire ce
+   * detail est ce qui rend le run rejouable ici.
+   */
+  const pile =
+    claim.mode === "escalade"
+      ? pileEscalade(mulberry32(claim.seed ^ 0x5eca1ade), (r) => {
+          if (claim.capacites?.maintien === false && withoutHold(r) !== r) return false;
+          if (claim.capacites?.encre === false && withoutInk(r) !== r) return false;
+          return true;
+        })
+      : null;
+  if (pile && pile.length === 0) return fail("pile d'escalade vide");
+
   const rng = mulberry32(claim.seed);
   const limited = claim.mode !== "training";
   const maxRounds = limited ? DAILY_LENGTH : 400;
@@ -117,12 +151,15 @@ export function verifyRun(claim: RunClaim): Verdict {
   let traps = 0;
   const reactions: number[] = [];
   let roundStart = 0;
-  let round: Round = buildRound(rng, level, rule);
+  /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
+  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : rule);
+
+  let round: Round = buildRound(rng, level, regleA(level));
   let progress: RoundProgress = { step: 0 };
   let cursor = 0;
 
   const nextRound = (at: number): void => {
-    round = buildRound(rng, level, rule);
+    round = buildRound(rng, level, regleA(level));
     progress = { step: 0 };
     roundStart = at;
   };
@@ -178,7 +215,16 @@ export function verifyRun(claim: RunClaim): Verdict {
     const action = toAction(next, round.ents);
     if (!action) return fail("entrée hors scène");
 
-    const res = resolveAction(round, progress, action, next.t - roundStart, rule.judge);
+    /*
+     * Le juge vient de la REGLE DU PALIER, pas du champ `ruleId`.
+     *
+     * Avec `rule.judge`, un run d'escalade etait juge sous une seule regle —
+     * celle annoncee dans la reclamation — au lieu de la pile reellement
+     * tenue. Mesure : le meme journal donnait 3 sous « sang » et 12 sous
+     * « jumeau ». Autrement dit, le joueur choisissait sa propre contrainte
+     * en remplissant un champ.
+     */
+    const res = resolveAction(round, progress, action, next.t - roundStart, regleA(level).judge);
     progress = res.progress;
 
     if (res.outcome.kind === "survive") {

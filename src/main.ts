@@ -10,7 +10,7 @@ import {
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
-import { PALIER, PALIER_MAX, pileEscalade } from "./game/escalade";
+import { PALIER, PALIER_MAX, pileEscalade } from "./engine/escalade";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";

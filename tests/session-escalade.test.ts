@@ -11,7 +11,7 @@ import { ONE_RULES } from "../src/engine/rules";
 import { combineRules } from "../src/engine/rules/combine";
 import { buildRound } from "../src/engine/round";
 import { mulberry32 } from "../src/engine/rng";
-import { PALIER, pileEscalade } from "../src/game/escalade";
+import { PALIER, pileEscalade } from "../src/engine/escalade";
 
 const sang = ONE_RULES.find((r) => r.id === "sang")!;
 

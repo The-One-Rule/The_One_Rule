@@ -1,5 +1,13 @@
 /**
- * L'ESCALADE — combien de règles peux-tu tenir à la fois ?
+ * L'ESCALADE
+ *
+ * ⚠️ Ce fichier vit dans `engine/` et non dans `game/`, et ce n'est pas
+ * cosmetique : `verify.ts` rejoue les runs d'escalade COTE SERVEUR, donc il a
+ * besoin du tirage de pile. Le laisser dans `game/` faisait remonter tout
+ * `game/` — persistance, quetes, modes — dans une fonction edge, et inversait
+ * la dependance que le §4 de CLAUDE.md tient pour structurante. Le tirage
+ * d'une pile de regles est du moteur : il est pur, deterministe, et ne connait
+ * ni DOM ni horloge. — combien de règles peux-tu tenir à la fois ?
  *
  * Une règle au départ. Tous les `PALIER` manches, une de plus s'ajoute, et
  * elles se tiennent TOUTES en même temps : une consigne devient un piège si
@@ -32,10 +40,10 @@
  * réflexe. Le plafond à 4 est un pari, pas une certitude : c'est la première
  * chose à regarder en soirée, et `PALIER_MAX` est le bouton pour le corriger.
  */
-import { ONE_RULES } from "../engine/rules";
-import { compatibleAvec } from "../engine/rules/combine";
-import { rShuffle } from "../engine/rng";
-import type { OneRule, Rng } from "../engine/types";
+import { ONE_RULES } from "./rules";
+import { compatibleAvec } from "./rules/combine";
+import { rShuffle } from "./rng";
+import type { OneRule, Rng } from "./types";
 
 /** Manches entre deux paliers. Aligné sur la rotation du multi, qui est réglée. */
 export const PALIER = 8;

@@ -2,7 +2,7 @@ import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, tierOf } from "../engine/di
 import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
-import { pileA } from "./escalade";
+import { pileA } from "../engine/escalade";
 import { resolveAction, resolveTimeout } from "../engine/resolve";
 import type { Action, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
 import type { LoggedInput } from "../engine/verify";
@@ -108,7 +108,7 @@ export class Session {
     touchOnly?: boolean;
     /** Allure — n'a d'effet qu'en entraînement, voir PACE_CHOICES. */
     pace?: number;
-    /** ESCALADE : la pile complète, tirée d'avance. Voir game/escalade.ts. */
+    /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
   }) {
     this.mode = opts.mode;

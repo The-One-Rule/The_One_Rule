@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { ONE_RULES } from "../src/engine/rules";
 import { compatibleAvec } from "../src/engine/rules/combine";
 import { mulberry32 } from "../src/engine/rng";
-import { PALIER, PALIER_MAX, avantPalier, pileA, pileEscalade, paliersA } from "../src/game/escalade";
+import { PALIER, PALIER_MAX, avantPalier, pileA, pileEscalade, paliersA } from "../src/engine/escalade";
 
 describe("progression des paliers", () => {
   it("démarre à une règle et en ajoute une tous les PALIER", () => {
