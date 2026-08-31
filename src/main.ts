@@ -55,7 +55,17 @@ import { glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
-import { appliqueLangue, estLang, etatSolo, libelleCompte, t, TEXTES } from "./i18n";
+import {
+  appliqueLangue,
+  estLang,
+  etatSolo,
+  jetons,
+  libelleCompte,
+  accrocheDuJour,
+  libelleQuete,
+  t,
+  TEXTES,
+} from "./i18n";
 import type { Lang } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -368,11 +378,14 @@ function renderSolo(): void {
     el.innerHTML = html;
     strip.appendChild(el);
   };
-  chip(`SÉRIE <b>${s.streak.count}</b>`, s.streak.count >= 3);
-  chip(`PIÈCES <b>${s.coins}</b>`);
-  chip(`RÈGLES <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
-  if (s.daily.played) chip(`JOUR ${day} <b>FAIT</b>`);
-  else chip(`AUJOURD'HUI <b>${rule.name}</b>`);
+  const j = jetons();
+  chip(`${j.serie} <b>${s.streak.count}</b>`, s.streak.count >= 3);
+  chip(`${j.pieces} <b>${s.coins}</b>`);
+  chip(`${j.regles} <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
+  // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
+  // identifiant est la clé du carnet et de la comparabilité.
+  if (s.daily.played) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
+  else chip(`${j.aujourdhui} <b>${rule.name}</b>`);
 
   renderQuests("homeQuests");
 
@@ -384,14 +397,15 @@ function renderSolo(): void {
    * l'écrire sur le bouton effacerait son titre et sa description.
    */
   $("cardDailyDesc").textContent = s.daily.played
-    ? "C'est fait pour aujourd'hui."
-    : teaserDuJour(rule.id, day);
+    ? t("dailyFait")
+    : accrocheDuJour(rule.id, day);
   $("cardDailyState").textContent = s.daily.played
-    ? `${s.daily.score} MANCHES · REVIENS DEMAIN`
-    : "UN SEUL ESSAI";
+    ? t("dailyRevient")(s.daily.score)
+    : t("dailyUnEssai");
+  $("cardEscaladeState").textContent = t("escaladeEtat");
   $("cardTrainingState").textContent = neuf
-    ? "COMMENCE ICI · TU NE PERDS RIEN"
-    : `RECORD · ${s.bestTraining} MANCHES`;
+    ? t("trainingNeuf")
+    : t("trainingRecord")(s.bestTraining);
 
   /*
    * Un nouveau venu ne doit PAS voir le run du jour comme action évidente.
@@ -466,7 +480,13 @@ function renderQuests(hostId: string, fresh: readonly string[] = []): void {
     row.innerHTML =
       `<span class="quest__box"></span><span class="quest__label"></span>` +
       `<span class="quest__val">${Math.min(q.value, q.target)}/${q.target} · +${q.reward}</span>`;
-    row.querySelector<HTMLElement>(".quest__label")!.textContent = q.label;
+    // Le libellé est recomposé depuis l'identifiant : `q.label` est le
+    // français canonique du moteur de quêtes, qui ignore les langues.
+    row.querySelector<HTMLElement>(".quest__label")!.textContent = libelleQuete(
+      q.id,
+      q.target,
+      q.label,
+    );
     list.appendChild(row);
   }
 }
@@ -658,12 +678,12 @@ function renderCompte(): void {
     const hote = $("compteIdentite");
     hote.innerHTML = "";
     const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
-    hote.appendChild(ligneCompte("NOM", c.pseudo || "SANS NOM", glyphSvg(signeAffiche(s), 18)));
-    hote.appendChild(ligneCompte("CARNET", `${vues} / ${ONE_RULES.length} RÈGLES`));
+    hote.appendChild(ligneCompte(t("cptNom"), c.pseudo || t("cptSansNom"), glyphSvg(signeAffiche(s), 18)));
+    hote.appendChild(ligneCompte(t("cptCarnet"), t("cptRegles")(vues, ONE_RULES.length)));
     hote.appendChild(
-      ligneCompte("SÉRIE", `${s.streak.count} JOUR${s.streak.count > 1 ? "S" : ""}`),
+      ligneCompte(t("cptSerie"), t("cptJours")(s.streak.count)),
     );
-    hote.appendChild(ligneCompte("RECORD À L'ENTRAÎNEMENT", `${s.bestTraining} MANCHES`));
+    hote.appendChild(ligneCompte(t("cptRecordEntrainement"), t("cptManches")(s.bestTraining)));
 
     /*
      * L'historique des runs du jour, chargé après coup.
@@ -678,10 +698,10 @@ function renderCompte(): void {
     void mesPerfs().then((perfs) => {
       if (screen !== "compte" || !perfs.length) return;
       hote.appendChild(
-        ligneCompte("RUNS DU JOUR ENREGISTRÉS", `${perfs.length}`),
+        ligneCompte(t("cptRunsEnregistres"), `${perfs.length}`),
       );
       const meilleur = perfs.reduce((m, p) => (p.valeur > m.valeur ? p : m));
-      hote.appendChild(ligneCompte("MEILLEUR RUN DU JOUR", `${meilleur.valeur} MANCHES`));
+      hote.appendChild(ligneCompte(t("cptMeilleurRun"), t("cptManches")(meilleur.valeur)));
     });
     return;
   }
@@ -772,26 +792,6 @@ function renderInvite(score: number, record: boolean): void {
  * Deux par règle, choisies par l'index du jour : tout le monde voit la même,
  * et elle change d'un jour à l'autre.
  */
-const TEASERS: Record<string, [string, string]> = {
-  sang: ["Aujourd'hui, évite de voir rouge.", "Le rouge ne te veut aucun bien."],
-  pointe: ["Méfie-toi de ce qui pique.", "Les angles ne sont pas tes amis."],
-  voyelle: ["Certaines lettres se retiennent.", "L'alphabet a ses interdits."],
-  colosse: ["La taille, ça compte. En mal.", "Les gros ennuis sont les plus visibles."],
-  gaucher: ["La gauche est un terrain miné.", "Un côté de l'écran te déteste."],
-  seconde: ["La patience paie. Littéralement.", "Ne te précipite surtout pas."],
-  eclair: ["Lis vite. Très vite.", "Ça passe, et c'est parti."],
-  menteur: ["Ne crois pas tout ce que tu lis.", "Quelqu'un te raconte des histoires."],
-  daltonien: ["Fais confiance aux mots, pas à tes yeux.", "Tes yeux vont te trahir."],
-  jumeau: ["Une fois ne suffira pas.", "Tout est à refaire. Deux fois."],
-  acceleration: ["Prends une inspiration avant.", "Ce sera plus court que prévu."],
-  mainGauche: ["Prévois une main de libre.", "Tu vas tenir quelque chose."],
-};
-
-const teaserDuJour = (ruleId: string, jour: number): string => {
-  const paire = TEASERS[ruleId];
-  return paire ? paire[jour % 2 === 0 ? 0 : 1] : "Une règle t'attend.";
-};
-
 /**
  * N'a jamais terminé un run.
  *

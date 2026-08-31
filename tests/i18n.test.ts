@@ -325,7 +325,7 @@ describe("la langue ne contraint pas le joueur en partie", () => {
     // Les bornes sont celles que CE test mesure, pas celles d'un script
     // extérieur : les deux comptaient différemment les guillemets échappés,
     // et c'est le compte d'ici qui fait foi puisque c'est lui qui garde.
-    const PLAFOND = { "main.ts": 50, "multi.ts": 34 };
+    const PLAFOND = { "main.ts": 29, "multi.ts": 34 };
     const comptes: Record<string, number> = {};
     for (const [nom, src] of [
       ["main.ts", main],

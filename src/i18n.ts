@@ -350,6 +350,26 @@ type Dyn = {
   echauffement: string;
   piegeDejoue: string;
   tenu: string;
+  faitMaj: string;
+  /* --- ecran de compte --- */
+  cptNom: string;
+  cptSansNom: string;
+  cptCarnet: string;
+  cptRegles: (n: number, total: number) => string;
+  cptSerie: string;
+  cptJours: (n: number) => string;
+  cptRecordEntrainement: string;
+  cptManches: (n: number) => string;
+  cptRunsEnregistres: string;
+  cptMeilleurRun: string;
+  /* --- cartes de l'ecran SOLO --- */
+  dailyFait: string;
+  dailyRevient: (score: number) => string;
+  dailyUnEssai: string;
+  escaladeEtat: string;
+  trainingNeuf: string;
+  trainingRecord: (n: number) => string;
+  teaserDefaut: string;
 };
 
 const DYN: Record<Lang, Dyn> = {
@@ -425,6 +445,24 @@ const DYN: Record<Lang, Dyn> = {
     echauffement: "ÉCHAUFFEMENT — TU NE PEUX PAS MOURIR",
     piegeDejoue: "PIÈGE DÉJOUÉ",
     tenu: "TENU",
+    faitMaj: "FAIT",
+    cptNom: "NOM",
+    cptSansNom: "SANS NOM",
+    cptCarnet: "CARNET",
+    cptRegles: (n, tot) => `${n} / ${tot} RÈGLES`,
+    cptSerie: "SÉRIE",
+    cptJours: (n) => `${n} JOUR${n > 1 ? "S" : ""}`,
+    cptRecordEntrainement: "RECORD À L'ENTRAÎNEMENT",
+    cptManches: (n) => `${n} MANCHES`,
+    cptRunsEnregistres: "RUNS DU JOUR ENREGISTRÉS",
+    cptMeilleurRun: "MEILLEUR RUN DU JOUR",
+    dailyFait: "C'est fait pour aujourd'hui.",
+    dailyRevient: (n) => `${n} MANCHES · REVIENS DEMAIN`,
+    dailyUnEssai: "UN SEUL ESSAI",
+    escaladeEtat: "JUSQU'OÙ TU TIENS ?",
+    trainingNeuf: "COMMENCE ICI · TU NE PERDS RIEN",
+    trainingRecord: (n) => `RECORD · ${n} MANCHES`,
+    teaserDefaut: "Une règle t'attend.",
   },
   en: {
     compteSupprimer: "DELETE ACCOUNT",
@@ -498,6 +536,24 @@ const DYN: Record<Lang, Dyn> = {
     echauffement: "WARM-UP — YOU CANNOT DIE",
     piegeDejoue: "TRAP AVOIDED",
     tenu: "HELD",
+    faitMaj: "DONE",
+    cptNom: "NAME",
+    cptSansNom: "NO NAME",
+    cptCarnet: "RULE BOOK",
+    cptRegles: (n, tot) => `${n} / ${tot} RULES`,
+    cptSerie: "STREAK",
+    cptJours: (n) => `${n} DAY${n > 1 ? "S" : ""}`,
+    cptRecordEntrainement: "TRAINING BEST",
+    cptManches: (n) => `${n} ROUNDS`,
+    cptRunsEnregistres: "DAILY RUNS SAVED",
+    cptMeilleurRun: "BEST DAILY RUN",
+    dailyFait: "Done for today.",
+    dailyRevient: (n) => `${n} ROUNDS · COME BACK TOMORROW`,
+    dailyUnEssai: "ONE ATTEMPT ONLY",
+    escaladeEtat: "HOW FAR DO YOU HOLD?",
+    trainingNeuf: "START HERE · NOTHING TO LOSE",
+    trainingRecord: (n) => `BEST · ${n} ROUNDS`,
+    teaserDefaut: "A rule is waiting for you.",
   },
 };
 
@@ -723,6 +779,119 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
   },
 };
+
+/* ------------------------------------------------------------------ *
+ * LES QUETES ET LES JETONS DE L'ECRAN SOLO
+ *
+ * Meme schema que les consignes : `game/quests.ts` fabrique un `label`
+ * francais, et l'affichage recompose depuis l'IDENTIFIANT — le seul element
+ * variable etant la cible. Le module de quetes reste donc pur et ignorant
+ * des langues, et son `label` demeure le francais canonique.
+ * ------------------------------------------------------------------ */
+
+const QUETES: Record<Lang, Record<string, (cible: number) => string>> = {
+  fr: {
+    p_daily: () => "Termine le run du jour",
+    p_runs3: () => "Joue 3 parties",
+    p_rounds40: () => "Survis à 40 manches en tout",
+    e_traps3: () => "Déjoue 3 pièges",
+    e_traps6: () => "Déjoue 6 pièges",
+    e_nokey: () => "Atteins la manche 8 sans toucher au clavier",
+    e_rounds80: () => "Survis à 80 manches en tout",
+    x_beat: (c) => `Dépasse ${c} manches dans une partie`,
+  },
+  en: {
+    p_daily: () => "Finish today's run",
+    p_runs3: () => "Play 3 games",
+    p_rounds40: () => "Survive 40 rounds in total",
+    e_traps3: () => "Dodge 3 traps",
+    e_traps6: () => "Dodge 6 traps",
+    e_nokey: () => "Reach round 8 without touching the keyboard",
+    e_rounds80: () => "Survive 80 rounds in total",
+    x_beat: (c) => `Beat ${c} rounds in a single game`,
+  },
+};
+
+/**
+ * Le libelle d'une quete. `secours` est le francais fabrique par le moteur de
+ * quetes : une quete inconnue s'affiche donc, plutot que de disparaitre.
+ */
+export function libelleQuete(id: string, cible: number, secours: string): string {
+  return QUETES[courante][id]?.(cible) ?? secours;
+}
+
+/** Les jetons de l'ecran SOLO — serie, pieces, regles, regle du jour. */
+export const JETONS: Record<Lang, {
+  serie: string;
+  pieces: string;
+  regles: string;
+  jourFait: (jour: number) => string;
+  aujourdhui: string;
+}> = {
+  fr: {
+    serie: "SÉRIE",
+    pieces: "PIÈCES",
+    regles: "RÈGLES",
+    jourFait: (j) => `JOUR ${j}`,
+    aujourdhui: "AUJOURD'HUI",
+  },
+  en: {
+    serie: "STREAK",
+    pieces: "COINS",
+    regles: "RULES",
+    jourFait: (j) => `DAY ${j}`,
+    aujourdhui: "TODAY",
+  },
+};
+
+export const jetons = (): (typeof JETONS)[Lang] => JETONS[courante];
+
+/**
+ * LES ACCROCHES DU RUN DU JOUR.
+ *
+ * Deux par regle, alternees selon la parite du jour : elles taquinent la
+ * regle sans la nommer. C'est de l'ecriture, pas de l'etiquette — donc une
+ * table a part, et une traduction qui cherche l'effet plutot que le mot.
+ *
+ * Une regle absente de la table rend `teaserDefaut` : ajouter une regle ne
+ * doit pas laisser une carte muette.
+ */
+const ACCROCHES: Record<Lang, Record<string, [string, string]>> = {
+  fr: {
+    sang: ["Aujourd'hui, évite de voir rouge.", "Le rouge ne te veut aucun bien."],
+    pointe: ["Méfie-toi de ce qui pique.", "Les angles ne sont pas tes amis."],
+    voyelle: ["Certaines lettres se retiennent.", "L'alphabet a ses interdits."],
+    colosse: ["La taille, ça compte. En mal.", "Les gros ennuis sont les plus visibles."],
+    gaucher: ["La gauche est un terrain miné.", "Un côté de l'écran te déteste."],
+    seconde: ["La patience paie. Littéralement.", "Ne te précipite surtout pas."],
+    eclair: ["Lis vite. Très vite.", "Ça passe, et c'est parti."],
+    menteur: ["Ne crois pas tout ce que tu lis.", "Quelqu'un te raconte des histoires."],
+    daltonien: ["Fais confiance aux mots, pas à tes yeux.", "Tes yeux vont te trahir."],
+    jumeau: ["Une fois ne suffira pas.", "Tout est à refaire. Deux fois."],
+    acceleration: ["Prends une inspiration avant.", "Ce sera plus court que prévu."],
+    mainGauche: ["Prévois une main de libre.", "Tu vas tenir quelque chose."],
+  },
+  en: {
+    sang: ["Today, avoid seeing red.", "Red means you no good."],
+    pointe: ["Beware of anything sharp.", "Corners are not your friends."],
+    voyelle: ["Some letters must be held back.", "The alphabet has its forbidden ones."],
+    colosse: ["Size matters. Badly.", "Big trouble is the easiest to spot."],
+    gaucher: ["The left side is a minefield.", "One half of the screen hates you."],
+    seconde: ["Patience pays. Literally.", "Whatever you do, don't rush."],
+    eclair: ["Read fast. Very fast.", "It flashes by, and it's gone."],
+    menteur: ["Don't believe everything you read.", "Someone is telling you stories."],
+    daltonien: ["Trust the words, not your eyes.", "Your eyes are about to betray you."],
+    jumeau: ["Once will not be enough.", "Do it all again. Twice."],
+    acceleration: ["Take a breath first.", "This will be shorter than you think."],
+    mainGauche: ["Keep one hand free.", "You are going to hold something."],
+  },
+};
+
+/** L'accroche du jour pour une règle, dans la langue courante. */
+export function accrocheDuJour(ruleId: string, jour: number): string {
+  const paire = ACCROCHES[courante][ruleId];
+  return paire ? paire[jour % 2 === 0 ? 0 : 1] : DYN[courante].teaserDefaut;
+}
 
 /**
  * Compose une consigne dans la langue courante.
