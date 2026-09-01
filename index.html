@@ -457,6 +457,90 @@
           <h2 class="rulename rulename--hero" id="briefName"></h2>
           <p class="lede" id="briefText"></p>
           <p class="warn hidden" id="briefWarn"></p>
+
+          <!-- LA RÈGLE DU JEU, EN UNE PHRASE.
+               Mesuré : 78 % des premiers runs ne rencontrent aucun piège, et
+               le score médian y est de 4 manches. Le joueur découvrait donc le
+               jeu sans jamais voir ce qui le distingue d'un jeu de réflexes
+               ordinaire. Cette ligne le lui dit avant qu'il ne le vive. -->
+          <p class="piege" id="briefPiege" data-i18n="piege.court">
+            If an order breaks your rule, do NOTHING.
+          </p>
+
+          <!-- COMMENT ÇA MARCHE.
+               REPLIÉE par défaut, et jamais entre le joueur et START : le
+               public qui arrive part en quatre secondes, un second mur de
+               texte ferait l'inverse de ce qu'on cherche. Qui veut savoir
+               ouvre ; les autres jouent. -->
+          <details class="aide" id="aideBrief">
+            <summary class="aide__titre" data-i18n="aide.titre">HOW IT WORKS</summary>
+            <div class="aide__corps">
+              <ol class="aide__pas">
+                <li>
+                  <span class="aide__num">1</span>
+                  <span class="aide__texte" data-i18n="aide.pas1">
+                    One rule holds for the whole run. It stays on screen.
+                  </span>
+                </li>
+                <li>
+                  <span class="aide__num">2</span>
+                  <span class="aide__texte" data-i18n="aide.pas2">
+                    A new order every two seconds. Obey it, fast.
+                  </span>
+                </li>
+                <li>
+                  <span class="aide__num">3</span>
+                  <span class="aide__texte" data-i18n="aide.pas3">
+                    But when the order breaks the rule, it is a TRAP. Do nothing and it passes.
+                  </span>
+                </li>
+              </ol>
+
+              <!-- LES DEUX DÉMOS.
+                   Dessinées en SVG inline, pas en images : aucun fichier,
+                   aucune requête, net à toutes les tailles, et le même
+                   vocabulaire pixel que la faille (`shape-rendering`).
+                   Décoratives et `aria-hidden` — le texte au-dessus porte
+                   déjà toute l'information. -->
+              <div class="demo">
+                <figure class="demo__cas demo__cas--ok">
+                  <figcaption class="demo__regle">
+                    <b data-i18n="aide.regleEx">RULE : never click red</b>
+                  </figcaption>
+                  <p class="demo__consigne" data-i18n="aide.consigneOk">ORDER : CLICK THE SQUARE</p>
+                  <svg class="demo__scene" viewBox="0 0 120 44" shape-rendering="crispEdges" aria-hidden="true">
+                    <rect x="6" y="10" width="24" height="24" fill="#4f8fd6" />
+                    <circle cx="60" cy="22" r="12" fill="#c0433f" />
+                    <polygon points="102,10 114,34 90,34" fill="#3fa77a" />
+                    <rect class="demo__cible" x="2" y="6" width="32" height="32" fill="none" stroke-width="2" />
+                  </svg>
+                  <p class="demo__verdict demo__verdict--ok" data-i18n="aide.verdictOk">
+                    → Click it. The blue square breaks no rule.
+                  </p>
+                </figure>
+
+                <figure class="demo__cas demo__cas--piege">
+                  <figcaption class="demo__regle">
+                    <b data-i18n="aide.regleEx2">RULE : never click red</b>
+                  </figcaption>
+                  <p class="demo__consigne" data-i18n="aide.consignePiege">ORDER : CLICK THE RED</p>
+                  <svg class="demo__scene" viewBox="0 0 120 44" shape-rendering="crispEdges" aria-hidden="true">
+                    <rect x="6" y="10" width="24" height="24" fill="#4f8fd6" />
+                    <circle cx="60" cy="22" r="12" fill="#c0433f" />
+                    <polygon points="102,10 114,34 90,34" fill="#3fa77a" />
+                    <g class="demo__croix" stroke-width="3" stroke-linecap="square">
+                      <line x1="48" y1="10" x2="72" y2="34" />
+                      <line x1="72" y1="10" x2="48" y2="34" />
+                    </g>
+                  </svg>
+                  <p class="demo__verdict demo__verdict--piege" data-i18n="aide.verdictPiege">
+                    → Do nothing. Obeying would break the rule.
+                  </p>
+                </figure>
+              </div>
+            </div>
+          </details>
+
           <div class="btnrow">
             <button class="btn btn--primary" id="btnGo" data-i18n="brief.go">START</button>
             <!-- Proposé uniquement à qui n'a jamais joué et choisit le run du
@@ -790,6 +874,13 @@
               </div>
               <p class="fineprint" id="multiLobbyCodeHint">SAY IT OUT LOUD, OR SEND THE LINK</p>
             </div>
+
+            <!-- La regle du jeu, rappelee la ou les joueurs attendent le
+                 lancement. Sans la case depliable : le salon est deja dense,
+                 et le brief de chaque manche porte le detail. -->
+            <p class="piege" id="lobbyPiege" data-i18n="piege.court">
+              If an order breaks your rule, do NOTHING.
+            </p>
             <!-- `settings--seg` : les options se touchent, en une seule barre
                  segmentée. C'est le seul groupe de réglages du site à l'être —
                  l'allure du brief garde ses boutons séparés et ses jauges. -->

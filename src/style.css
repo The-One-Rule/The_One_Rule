@@ -7178,3 +7178,236 @@ button.chip:active:not(:disabled) {
     animation: none;
   }
 }
+
+/* ==================================================================
+ * LA RÈGLE DU JEU, DITE AVANT DE JOUER
+ *
+ * Mesuré sur les premiers runs réels : 78 % ne rencontrent AUCUN piège,
+ * pour un score médian de 4 manches. Le joueur découvrait donc TOR sans
+ * jamais voir ce qui le distingue d'un jeu de réflexes ordinaire.
+ *
+ * Cette ligne le lui dit avant qu'il ne le vive — et depuis que les règles
+ * piégeantes sortent en premier (`trainingRule`), il le vit vraiment.
+ * ================================================================== */
+.piege {
+  margin: var(--sp-3) 0 0;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base, 0.04em);
+  color: var(--paper);
+  text-align: left;
+  background: color-mix(in srgb, var(--signal) 12%, transparent);
+  /* L'arête vive à gauche, comme les cartes : c'est une consigne, pas une
+     décoration. */
+  border-left: var(--bd-frame) solid var(--signal);
+}
+
+/* ==================================================================
+ * COMMENT ÇA MARCHE — repliée par défaut
+ *
+ * ⚠️ Elle ne doit JAMAIS s'intercaler entre le joueur et COMMENCER. Le
+ * public qui arrive part en quatre secondes et bute déjà sur un bandeau de
+ * consentement ; un second mur de texte ferait l'inverse de ce qu'on
+ * cherche. Qui veut savoir ouvre, les autres jouent.
+ * ================================================================== */
+.aide {
+  margin-top: var(--sp-3);
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  text-align: left;
+}
+
+.aide__titre {
+  /* `list-style: none` ET `::-webkit-details-marker` : Safari ignore le
+     premier et garde son triangle natif, qui jure avec des angles droits. */
+  list-style: none;
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.aide__titre::-webkit-details-marker {
+  display: none;
+}
+
+/* Le chevron est dessiné, pas emprunté : un caractère de police change de
+   forme d'un système à l'autre. */
+.aide__titre::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 6px solid var(--signal);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  transition: transform 160ms ease-out;
+}
+
+.aide[open] .aide__titre::before {
+  transform: rotate(90deg);
+}
+
+.aide__titre:hover,
+.aide[open] .aide__titre {
+  color: var(--paper);
+}
+
+.aide__corps {
+  padding: 0 var(--sp-3) var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.aide__pas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.aide__pas li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+
+.aide__num {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-micro);
+  color: var(--ink);
+  background: var(--signal);
+}
+
+.aide__texte {
+  font-size: var(--t-lire);
+  color: var(--paper-dim);
+}
+
+.aide__pas li:last-child .aide__texte {
+  /* Le troisième pas EST le jeu. Les deux premiers ne sont que le décor. */
+  color: var(--paper);
+}
+
+/* ---- les deux démos ---- */
+
+/*
+ * Dessinées en SVG inline : aucun fichier, aucune requête, net à toutes les
+ * tailles, et `crispEdges` leur donne le même grain que la faille. Pas
+ * d'emoji ni d'image — le rendu d'un emoji change d'un système à l'autre, et
+ * une pièce qui devient un carré blanc chez un joueur sur trois n'explique
+ * plus rien.
+ */
+.demo {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+@media (min-width: 620px) {
+  .demo {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-3);
+  }
+}
+
+.demo__cas {
+  margin: 0;
+  padding: var(--sp-2);
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.demo__regle {
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+.demo__consigne {
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper);
+}
+
+.demo__scene {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+}
+
+/* La cible autorisée : le cadre bat doucement pour dire « c'est ici ». */
+.demo__cible {
+  stroke: var(--signal);
+  animation: demo-vise 1800ms steps(2, end) infinite;
+}
+
+/* Le piège : la croix pulse pour dire « surtout pas ». */
+.demo__croix {
+  stroke: #c0433f;
+  animation: demo-refus 1400ms steps(2, end) infinite;
+}
+
+@keyframes demo-vise {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes demo-refus {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.demo__verdict {
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+}
+
+.demo__verdict--ok {
+  color: var(--signal-pale);
+}
+
+.demo__verdict--piege {
+  color: #e0817d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /*
+   * Le mouvement s'arrête, la LISIBILITÉ reste : les deux repères gardent
+   * une opacité pleine. Les neutraliser sans les rendre visibles effacerait
+   * l'explication elle-même — piège déjà payé ailleurs dans cette feuille.
+   */
+  .demo__cible,
+  .demo__croix {
+    animation: none;
+    opacity: 1;
+  }
+
+  .aide__titre::before {
+    transition: none;
+  }
+}

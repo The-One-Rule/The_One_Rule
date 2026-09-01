@@ -127,6 +127,17 @@ export const TEXTES: Record<Lang, Textes> = {
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
     "home.play": "JOUER",
+    "piege.court": "Si une consigne enfreint ta règle, NE FAIS RIEN.",
+    "aide.titre": "COMMENT ÇA MARCHE",
+    "aide.pas1": "Une règle unique tient toute la partie. Elle reste affichée.",
+    "aide.pas2": "Une consigne toutes les deux secondes. Obéis, vite.",
+    "aide.pas3": "Mais quand la consigne enfreint la règle, c'est un PIÈGE. Ne fais rien et elle passe.",
+    "aide.regleEx": "RÈGLE : ne clique jamais le rouge",
+    "aide.regleEx2": "RÈGLE : ne clique jamais le rouge",
+    "aide.consigneOk": "CONSIGNE : CLIQUE LE CARRÉ",
+    "aide.consignePiege": "CONSIGNE : CLIQUE LE ROUGE",
+    "aide.verdictOk": "→ Clique-le. Le carré bleu n'enfreint rien.",
+    "aide.verdictPiege": "→ Ne fais rien. Obéir enfreindrait la règle.",
     "mesure.texte":
       "Ce jeu compte les parties jouées, les scores et les jours de retour, sous un identifiant aléatoire. Pas de compte, pas de cookie, pas de revente, aucune donnée personnelle. Ça sert uniquement à savoir si le jeu mérite d'être continué.",
     "hud.regle": "RÈGLE UNIQUE",
@@ -194,6 +205,17 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
   },
   en: {
     "home.play": "PLAY",
+    "piege.court": "If an order breaks your rule, do NOTHING.",
+    "aide.titre": "HOW IT WORKS",
+    "aide.pas1": "One rule holds for the whole run. It stays on screen.",
+    "aide.pas2": "A new order every two seconds. Obey it, fast.",
+    "aide.pas3": "But when the order breaks the rule, it is a TRAP. Do nothing and it passes.",
+    "aide.regleEx": "RULE : never click red",
+    "aide.regleEx2": "RULE : never click red",
+    "aide.consigneOk": "ORDER : CLICK THE SQUARE",
+    "aide.consignePiege": "ORDER : CLICK THE RED",
+    "aide.verdictOk": "→ Click it. The blue square breaks no rule.",
+    "aide.verdictPiege": "→ Do nothing. Obeying would break the rule.",
     "mesure.texte":
       "This game counts games played, scores and return days, under a random identifier. No account, no cookie, nothing sold, no personal data. It only serves to know whether the game deserves to go on.",
     "hud.regle": "ONE RULE",

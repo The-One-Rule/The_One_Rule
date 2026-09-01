@@ -74,8 +74,29 @@ export function trainingRule(
   const horsJour = jouables.filter((r) => r.id !== opts.duJour);
   const base = horsJour.length ? horsJour : jouables;
 
+  /*
+   * LES REGLES QUI PIEGENT PASSENT D'ABORD.
+   *
+   * MESURE, sur les premiers runs reels : 78 % d'entre eux ne rencontrent
+   * AUCUN piege, et le score median y est de 4 manches. Le catalogue produit
+   * 5,4 % de manches piegeuses, donc sur 4 manches on a une chance sur cinq
+   * d'en croiser une. Autrement dit, quatre joueurs sur cinq decouvrent le jeu
+   * SANS voir ce qui le distingue de n'importe quel jeu de reflexes.
+   *
+   * La cause est structurelle : seules 5 regles sur 12 portent `traps`. Un
+   * debutant avait donc 7 chances sur 12 de tomber sur une regle qui ne peut
+   * PAS le piéger — et `FORCED_TRAP_ROUNDS` (manches 2, 5 et 9), qui existe
+   * precisement pour lui faire rencontrer le piege pendant l'echauffement,
+   * restait alors sans effet.
+   *
+   * On sert donc les regles piegeantes en premier PARMI CELLES JAMAIS VUES.
+   * La preference se dissout d'elle-meme : quand les cinq sont connues,
+   * `neuvesPiegeuses` est vide et le tirage reprend son cours. Ce n'est pas un
+   * mode debutant a maintenir, c'est un ordre de decouverte.
+   */
   const neuves = base.filter((r) => !opts.connues.has(r.id));
-  const pool = neuves.length ? neuves : base;
+  const neuvesPiegeuses = neuves.filter((r) => r.traps);
+  const pool = neuvesPiegeuses.length ? neuvesPiegeuses : neuves.length ? neuves : base;
 
   // Éviter la répétition immédiate, sauf s'il ne reste rien d'autre.
   const varie = pool.filter((r) => r.id !== opts.derniere);

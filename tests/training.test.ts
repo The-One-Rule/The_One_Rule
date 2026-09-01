@@ -12,6 +12,7 @@
 import { describe, expect, it } from "vitest";
 import { ruleOfDay, trainingRule } from "../src/game/daily";
 import { ONE_RULES } from "../src/engine/rules";
+import type { OneRule } from "../src/engine/types";
 import { mulberry32 } from "../src/engine/rng";
 
 const base = (over: Partial<Parameters<typeof trainingRule>[0]> = {}) => ({
@@ -25,19 +26,60 @@ const base = (over: Partial<Parameters<typeof trainingRule>[0]> = {}) => ({
 
 describe("règle d'entraînement", () => {
   it("ouvre TOUT le catalogue à un joueur neuf, sauf la règle du jour", () => {
-    // Le cas exact du bug : carnet vide. Vingt tirages doivent produire bien
-    // plus d'une règle — avant, ils en produisaient une seule.
+    /*
+     * Le cas exact du bug du jour 2 : LE SANG sortait 30 fois sur 33.
+     *
+     * ⚠️ Le carnet GROSSIT ici, comme dans le jeu — `main.ts` inscrit la règle
+     * à chaque fin de run. La version precedente de ce test le gardait vide
+     * sur quarante tirages, un etat qui n'existe pas en jeu : elle passait
+     * donc pour de bonnes raisons mais mesurait une situation fictive.
+     */
     const duJour = ruleOfDay(100).id;
     const rng = mulberry32(1234);
+    const connues = new Set<string>();
     const vues = new Set<string>();
     let derniere: string | null = null;
     for (let i = 0; i < 40; i++) {
-      const r = trainingRule(base({ duJour, connues: new Set(), derniere, rng }));
+      const r = trainingRule(base({ duJour, connues, derniere, rng }));
       vues.add(r.id);
+      connues.add(r.id);
       derniere = r.id;
     }
     expect(vues.size, `un joueur neuf n'a vu que ${[...vues].join(",")}`).toBeGreaterThan(5);
     expect(vues.has(duJour), "la règle du jour a été brûlée en entraînement").toBe(false);
+  });
+
+  it("sert les règles QUI PIÈGENT en premier, puis rend la main", () => {
+    /*
+     * MESURÉ sur les premiers runs réels : 78 % ne rencontrent AUCUN piège,
+     * pour un score médian de 4 manches. Seules 5 règles sur 12 portent
+     * `traps`, donc un débutant avait 7 chances sur 12 de découvrir le jeu
+     * sans jamais voir ce qui le distingue — et `FORCED_TRAP_ROUNDS` restait
+     * alors sans effet, puisqu'il ne se déclenche que sur une règle piégeante.
+     *
+     * La préférence doit se DISSOUDRE : passé les cinq, le tirage reprend son
+     * cours. Sans ça on aurait recréé le bug du jour 2, en plus subtil.
+     */
+    const duJour = "aucune";
+    const rng = mulberry32(99);
+    const connues = new Set<string>();
+    const ordre: OneRule[] = [];
+    let derniere: string | null = null;
+    for (let i = 0; i < 12; i++) {
+      const r = trainingRule(base({ duJour, connues, derniere, rng }));
+      ordre.push(r);
+      connues.add(r.id);
+      derniere = r.id;
+    }
+    const piegeantes = ONE_RULES.filter((r) => r.traps).length;
+    expect(piegeantes, "le catalogue doit contenir des règles piégeantes").toBeGreaterThan(2);
+
+    // Les premières servies piègent toutes...
+    for (let i = 0; i < piegeantes; i++) {
+      expect(ordre[i]!.traps, `la règle ${i + 1} (${ordre[i]!.id}) ne piège pas`).toBe(true);
+    }
+    // ...et le reste du catalogue sort ensuite, sans être bloqué.
+    expect(new Set(ordre.map((r) => r.id)).size).toBe(ONE_RULES.length);
   });
 
   it("sert d'abord ce qui n'a jamais été rencontré", () => {
