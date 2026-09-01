@@ -32,13 +32,27 @@ export interface SeatState {
   isMe: boolean;
 }
 
-export function seatStatus(s: SeatState): string {
-  if (!s.connected) return "HORS LIGNE";
-  if (s.spectator) return "SPECTATEUR";
-  if (s.inMatch) return `${s.lives} VIE${s.lives > 1 ? "S" : ""} · ${s.score} MANCHES`;
-  if (s.host) return "HÔTE";
-  if (s.rookie) return "1RE PARTIE · +1 VIE";
-  return "PRÊT";
+/**
+ * Ce que la tuile dit sous le nom — en IDENTIFIANT, pas en français.
+ *
+ * Cette fonction ne rendait que des phrases françaises, et le salon est
+ * précisément l'écran où l'on invite quelqu'un qui ne parle pas la même
+ * langue. Elle rend désormais la DÉCISION ; `i18n` écrit la phrase.
+ *
+ * Le module y gagne : ce qu'il porte est une PRIORITÉ, et son test dit
+ * maintenant quelle branche a gagné plutôt qu'à quoi ressemblait sa phrase.
+ */
+export type SeatStatus =
+  | { id: "horsLigne" | "spectateur" | "hote" | "debutant" | "pret" }
+  | { id: "enMatch"; lives: number; score: number };
+
+export function seatStatus(s: SeatState): SeatStatus {
+  if (!s.connected) return { id: "horsLigne" };
+  if (s.spectator) return { id: "spectateur" };
+  if (s.inMatch) return { id: "enMatch", lives: s.lives, score: s.score };
+  if (s.host) return { id: "hote" };
+  if (s.rookie) return { id: "debutant" };
+  return { id: "pret" };
 }
 
 /**

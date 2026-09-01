@@ -38,12 +38,26 @@ import { musicApi, sfx, unlock } from "./audio";
  * minuteur, une ligne de titre, un horodatage. Un import nomme `t` les
  * masquerait, et TypeScript le signale au mieux, l'accepte au pire.
  */
-import { t as tr } from "./i18n";
+import {
+  briefDeRegle,
+  emotes,
+  nomVitesse,
+  nomVitesseEntier,
+  statutSiege,
+  traduisMotif,
+  t as tr,
+} from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
 
-/** Libellés d'interface uniquement — le fil ne transporte que l'index. */
-const EMOTE_LABELS = ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"] as const;
+/**
+ * Combien d'émotes, et rien d'autre.
+ *
+ * Les LIBELLÉS vivent dans `i18n` : le fil ne transporte que l'index, donc
+ * chacun lit le sien dans sa langue et deux joueurs qui appuient sur le même
+ * bouton s'envoient bien la même chose.
+ */
+const EMOTE_COUNT = 6;
 
 /**
  * Cet appareil peut-il jouer une consigne au clavier ?
@@ -98,6 +112,15 @@ export type MultiApi = {
   blurChat: () => void;
   /** Synchronise le déploiement du chat (écran ouvert vs manche). */
   onScreen: (id: string | null) => void;
+  /**
+   * La langue vient de changer : tout ce que ce module a écrit est périmé.
+   *
+   * Les écrans du multi ne se repeignent pas tout seuls — le salon attend un
+   * message du serveur, les émotes sont posées une fois pour toutes au
+   * chargement. Sans ce rappel, changer de langue depuis le salon laissait six
+   * boutons français au milieu d'une page anglaise.
+   */
+  onLangue: () => void;
 };
 
 type MatchState = {
@@ -214,34 +237,14 @@ function setJoinErr(msg: string | null): void {
   el.classList.remove("hidden");
 }
 
-/*
- * Cinq vitesses dans une barre segmentée : « DÉCOUVERTE » y prendrait à lui
- * seul deux fois la place des autres. Abrégé — le mot complet reste dans
- * l'`aria-label`, qui n'a pas de contrainte de largeur.
- */
-const SPEED_LABEL: Record<number, string> = {
-  1.7: "DÉCOUV.",
-  1.3: "LENT",
-  1: "NORMAL",
-  0.8: "VITE",
-  0.65: "ÉCLAIR",
-};
-const SPEED_ARIA: Record<number, string> = {
-  1.7: "Découverte",
-  1.3: "Lent",
-  1: "Normal",
-  0.8: "Vite",
-  0.65: "Éclair",
-};
 /* Quatre segments dans une demi-colonne : le « × » ne survit pas, et il ne
    manque pas — l'intitulé ROTATION est juste au-dessus. Le sens complet
-   (« toutes les N manches ») reste dans l'`aria-label`. */
-const ROTATION_LABEL: Record<number, string> = {
-  4: "4",
-  8: "8",
-  16: "16",
-  999: "JAMAIS",
-};
+   (« toutes les N manches ») reste dans l'`aria-label`.
+
+   Le seul libellé qui soit un MOT plutôt qu'un nombre passe par `i18n` ; les
+   vitesses, abrégées et doublées d'un mot entier, y vivent en entier
+   (`nomVitesse`). */
+const ROTATION_LABEL: Record<number, string> = { 4: "4", 8: "8", 16: "16" };
 
 function playerGlyph(p: PlayerPublic) {
   return p.glyph ?? glyphFor(p.id);
@@ -320,7 +323,7 @@ function renderLobby(
       `</span>`;
     seat.querySelector(".seat__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 18);
     seat.querySelector<HTMLElement>(".seat__name")!.textContent = p.name;
-    seat.querySelector<HTMLElement>(".seat__status")!.textContent = seatStatus(etat);
+    seat.querySelector<HTMLElement>(".seat__status")!.textContent = statutSiege(seatStatus(etat));
     if (p.id !== myId) {
       const acts = document.createElement("div");
       acts.className = "seat__acts";
@@ -328,7 +331,7 @@ function renderLobby(
       muteBtn.type = "button";
       muteBtn.className = "seat__act" + (muted.has(p.id) ? " is-on" : "");
       muteBtn.title = muted.has(p.id) ? tr("reactiverMessages") : tr("couperMessages");
-      muteBtn.setAttribute("aria-label", `${muted.has(p.id) ? tr("reactiver") : tr("couper")} ${p.name}`);
+      muteBtn.setAttribute("aria-label", (muted.has(p.id) ? tr("ariaReactiver") : tr("ariaCouper"))(p.name));
       muteBtn.textContent = muted.has(p.id) ? tr("muet") : tr("sourdine");
       muteBtn.addEventListener("click", () => onToggleMute(p.id));
       acts.appendChild(muteBtn);
@@ -336,7 +339,7 @@ function renderLobby(
         const kickBtn = document.createElement("button");
         kickBtn.type = "button";
         kickBtn.className = "seat__act seat__act--kick";
-        kickBtn.setAttribute("aria-label", `Exclure ${p.name}`);
+        kickBtn.setAttribute("aria-label", tr("ariaExclure")(p.name));
         kickBtn.textContent = tr("exclure");
         kickBtn.addEventListener("click", () => onKick(p.id));
         acts.appendChild(kickBtn);
@@ -370,10 +373,8 @@ function renderLobby(
   $("multiLobbyTitle").textContent = seul ? tr("inviteQuelquun") : tr("enAttente");
   // L'effectif est chiffré à côté du titre : c'est la question qu'on se pose
   // en regardant cet écran, et elle a une réponse exacte.
-  $("multiLobbyCount").textContent = `${players.length} / ${MAX_PLAYERS} JOUEURS`;
-  $("multiInviteHint").textContent = seul
-    ? "LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE"
-    : "";
+  $("multiLobbyCount").textContent = tr("salonJoueurs")(players.length, MAX_PLAYERS);
+  $("multiInviteHint").textContent = seul ? tr("salonSeulHint") : "";
   $("multiInviteHint").classList.toggle("hidden", !seul);
   // Seul dans un salon, la seule action qui a du sens est d'inviter.
   $("btnMultiInvite").classList.toggle("btn--primary", seul);
@@ -388,10 +389,10 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   // Dire qui décide, plutôt que de laisser un invité cliquer sans effet et
   // conclure que l'interface est cassée.
   $("settingsHint").textContent = locked
-    ? "RÉGLAGES VERROUILLÉS PENDANT UN MATCH"
+    ? tr("reglagesVerrouilles")
     : isHost
-      ? "TU DÉCIDES POUR TOUT LE SALON · TOUCHE UNE OPTION POUR LA CHANGER"
-      : "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES";
+      ? tr("reglagesTuDecides")
+      : tr("reglagesInvite");
   box.classList.toggle("is-locked", locked);
 
   /*
@@ -432,8 +433,8 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
 
   const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
   fill("optSpeed", vitesses, settings.speed, {
-    label: (n) => SPEED_LABEL[n] ?? String(n),
-    aria: (n) => `Vitesse ${SPEED_ARIA[n] ?? n}`,
+    label: (n) => nomVitesse(n),
+    aria: (n) => tr("ariaVitesse")(nomVitesseEntier(n)),
     icon: "bars",
     level: (_n, i) => i + 1,
     steps: vitesses.length,
@@ -449,7 +450,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   const maxVies = Math.max(...LIVES_CHOICES);
   fill("optLives", LIVES_CHOICES, settings.lives, {
     label: (n) => String(n),
-    aria: (n) => `${n} vie${n > 1 ? "s" : ""}`,
+    aria: (n) => tr("ariaVies")(n),
     icon: "dots",
     level: (n) => n,
     steps: maxVies,
@@ -461,8 +462,8 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
    */
   const rotations = [...ROTATION_CHOICES].sort((a, b) => b - a);
   fill("optRotation", rotations, settings.rotationEvery, {
-    label: (n) => ROTATION_LABEL[n] ?? String(n),
-    aria: (n) => (n >= 999 ? "Les règles ne tournent jamais" : `Rotation toutes les ${n} manches`),
+    label: (n) => ROTATION_LABEL[n] ?? tr("optJamais"),
+    aria: (n) => (n >= 999 ? tr("ariaRotationJamais") : tr("ariaRotation")(n)),
     icon: "bars",
     level: (_n, i) => i,
     steps: rotations.length - 1,
@@ -477,11 +478,8 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
    * différent pour le quatrième se lirait comme un réglage d'une autre nature.
    */
   fill("optDuo", [0, 1], settings.duo ? 1 : 0, {
-    label: (n) => (n === 1 ? "DUOS" : "CHACUN"),
-    aria: (n) =>
-      n === 1
-        ? "Duos : deux joueurs par équipe, une réserve de vies commune"
-        : "Chacun pour soi",
+    label: (n) => (n === 1 ? tr("optDuos") : tr("optChacun")),
+    aria: (n) => (n === 1 ? tr("ariaDuos") : tr("ariaChacun")),
     icon: "dots",
     level: (n) => n + 1,
     steps: 2,
@@ -518,21 +516,29 @@ function vueServeur(action: Action): Action {
 
 function previewLabel(o: Outcome): string {
   if (o.kind === "survive") return o.trap ? `${tr("piegeDejoue")}…` : `${tr("tenu")}…`;
-  if (o.kind === "death") return o.reason;
+  if (o.kind === "death") return traduisMotif(o.reason);
   return "";
 }
 
-/** Le libellé du tampon se déduit de la raison — jamais d'un contexte
- *  d'appel, sinon le grand élément finit par contredire le petit. */
-function stampForReason(reason: string): string {
+/**
+ * Le libellé du tampon se déduit de la raison — jamais d'un contexte d'appel,
+ * sinon le grand élément finit par contredire le petit.
+ *
+ * ⚠️ Le tri se fait sur le FRANÇAIS, parce que c'est le français qui voyage
+ * sur le fil : le serveur envoie `verdict.reason` en clair et la traduction
+ * n'a lieu qu'à l'affichage. Trier sur la phrase déjà traduite ferait tomber
+ * tous les tampons anglais sur « MISSED », et le grand mot contredirait la
+ * petite ligne — exactement ce que cette fonction existe pour empêcher.
+ */
+export function stampForReason(reason: string): string {
   const r = reason.toUpperCase();
-  if (r.includes("TEMPS") || r.includes("ÉCOUL")) return "TROP LENT";
-  if (r.includes("RÈGLE") || r.includes("INTERDIT")) return "INFRACTION";
-  return "RATÉ";
+  if (r.includes("TEMPS") || r.includes("ÉCOUL")) return tr("tamponLent");
+  if (r.includes("RÈGLE") || r.includes("INTERDIT")) return tr("tamponInfraction");
+  return tr("tamponRate");
 }
 
 function stampFor(o: RoundOutcome): string {
-  if (o.kind !== "death") return "RATÉ";
+  if (o.kind !== "death") return tr("tamponRate");
   return stampForReason(o.reason);
 }
 
@@ -623,6 +629,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     focusChat: () => {},
     blurChat: () => {},
     onScreen: () => {},
+    onLangue: () => {},
   };
 
   if (!wsUrl) {
@@ -751,19 +758,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.toggle("drama--dead-me", jeSuisElimine);
     dramaEyebrow.textContent = victimeMoi
       ? jeSuisElimine
-        ? "TU ES ÉLIMINÉ"
-        : "TU PERDS UNE VIE"
+        ? tr("tuEsElimine")
+        : tr("tuPerdsUneVie")
       : elim
-        ? "ÉLIMINÉ"
-        : "VIE PERDUE";
+        ? tr("elimine")
+        : tr("viePerdue");
     dramaNames.textContent = victims.map((v) => v.player.name).join(" · ");
     // « SOUS » : sans ce mot, un nom de règle posé entre un pseudo et une
     // raison de mort ne se lit pas comme une règle.
-    dramaRule.textContent = `SOUS ${focusRule.name}`;
+    dramaRule.textContent = tr("sousRegle")(focusRule.name);
     const primary = victims[0]!;
-    dramaReason.textContent = primary.reason.toUpperCase();
-    dramaExtra.textContent =
-      elim && aliveCount > 0 ? `ILS NE SONT PLUS QUE ${aliveCount}` : "";
+    dramaReason.textContent = traduisMotif(primary.reason).toUpperCase();
+    dramaExtra.textContent = elim && aliveCount > 0 ? tr("ilsNeSontPlusQue")(aliveCount) : "";
     timerEl.classList.add("is-recharge");
     hud.hideStamp();
   }
@@ -794,7 +800,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaNames.textContent = rule.name;
     // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
     // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
-    dramaReason.textContent = rule.brief;
+    dramaReason.textContent = briefDeRegle(rule.id, rule.brief);
     dramaRule.textContent = "";
     dramaExtra.textContent = "";
     timerEl.classList.remove("is-recharge");
@@ -825,7 +831,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (isSpectating() && shown) {
       hud.setFooterLives(shown.score, Math.max(0, shown.lives), match.maxLives, tr("piedSpectateur"));
       const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
-      if (!rotating) hud.setMeta(`JE REGARDE ${shown.name}`);
+      if (!rotating) hud.setMeta(tr("jeRegarde")(shown.name));
       return;
     }
     hud.setFooterLives(match.score, Math.max(0, match.lives), match.maxLives, tr("piedMulti"));
@@ -1120,6 +1126,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     syncChatChrome();
   }
 
+  function onLangue(): void {
+    populateEmotes();
+    // Le salon se repeint depuis le dernier état reçu, pas depuis le serveur :
+    // changer de langue ne doit rien demander au réseau.
+    paintLobby();
+  }
+
   function paintLobby(): void {
     if (!roomCode) return;
     /*
@@ -1158,7 +1171,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       bubble.className = "plate__emote";
       plate.appendChild(bubble);
     }
-    bubble.textContent = EMOTE_LABELS[k] ?? "";
+    bubble.textContent = emotes()[k] ?? "";
     // Même relance d'animation que hud.showStamp : deux réactions coup sur coup
     // doivent se voir toutes les deux.
     bubble.classList.remove("is-on");
@@ -1183,7 +1196,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function populateEmotes(): void {
     emotesEl.innerHTML = "";
-    EMOTE_LABELS.forEach((label, k) => {
+    emotes().forEach((label, k) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "chip";
@@ -1585,7 +1598,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // Le fil, lui, ne dépend pas de la longueur de la pause : il annonce
     // CHAQUE chute, y compris celles qui n'ouvrent aucun panneau.
     for (const v of victims) {
-      pushFeed(v.player.name, v.reason.toUpperCase(), v.eliminated, v.player.id === net.myId);
+      pushFeed(
+        v.player.name,
+        // Le motif arrive du serveur en français canonique : le fil est le
+        // DERNIER endroit qui l'écrivait tel quel. Trouvé en jouant, pas en
+        // relisant — le bandeau disait « YOU CLICKED EMPTY SPACE » pendant
+        // que le fil, trois lignes plus bas, disait « TU AS CLIQUÉ DANS LE
+        // VIDE » pour la même mort.
+        traduisMotif(v.reason).toUpperCase(),
+        v.eliminated,
+        v.player.id === net.myId,
+      );
     }
 
     /*
@@ -1654,7 +1677,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (reflex) {
       titles.push({
-        label: "RÉFLEXE DU MATCH",
+        label: tr("titreReflexe"),
         value: `${reflex.s.reaction} ms`,
         player: reflex.p,
       });
@@ -1667,7 +1690,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (flair) {
       titles.push({
-        label: "FLAIR",
+        label: tr("titreFlair"),
         value: String(flair.s.traps),
         player: flair.p,
       });
@@ -1680,7 +1703,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (serie) {
       titles.push({
-        label: "SÉRIE",
+        label: tr("titreSerie"),
         value: `×${serie.s.bestStreak}`,
         player: serie.p,
       });
@@ -1769,17 +1792,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent =
         ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
       row.querySelector<HTMLElement>(".lobbyrow__status")!.textContent = isWinner
-        ? "VAINQUEUR"
+        ? tr("vainqueur")
         : p.lives <= 0
-          ? "ÉLIMINÉ"
-          : `${rang + 1}ᵉ`;
+          ? tr("elimine")
+          : tr("rangEme")(rang + 1);
       // Vies en points, comme sur les plaques et au pied : une seule grammaire
       // visuelle pour une même information.
       // `livesDots` rend des <i> NUS : sans le conteneur `.lifedots`, la CSS
       // ne les atteint pas et les points restent invisibles.
       row.querySelector<HTMLElement>(".lobbyrow__meta")!.innerHTML =
         `<span class="lifedots">${livesDots(Math.max(0, p.lives), maxLives)}</span>` +
-        `<span class="lobbyrow__rounds">${p.score} MANCHES</span>`;
+        `<span class="lobbyrow__rounds">${tr("manchesN")(p.score)}</span>`;
       list.appendChild(row);
     });
 
@@ -1793,8 +1816,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__name-text"></span>` +
         `</span>` +
         `<span class="lobbyrow__rule"></span>` +
-        `<span class="lobbyrow__status">SPECTATEUR</span>` +
-        `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">A REGARDÉ</span></span>`;
+        `<span class="lobbyrow__status">${tr("piedSpectateur")}</span>` +
+        `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">${tr("aRegarde")}</span></span>`;
       row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       list.appendChild(row);
@@ -1938,11 +1961,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           void attemptRejoin();
           return;
         }
-        setJoinErr(
-          coupe
-            ? "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE"
-            : "AUCUN SALON À CE CODE — VÉRIFIE LES 4 CARACTÈRES, OU CRÉE LE TIEN",
-        );
+        setJoinErr(coupe ? tr("errDeconnecte") : tr("errSalonInconnu"));
         if (roomCode) {
           roomCode = "";
           endScreenOpen = false;
@@ -1952,17 +1971,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           show("multi-join");
         }
       } else if (msg.code === "room_full") {
-        setJoinErr(`SALON COMPLET (${MAX_PLAYERS} JOUEURS) — CRÉE-EN UN AUTRE`);
+        setJoinErr(tr("errSalonComplet")(MAX_PLAYERS));
       } else if (msg.code === "not_host") {
-        setJoinErr("SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI");
+        setJoinErr(tr("errPasHote"));
       } else if (msg.code === "in_match") {
-        setJoinErr("MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE");
+        setJoinErr(tr("errEnMatch"));
       } else if (msg.code === "bad_version") {
         // Cas typique d'un onglet resté ouvert sur l'ancien bundle après un
         // déploiement. Le geste qui répare est le rechargement : le dire.
-        setJoinErr("VERSION INCOMPATIBLE — RECHARGE LA PAGE");
+        setJoinErr(tr("errVersion"));
       } else if (msg.code === "kicked") {
-        setJoinErr("TU AS ÉTÉ SORTI DU SALON — TU PEUX EN CRÉER UN À TOI");
+        setJoinErr(tr("errExclu"));
         // Départ subi mais définitif : surtout ne pas revenir tout seul.
         lastRoomCode = "";
         roomCode = "";
@@ -2023,7 +2042,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       opt.className = "glyphpick__opt";
       opt.setAttribute("role", "radio");
       opt.setAttribute("aria-checked", String(n === glyphChoisi));
-      opt.setAttribute("aria-label", `Signe ${n + 1} sur ${GLYPH_CHOICES}`);
+      opt.setAttribute("aria-label", tr("ariaSigne")(n + 1, GLYPH_CHOICES));
       opt.innerHTML = glyphSvg(glyphVariant(anon, n), 30);
       opt.addEventListener("click", () => {
         glyphChoisi = n;
@@ -2082,7 +2101,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
       $<HTMLInputElement>("multiCode").value = lastRoomCode;
       syncJoinAccent();
-      setJoinErr("CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE");
+      setJoinErr(tr("errConnexionPerdue"));
       setPlatesVisible(false);
       clearPlateCols();
       clearMatch();
@@ -2180,7 +2199,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return net;
     } catch {
       if (!errFromServer) {
-        setJoinErr("SERVEUR INJOIGNABLE — VÉRIFIE TA CONNEXION, PUIS RÉESSAIE");
+        setJoinErr(tr("errInjoignable"));
       }
       // Pendant une reprise automatique, c'est attemptRejoin qui décide s'il
       // faut rendre la main : basculer d'écran ici couperait la tentative en
@@ -2238,7 +2257,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     net = null;
     const client = await ensureConnected({ anonyme: true });
     if (!client) {
-      setJoinErr("RECONNEXION IMPOSSIBLE — RÉESSAIE");
+      setJoinErr(tr("errReconnexion"));
       await openJoin(code);
       return;
     }
@@ -2380,14 +2399,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
     if (rotating) {
-      hud.setMeta(`LES RÈGLES TOURNENT · ${match.rule?.name ?? ""}`);
+      hud.setMeta(tr("reglesTournent")(match.rule?.name ?? ""));
     } else if (match.preview) {
       hud.setMeta(previewLabel(match.preview));
     } else if (match.phase === "frozen" && match.authority) {
       const a = match.authority;
       if (a.kind === "survive") hud.setMeta(a.trap ? tr("piegeDejoue") : tr("tenu"));
-      else if (a.kind === "death") hud.setMeta(a.reason);
-      else if (!(match.lives <= 0 || match.spectator)) hud.setMeta("SPECTATEUR");
+      else if (a.kind === "death") hud.setMeta(traduisMotif(a.reason));
+      else if (!(match.lives <= 0 || match.spectator)) hud.setMeta(tr("piedSpectateur"));
       // spectateur : syncFooter a déjà posé JE REGARDE (sauf pendant rotation)
     } else if (match.lives <= 0 || match.spectator) {
       // syncFooter a déjà posé JE REGARDE
@@ -2505,7 +2524,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       .catch(() => {
         // Presse-papiers refusé : le code reste lisible à l'écran, c'est
         // justement ce qu'on vient de rendre impossible à manquer.
-        hint.textContent = "DICTE-LE : IL EST JUSTE AU-DESSUS";
+        hint.textContent = tr("dicteLeCode");
       });
   });
 
@@ -2552,7 +2571,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       sfx.ui();
       const code = $<HTMLInputElement>("multiCode").value.trim().toUpperCase();
       if (code.length !== 4) {
-        setJoinErr("UN CODE DE SALON FAIT EXACTEMENT 4 CARACTÈRES");
+        setJoinErr(tr("errCode4"));
         return;
       }
       setJoinErr(null);
@@ -2641,7 +2660,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const chip = (ev.target as HTMLElement).closest("button.chip") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const k = Number(chip.dataset.k);
-    if (!Number.isInteger(k) || k < 0 || k >= EMOTE_LABELS.length) return;
+    if (!Number.isInteger(k) || k < 0 || k >= EMOTE_COUNT) return;
     const t = Date.now();
     if (t - lastEmoteSentAt < EMOTE_COOLDOWN_MS) return;
     lastEmoteSentAt = t;
@@ -2725,5 +2744,6 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     focusChat,
     blurChat,
     onScreen,
+    onLangue,
   };
 }

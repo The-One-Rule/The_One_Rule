@@ -1,3 +1,4 @@
+import { MOTIFS } from "../motifs";
 import { rChance, rInt } from "../rng";
 import { STEP_MS } from "../difficulty";
 import { INSTRUCTIONS } from "../instructions";
@@ -53,7 +54,7 @@ const LE_SANG: OneRule = {
   traps: true,
   forbids: (want, ents) => targets(want, ents).some((e) => e.color === "garance"),
   judge: (a) =>
-    a.kind === "click" && a.ent?.color === "garance" ? "TU AS CLIQUÉ SUR DU ROUGE" : null,
+    a.kind === "click" && a.ent?.color === "garance" ? MOTIFS.rouge : null,
 };
 
 const LA_POINTE: OneRule = {
@@ -63,7 +64,7 @@ const LA_POINTE: OneRule = {
   traps: true,
   forbids: (want, ents) => targets(want, ents).some((e) => e.shape === "triangle"),
   judge: (a) =>
-    a.kind === "click" && a.ent?.shape === "triangle" ? "TU AS CLIQUÉ UN TRIANGLE" : null,
+    a.kind === "click" && a.ent?.shape === "triangle" ? MOTIFS.triangle : null,
 };
 
 const LA_VOYELLE: OneRule = {
@@ -74,7 +75,7 @@ const LA_VOYELLE: OneRule = {
   forbids: (want) =>
     (want.kind === "key" && VOWELS.includes(want.key)) ||
     false,
-  judge: (a) => (a.kind === "key" && VOWELS.includes(a.key) ? "TU AS TAPÉ UNE VOYELLE" : null),
+  judge: (a) => (a.kind === "key" && VOWELS.includes(a.key) ? MOTIFS.voyelle : null),
 };
 
 const LE_COLOSSE: OneRule = {
@@ -88,7 +89,7 @@ const LE_COLOSSE: OneRule = {
   },
   judge: (a, ctx) => {
     if (a.kind !== "click" || !a.ent) return null;
-    return a.ent === uniqueBiggest(ctx.round.ents) ? "TU AS CLIQUÉ LA PLUS GROSSE FORME" : null;
+    return a.ent === uniqueBiggest(ctx.round.ents) ? MOTIFS.plusGrosse : null;
   },
 };
 
@@ -106,7 +107,7 @@ const LE_GAUCHER: OneRule = {
   traps: true,
   zone: { x0: 0, x1: BANNED_X },
   forbids: (want, ents) => targets(want, ents).some((e) => e.x < BANNED_X),
-  judge: (a) => (a.kind === "click" && a.x < BANNED_X ? "TU AS CLIQUÉ DANS LA ZONE INTERDITE" : null),
+  judge: (a) => (a.kind === "click" && a.x < BANNED_X ? MOTIFS.zoneInterdite : null),
 };
 
 const LA_SECONDE: OneRule = {
@@ -116,7 +117,7 @@ const LA_SECONDE: OneRule = {
   traps: false,
   forbids: noForbid,
   judge: (a, ctx) =>
-    a.kind !== "release" && ctx.elapsedMs < 400 ? "TU AS AGI TROP TÔT" : null,
+    a.kind !== "release" && ctx.elapsedMs < 400 ? MOTIFS.tropTot : null,
 };
 
 /* ================================================================== *
@@ -220,7 +221,7 @@ const LA_MAIN_GAUCHE: OneRule = {
   traps: false,
   watchRelease: " ",
   forbids: noForbid,
-  judge: (a) => (a.kind === "release" && a.key === " " ? "TU AS RELÂCHÉ ESPACE" : null),
+  judge: (a) => (a.kind === "release" && a.key === " " ? MOTIFS.espace : null),
 };
 
 /**

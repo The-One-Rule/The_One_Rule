@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  *
- * L'accueil parle deux langues. Le jeu n'en parle qu'une.
+ * Le site parle deux langues, et le jeu aussi désormais.
  *
  * Un `textContent` sur `#btnSolo` ou `#btnMulti` détruirait la faille
  * (voir `cartes.test.ts`). Ce fichier tient les deux : la peinture
@@ -114,8 +114,20 @@ describe("libellés dérivés", () => {
 describe("les chaînes statiques", () => {
   const html = readFileSync("index.html", "utf8");
 
-  /** Les clés réellement posées dans le document. */
-  const clesPosees = [...html.matchAll(/data-i18n="([^"]+)"/g)].map((m) => m[1]!);
+  /**
+   * Les clés réellement posées dans le document.
+   *
+   * LES TROIS FORMES, pas seulement le texte. Un `placeholder` et un
+   * `aria-label` ne sont pas du contenu : `textContent` ne les atteint pas, et
+   * un balayage du DOM qui cherche du français ne les voit pas non plus. Trois
+   * champs sont restés français pendant toute la traduction pour cette seule
+   * raison — dont le premier que remplit quelqu'un arrivé par un lien.
+   */
+  const clesPosees = [
+    ...[...html.matchAll(/data-i18n="([^"]+)"/g)],
+    ...[...html.matchAll(/data-i18n-ph="([^"]+)"/g)],
+    ...[...html.matchAll(/data-i18n-aria="([^"]+)"/g)],
+  ].map((m) => m[1]!);
 
   it("il y en a beaucoup — sinon les tests suivants sont vides", () => {
     // Garde-fou : si l'extraction cassait, tout passerait pour rien.
@@ -167,6 +179,32 @@ describe("les chaînes statiques", () => {
       }
     }
     expect(ecarts, `le document et le dictionnaire divergent :\n${ecarts.join("\n")}`).toEqual([]);
+  });
+
+  it("l'ANGLAIS des ATTRIBUTS est celui du dictionnaire", () => {
+    /*
+     * Même doctrine que pour le texte, et le même piège : le document est
+     * servi en anglais, donc un `placeholder="TON NOM"` reste français
+     * jusqu'à ce que le JS passe — c'est-à-dire pendant la première image, et
+     * indéfiniment si la clé est mal orthographiée. Un attribut faux ne casse
+     * rien et ne se voit pas dans un balayage de texte.
+     */
+    const ecarts: string[] = [];
+    for (const [attr, prop] of [
+      ["data-i18n-ph", "placeholder"],
+      ["data-i18n-aria", "aria-label"],
+    ] as const) {
+      const re = new RegExp(`<[^>]*${attr}="([^"]+)"[^>]*>`, "g");
+      for (const m of html.matchAll(re)) {
+        const cle = m[1]!;
+        const valeur = new RegExp(`${prop}="([^"]*)"`).exec(m[0])?.[1];
+        const attendu = CHAINES.en[cle];
+        if (attendu !== undefined && valeur !== undefined && valeur !== attendu) {
+          ecarts.push(`${cle} : document « ${valeur} » ≠ dictionnaire « ${attendu} »`);
+        }
+      }
+    }
+    expect(ecarts, `attributs divergents :\n${ecarts.join("\n")}`).toEqual([]);
   });
 
   it("aucune clé n'est posée sur un bouton à plusieurs `span`", () => {
@@ -223,7 +261,14 @@ describe("les chaînes statiques", () => {
 describe("la langue ne contraint pas le joueur en partie", () => {
   const main = readFileSync("src/main.ts", "utf8");
   const multi = readFileSync("src/multi.ts", "utf8");
-  const ACCENTS = /[\u00C0-\u00FF]/;
+  /*
+   * Le bloc Latin-1 sans ses DEUX intrus : U+00D7 \u00AB \u00D7 \u00BB et U+00F7 \u00AB \u00F7 \u00BB sont
+   * des signes math\u00E9matiques, pas des lettres accentu\u00E9es. Sans cette
+   * exclusion, `\u00D73` \u2014 une s\u00E9rie affich\u00E9e sur une plaque \u2014 passait pour du
+   * fran\u00E7ais en dur, et l'inventaire nomm\u00E9 ci-dessous serait faux d\u00E8s sa
+   * premi\u00E8re ligne.
+   */
+  const ACCENTS = /[\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF]/;
 
   /**
    * Les littéraux ACCENTUÉS d'une source, commentaires retirés.
@@ -314,49 +359,62 @@ describe("la langue ne contraint pas le joueur en partie", () => {
     expect(fautes, `français en dur dans le HUD : ${fautes.join(" · ")}`).toEqual([]);
   });
 
-  it("le français en dur de main.ts et multi.ts ne REMONTE pas", () => {
+  it("le français en dur de main.ts et multi.ts est NOMMÉ, pas compté", () => {
     /*
-     * UN CLIQUET, PAS UNE VICTOIRE.
+     * LE CLIQUET EST DEVENU UNE LISTE.
      *
-     * La traduction n'est pas finie : il reste du français littéral dans ces
-     * deux fichiers — écran de compte, quêtes, aides du salon, motifs de
-     * chute. Prétendre le contraire par un test qui passe serait pire que ne
-     * rien tester.
+     * Il figeait un NOMBRE — 23 et 34 — et refusait qu'il remonte. C'était le
+     * bon outil tant qu'il restait des dizaines de chaînes : on ne nomme pas
+     * cinquante oublis. Maintenant qu'il n'en reste que trois, un nombre serait
+     * une régression : il laisserait passer une chaîne nouvelle dès qu'une
+     * ancienne partirait, et surtout il ne dirait pas POURQUOI celles qui
+     * restent restent.
      *
-     * Ce test fige donc le nombre ACTUEL et refuse qu'il augmente. Quand on
-     * en traduit, on baisse la borne — et le jour où elle atteint zéro, on
-     * remplace ce cliquet par la règle stricte ci-dessus.
+     * Chacune est donc écrite, avec sa raison. Toute autre fait tomber le test.
      *
      * ⚠️ Le premier garde-fou écrit ici était CREUX : il ne regardait que les
      * lignes contenant `textContent =`. Or l'essentiel passe par des aides —
-     * `hud.setMeta`, `setJoinErr`, `ligneCompte`. Éprouvé en réintroduisant
-     * une chaîne française : le test passait quand même. C'est la raison
-     * d'être de la vérification « casse le correctif, relance ».
+     * `hud.setMeta`, `setJoinErr`, `ligneCompte`. Éprouvé en réintroduisant une
+     * chaîne française : le test passait quand même.
+     *
+     * ⚠️ Et il ne voit que l'ACCENT : « VIES RESTANTES » lui échappe. C'est un
+     * filet, pas une preuve.
      */
-    // Les bornes sont celles que CE test mesure, pas celles d'un script
-    // extérieur : les deux comptaient différemment les guillemets échappés,
-    // et c'est le compte d'ici qui fait foi puisque c'est lui qui garde.
-    const PLAFOND = { "main.ts": 23, "multi.ts": 34 };
-    const comptes: Record<string, number> = {};
+    const ADMIS: Record<string, string> = {
+      // Le tri du tampon se fait sur le FRANÇAIS, parce que c'est le français
+      // qui voyage sur le fil : le serveur envoie `verdict.reason` en clair et
+      // la traduction n'a lieu qu'à l'affichage. Trier sur la phrase déjà
+      // traduite ferait tomber tous les tampons anglais sur « MISSED ».
+      "ÉCOUL": "clé de tri de stampForReason, sur le texte du fil",
+      "RÈGLE": "clé de tri de stampForReason, sur le texte du fil",
+      // Un JETON de protocole, pas du texte affiché : le serveur envoie
+      // `detail: "déconnecté"` pour distinguer une coupure d'un salon inconnu.
+      "déconnecté": "jeton de protocole envoyé par le serveur",
+    };
+
+    const restants: string[] = [];
     for (const [nom, src] of [
       ["main.ts", main],
       ["multi.ts", multi],
     ] as const) {
-      comptes[nom] = litteraux(src).length;
+      for (const v of litteraux(src)) {
+        if (ADMIS[v] === undefined) restants.push(`${nom} : « ${v} »`);
+      }
     }
-    const remontees = Object.entries(comptes).filter(
-      ([nom, n]) => n > PLAFOND[nom as keyof typeof PLAFOND],
-    );
     expect(
-      remontees,
-      `du français en dur est REVENU : ${JSON.stringify(comptes)} contre ${JSON.stringify(PLAFOND)}`,
+      restants,
+      `du français en dur est apparu :\n${restants.join("\n")}\n` +
+        "Traduis-le, ou ajoute-le à ADMIS avec sa raison.",
     ).toEqual([]);
-    // Et si quelqu'un traduit, qu'il baisse la borne plutôt que de la laisser
-    // mentir sur ce qui reste à faire.
-    const trop = Object.entries(comptes).filter(
-      ([nom, n]) => n < PLAFOND[nom as keyof typeof PLAFOND],
-    );
-    expect(trop, `bornes à baisser dans ce test : ${JSON.stringify(comptes)}`).toEqual([]);
+  });
+
+  it("la liste des exceptions ne contient rien de mort", () => {
+    // Une exception qui ne sert plus laisse une porte ouverte : le jour où la
+    // chaîne revient pour une mauvaise raison, plus rien ne la signale.
+    const trouves = new Set([...litteraux(main), ...litteraux(multi)]);
+    for (const v of ["ÉCOUL", "RÈGLE", "déconnecté"]) {
+      expect(trouves.has(v), `exception morte à retirer : « ${v} »`).toBe(true);
+    }
   });
 
   it("la consigne du moteur reste française, et c'est documenté", () => {
@@ -407,5 +465,66 @@ describe("la langue suit le navigateur a la premiere visite", () => {
     expect(langueDuNavigateur(undefined)).toBe("fr");
     expect(langueDuNavigateur([])).toBe("fr");
     expect(langueDuNavigateur([undefined as unknown as string])).toBe("fr");
+  });
+});
+
+describe("les accords, qui ne se ressemblent pas d'une langue à l'autre", () => {
+  /*
+   * ⚠️ LE ZÉRO N'EST PAS AU MÊME NOMBRE DANS LES DEUX LANGUES.
+   *
+   * Le français met le singulier à 0 et à 1 (« 0 manche »), l'anglais le
+   * pluriel à tout sauf 1 (« 0 rounds »). Écrire `n > 1` partout — le réflexe
+   * quand on traduit une chaîne française — donne donc « 0 ROUND » et
+   * « 0 LIFE ».
+   *
+   * Trouvé en jouant : l'écran de fin d'un joueur éliminé à la première manche
+   * affichait « 0 ROUND ». C'est le cas le plus FRÉQUENT de cet écran, et
+   * personne ne l'aurait vu en relisant les tables.
+   */
+  const dyn = (lang: "fr" | "en") => DYNAMIQUES[lang];
+
+  it("le français garde le singulier à zéro", () => {
+    const d = dyn("fr");
+    expect(d.manchesN(0)).toBe("0 MANCHE");
+    expect(d.manchesN(1)).toBe("1 MANCHE");
+    expect(d.manchesN(2)).toBe("2 MANCHES");
+    expect(d.siegeEnMatch(1, 1)).toBe("1 VIE · 1 MANCHES");
+    expect(d.finJours(1)).toBe("1 JOUR");
+    expect(d.finJours(3)).toBe("3 JOURS");
+  });
+
+  it("l'anglais met le pluriel à zéro", () => {
+    const d = dyn("en");
+    expect(d.manchesN(0)).toBe("0 ROUNDS");
+    expect(d.manchesN(1)).toBe("1 ROUND");
+    expect(d.manchesN(2)).toBe("2 ROUNDS");
+    expect(d.siegeEnMatch(0, 0)).toBe("0 LIVES · 0 ROUNDS");
+    expect(d.siegeEnMatch(1, 1)).toBe("1 LIFE · 1 ROUND");
+    expect(d.finJours(0)).toBe("0 DAYS");
+    expect(d.finJours(1)).toBe("1 DAY");
+    expect(d.cptJours(0)).toBe("0 DAYS");
+    expect(d.cptManches(0)).toBe("0 ROUNDS");
+    expect(d.cptManches(1)).toBe("1 ROUND");
+    expect(d.trainingRecord(1)).toBe("BEST · 1 ROUND");
+    expect(d.dailyRevient(1)).toBe("1 ROUND · COME BACK TOMORROW");
+  });
+
+  it("aucune chaîne anglaise n'accorde en `n > 1`", () => {
+    /*
+     * Le filet, plutôt qu'une liste à tenir à jour : `n > 1` est TOUJOURS
+     * faux en anglais, et c'est la faute qu'on refait à chaque nouvelle
+     * chaîne, puisqu'on l'écrit en recopiant la ligne française juste
+     * au-dessus. On lit donc la source de la table anglaise.
+     */
+    const src = readFileSync("src/i18n.ts", "utf8");
+    const debut = src.indexOf("  en: {", src.indexOf("const DYN: Record<Lang, Dyn> = {"));
+    expect(debut, "table anglaise introuvable — l'extraction a cassé").toBeGreaterThan(-1);
+    const anglais = src.slice(debut);
+    const fautes = [...anglais.matchAll(/^.*n > 1 \?.*$/gm)].map((m) => m[0].trim());
+    expect(
+      fautes,
+      `accord français dans la table anglaise :\n${fautes.join("\n")}\n` +
+        "En anglais, zéro prend le pluriel : `n === 1 ? \"\" : \"s\"`.",
+    ).toEqual([]);
   });
 });

@@ -9,6 +9,7 @@
  */
 
 import { ONE_RULES } from "../src/engine/rules";
+import { MOTIFS } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
@@ -626,7 +627,7 @@ export class MatchLogic {
     if (!s || s.eliminated) return;
     s.eliminated = true;
     const st = this.states.get(playerId);
-    if (st && !st.outcome) st.outcome = { kind: "death", reason: "PARTI" };
+    if (st && !st.outcome) st.outcome = { kind: "death", reason: MOTIFS.parti };
 
     /*
      * Un départ élimine le SIÈGE ; l'ÉQUIPE ne tombe que si plus personne n'y

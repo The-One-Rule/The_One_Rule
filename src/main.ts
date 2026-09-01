@@ -66,6 +66,7 @@ import {
   libelleQuete,
   nomAllure,
   t,
+  traduisMotif,
   TEXTES,
 } from "./i18n";
 import type { Lang } from "./i18n";
@@ -307,17 +308,26 @@ function renderHome(): void {
   ensureDay(s, day);
   P.save(s);
 
-  hud.setRule(null);
-  hud.clearRound();
-  hud.setMeta("");
-  hud.setFooter(0, s.bestTraining, "—");
-
+  /*
+   * LA LANGUE D'ABORD, LE RESTE ENSUITE.
+   *
+   * `appliqueLangue` appelle `poseLangue`, et tout ce qui suit lit `t()`. Posée
+   * APRÈS les appels au HUD, elle les laissait peindre dans la langue
+   * PRÉCÉDENTE : mesuré, l'intitulé du pied affichait « BEST » une fois passé
+   * en français, et « RECORD » une fois passé en anglais — un cran de retard à
+   * chaque bascule, qui ne se rattrapait qu'au repeint suivant.
+   */
   const rule = ruleOfDay(day);
   const lang: Lang = estLang(s.lang) ? s.lang : "fr";
   const c = compte();
   appliqueLangue(document, lang, {
     compte: libelleCompte(lang, c ? c.pseudo : null),
   });
+
+  hud.setRule(null);
+  hud.clearRound();
+  hud.setMeta("");
+  hud.setFooter(0, s.bestTraining, "—");
 
   $("soloEtat").textContent = etatSolo(lang, {
     played: s.daily.played,
@@ -362,6 +372,8 @@ function choisitLangue(lang: Lang): void {
   P.save(s);
   sfx.ui();
   renderHome();
+  // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
+  multi.onLangue();
 }
 
 /**
@@ -642,10 +654,8 @@ let retourCompte: RetourConnexion = { quoi: "aucun" };
 /** Refusée une fois, l'invitation ne revient pas de la session. */
 let inviteEcartee = false;
 
-const NOM_FOURNISSEUR: Record<string, string> = {
-  google: "CONTINUER AVEC GOOGLE",
-  discord: "CONTINUER AVEC DISCORD",
-};
+const nomFournisseur = (f: string): string =>
+  f === "google" ? t("cptGoogle") : f === "discord" ? t("cptDiscord") : f.toUpperCase();
 
 async function chargeFournisseurs(): Promise<string[]> {
   if (fournisseursDispo === null) fournisseursDispo = await fournisseurs();
@@ -682,8 +692,7 @@ function renderCompte(): void {
   $("compteTitre").textContent = connecte ? t("compteTitreConnecte") : t("compteTitreAnonyme");
 
   if (connecte) {
-    $("compteLede").textContent =
-      "Ta progression est enregistrée. Elle te suivra sur tes autres appareils.";
+    $("compteLede").textContent = t("cptEnregistre");
     const hote = $("compteIdentite");
     hote.innerHTML = "";
     const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
@@ -715,8 +724,7 @@ function renderCompte(): void {
     return;
   }
 
-  $("compteLede").textContent =
-    "Le jeu marche sans. Un compte ne sert qu'à garder ce que tu fais quand tu changes de navigateur ou d'appareil.";
+  $("compteLede").textContent = t("cptSansCompte");
 
   /*
    * La raison d'un retour raté, montrée plutôt qu'avalée.
@@ -728,21 +736,20 @@ function renderCompte(): void {
    * pas au même endroit, donc les distinguer vaut le peu de place que ça prend.
    */
   const RAISONS: Record<string, string> = {
-    annule: "CONNEXION ANNULÉE.",
-    echec: "LE FOURNISSEUR A REFUSÉ L'ÉCHANGE. VÉRIFIE L'URI DE RETOUR DÉCLARÉE CHEZ LUI.",
-    etat_invalide: "LIEN DE RETOUR EXPIRÉ OU ROUVERT DEUX FOIS. RÉESSAIE.",
-    banni: "CE COMPTE EST SUSPENDU.",
-    indisponible: "LES COMPTES NE SONT PAS CONFIGURÉS SUR CE DÉPLOIEMENT.",
+    annule: t("cptErrAnnule"),
+    echec: t("cptErrEchange"),
+    etat_invalide: t("cptErrExpire"),
+    banni: t("cptErrSuspendu"),
+    indisponible: t("cptErrNonConfig"),
   };
-  $("compteQuoi").textContent =
-    "CE QUI SERAIT ENREGISTRÉ : TON CARNET, TA SÉRIE ET TES RECORDS. RIEN D'AUTRE.";
+  $("compteQuoi").textContent = t("cptCeQuiSerait");
 
   const rangee = $("compteFournisseurs");
   rangee.innerHTML = "";
   for (const f of fournisseursDispo ?? []) {
     const b = document.createElement("button");
     b.className = "btn";
-    b.textContent = NOM_FOURNISSEUR[f] ?? f.toUpperCase();
+    b.textContent = nomFournisseur(f);
     b.addEventListener("click", () => {
       track("compte_start", { f });
       sfx.ui();
@@ -754,7 +761,7 @@ function renderCompte(): void {
   const vide = (fournisseursDispo ?? []).length === 0;
   const refus =
     retourCompte.quoi === "refus"
-      ? (RAISONS[retourCompte.code] ?? `RETOUR REFUSÉ (${retourCompte.code}).`)
+      ? (RAISONS[retourCompte.code] ?? t("cptErrRetour")(retourCompte.code))
       : "";
   err.classList.toggle("hidden", !vide && !refus);
   err.textContent = refus || (vide ? t("compteIndispo") : "");
@@ -783,9 +790,7 @@ function renderInvite(score: number, record: boolean): void {
   // Le CHIFFRE, pas la fonctionnalité. « Créer un compte » est abstrait ;
   // « ce 23 » ne l'est pas.
   const texte = $("compteInviteText");
-  texte.innerHTML = record
-    ? `RECORD PERSONNEL · <b></b>. IL N'EXISTE QUE DANS CE NAVIGATEUR.`
-    : `<b></b> MANCHES. CE NAVIGATEUR EST LE SEUL À S'EN SOUVENIR.`;
+  texte.innerHTML = record ? t("cptRecordLocal") : t("cptManchesLocal");
   texte.querySelector("b")!.textContent = String(score);
   track("compte_invite", { score, record });
 }
@@ -1025,7 +1030,7 @@ async function openRanked(): Promise<void> {
   if (queueing) return;
   const s = P.load();
   if (!s.ranked.name) {
-    const asked = prompt("Ton pseudo pour le classement (14 caractères max) :", "")?.trim();
+    const asked = prompt(t("promptPseudo"), "")?.trim();
     if (!asked) return;
     P.mutate((st) => {
       st.ranked.name = asked.slice(0, 14).toUpperCase();
@@ -1068,8 +1073,8 @@ async function openRanked(): Promise<void> {
   $("briefText").textContent = briefDeRegle(rule.id, rule.brief);
   const warn = $("briefWarn");
   warn.textContent = offer.opponent
-    ? `CONTRE ${offer.opponent.name} (${offer.opponent.rating}) · IL A TENU ${offer.opponent.score} MANCHES`
-    : "AUCUN ADVERSAIRE DISPONIBLE · CE RUN SERVIRA D'ÉTALON AUX SUIVANTS";
+    ? t("rankedContre")(offer.opponent.name, offer.opponent.rating, offer.opponent.score)
+    : t("rankedEtalon");
   warn.classList.remove("hidden");
   $("btnGo").textContent = rule.watchRelease === " " ? t("goMaintiens") : t("goEntrer");
   renderPace();
@@ -1099,8 +1104,12 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
   if (res.rejected) {
     // On explique. Un joueur légitime injustement épinglé doit pouvoir
     // comprendre et signaler, pas se heurter à un mur.
+    // ⚠️ `res.reasons` vient de `verifyRun` et reste FRANÇAIS : ce sont des
+    // diagnostics d'anti-triche (« rejeu non convergent »), pas de l'interface.
+    // Le mode classé est masqué en production, et le jour où il s'ouvrira ils
+    // seront à structurer comme les motifs de mort.
     box.innerHTML =
-      `<span class="rank__delta">RUN ÉCARTÉ</span>CONTRÔLE : ${res.verdict}<br>` +
+      `<span class="rank__delta">${t("rankedControle")(res.verdict)}</span><br>` +
       (res.reasons ?? []).map((r) => `· ${r}`).join("<br>");
     return;
   }
@@ -1114,9 +1123,9 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
   box.innerHTML = c
     ? `<span class="rank__delta">${c.delta >= 0 ? "+" : ""}${c.delta}</span>` +
       `<b>${res.me.rating}</b> · ${c.division.name}` +
-      (c.promoted ? "<br>PROMOTION" : "") +
-      (c.floored ? "<br>PLANCHER DE DIVISION : AUCUNE PERTE" : "")
-    : `<span class="rank__delta">${res.score}</span>RUN ÉTALON ENREGISTRÉ · <b>${res.me.rating}</b>`;
+      (c.promoted ? `<br>${t("rankedPromotion")}` : "") +
+      (c.floored ? `<br>${t("rankedPlancher")}` : "")
+    : `<span class="rank__delta">${res.score}</span>${t("rankedRunEtalon")(res.me.rating)}`;
   if (c?.promoted) sfx.win();
 }
 
@@ -1213,13 +1222,15 @@ function finishRun(): void {
   $("over").classList.toggle("is-win", end.cleared);
   verdict.classList.toggle("is-win", end.cleared);
   verdict.textContent = end.cleared
-    ? "TENU"
+    ? t("finTenu")
     : end.cause === "macro"
-      ? "RÈGLE UNIQUE ENFREINTE"
+      ? t("finRegleEnfreinte")
       : mode === "daily"
-        ? "ROMPU"
-        : "ÉLIMINÉ";
-  $("because").textContent = end.reason;
+        ? t("finRompu")
+        : t("finElimine");
+  // Le motif vient du moteur, donc en français canonique : c'est ici, au
+  // dernier moment, qu'il passe dans la langue du joueur.
+  $("because").textContent = traduisMotif(end.reason);
   /*
    * En escalade, le titre est le nombre de RÈGLES tenues, pas de manches.
    *
@@ -1259,10 +1270,10 @@ function finishRun(): void {
     const tie = end.score === target;
     teaser.innerHTML = `DUEL<b></b>`;
     teaser.querySelector("b")!.textContent = won
-      ? `GAGNÉ · ${end.score} CONTRE ${target}`
+      ? t("defiGagne")(end.score, target)
       : tie
-        ? `ÉGALITÉ · ${target} PARTOUT`
-        : `PERDU · ${end.score} CONTRE ${target}`;
+        ? t("defiEgalite")(target)
+        : t("defiPerdu")(end.score, target);
     if (won) sfx.win();
   } else if (mode === "daily") {
     teaser.innerHTML = `DEMAIN<b></b>`;
@@ -1270,7 +1281,7 @@ function finishRun(): void {
     teaser.classList.remove("hidden");
   } else {
     teaser.innerHTML = `${t("serieEnCours")}<b></b>`;
-    teaser.querySelector("b")!.textContent = `${s.streak.count} JOUR${s.streak.count > 1 ? "S" : ""}`;
+    teaser.querySelector("b")!.textContent = t("finJours")(s.streak.count);
   }
 
   // Un duel se rejoue à volonté : c'est la même partie, la comparaison reste
@@ -1278,12 +1289,12 @@ function finishRun(): void {
   $<HTMLButtonElement>("btnAgain").disabled = mode === "daily" && !challenge;
   $<HTMLButtonElement>("btnAgain").textContent =
     mode === "ranked"
-      ? "MATCH SUIVANT · R"
+      ? t("goMatchSuivant")
       : challenge
-        ? "REVANCHE · R"
+        ? t("goRevanche")
         : mode === "daily"
-          ? "REVIENS DEMAIN"
-          : "REJOUER · R";
+          ? t("goReviensDemain")
+          : t("goRejouer");
   $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
 
   /*
@@ -1407,7 +1418,11 @@ function react(outcome: Outcome, comboBefore: number): void {
   musicApi.cut();
   scene.kick(performance.now(), outcome.cause === "macro" ? 1.15 : 0.8);
   hud.showStamp(
-    outcome.cause === "macro" ? "INFRACTION" : outcome.cause === "timeout" ? "TROP LENT" : "RATÉ",
+    outcome.cause === "macro"
+      ? t("tamponInfraction")
+      : outcome.cause === "timeout"
+        ? t("tamponLent")
+        : t("tamponRate"),
   );
 }
 
@@ -1739,9 +1754,7 @@ $("btnCompteSupprimer").addEventListener("click", () => {
   if (!suppressionArmee) {
     suppressionArmee = true;
     danger.classList.remove("hidden");
-    danger.textContent =
-      "TON COMPTE, TON HISTORIQUE ET TES RUNS ENREGISTRÉS SERONT EFFACÉS. " +
-      "TA PROGRESSION SUR CET APPAREIL RESTE. C'EST DÉFINITIF.";
+    danger.textContent = t("cptSupprimerAvert1") + t("cptSupprimerAvert2");
     bouton.textContent = t("compteConfirmer");
     return;
   }
@@ -1818,7 +1831,7 @@ $("btnDuel").addEventListener("click", async () => {
     ruleId: lastRun.rule.id,
     splits: lastRun.end.splits,
   });
-  const text = `Je tiens ${lastRun.end.score} manches sur ${lastRun.rule.name}. Même partie, même ordre. ${url}`;
+  const text = t("partageTexte")(lastRun.end.score, lastRun.rule.name, url);
   try {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
@@ -1836,8 +1849,9 @@ $("btnDuel").addEventListener("click", async () => {
 $("btnShare").addEventListener("click", async () => {
   if (!lastRun) return;
   const { end, rule, mode } = lastRun;
-  const head = mode === "daily" ? `THE ONE RULE #${day}` : "THE ONE RULE · ENTRAÎNEMENT";
-  const tail = end.cleared ? `TENU · ${DAILY_LENGTH} manches` : `rompu à la manche ${end.score}`;
+  const head =
+    mode === "daily" ? t("partageTitreJour")(day) : t("partageTitreEntrainement");
+  const tail = end.cleared ? t("partageTenu")(DAILY_LENGTH) : t("partageRompu")(end.score);
   const text = `${head}\n${rule.name}\n${marksToString(end.marks)}\n${tail}`;
   try {
     if (navigator.share) await navigator.share({ text });
@@ -1926,7 +1940,7 @@ function loop(now: number): void {
        */
       if (session.regleAjoutee) {
         hud.setRule(regleAffichee(session));
-        hud.announce(`+ ${session.regleAjoutee.name}`);
+        hud.announce(t("regleAjoutee")(session.regleAjoutee.name));
         session.regleAjoutee = null;
         session.tierJustCrossed = false;
       } else if (session.tierJustCrossed) {
@@ -2138,6 +2152,18 @@ async function demarreCompte(): Promise<void> {
 }
 
 renderHome();
+/*
+ * Et le multi PAR-DESSUS, une fois seulement.
+ *
+ * `createMulti()` s'exécute pendant l'évaluation du module, donc AVANT que
+ * `renderHome()` n'ait posé la langue enregistrée : tout ce qu'il peint à
+ * l'initialisation le fait en français, quelle que soit la langue du joueur.
+ * Mesuré : les six boutons d'émote restaient « SALUT · BRAVO · HA ! » dans un
+ * salon anglais, et rien ne les repeignait tant qu'on ne touchait pas au
+ * sélecteur FR/EN. Un défaut invisible au premier chargement, qui ne se voit
+ * qu'en jeu.
+ */
+multi.onLangue();
 void demarreCompte();
 
 const invite = readInvite();

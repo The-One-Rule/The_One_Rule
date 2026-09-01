@@ -6392,8 +6392,17 @@ button.chip:active:not(:disabled) {
  * etait du vide, et l'accueil defilait de 124 px sur mobile.
  */
 .topbar__row {
-  display: flex;
-  justify-content: space-between;
+  /*
+   * UNE GRILLE, pas un `space-between`.
+   *
+   * L'enseigne est au CENTRE, et un centre qui depend de ce qu'il y a autour
+   * n'en est pas un : COMPTE est masque tant que le deploiement n'est pas
+   * configure, MENU l'est sur l'accueil, et en flex chaque disparition
+   * deplacait le signe. `1fr auto 1fr` lui donne une colonne a lui : les deux
+   * bords peuvent se vider, il ne bouge pas d'un pixel.
+   */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--sp-2);
   min-height: 52px;
@@ -6415,12 +6424,7 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-/*
- * L'ENSEIGNE A GAUCHE, en ligne : le signe puis MENU quand il existe.
- * Le tiers gauche restait vide sur l'accueil, ou MENU est masque, et toute la
- * barre paraissait basculee a droite alors que le signe etait mathematiquement
- * centre. Deux bords occupes valent mieux qu'un centre exact.
- */
+/* REGLAGES puis MENU, cales sur le bord gauche. */
 .topbar__left {
   display: flex;
   flex-direction: row;
@@ -6429,27 +6433,19 @@ button.chip:active:not(:disabled) {
   min-width: 0;
 }
 
-/*
- * LES COMMANDES A DROITE, en colonne : la langue se pose SOUS COMPTE et
- * REGLAGES. Cote a cote, les trois se serraient sur mobile ; empilees,
- * chacune garde ses 44 px tactiles.
- */
+/* LE COMPTE A DROITE, cale sur le bord. La langue, elle, vit sous le bandeau. */
 .topbar__right {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
   min-width: 0;
 }
 
-/* COMPTE et REGLAGES restent sur une meme ligne, eux. */
-.topbar__cmds {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
 .topbar__brand {
+  /* Il est l'enfant du MILIEU de la grille : c'est la grille qui le centre. */
+  justify-self: center;
   display: inline-flex;
   align-items: center;
   gap: 10px;

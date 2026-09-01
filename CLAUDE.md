@@ -667,8 +667,17 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 476 tests (42 fichiers) ·
-e2e 75 assertions (~2 min 10) · `vite build` — tous verts.
+**Branche** `master`. **Vérification** : `tsc` · 495 tests (43 fichiers) ·
+e2e 75 assertions (~2 min 15) · `vite build`.
+
+⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
+rien perdu` (scénario DUO) a échoué une fois sur deux lancements consécutifs,
+sans qu'aucun code de match ait changé. Elle attend `v3 === 3` après une
+attente de 9 s pendant laquelle D3 ne joue pas : dès que l'échauffement se
+termine dans cette fenêtre, D3 perd des vies et l'assertion tombe. Le
+récapitulatif de l'e2e ne la voit PAS — il ne surveille que les marges des
+grandeurs mesurées, et celle-ci est une égalité. À reprendre : soit borner
+l'attente, soit lire les vies de D3 avant la fin de l'échauffement.
 
 ⚠️ **Casser le correctif pour éprouver un test ne marche plus partout** : le
 classificateur de permissions refuse de lancer les tests quand une
@@ -870,6 +879,24 @@ de quelqu'un d'autre. Ce qu'il faut regarder d'abord, ce sont les trois
 RÉCLAMÉ les comptes, ce qui n'est pas la même chose que les utiliser — le
 partage de score aussi était réclamé, et il est resté à 0 %.
 
+### La barre du haut : trois zones, l'enseigne au milieu
+
+Demandé par Pierre : réglages à gauche, compte à droite, signe au centre.
+
+`.topbar__row` est passée de `space-between` à une **grille `1fr auto 1fr`**,
+et ce n'est pas cosmétique : COMPTE est masqué tant que le déploiement n'est
+pas configuré, MENU l'est sur l'accueil, et en flex chaque disparition
+déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
+CSS décrivait (« deux bords occupés valent mieux qu'un centre exact »). La
+grille rend la question sans objet.
+
+Mesuré, animations coupées : centre du bandeau **267** = centre du signe
+**267**, sur l'accueil comme sur SOLO, et `elementFromPoint` au centre rend
+bien `topbar__mark`. À 375 px avec les QUATRE éléments visibles :
+RÉGLAGES [13–95] · MENU [105–157] · signe [167–209] centré sur 188 = centre
+exact · COMPTE [295–362]. Aucun chevauchement, aucun débordement horizontal,
+44 px de haut partout.
+
 ### Deux langues — et pourquoi ce n'était pas un confort
 
 Trois playtesters anglophones sur trois ont abandonné, et **aucun ne parlait
@@ -907,10 +934,64 @@ pour tous : un anglophone atterrissait en français, Chrome proposait de
 traduire, il acceptait — et on retombait dans la panne. Traduire sans corriger
 ça n'aurait servi à rien.
 
-⚠️ **Reste connu** : le texte mensonger du MENTEUR reste français, et 84
-littéraux hors partie (écran de compte, quêtes, aides du salon). Un CLIQUET
-dans `tests/i18n.test.ts` fige le nombre et refuse qu'il remonte. Sa limite est
-écrite : il ne voit que l'ACCENT, donc « VIES RESTANTES » lui échappe.
+#### Le multijoueur et les motifs de mort — la seconde moitié du chantier
+
+Le premier passage n'avait traduit que le solo. Signalé par Pierre, captures à
+l'appui : la kill-cam disait « LE TEMPS EST ÉCOULÉ », le salon « 1 / 10
+JOUEURS · HÔTE · DÉCOUV. · CHACUN », le brief de règle du multi restait
+français, et les six émotes aussi.
+
+**Ce qui a changé structurellement, et qui vaut pour la suite :**
+
+- **Les motifs de mort ont quitté le clair** (`src/engine/motifs.ts`). Ils
+  naissaient en dur dans `resolve.ts` et dans les `judge` des règles — donc
+  dans le moteur PUR — et voyagent sur le fil dans `verdict.reason`. Ils sont
+  maintenant une table indexée par `MotifId`, ce qui rend la table anglaise
+  **impossible à laisser incomplète** (`Record<MotifId, string>` ne compile
+  pas sinon). La traduction est un dernier geste d'affichage : **le protocole
+  n'a pas bougé et le serveur de salons ignore toujours les langues.**
+- **`render/seat.ts` rend un IDENTIFIANT, plus une phrase.** Son test y gagne :
+  il dit quelle branche de la priorité a gagné, pas à quoi ressemblait le
+  français.
+- **`data-i18n-ph` et `data-i18n-aria`** : `textContent` n'atteint ni un
+  `placeholder` ni un `aria-label`, et un balayage du DOM ne les voit pas.
+  C'est pour cette seule raison que « TON NOM » — le premier champ que remplit
+  quelqu'un arrivé par un lien d'invitation — était resté français.
+
+**Quatre défauts trouvés en JOUANT, aucun en relisant** :
+
+- les six émotes restaient françaises : `createMulti()` s'exécute pendant
+  l'évaluation du module, donc AVANT que `renderHome()` n'ait posé la langue
+  enregistrée. Tout ce que le multi peint à l'initialisation le fait en
+  français. D'où `multi.onLangue()`, appelée une fois au démarrage et à chaque
+  bascule ;
+- `renderHome()` posait la langue APRÈS ses appels au HUD : l'intitulé du pied
+  affichait « BEST » une fois passé en français, et « RECORD » une fois passé
+  en anglais — **un cran de retard à chaque bascule** ;
+- le **fil des chutes** écrivait `v.reason` tel quel : le bandeau disait « YOU
+  CLICKED EMPTY SPACE » pendant que le fil, trois lignes plus bas, disait « TU
+  AS CLIQUÉ DANS LE VIDE » pour la même mort ;
+- ⚠️ **l'anglais met le pluriel à ZÉRO, le français le singulier.** Écrire
+  `n > 1` — le réflexe quand on recopie la ligne française juste au-dessus —
+  donne « 0 ROUND » et « 0 LIFE ». C'est le cas le plus FRÉQUENT de l'écran de
+  fin. Un test lit la source de la table anglaise et refuse tout `n > 1`.
+
+⚠️ **Le cliquet est devenu une LISTE.** Il figeait un nombre (23 et 34) et
+refusait qu'il remonte : c'était le bon outil pour cinquante oublis. Il n'en
+reste que **trois**, tous nommés avec leur raison dans `tests/i18n.test.ts` —
+`"ÉCOUL"` et `"RÈGLE"` (clés de tri de `stampForReason`, qui **doivent** rester
+sur le français puisque c'est lui qui voyage sur le fil) et `"déconnecté"` (un
+jeton de protocole). Un nombre laisserait passer une chaîne nouvelle dès qu'une
+ancienne partirait, et surtout ne dirait pas pourquoi celles-là restent.
+
+⚠️ **Reste français, et c'est écrit** : le nom des règles (c'est un nom, et son
+identifiant est la clé du carnet et de la comparabilité), le texte mensonger du
+MENTEUR, et les diagnostics d'anti-triche de `verifyRun` — qui ne sont pas de
+l'interface et ne s'affichent que dans un mode masqué.
+
+⚠️ **La limite du filet est inchangée** : il ne voit que l'ACCENT, donc « VIES
+RESTANTES » lui échappe. Il n'existe pas de moyen fiable de reconnaître du
+français en ASCII pur.
 
 ### L'escalade est la même épreuve pour tout le monde — mesuré
 

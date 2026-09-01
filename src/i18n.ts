@@ -1,12 +1,30 @@
 /**
- * Langue de l'accueil.
+ * La langue du site — et, depuis, celle de tout ce que le joueur lit.
  *
- * Le jeu, lui, ne change pas de langue : les règles s'appellent LE SANG,
- * les consignes restent celles du moteur, et le canvas n'est pas touché.
- * Seul l'habillage de l'accueil (accroche, faces de la faille, chrome de
- * la barre) suit le choix. C'est un réglage d'appareil, pas un agrégat
- * de compte : il ne voyage pas.
+ * Ce module ne couvrait au départ que l'accueil. Il couvre maintenant les
+ * consignes (composées depuis une `Phrase`), les briefs de règles, le salon,
+ * les verdicts et les motifs de mort. Ce qui reste français est court et
+ * délibéré :
+ *
+ *   — le NOM d'une règle (« LE SANG ») : c'est un nom, et son identifiant est
+ *     la clé du carnet, des performances et de la comparabilité ;
+ *   — le texte mensonger de LE MENTEUR, qui emprunte une phrase plausible en
+ *     comparant des textes ;
+ *   — les diagnostics d'anti-triche de `verifyRun`, qui ne sont pas de
+ *     l'interface et ne s'affichent que dans un mode masqué.
+ *
+ * ⚠️ LE PRINCIPE, qui vaut pour tout ce qui s'ajoutera : le MOTEUR garde le
+ * français canonique et reste ignorant des langues, l'AFFICHAGE recompose
+ * depuis un identifiant. C'est ce qui permet au serveur de rejouer un run et
+ * au multijoueur de faire voyager un verdict sans qu'aucun des deux n'ait à
+ * savoir dans quelle langue joue qui.
+ *
+ * C'est un réglage d'appareil, pas un agrégat de compte : il ne voyage pas.
  */
+
+import { MOTIFS } from "./engine/motifs";
+import type { MotifId } from "./engine/motifs";
+import type { SeatStatus } from "./render/seat";
 
 export type Lang = "fr" | "en";
 
@@ -192,6 +210,22 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "multi.duo": "DUO",
     "multi.duo.desc": "À deux, une seule réserve de vies. Jusqu'à 5 équipes.",
     "multi.changerSigne": "CHANGER DE SIGNE",
+    "ph.nom": "TON NOM",
+    "ph.code": "CODE",
+    "ph.chat": "TAPE ICI POUR PARLER",
+    "aria.nom": "Ton nom",
+    "aria.signe": "Ton signe",
+    "aria.chat": "Message",
+    "aria.emotes": "Réactions",
+    "aria.joueurs": "Joueurs",
+    "aria.spectateur": "Spectateur",
+    "aria.chutes": "Chutes",
+    "aria.salon": "Salon",
+    "aria.modesSolo": "Modes solo",
+    "aria.allure": "Allure",
+    "aria.codeSalon": "Code du salon",
+    "aria.discussion": "Discussion du salon",
+    "aria.titres": "Titres du match",
     "salon.code": "CODE DU SALON",
     "salon.copierCode": "COPIER LE CODE",
     "salon.copierLien": "COPIER LE LIEN",
@@ -270,6 +304,22 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "multi.duo": "DUO",
     "multi.duo.desc": "Two players, one shared pool of lives. Up to 5 teams.",
     "multi.changerSigne": "CHANGE SIGN",
+    "ph.nom": "YOUR NAME",
+    "ph.code": "CODE",
+    "ph.chat": "TYPE HERE TO TALK",
+    "aria.nom": "Your name",
+    "aria.signe": "Your sign",
+    "aria.chat": "Message",
+    "aria.emotes": "Reactions",
+    "aria.joueurs": "Players",
+    "aria.spectateur": "Spectating",
+    "aria.chutes": "Eliminations",
+    "aria.salon": "Room",
+    "aria.modesSolo": "Solo modes",
+    "aria.allure": "Pace",
+    "aria.codeSalon": "Room code",
+    "aria.discussion": "Room chat",
+    "aria.titres": "Match awards",
     "salon.code": "ROOM CODE",
     "salon.copierCode": "COPY THE CODE",
     "salon.copierLien": "COPY THE LINK",
@@ -412,6 +462,106 @@ type Dyn = {
   allureRef: string;
   alluurePlus: (ref: string) => string;
   allureMoins: (ref: string) => string;
+  /* --- le salon, ce qu'il dit de lui-meme --- */
+  salonJoueurs: (n: number, max: number) => string;
+  salonSeulHint: string;
+  reglagesVerrouilles: string;
+  reglagesTuDecides: string;
+  reglagesInvite: string;
+  optJamais: string;
+  optDuos: string;
+  optChacun: string;
+  ariaVitesse: (nom: string) => string;
+  ariaVies: (n: number) => string;
+  ariaRotationJamais: string;
+  ariaRotation: (n: number) => string;
+  ariaDuos: string;
+  ariaChacun: string;
+  ariaSigne: (n: number, total: number) => string;
+  ariaCouper: (qui: string) => string;
+  ariaReactiver: (qui: string) => string;
+  ariaExclure: (qui: string) => string;
+  dicteLeCode: string;
+  /* --- ce que la tuile d'un siege dit sous le nom --- */
+  siegeHorsLigne: string;
+  siegeHote: string;
+  siegeDebutant: string;
+  siegePret: string;
+  siegeEnMatch: (vies: number, score: number) => string;
+  /* --- le tampon : trois mots, lus en 200 ms --- */
+  tamponLent: string;
+  tamponInfraction: string;
+  tamponRate: string;
+  /* --- la kill-cam --- */
+  tuEsElimine: string;
+  tuPerdsUneVie: string;
+  elimine: string;
+  viePerdue: string;
+  sousRegle: (regle: string) => string;
+  ilsNeSontPlusQue: (n: number) => string;
+  jeRegarde: (qui: string) => string;
+  reglesTournent: (regle: string) => string;
+  /* --- le classement de fin de match --- */
+  titreReflexe: string;
+  titreFlair: string;
+  titreSerie: string;
+  rangEme: (n: number) => string;
+  manchesN: (n: number) => string;
+  aRegarde: string;
+  /* --- ce que le serveur de salons refuse --- */
+  errDeconnecte: string;
+  errSalonInconnu: string;
+  errSalonComplet: (max: number) => string;
+  errPasHote: string;
+  errEnMatch: string;
+  errVersion: string;
+  errExclu: string;
+  errInjoignable: string;
+  errReconnexion: string;
+  errCode4: string;
+  errConnexionPerdue: string;
+  /* --- l'ecran de compte --- */
+  cptEnregistre: string;
+  cptSansCompte: string;
+  cptCeQuiSerait: string;
+  cptGoogle: string;
+  cptDiscord: string;
+  cptSupprimerAvert1: string;
+  cptSupprimerAvert2: string;
+  cptRecordLocal: string;
+  cptManchesLocal: string;
+  cptErrAnnule: string;
+  cptErrEchange: string;
+  cptErrExpire: string;
+  cptErrSuspendu: string;
+  cptErrNonConfig: string;
+  cptErrRetour: (code: string) => string;
+  /* --- la fin d'un run solo --- */
+  finTenu: string;
+  finRegleEnfreinte: string;
+  finRompu: string;
+  finElimine: string;
+  defiGagne: (score: number, cible: number) => string;
+  defiEgalite: (cible: number) => string;
+  defiPerdu: (score: number, cible: number) => string;
+  finJours: (n: number) => string;
+  goMatchSuivant: string;
+  goRevanche: string;
+  goReviensDemain: string;
+  goRejouer: string;
+  regleAjoutee: (regle: string) => string;
+  partageTexte: (score: number, regle: string, url: string) => string;
+  partageTitreJour: (jour: number) => string;
+  partageTitreEntrainement: string;
+  partageTenu: (total: number) => string;
+  partageRompu: (score: number) => string;
+  promptPseudo: string;
+  rankedContre: (qui: string, elo: number, score: number) => string;
+  rankedEtalon: string;
+  rankedPromotion: string;
+  rankedPlancher: string;
+  rankedRunEtalon: (elo: number) => string;
+  rankedControle: (verdict: string) => string;
   /* --- bascules de reglages : « SON : ON » --- */
   prefSon: string;
   prefMusique: string;
@@ -420,6 +570,22 @@ type Dyn = {
   on: string;
   off: string;
 };
+
+/**
+ * Le suffixe ordinal anglais. Le français n'en a qu'un (« ᵉ »), l'anglais
+ * quatre, et ils dépendent des DEUX derniers chiffres : 11, 12 et 13 prennent
+ * « th » alors que 1, 2 et 3 prennent « st », « nd », « rd ». Un salon plafonne
+ * à dix joueurs, donc le cas ne se pose pas aujourd'hui — mais une table de
+ * traduction qui a raison par accident finit par avoir tort.
+ */
+function rangSuffixe(n: number): string {
+  const d = n % 10;
+  const c = n % 100;
+  if (d === 1 && c !== 11) return "st";
+  if (d === 2 && c !== 12) return "nd";
+  if (d === 3 && c !== 13) return "rd";
+  return "th";
+}
 
 const DYN: Record<Lang, Dyn> = {
   fr: {
@@ -523,6 +689,104 @@ const DYN: Record<Lang, Dyn> = {
     allureRef: "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD",
     alluurePlus: (r) => `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
     allureMoins: (r) => `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
+    salonJoueurs: (n, max) => `${n} / ${max} JOUEURS`,
+    salonSeulHint: "LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE",
+    reglagesVerrouilles: "RÉGLAGES VERROUILLÉS PENDANT UN MATCH",
+    reglagesTuDecides: "TU DÉCIDES POUR TOUT LE SALON · TOUCHE UNE OPTION POUR LA CHANGER",
+    reglagesInvite: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES",
+    optJamais: "JAMAIS",
+    optDuos: "DUOS",
+    optChacun: "CHACUN",
+    ariaVitesse: (nom) => `Vitesse ${nom}`,
+    ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
+    ariaRotationJamais: "Les règles ne tournent jamais",
+    ariaRotation: (n) => `Rotation toutes les ${n} manches`,
+    ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
+    ariaChacun: "Chacun pour soi",
+    ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
+    ariaCouper: (qui) => `Couper ${qui}`,
+    ariaReactiver: (qui) => `Réactiver ${qui}`,
+    ariaExclure: (qui) => `Exclure ${qui}`,
+    dicteLeCode: "DICTE-LE : IL EST JUSTE AU-DESSUS",
+    siegeHorsLigne: "HORS LIGNE",
+    siegeHote: "HÔTE",
+    siegeDebutant: "1RE PARTIE · +1 VIE",
+    siegePret: "PRÊT",
+    siegeEnMatch: (v, sc) => `${v} VIE${v > 1 ? "S" : ""} · ${sc} MANCHES`,
+    tamponLent: "TROP LENT",
+    tamponInfraction: "INFRACTION",
+    tamponRate: "RATÉ",
+    tuEsElimine: "TU ES ÉLIMINÉ",
+    tuPerdsUneVie: "TU PERDS UNE VIE",
+    elimine: "ÉLIMINÉ",
+    viePerdue: "VIE PERDUE",
+    sousRegle: (r) => `SOUS ${r}`,
+    ilsNeSontPlusQue: (n) => `ILS NE SONT PLUS QUE ${n}`,
+    jeRegarde: (qui) => `JE REGARDE ${qui}`,
+    reglesTournent: (r) => `LES RÈGLES TOURNENT · ${r}`,
+    titreReflexe: "RÉFLEXE DU MATCH",
+    titreFlair: "FLAIR",
+    titreSerie: "SÉRIE",
+    rangEme: (n) => `${n}${n === 1 ? "ᵉʳ" : "ᵉ"}`,
+    // Le singulier compte : « 1 MANCHES » se remarque, et un joueur éliminé à la
+    // première manche est le cas le plus fréquent de tout l'écran de fin.
+    manchesN: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
+    aRegarde: "A REGARDÉ",
+    errDeconnecte: "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE",
+    errSalonInconnu: "AUCUN SALON À CE CODE — VÉRIFIE LES 4 CARACTÈRES, OU CRÉE LE TIEN",
+    errSalonComplet: (max) => `SALON COMPLET (${max} JOUEURS) — CRÉE-EN UN AUTRE`,
+    errPasHote: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI",
+    errEnMatch: "MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE",
+    errVersion: "VERSION INCOMPATIBLE — RECHARGE LA PAGE",
+    errExclu: "TU AS ÉTÉ SORTI DU SALON — TU PEUX EN CRÉER UN À TOI",
+    errInjoignable: "SERVEUR INJOIGNABLE — VÉRIFIE TA CONNEXION, PUIS RÉESSAIE",
+    errReconnexion: "RECONNEXION IMPOSSIBLE — RÉESSAIE",
+    errCode4: "UN CODE DE SALON FAIT EXACTEMENT 4 CARACTÈRES",
+    errConnexionPerdue: "CONNEXION PERDUE — REJOINS POUR REPRENDRE TA PLACE",
+    cptEnregistre: "Ta progression est enregistrée. Elle te suivra sur tes autres appareils.",
+    cptSansCompte:
+      "Le jeu marche sans. Un compte ne sert qu'à garder ce que tu fais quand tu changes de navigateur ou d'appareil.",
+    cptCeQuiSerait:
+      "CE QUI SERAIT ENREGISTRÉ : TON CARNET, TA SÉRIE ET TES RECORDS. RIEN D'AUTRE.",
+    cptGoogle: "CONTINUER AVEC GOOGLE",
+    cptDiscord: "CONTINUER AVEC DISCORD",
+    cptSupprimerAvert1: "TON COMPTE, TON HISTORIQUE ET TES RUNS ENREGISTRÉS SERONT EFFACÉS. ",
+    cptSupprimerAvert2: "TA PROGRESSION SUR CET APPAREIL RESTE. C'EST DÉFINITIF.",
+    cptRecordLocal: "RECORD PERSONNEL · <b></b>. IL N'EXISTE QUE DANS CE NAVIGATEUR.",
+    cptManchesLocal: "<b></b> MANCHES. CE NAVIGATEUR EST LE SEUL À S'EN SOUVENIR.",
+    cptErrAnnule: "CONNEXION ANNULÉE.",
+    cptErrEchange:
+      "LE FOURNISSEUR A REFUSÉ L'ÉCHANGE. VÉRIFIE L'URI DE RETOUR DÉCLARÉE CHEZ LUI.",
+    cptErrExpire: "LIEN DE RETOUR EXPIRÉ OU ROUVERT DEUX FOIS. RÉESSAIE.",
+    cptErrSuspendu: "CE COMPTE EST SUSPENDU.",
+    cptErrNonConfig: "LES COMPTES NE SONT PAS CONFIGURÉS SUR CE DÉPLOIEMENT.",
+    cptErrRetour: (c) => `RETOUR REFUSÉ (${c}).`,
+    finTenu: "TENU",
+    finRegleEnfreinte: "RÈGLE UNIQUE ENFREINTE",
+    finRompu: "ROMPU",
+    finElimine: "ÉLIMINÉ",
+    defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
+    defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
+    defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
+    finJours: (n) => `${n} JOUR${n > 1 ? "S" : ""}`,
+    goMatchSuivant: "MATCH SUIVANT · R",
+    goRevanche: "REVANCHE · R",
+    goReviensDemain: "REVIENS DEMAIN",
+    goRejouer: "REJOUER · R",
+    regleAjoutee: (r) => `+ ${r}`,
+    partageTexte: (sc, r, url) =>
+      `Je tiens ${sc} manches sur ${r}. Même partie, même ordre. ${url}`,
+    partageTitreJour: (j) => `THE ONE RULE #${j}`,
+    partageTitreEntrainement: "THE ONE RULE · ENTRAÎNEMENT",
+    partageTenu: (tot) => `TENU · ${tot} manches`,
+    partageRompu: (sc) => `rompu à la manche ${sc}`,
+    promptPseudo: "Ton pseudo pour le classement (14 caractères max) :",
+    rankedContre: (qui, elo, sc) => `CONTRE ${qui} (${elo}) · IL A TENU ${sc} MANCHES`,
+    rankedEtalon: "AUCUN ADVERSAIRE DISPONIBLE · CE RUN SERVIRA D'ÉTALON AUX SUIVANTS",
+    rankedPromotion: "PROMOTION",
+    rankedPlancher: "PLANCHER DE DIVISION : AUCUNE PERTE",
+    rankedRunEtalon: (elo) => `RUN ÉTALON ENREGISTRÉ · <b>${elo}</b>`,
+    rankedControle: (v) => `RUN ÉCARTÉ · CONTRÔLE : ${v}`,
     prefSon: "SON",
     prefMusique: "MUSIQUE",
     prefMotifs: "MOTIFS",
@@ -608,29 +872,124 @@ const DYN: Record<Lang, Dyn> = {
     cptCarnet: "RULE BOOK",
     cptRegles: (n, tot) => `${n} / ${tot} RULES`,
     cptSerie: "STREAK",
-    cptJours: (n) => `${n} DAY${n > 1 ? "S" : ""}`,
+    cptJours: (n) => `${n} DAY${n === 1 ? "" : "S"}`,
     cptRecordEntrainement: "TRAINING BEST",
-    cptManches: (n) => `${n} ROUNDS`,
+    cptManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     cptRunsEnregistres: "DAILY RUNS SAVED",
     cptMeilleurRun: "BEST DAILY RUN",
     dailyFait: "Done for today.",
-    dailyRevient: (n) => `${n} ROUNDS · COME BACK TOMORROW`,
+    dailyRevient: (n) => `${n} ROUND${n === 1 ? "" : "S"} · COME BACK TOMORROW`,
     dailyUnEssai: "ONE ATTEMPT ONLY",
     escaladeEtat: "HOW FAR DO YOU HOLD?",
     trainingNeuf: "START HERE · NOTHING TO LOSE",
-    trainingRecord: (n) => `BEST · ${n} ROUNDS`,
+    trainingRecord: (n) => `BEST · ${n} ROUND${n === 1 ? "" : "S"}`,
     teaserDefaut: "A rule is waiting for you.",
     carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} HELD`,
     carnetJamais: "NEVER MET",
     carnetTenu: (b) => `HELD · ${b}`,
     carnetMeilleur: (b) => `BEST ${b}`,
-    finReglesTenues: (n, sc) => `${n > 1 ? "RULES" : "RULE"} HELD · ${sc} ROUNDS`,
+    finReglesTenues: (n, sc) =>
+      `${n === 1 ? "RULE" : "RULES"} HELD · ${sc} ROUND${sc === 1 ? "" : "S"}`,
     finSansFaute: "ROUNDS · FLAWLESS",
     finSurTotal: (t) => `ROUNDS OUT OF ${t}`,
     finManchesTenues: "ROUNDS HELD",
     allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",
     alluurePlus: (r) => `MORE TIME TO LEARN · ONLY ${r} SETS YOUR BEST`,
     allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
+    salonJoueurs: (n, max) => `${n} / ${max} PLAYERS`,
+    salonSeulHint: "THE MATCH STARTS AS SOON AS SOMEONE ARRIVES",
+    reglagesVerrouilles: "SETTINGS LOCKED DURING A MATCH",
+    reglagesTuDecides: "YOU DECIDE FOR THE WHOLE ROOM · TAP AN OPTION TO CHANGE IT",
+    reglagesInvite: "ONLY WHOEVER CREATED THE ROOM CAN CHANGE THESE SETTINGS",
+    optJamais: "NEVER",
+    optDuos: "DUOS",
+    optChacun: "EACH",
+    ariaVitesse: (nom) => `Speed ${nom}`,
+    ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
+    ariaRotationJamais: "Rules never rotate",
+    ariaRotation: (n) => `Rotation every ${n} rounds`,
+    ariaDuos: "Duos: two players per team, one shared pool of lives",
+    ariaChacun: "Every player for themselves",
+    ariaSigne: (n, total) => `Sign ${n} of ${total}`,
+    ariaCouper: (qui) => `Mute ${qui}`,
+    ariaReactiver: (qui) => `Unmute ${qui}`,
+    ariaExclure: (qui) => `Kick ${qui}`,
+    dicteLeCode: "SAY IT OUT LOUD: IT IS RIGHT ABOVE",
+    siegeHorsLigne: "OFFLINE",
+    siegeHote: "HOST",
+    siegeDebutant: "FIRST GAME · +1 LIFE",
+    siegePret: "READY",
+    siegeEnMatch: (v, sc) => `${v} ${v === 1 ? "LIFE" : "LIVES"} · ${sc} ROUND${sc === 1 ? "" : "S"}`,
+    tamponLent: "TOO SLOW",
+    tamponInfraction: "RULE BROKEN",
+    tamponRate: "MISSED",
+    tuEsElimine: "YOU ARE OUT",
+    tuPerdsUneVie: "YOU LOSE A LIFE",
+    elimine: "OUT",
+    viePerdue: "LIFE LOST",
+    sousRegle: (r) => `UNDER ${r}`,
+    ilsNeSontPlusQue: (n) => `ONLY ${n} LEFT`,
+    jeRegarde: (qui) => `WATCHING ${qui}`,
+    reglesTournent: (r) => `RULES ARE ROTATING · ${r}`,
+    titreReflexe: "FASTEST OF THE MATCH",
+    titreFlair: "FLAIR",
+    titreSerie: "STREAK",
+    rangEme: (n) => `${n}${rangSuffixe(n)}`,
+    manchesN: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
+    aRegarde: "WATCHED",
+    errDeconnecte: "DISCONNECTED — REJOIN TO TAKE YOUR SEAT BACK",
+    errSalonInconnu: "NO ROOM WITH THAT CODE — CHECK THE 4 CHARACTERS, OR CREATE YOUR OWN",
+    errSalonComplet: (max) => `ROOM FULL (${max} PLAYERS) — CREATE ANOTHER ONE`,
+    errPasHote: "ONLY WHOEVER CREATED THE ROOM CAN START — ASK THEM",
+    errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
+    errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",
+    errExclu: "YOU WERE REMOVED FROM THE ROOM — YOU CAN CREATE ONE OF YOUR OWN",
+    errInjoignable: "SERVER UNREACHABLE — CHECK YOUR CONNECTION, THEN TRY AGAIN",
+    errReconnexion: "CANNOT RECONNECT — TRY AGAIN",
+    errCode4: "A ROOM CODE IS EXACTLY 4 CHARACTERS",
+    errConnexionPerdue: "CONNECTION LOST — REJOIN TO TAKE YOUR SEAT BACK",
+    cptEnregistre: "Your progress is saved. It will follow you onto your other devices.",
+    cptSansCompte:
+      "The game works without one. An account only keeps what you do when you switch browser or device.",
+    cptCeQuiSerait:
+      "WHAT WOULD BE SAVED: YOUR RULE BOOK, YOUR STREAK AND YOUR BESTS. NOTHING ELSE.",
+    cptGoogle: "CONTINUE WITH GOOGLE",
+    cptDiscord: "CONTINUE WITH DISCORD",
+    cptSupprimerAvert1: "YOUR ACCOUNT, YOUR HISTORY AND YOUR SAVED RUNS WILL BE ERASED. ",
+    cptSupprimerAvert2: "YOUR PROGRESS ON THIS DEVICE STAYS. THIS IS FINAL.",
+    cptRecordLocal: "PERSONAL BEST · <b></b>. IT EXISTS ONLY IN THIS BROWSER.",
+    cptManchesLocal: "<b></b> ROUNDS. THIS BROWSER IS THE ONLY ONE THAT REMEMBERS.",
+    cptErrAnnule: "SIGN-IN CANCELLED.",
+    cptErrEchange: "THE PROVIDER REFUSED THE EXCHANGE. CHECK THE REDIRECT URI DECLARED THERE.",
+    cptErrExpire: "RETURN LINK EXPIRED OR OPENED TWICE. TRY AGAIN.",
+    cptErrSuspendu: "THIS ACCOUNT IS SUSPENDED.",
+    cptErrNonConfig: "ACCOUNTS ARE NOT CONFIGURED ON THIS DEPLOYMENT.",
+    cptErrRetour: (c) => `RETURN REFUSED (${c}).`,
+    finTenu: "HELD",
+    finRegleEnfreinte: "ONE RULE BROKEN",
+    finRompu: "BROKEN",
+    finElimine: "OUT",
+    defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
+    defiEgalite: (cible) => `DRAW · ${cible} EACH`,
+    defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,
+    finJours: (n) => `${n} DAY${n === 1 ? "" : "S"}`,
+    goMatchSuivant: "NEXT MATCH · R",
+    goRevanche: "REMATCH · R",
+    goReviensDemain: "COME BACK TOMORROW",
+    goRejouer: "PLAY AGAIN · R",
+    regleAjoutee: (r) => `+ ${r}`,
+    partageTexte: (sc, r, url) => `I held ${sc} rounds under ${r}. Same run, same order. ${url}`,
+    partageTitreJour: (j) => `THE ONE RULE #${j}`,
+    partageTitreEntrainement: "THE ONE RULE · TRAINING",
+    partageTenu: (tot) => `HELD · ${tot} rounds`,
+    partageRompu: (sc) => `broken at round ${sc}`,
+    promptPseudo: "Your name for the leaderboard (14 characters max):",
+    rankedContre: (qui, elo, sc) => `AGAINST ${qui} (${elo}) · THEY HELD ${sc} ROUNDS`,
+    rankedEtalon: "NO OPPONENT AVAILABLE · THIS RUN BECOMES THE BENCHMARK",
+    rankedPromotion: "PROMOTED",
+    rankedPlancher: "DIVISION FLOOR: NOTHING LOST",
+    rankedRunEtalon: (elo) => `BENCHMARK RUN SAVED · <b>${elo}</b>`,
+    rankedControle: (v) => `RUN REJECTED · CHECK: ${v}`,
     prefSon: "SOUND",
     prefMusique: "MUSIC",
     prefMotifs: "PATTERNS",
@@ -713,6 +1072,24 @@ export function appliqueLangue(
     // Une cle inconnue laisse le texte en place plutot que de le vider : une
     // traduction manquante doit se voir comme du francais, pas comme un trou.
     if (valeur !== undefined) el.textContent = valeur;
+  }
+
+  /*
+   * PUIS les attributs.
+   *
+   * Un `placeholder` ou un `aria-label` n'est pas du contenu : `textContent`
+   * ne l'atteint pas, et le balayage qui cherche du français dans le DOM ne le
+   * voit pas non plus. Trois champs sont restés en français pendant toute la
+   * traduction pour cette seule raison — dont le premier que remplit quelqu'un
+   * qui arrive par un lien d'invitation.
+   */
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>("[data-i18n-ph]"))) {
+    const valeur = table[el.dataset.i18nPh ?? ""];
+    if (valeur !== undefined) el.setAttribute("placeholder", valeur);
+  }
+  for (const el of Array.from(doc.querySelectorAll<HTMLElement>("[data-i18n-aria]"))) {
+    const valeur = table[el.dataset.i18nAria ?? ""];
+    if (valeur !== undefined) el.setAttribute("aria-label", valeur);
   }
 
   poseHtml(doc.getElementById("ledeHome"), t.ledeHtml);
@@ -1083,3 +1460,139 @@ export function composeSous(cle: string | undefined, secours: string, lang: Lang
   if (!cle) return secours;
   return SOUS[lang][cle] ?? secours;
 }
+
+/* ------------------------------------------------------------------ *
+ * LES MOTIFS DE MORT
+ *
+ * Ce que le joueur lit à l'instant précis où il perd. Le moteur les produit
+ * en français canonique (`engine/motifs.ts`) et les fait voyager tels quels
+ * sur le fil ; la traduction est un dernier geste d'affichage.
+ *
+ * La table est indexée par `MotifId`, donc TypeScript refuse d'en oublier un.
+ * C'est la seule raison pour laquelle les phrases ont quitté les règles : une
+ * table indexée par des chaînes libres aurait accepté l'oubli en silence, et
+ * un motif non traduit ne se voit pas — il ne s'affiche qu'au moment où l'on
+ * regarde ailleurs, c'est-à-dire sa propre mort.
+ * ------------------------------------------------------------------ */
+
+const MOTIFS_EN: Record<MotifId, string> = {
+  temps: "TIME IS UP",
+  sequence: "SEQUENCE UNFINISHED",
+  piegeRate: "THE ORDER BROKE YOUR ONE RULE — YOU HAD TO DO NOTHING",
+  rienFaire: "YOU HAD TO DO NOTHING",
+  fallaitTaper: "YOU HAD TO TYPE, NOT CLICK",
+  fallaitCliquer: "YOU HAD TO CLICK, NOT TYPE",
+  mauvaiseTouche: "WRONG KEY",
+  couleurInterdite: "YOU CLICKED THE FORBIDDEN COLOUR",
+  leVide: "YOU CLICKED EMPTY SPACE",
+  mauvaiseForme: "WRONG SHAPE",
+  mauvaiseCible: "WRONG TARGET",
+  rouge: "YOU CLICKED ON RED",
+  triangle: "YOU CLICKED A TRIANGLE",
+  voyelle: "YOU TYPED A VOWEL",
+  plusGrosse: "YOU CLICKED THE BIGGEST SHAPE",
+  zoneInterdite: "YOU CLICKED THE FORBIDDEN ZONE",
+  tropTot: "YOU ACTED TOO SOON",
+  espace: "YOU RELEASED SPACE",
+  parti: "LEFT",
+};
+
+/**
+ * Le français vers l'anglais, construit une fois au chargement du module.
+ *
+ * L'inverse d'une table constante : la clé de recherche est la phrase qui
+ * voyage sur le fil, donc rien n'a besoin de changer côté protocole ni côté
+ * serveur de salons.
+ */
+const MOTIFS_VERS_EN = new Map<string, string>(
+  (Object.keys(MOTIFS) as MotifId[]).map((id) => [MOTIFS[id], MOTIFS_EN[id]]),
+);
+
+/**
+ * Traduit un motif de mort. Un motif inconnu ressort TEL QUEL : un serveur
+ * d'une version plus récente peut en nommer un que ce bundle ignore, et une
+ * phrase étrangère vaut mieux qu'un champ vide au moment de comprendre
+ * pourquoi on vient de mourir. Même doctrine que les clés `data-i18n`.
+ */
+export function traduisMotif(motif: string): string {
+  if (courante === "fr") return motif;
+  return MOTIFS_VERS_EN.get(motif) ?? motif;
+}
+
+/** Exposée pour que les tests éprouvent la table sans passer par le DOM. */
+export const MOTIFS_ANGLAIS = MOTIFS_EN;
+
+/* ------------------------------------------------------------------ *
+ * LE STATUT D'UN SIÈGE
+ *
+ * `render/seat.ts` décide QUOI dire — c'est une priorité, et elle est testée
+ * comme telle. Ici on ne fait que l'écrire.
+ * ------------------------------------------------------------------ */
+
+export function statutSiege(st: SeatStatus): string {
+  switch (st.id) {
+    case "horsLigne":
+      return t("siegeHorsLigne");
+    case "spectateur":
+      return t("piedSpectateur");
+    case "enMatch":
+      return t("siegeEnMatch")(st.lives, st.score);
+    case "hote":
+      return t("siegeHote");
+    case "debutant":
+      return t("siegeDebutant");
+    case "pret":
+      return t("siegePret");
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * LES VITESSES DU SALON
+ *
+ * Cinq crans dans une barre segmentée : le libellé est ABRÉGÉ pour tenir, le
+ * mot entier ne vit que dans l'`aria-label`. Les deux tables sont donc
+ * distinctes, et ce n'est pas une redondance.
+ * ------------------------------------------------------------------ */
+
+const VITESSES: Record<Lang, Record<string, [court: string, entier: string]>> = {
+  fr: {
+    "1.7": ["DÉCOUV.", "Découverte"],
+    "1.3": ["LENT", "Lent"],
+    "1": ["NORMAL", "Normal"],
+    "0.8": ["VITE", "Vite"],
+    "0.65": ["ÉCLAIR", "Éclair"],
+  },
+  en: {
+    "1.7": ["EASY", "Discovery"],
+    "1.3": ["SLOW", "Slow"],
+    "1": ["NORMAL", "Normal"],
+    "0.8": ["FAST", "Fast"],
+    "0.65": ["FLASH", "Flash"],
+  },
+};
+
+/** Le libellé court d'une vitesse de salon, ou le nombre s'il est inconnu. */
+export function nomVitesse(valeur: number): string {
+  return VITESSES[courante][String(valeur)]?.[0] ?? String(valeur);
+}
+
+/** Le mot entier, pour l'`aria-label`, qui n'a pas de contrainte de largeur. */
+export function nomVitesseEntier(valeur: number): string {
+  return VITESSES[courante][String(valeur)]?.[1] ?? String(valeur);
+}
+
+/* ------------------------------------------------------------------ *
+ * LES ÉMOTES DU SALON
+ *
+ * Le fil ne transporte QUE l'index : les six libellés sont de l'interface,
+ * donc chacun les lit dans sa langue sans que rien ne change côté serveur.
+ * Deux joueurs de langues différentes voient le même bouton, au même rang, et
+ * s'envoient donc bien la même chose.
+ * ------------------------------------------------------------------ */
+
+const EMOTES: Record<Lang, readonly string[]> = {
+  fr: ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"],
+  en: ["HI", "NICE", "HA!", "OUCH", "SAW IT", "NO…"],
+};
+
+export const emotes = (): readonly string[] => EMOTES[courante];

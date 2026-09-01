@@ -1,3 +1,4 @@
+import { MOTIFS } from "./motifs";
 import type { Action, Entity, Outcome, Round, RoundProgress, Step } from "./types";
 
 /**
@@ -28,13 +29,13 @@ export function stepMatches(step: Step, action: Action): boolean {
 
 function wrongReason(step: Step, action: Action, ents: Entity[]): string {
   if (step.kind === "key") {
-    if (action.kind === "click") return "IL FALLAIT TAPER, PAS CLIQUER";
-    return "MAUVAISE TOUCHE";
+    if (action.kind === "click") return MOTIFS.fallaitTaper;
+    return MOTIFS.mauvaiseTouche;
   }
-  if (action.kind === "key") return "IL FALLAIT CLIQUER, PAS TAPER";
-  if (step.kind === "clickAnyExcept") return "TU AS CLIQUÉ LA COULEUR INTERDITE";
-  if (action.kind === "click" && !action.ent) return "TU AS CLIQUÉ DANS LE VIDE";
-  return ents.length > 2 ? "MAUVAISE FORME" : "MAUVAISE CIBLE";
+  if (action.kind === "key") return MOTIFS.fallaitCliquer;
+  if (step.kind === "clickAnyExcept") return MOTIFS.couleurInterdite;
+  if (action.kind === "click" && !action.ent) return MOTIFS.leVide;
+  return ents.length > 2 ? MOTIFS.mauvaiseForme : MOTIFS.mauvaiseCible;
 }
 
 /**
@@ -64,8 +65,8 @@ export function resolveAction(
         kind: "death",
         cause: "wrong",
         reason: round.trap
-          ? "LA CONSIGNE VIOLAIT LA RÈGLE UNIQUE — IL FALLAIT NE RIEN FAIRE"
-          : "IL FALLAIT NE RIEN FAIRE",
+          ? MOTIFS.piegeRate
+          : MOTIFS.rienFaire,
       },
       progress,
     };
@@ -89,6 +90,6 @@ export function resolveAction(
 /** Verdict quand la fenêtre expire sans que la manche soit résolue. */
 export function resolveTimeout(round: Round, progress: RoundProgress): Outcome {
   if (round.steps.length === 0) return { kind: "survive", trap: round.trap };
-  if (progress.step > 0) return { kind: "death", cause: "timeout", reason: "SÉQUENCE INACHEVÉE" };
-  return { kind: "death", cause: "timeout", reason: "LE TEMPS EST ÉCOULÉ" };
+  if (progress.step > 0) return { kind: "death", cause: "timeout", reason: MOTIFS.sequence };
+  return { kind: "death", cause: "timeout", reason: MOTIFS.temps };
 }
