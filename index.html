@@ -564,23 +564,28 @@
            l'accueil, entre MUSIQUE et MOTIFS — un réglage d'accessibilité et
            une identité au même rang. Trois choses seulement : d'où l'on
            vient, qui l'on est, ce qu'on règle. -->
+      <!-- BARRE HAUTE — enseigne a GAUCHE, commandes a DROITE.
+           Le signe etait au centre d'une grille en trois colonnes, mais MENU
+           est masque sur l'accueil : le tiers gauche restait vide, et tout le
+           poids tombait a droite. Mathematiquement centre, visuellement de
+           travers — rapporte comme tel.
+
+           Deux bords occupes, plus de tiers mort. C'est aussi ce qui permet a
+           la barre de redescendre : elle n'a plus a etaler trois colonnes. -->
       <header id="topbar" class="topbar hidden">
         <div class="topbar__left">
-          <button class="btn btn--ghost btn--top" id="btnTopMenu">MENU</button>
+          <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
+            <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
+          </button>
+          <button class="btn btn--ghost btn--top" id="btnTopMenu" data-i18n="commun.menu">MENU</button>
         </div>
-        <!-- Le signe seul. Le nom etait redondant : il est deja en grand
-             sur l'accueil, et sur les autres ecrans il n'apprend rien a
-             quelqu'un qui est deja dans le jeu. L'`aria-label` le porte
-             pour ceux qui ne voient pas le signe. -->
-        <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
-          <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
-        </button>
-        <!-- La langue vit ICI et non sur l'accueil : c'est un reglage, il
-             appartient au meme groupe que COMPTE et REGLAGES. Sur l'accueil
-             il concurrencait la seule action de l'ecran. -->
         <div class="topbar__right">
-          <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">ACCOUNT</button>
-          <button class="btn btn--ghost btn--top" id="btnTopReglages">SETTINGS</button>
+          <div class="topbar__cmds">
+            <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">ACCOUNT</button>
+            <button class="btn btn--ghost btn--top" id="btnTopReglages">SETTINGS</button>
+          </div>
+          <!-- La langue sous les commandes, comme demande : c'est un reglage,
+               il appartient au meme groupe. -->
           <div class="lang" id="lang" role="group" aria-label="Language">
             <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FR</button>
             <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">EN</button>

@@ -3308,7 +3308,8 @@ body {
  */
 .cards {
   display: grid;
-  gap: 10px;
+  /* 10 px collait les quatre modes en un bloc unique ; 16 px les separe. */
+  gap: var(--sp-3);
   text-align: left;
 }
 
@@ -5067,7 +5068,13 @@ button.chip:active:not(:disabled) {
    * debordement DEFINITIVEMENT inatteignable. Un `gap` resserre fait le meme
    * travail sans rien rendre inaccessible.
    */
-  gap: var(--sp-3);
+  /*
+   * AERATION. `--sp-3` (16 px) collait le logo, l'accroche et JOUER les uns
+   * aux autres : quatre blocs de nature differente sans respiration entre
+   * eux. `--sp-5` (36 px) les separe assez pour qu'on les lise comme quatre
+   * temps, et la place vient de la barre, resserree juste au-dessus.
+   */
+  gap: var(--sp-5);
 }
 
 #home .screen__scroll > * {
@@ -6355,17 +6362,30 @@ button.chip:active:not(:disabled) {
   left: 0;
   right: 0;
   z-index: 11;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  /*
+   * Deux groupes, pas trois colonnes. La grille en tiers laissait le tiers
+   * gauche VIDE des que MENU etait masque — c'est-a-dire sur l'accueil, le
+   * premier ecran que voit un inconnu.
+   */
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: var(--sp-2);
   /*
    * Plus basse : 68 px prenaient trop de place pour trois commandes et un
    * signe. 52 px suffisent — le plancher tactile de 44 px plus la respiration
    * qu'il faut pour que ca ne colle pas au bord.
    */
+  /*
+   * La barre se serre pour que le contenu s'aere.
+   *
+   * Empilee — les commandes puis la langue — elle atteint 126 px, dont
+   * l'essentiel est du bandeau vide. Chaque pixel qu'elle prend est un pixel
+   * de moins entre le logo, l'accroche et JOUER, sur un ecran ou tout se
+   * touchait deja.
+   */
   min-height: 52px;
-  padding: 6px 16px 8px;
+  padding: var(--sp-1) var(--sp-4) var(--sp-1);
   background:
     repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px)
       0 50% / 6px 28px no-repeat,
@@ -6383,11 +6403,24 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-.topbar__left,
 /*
- * En COLONNE : la langue se pose SOUS COMPTE et REGLAGES plutot qu'a cote.
- * Cote a cote, la barre s'elargissait et les trois commandes se serraient
- * sur mobile ; empilees, chacune garde ses 44 px tactiles.
+ * L'ENSEIGNE A GAUCHE, en ligne : le signe puis MENU quand il existe.
+ * Le tiers gauche restait vide sur l'accueil, ou MENU est masque, et toute la
+ * barre paraissait basculee a droite alors que le signe etait mathematiquement
+ * centre. Deux bords occupes valent mieux qu'un centre exact.
+ */
+.topbar__left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/*
+ * LES COMMANDES A DROITE, en colonne : la langue se pose SOUS COMPTE et
+ * REGLAGES. Cote a cote, les trois se serraient sur mobile ; empilees,
+ * chacune garde ses 44 px tactiles.
  */
 .topbar__right {
   display: flex;
@@ -6397,12 +6430,11 @@ button.chip:active:not(:disabled) {
   min-width: 0;
 }
 
-.topbar__left {
-  justify-content: flex-start;
-}
-
-.topbar__right {
-  justify-content: flex-end;
+/* COMPTE et REGLAGES restent sur une meme ligne, eux. */
+.topbar__cmds {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
 }
 
 .topbar__brand {
