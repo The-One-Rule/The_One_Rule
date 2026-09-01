@@ -667,8 +667,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 495 tests (43 fichiers) ·
-e2e 75 assertions (~2 min 15) · `vite build`.
+**Branche** `master`. **Vérification** : `tsc` · 502 tests (43 fichiers) ·
+e2e 79 assertions (~2 min 30) · `vite build`.
 
 ⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
 rien perdu` (scénario DUO) a échoué une fois sur deux lancements consécutifs,
@@ -769,13 +769,31 @@ Le reste du jeu portait déjà un second canal : les plaques distinguent par
 remplissage plein contre liseré, le verdict porte le mot autant que le filet,
 et l'état critique parle à l'oreille au même seuil qu'à l'œil.
 
-### Pool par salon — fait
+### Pool par salon — fait, et re-mesuré sur le fil
 
 Voir §4. Entre claviers, les 19 consignes s'ouvrent et LA VOYELLE rentre au
 pool de règles ; dès qu'un téléphone s'assoit, on retombe sur les 15 tactiles
 et elle ressort. Vérifié sur le fil : salon tout-clavier, `typeLetter` tirée et
 jouée, **0 mort sur 21 verdicts** — un désaccord de pool les aurait tous fait
 rater, puisque les indices de pièces ne désigneraient pas les mêmes formes.
+
+**Remesuré de bout en bout, cinq configurations, vrais clients WebSocket** :
+trois PC → `clavier: true`, pool de **19**, quatre consignes clavier sortent
+(`typeLetter`, `arrow`, `typeShown`, `typeFirstLetter`) · deux PC et un mobile
+→ `false`, pool de **15**, aucune consigne clavier sur 80 manches · un client
+**sans le champ** (version antérieure) → `false` · un mobile seul → `false`.
+Les règles distribuées viennent toujours du bon pool (10 en tactile, 11 au
+clavier), et LA MAIN GAUCHE reste exclue des deux.
+
+⚠️ **Le cas qui pouvait mordre, et qui ne mord pas** : le drapeau est figé au
+lancement — c'est voulu, il ne doit pas changer sous les pieds d'un match en
+cours. Mais le SALON survit au match et rejoue. Mesuré : un téléphone qui entre
+**pendant** une partie tout-clavier fait bien se refermer le pool au match
+suivant, parce que `room.match` repasse à `null` à la fin et que le drapeau est
+recalculé à chaque `start`. Aucun test ne couvrait ça — ni les unitaires, qui
+construisent un `MatchLogic` à la main, ni l'e2e, dont le salon mixte n'était
+jamais rejoué. C'est maintenant l'assertion e2e n°34, éprouvée en mettant la
+décision en cache sur le salon : elle tombe.
 
 ### Deux modes ajoutés — à mesurer
 
@@ -984,10 +1002,44 @@ sur le français puisque c'est lui qui voyage sur le fil) et `"déconnecté"` (u
 jeton de protocole). Un nombre laisserait passer une chaîne nouvelle dès qu'une
 ancienne partirait, et surtout ne dirait pas pourquoi celles-là restent.
 
-⚠️ **Reste français, et c'est écrit** : le nom des règles (c'est un nom, et son
-identifiant est la clé du carnet et de la comparabilité), le texte mensonger du
-MENTEUR, et les diagnostics d'anti-triche de `verifyRun` — qui ne sont pas de
-l'interface et ne s'affichent que dans un mode masqué.
+#### Les noms de règles ont fini par passer eux aussi
+
+Ils étaient le dernier îlot français, sur un argument juste : c'est un NOM, et
+c'est l'**identifiant** — jamais le nom — qui est la clé du carnet, des
+performances et de la comparabilité.
+
+**Vérifié avant de changer d'avis**, parce que c'est ce qui rendait la décision
+possible : `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage,
+`calculeVersion` ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne
+transporte que `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le
+nom ne change **rien de mesurable**. Un test refuse désormais toute indexation
+par le nom (`[x.name]`, `rule: x.name`) — c'est ce qui empêche qu'on le
+transforme en clé plus tard, ce qui couperait un carnet en deux d'un
+déploiement à l'autre, en silence.
+
+**Ce qui a fait pencher** : le nom est affiché en permanence dans le bandeau,
+c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+fenêtre de 760 ms. « LE COLOSSE » posé au-dessus d'un brief anglais devient un
+intermédiaire à traduire dans sa tête, au pire moment.
+
+⚠️ **Les noms sont choisis pour ce que la règle FAIT, pas mot à mot.** LA
+POINTE → THE SPIKE (« THE POINT » veut d'abord dire l'idée) · L'ACCÉLÉRATION →
+THE RUSH · LA SECONDE → THE BEAT (la règle demande d'attendre un temps) · LE
+DALTONIEN → **THE INK**, le seul qui s'éloigne vraiment : nommer une règle
+d'après un handicap passe mal en anglais, et ce que la règle oppose est
+justement le mot à l'encre.
+
+Une PILE d'escalade se traduit sans que le moteur connaisse de langue :
+`combineRules` compose son identifiant avec des `+` (« sang+pointe »), donc
+`nomDeRegle` découpe, traduit chaque part et recompose.
+
+⚠️ Un défaut trouvé dans la foulée, et resté du premier passage : le **brief du
+bandeau** — le seul brief lu PENDANT la partie — était encore français sous un
+nom déjà anglais. « THE SPIKE » au-dessus de « Ne clique jamais un triangle ».
+
+⚠️ **Reste français, et c'est écrit** : le texte mensonger du MENTEUR, et les
+diagnostics d'anti-triche de `verifyRun` — qui ne sont pas de l'interface et ne
+s'affichent que dans un mode masqué.
 
 ⚠️ **La limite du filet est inchangée** : il ne voit que l'ACCENT, donc « VIES
 RESTANTES » lui échappe. Il n'existe pas de moyen fiable de reconnaître du

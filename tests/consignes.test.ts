@@ -15,11 +15,20 @@
  * jeu jouable hors du français.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 
 import { INSTRUCTIONS } from "../src/engine/instructions";
 import { mulberry32 } from "../src/engine/rng";
-import { BRIEFS_REGLES, briefDeRegle, composePhrase, poseLangue } from "../src/i18n";
+import {
+  BRIEFS_REGLES,
+  NOMS_REGLES,
+  briefDeRegle,
+  composePhrase,
+  nomDeRegle,
+  poseLangue,
+} from "../src/i18n";
 import { ONE_RULES } from "../src/engine/rules";
+import { combineRules } from "../src/engine/rules/combine";
 import { stepMatches } from "../src/engine/resolve";
 import { COLOR_IDS } from "../src/engine/types";
 import type { ColorId } from "../src/engine/types";
@@ -148,7 +157,7 @@ describe("« TAPE L'INITIALE DE LA COULEUR » reste jouable en anglais", () => {
 
 describe("les briefs de règles", () => {
   /*
-   * Le NOM d'une règle reste français — c'est un nom, et son identifiant est
+   * Le nom d'une règle a sa propre table (voir plus bas) — son identifiant est
    * la clé du carnet et de la comparabilité. Son BRIEF, lui, est le SEUL
    * endroit où le joueur apprend ce que la règle lui interdit, et il le lit
    * juste avant de jouer. Le laisser en français revenait à annoncer à un
@@ -198,5 +207,101 @@ describe("les briefs de règles", () => {
     poseLangue("en");
     expect(briefDeRegle("regleQuiNExistePas", "le secours")).toBe("le secours");
     poseLangue("fr");
+  });
+});
+
+describe("les noms de règles", () => {
+  /*
+   * Ils sont restés français quand tout le reste a été traduit, sur un
+   * argument juste — c'est un NOM, et l'identifiant est la clé du carnet, des
+   * performances et de la comparabilité. Ce qui a fait pencher, c'est que le
+   * nom est affiché en PERMANENCE dans le bandeau : c'est l'ancre qu'on
+   * regarde pour se rappeler sa contrainte au milieu d'une fenêtre de 760 ms.
+   *
+   * Vérifié avant de changer : `rule.name` ne sert qu'à l'affichage,
+   * `calculeVersion` ne hache pas les libellés, le fil ne transporte que
+   * `ruleId`, la télémétrie envoie `rule.id`. Ces tests gardent ça.
+   */
+  it("les deux langues nomment CHAQUE règle du catalogue", () => {
+    for (const r of ONE_RULES) {
+      expect(NOMS_REGLES.fr[r.id], `fr : ${r.id}`).toBeTruthy();
+      expect(NOMS_REGLES.en[r.id], `en : ${r.id}`).toBeTruthy();
+    }
+  });
+
+  it("le FRANÇAIS du dictionnaire est EXACTEMENT celui du moteur", () => {
+    /*
+     * Deux écritures de la même chose, tenues d'accord. Sans ce test, changer
+     * un nom dans le moteur laisserait le dictionnaire sur l'ancien — et comme
+     * le français passe par le dictionnaire lui aussi, la version affichée
+     * cesserait de correspondre à la version canonique sans que rien ne casse.
+     */
+    for (const r of ONE_RULES) {
+      expect(NOMS_REGLES.fr[r.id], r.id).toBe(r.name);
+    }
+  });
+
+  it("l'anglais dit autre chose, et sans accent", () => {
+    for (const r of ONE_RULES) {
+      expect(NOMS_REGLES.en[r.id], r.id).not.toBe(r.name);
+      expect(NOMS_REGLES.en[r.id], r.id).not.toMatch(/[éèêàâôûùçÉÈÊÀÂÔÛÙÇ]/);
+    }
+  });
+
+  it("aucun nom anglais n'en double un autre", () => {
+    // Deux règles du même nom, c'est un joueur qui croit avoir déjà vu sa
+    // contrainte — exactement l'inverse de ce que le carnet doit faire.
+    const vus = new Set(ONE_RULES.map((r) => NOMS_REGLES.en[r.id]));
+    expect(vus.size).toBe(ONE_RULES.length);
+  });
+
+  it("une PILE d'escalade se compose dans la bonne langue", () => {
+    /*
+     * `combineRules` compose son identifiant avec des `+` — « sang+pointe » —
+     * et son nom avec des « + ». Le traduire demande donc de découper, et
+     * c'est ce qui évite de faire remonter la langue jusque dans le moteur,
+     * qui n'en connaît aucune.
+     */
+    const pile = combineRules([ONE_RULES.find((r) => r.id === "sang")!, ONE_RULES.find((r) => r.id === "pointe")!]);
+    poseLangue("fr");
+    expect(nomDeRegle(pile.id, pile.name)).toBe("LE SANG + LA POINTE");
+    poseLangue("en");
+    expect(nomDeRegle(pile.id, pile.name)).toBe("THE BLOOD + THE SPIKE");
+    poseLangue("fr");
+  });
+
+  it("une règle inconnue garde le nom du moteur plutôt que de disparaître", () => {
+    // Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+    // interdit — pire qu'un mot dans la mauvaise langue.
+    poseLangue("en");
+    expect(nomDeRegle("regleDuFutur", "LA RÈGLE DU FUTUR")).toBe("LA RÈGLE DU FUTUR");
+    // Et une pile dont UNE part est inconnue retombe entière, pas à moitié.
+    expect(nomDeRegle("sang+regleDuFutur", "LE SANG + LA RÈGLE DU FUTUR")).toBe(
+      "LE SANG + LA RÈGLE DU FUTUR",
+    );
+    poseLangue("fr");
+  });
+
+  it("le nom ne sert JAMAIS de clé — seul l'identifiant en est une", () => {
+    /*
+     * Le vrai garde-fou de tout ce chantier. Si un jour quelqu'un indexe le
+     * carnet, une performance ou un événement sur `rule.name`, traduire les
+     * noms couperait le carnet en deux d'un déploiement à l'autre, en silence.
+     */
+    const sources = [
+      ["main.ts", readFileSync("src/main.ts", "utf8")],
+      ["multi.ts", readFileSync("src/multi.ts", "utf8")],
+      ["progress.ts", readFileSync("src/game/progress.ts", "utf8")],
+      ["session.ts", readFileSync("src/game/session.ts", "utf8")],
+    ] as const;
+    const fautes: string[] = [];
+    for (const [nom, src] of sources) {
+      // Une indexation par le nom : `[rule.name]`, `encountered[x.name]`,
+      // `track(..., { rule: r.name })`.
+      for (const motif of [/\[[a-zA-Z.]*\.name\]/g, /rule:\s*[a-zA-Z.]*\.name/g]) {
+        for (const m of src.matchAll(motif)) fautes.push(`${nom} : ${m[0]}`);
+      }
+    }
+    expect(fautes, `le nom sert de clé quelque part :\n${fautes.join("\n")}`).toEqual([]);
   });
 });

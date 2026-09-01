@@ -1,5 +1,5 @@
 import { colorHex } from "./scene";
-import { composePhrase, composeSous, t } from "../i18n";
+import { briefDeRegle, composePhrase, composeSous, nomDeRegle, t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -43,11 +43,22 @@ export class Hud {
    * n'en produiraient qu'une.
    */
   setRule(rule: OneRule | null): void {
-    const nom = rule ? rule.name : "—";
+    const nom = rule ? nomDeRegle(rule.id, rule.name) : "—";
     const change = nom !== this.lastRuleName && !!rule;
     this.lastRuleName = nom;
     this.bandRule.textContent = nom;
-    this.bandBrief.textContent = rule ? rule.brief : "";
+    /*
+     * Le brief du bandeau, traduit ici et pas ailleurs.
+     *
+     * C'est le seul brief que le joueur lit PENDANT la partie — les autres
+     * sont sur des écrans d'annonce. Il était resté français sous un nom déjà
+     * anglais : « THE SPIKE » au-dessus de « Ne clique jamais un triangle ».
+     *
+     * Une PILE d'escalade a un identifiant composé (« pointe+sang ») absent
+     * de la table : elle retombe donc sur le `brief` qu'on lui passe, que
+     * `regleAffichee()` a déjà traduit. Rien n'est traduit deux fois.
+     */
+    this.bandBrief.textContent = rule ? briefDeRegle(rule.id, rule.brief) : "";
     this.band.classList.toggle("is-armed", !!rule);
     if (change) {
       this.band.classList.remove("is-new");

@@ -65,6 +65,7 @@ import {
   briefDeRegle,
   libelleQuete,
   nomAllure,
+  nomDeRegle,
   t,
   traduisMotif,
   TEXTES,
@@ -332,7 +333,7 @@ function renderHome(): void {
   $("soloEtat").textContent = etatSolo(lang, {
     played: s.daily.played,
     score: s.daily.score,
-    ruleName: rule.name,
+    ruleName: nomDeRegle(rule.id, rule.name),
     streak: s.streak.count,
   });
 
@@ -404,7 +405,7 @@ function renderSolo(): void {
   // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
   // identifiant est la clé du carnet et de la comparabilité.
   if (s.daily.played) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
-  else chip(`${j.aujourdhui} <b>${rule.name}</b>`);
+  else chip(`${j.aujourdhui} <b>${nomDeRegle(rule.id, rule.name)}</b>`);
 
   renderQuests("homeQuests");
 
@@ -609,7 +610,9 @@ function renderCodex(): void {
       `<span class="codexrow__score"></span>` +
       `</span>` +
       `<span class="codexrow__brief"></span>`;
-    row.querySelector<HTMLElement>(".codexrow__name")!.textContent = rec ? r.name : "— — — — —";
+    row.querySelector<HTMLElement>(".codexrow__name")!.textContent = rec
+      ? nomDeRegle(r.id, r.name)
+      : "— — — — —";
     row.querySelector<HTMLElement>(".codexrow__score")!.textContent = rec
       ? rec.cleared
         ? t("carnetTenu")(rec.best)
@@ -869,8 +872,10 @@ const estJouableIci = (rule: OneRule): boolean => regleJouableIci(rule) === rule
 function regleAffichee(s: Session): OneRule {
   const nouvelle = s.derniereAjoutee;
   if (!nouvelle || s.pile.length < 2) return s.rule;
-  // Le NOM reste francais — c'est un nom — mais son explication suit la langue.
-  return { ...s.rule, brief: `${nouvelle.name} — ${briefDeRegle(nouvelle.id, nouvelle.brief)}` };
+  return {
+    ...s.rule,
+    brief: `${nomDeRegle(nouvelle.id, nouvelle.name)} — ${briefDeRegle(nouvelle.id, nouvelle.brief)}`,
+  };
 }
 
 /* ------------------------------------------------------------------ *
@@ -909,7 +914,8 @@ function openBrief(mode: Mode): void {
 
   $("briefEyebrow").textContent =
     mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
-  $("briefName").textContent = mode === "escalade" ? t("briefUneDePlus") : pendingRule.name;
+  $("briefName").textContent =
+    mode === "escalade" ? t("briefUneDePlus") : nomDeRegle(pendingRule.id, pendingRule.name);
   $("briefText").textContent =
     mode === "escalade"
       ? t("briefEscalade")(PALIER)
@@ -1069,7 +1075,7 @@ async function openRanked(): Promise<void> {
 
   const div = offer.me.division ?? divisionOf(offer.me.rating);
   $("briefEyebrow").textContent = t("rankedEyebrow")(div.name, offer.me.rating);
-  $("briefName").textContent = rule.name;
+  $("briefName").textContent = nomDeRegle(rule.id, rule.name);
   $("briefText").textContent = briefDeRegle(rule.id, rule.brief);
   const warn = $("briefWarn");
   warn.textContent = offer.opponent
@@ -1277,7 +1283,8 @@ function finishRun(): void {
     if (won) sfx.win();
   } else if (mode === "daily") {
     teaser.innerHTML = `DEMAIN<b></b>`;
-    teaser.querySelector("b")!.textContent = tomorrowRule(day).name;
+    const demain = tomorrowRule(day);
+    teaser.querySelector("b")!.textContent = nomDeRegle(demain.id, demain.name);
     teaser.classList.remove("hidden");
   } else {
     teaser.innerHTML = `${t("serieEnCours")}<b></b>`;
@@ -1586,7 +1593,7 @@ function loadChallenge(r: Replay): void {
   pendingMode = "training";
   pendingRule = rule;
   $("briefEyebrow").textContent = r.who ? t("defiDe")(r.who.toUpperCase()) : t("defiRecu");
-  $("briefName").textContent = rule.name;
+  $("briefName").textContent = nomDeRegle(rule.id, rule.name);
   $("briefText").textContent = briefDeRegle(rule.id, rule.brief);
   const warn = $("briefWarn");
   warn.textContent = t("defiMemeOrdre")(ghostFinal(r));
@@ -1831,7 +1838,7 @@ $("btnDuel").addEventListener("click", async () => {
     ruleId: lastRun.rule.id,
     splits: lastRun.end.splits,
   });
-  const text = t("partageTexte")(lastRun.end.score, lastRun.rule.name, url);
+  const text = t("partageTexte")(lastRun.end.score, nomDeRegle(lastRun.rule.id, lastRun.rule.name), url);
   try {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
@@ -1852,7 +1859,7 @@ $("btnShare").addEventListener("click", async () => {
   const head =
     mode === "daily" ? t("partageTitreJour")(day) : t("partageTitreEntrainement");
   const tail = end.cleared ? t("partageTenu")(DAILY_LENGTH) : t("partageRompu")(end.score);
-  const text = `${head}\n${rule.name}\n${marksToString(end.marks)}\n${tail}`;
+  const text = `${head}\n${nomDeRegle(rule.id, rule.name)}\n${marksToString(end.marks)}\n${tail}`;
   try {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
@@ -1940,7 +1947,9 @@ function loop(now: number): void {
        */
       if (session.regleAjoutee) {
         hud.setRule(regleAffichee(session));
-        hud.announce(t("regleAjoutee")(session.regleAjoutee.name));
+        hud.announce(
+          t("regleAjoutee")(nomDeRegle(session.regleAjoutee.id, session.regleAjoutee.name)),
+        );
         session.regleAjoutee = null;
         session.tierJustCrossed = false;
       } else if (session.tierJustCrossed) {

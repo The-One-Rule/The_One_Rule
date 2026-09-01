@@ -6,8 +6,6 @@
  * les verdicts et les motifs de mort. Ce qui reste français est court et
  * délibéré :
  *
- *   — le NOM d'une règle (« LE SANG ») : c'est un nom, et son identifiant est
- *     la clé du carnet, des performances et de la comparabilité ;
  *   — le texte mensonger de LE MENTEUR, qui emprunte une phrase plausible en
  *     comparant des textes ;
  *   — les diagnostics d'anti-triche de `verifyRun`, qui ne sont pas de
@@ -1402,6 +1400,90 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
     mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
   },
 };
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    pointe: "LA POINTE",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    pointe: "THE SPIKE",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
 
 /**
  * Le brief d'une règle, dans la langue courante.

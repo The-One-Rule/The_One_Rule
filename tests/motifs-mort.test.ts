@@ -91,9 +91,10 @@ describe("les phrases ne vivent qu'à un endroit", () => {
   ] as const;
 
   it("aucune phrase de mort n'est écrite en clair hors de motifs.ts", () => {
-    // Le NOM d'une règle reste français à dessein : c'est un nom, et son
-    // identifiant est la clé du carnet, des performances et de la
-    // comparabilité. Ce n'est pas une phrase, c'est une étiquette.
+    // Le NOM d'une règle est le français CANONIQUE, pas un oubli : il a sa
+    // propre table de traduction (`NOMS_REGLES`), et `tests/consignes` exige
+    // que le français du dictionnaire soit exactement celui du moteur. Ce
+    // n'est donc pas une phrase de mort égarée.
     const noms = new Set(ONE_RULES.map((r) => r.name));
     const fautes: string[] = [];
     for (const [nom, chemin] of sources) {

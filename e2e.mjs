@@ -394,7 +394,57 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
     "un seul telephone assis suffit a refermer le pool pour tout le salon",
   );
 
-  for (const c of [...eq, ...mixte]) c.ws.close();
+  /*
+   * ET LE CAS QUI POURRAIT MORDRE : un telephone qui arrive APRES la decision.
+   *
+   * Le drapeau est fige au lancement — c'est voulu, il ne doit pas changer
+   * sous les pieds d'un match en cours. Mais le salon SURVIT au match, et le
+   * meme salon rejoue. Si le second match reprenait le drapeau du premier, la
+   * table garderait le pool clavier avec un telephone assis dedans, et ce
+   * telephone recevrait des consignes qu'il ne peut pas jouer : mort a chaque
+   * manche, sans rien avoir fait de mal.
+   *
+   * Ni les tests unitaires ni le controle ci-dessus ne voient ce cas : le
+   * premier construit un `MatchLogic` a la main, le second n'a qu'un salon
+   * jamais rejoue. Il faut le fil ET une seconde partie.
+   */
+  const tard = [];
+  for (const [n, k] of [["T1", true], ["T2", true]]) tard.push(await client(n, "cle-" + n, false, k));
+  // Personne ne joue : le pilote automatique survivrait jusqu'a MAX_ROUNDS et
+  // ce bloc durerait plus longtemps que tout le reste de l'e2e reuni.
+  for (const c of tard) c.manuel = true;
+  tard[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const codeT = tard[0].room.code;
+  tard[1].ws.send(JSON.stringify({ t: "join", code: codeT }));
+  await sleep(300);
+  tard[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+  ok(tard[0].clavierMatch === true, "le salon part bien en pool clavier");
+
+  // Le telephone s'assied PENDANT le match.
+  const retard = await client("T3", "cle-T3", false, false);
+  retard.manuel = true;
+  retard.ws.send(JSON.stringify({ t: "join", code: codeT }));
+  await sleep(400);
+  ok(!!retard.room, "un telephone peut entrer pendant un match (il est spectateur)");
+
+  // On attend la vraie fin — deviner une duree ferait un test intermittent.
+  const t0Tard = Date.now();
+  while (!tard[0].ended && Date.now() - t0Tard < 45000) await sleep(200);
+  ok(!!tard[0].ended, "le premier match se termine");
+
+  tard[0].clavierMatch = null;
+  retard.clavierMatch = null;
+  await sleep(400);
+  tard[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+  ok(
+    tard[0].clavierMatch === false && retard.clavierMatch === false,
+    `le salon RECALCULE au second match et se referme (PC=${tard[0].clavierMatch}, tel=${retard.clavierMatch})`,
+  );
+
+  for (const c of [...eq, ...mixte, ...tard, retard]) c.ws.close();
   await sleep(220);
 }
 

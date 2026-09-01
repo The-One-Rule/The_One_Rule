@@ -41,6 +41,7 @@ import { musicApi, sfx, unlock } from "./audio";
 import {
   briefDeRegle,
   emotes,
+  nomDeRegle,
   nomVitesse,
   nomVitesseEntier,
   statutSiege,
@@ -766,7 +767,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaNames.textContent = victims.map((v) => v.player.name).join(" · ");
     // « SOUS » : sans ce mot, un nom de règle posé entre un pseudo et une
     // raison de mort ne se lit pas comme une règle.
-    dramaRule.textContent = tr("sousRegle")(focusRule.name);
+    dramaRule.textContent = tr("sousRegle")(nomDeRegle(focusRule.id, focusRule.name));
     const primary = victims[0]!;
     dramaReason.textContent = traduisMotif(primary.reason).toUpperCase();
     dramaExtra.textContent = elim && aliveCount > 0 ? tr("ilsNeSontPlusQue")(aliveCount) : "";
@@ -797,7 +798,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
     dramaEyebrow.textContent = rotation ? tr("regleChange") : tr("regleUnique");
-    dramaNames.textContent = rule.name;
+    dramaNames.textContent = nomDeRegle(rule.id, rule.name);
     // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
     // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
     dramaReason.textContent = briefDeRegle(rule.id, rule.brief);
@@ -1254,7 +1255,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     match.players.forEach((p, i) => {
       const ruleId = match!.rules[p.id] ?? p.ruleId;
-      const ruleName = ruleById(ruleId)?.name ?? ruleId;
+      const regle = ruleById(ruleId);
+      const ruleName = regle ? nomDeRegle(regle.id, regle.name) : ruleId;
       let el = existing.get(p.id);
       if (!el) {
         el = document.createElement("div");
@@ -1790,7 +1792,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
        * dit donc la même chose ici que dans le salon, et le statut a la sienne.
        */
       row.querySelector<HTMLElement>(".lobbyrow__rule")!.textContent =
-        ruleById(p.ruleId)?.name ?? (p.ruleId || "—");
+        (() => {
+          const r = ruleById(p.ruleId);
+          return r ? nomDeRegle(r.id, r.name) : p.ruleId || "—";
+        })();
       row.querySelector<HTMLElement>(".lobbyrow__status")!.textContent = isWinner
         ? tr("vainqueur")
         : p.lives <= 0
@@ -2399,7 +2404,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const rotating = match.rotationUntil > 0 && net.clock.now() < match.rotationUntil;
     if (rotating) {
-      hud.setMeta(tr("reglesTournent")(match.rule?.name ?? ""));
+      hud.setMeta(
+        tr("reglesTournent")(match.rule ? nomDeRegle(match.rule.id, match.rule.name) : ""),
+      );
     } else if (match.preview) {
       hud.setMeta(previewLabel(match.preview));
     } else if (match.phase === "frozen" && match.authority) {
