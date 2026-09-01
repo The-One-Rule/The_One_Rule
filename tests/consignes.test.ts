@@ -18,7 +18,8 @@ import { describe, expect, it } from "vitest";
 
 import { INSTRUCTIONS } from "../src/engine/instructions";
 import { mulberry32 } from "../src/engine/rng";
-import { composePhrase } from "../src/i18n";
+import { BRIEFS_REGLES, briefDeRegle, composePhrase, poseLangue } from "../src/i18n";
+import { ONE_RULES } from "../src/engine/rules";
 import { stepMatches } from "../src/engine/resolve";
 import { COLOR_IDS } from "../src/engine/types";
 import type { ColorId } from "../src/engine/types";
@@ -142,5 +143,60 @@ describe("« TAPE L'INITIALE DE LA COULEUR » reste jouable en anglais", () => {
     const memes = COLOR_IDS.filter((c: ColorId) => COLOR_LABEL[c][0] === COLOR_LABEL_EN[c][0]);
     expect(memes.length).toBe(2);
     expect(COLOR_IDS.length - memes.length).toBe(2);
+  });
+});
+
+describe("les briefs de règles", () => {
+  /*
+   * Le NOM d'une règle reste français — c'est un nom, et son identifiant est
+   * la clé du carnet et de la comparabilité. Son BRIEF, lui, est le SEUL
+   * endroit où le joueur apprend ce que la règle lui interdit, et il le lit
+   * juste avant de jouer. Le laisser en français revenait à annoncer à un
+   * anglophone une contrainte qu'il ne pouvait pas comprendre — signalé
+   * capture à l'appui sur « LA SECONDE ».
+   */
+  it("chaque règle du catalogue en a un dans LES DEUX langues", () => {
+    const manquants: string[] = [];
+    for (const r of ONE_RULES) {
+      if (!BRIEFS_REGLES.fr[r.id]) manquants.push(`fr : ${r.id}`);
+      if (!BRIEFS_REGLES.en[r.id]) manquants.push(`en : ${r.id}`);
+    }
+    expect(ONE_RULES.length, "catalogue vide — le test ne prouverait rien").toBeGreaterThan(8);
+    expect(manquants, manquants.join(" · ")).toEqual([]);
+  });
+
+  it("le français du dictionnaire est CELUI du moteur", () => {
+    // Deux écritures de la même phrase : si elles divergent, le joueur lit
+    // autre chose que ce que la règle fait vraiment.
+    const ecarts: string[] = [];
+    for (const r of ONE_RULES) {
+      const dico = BRIEFS_REGLES.fr[r.id];
+      if (dico !== undefined && dico !== r.brief) {
+        ecarts.push(`${r.id} : « ${dico} » ≠ « ${r.brief} »`);
+      }
+    }
+    expect(ecarts, ecarts.join(" · ")).toEqual([]);
+  });
+
+  it("l'anglais ne laisse aucun accent, et dit autre chose", () => {
+    let differents = 0;
+    const restes: string[] = [];
+    for (const r of ONE_RULES) {
+      const en = BRIEFS_REGLES.en[r.id]!;
+      if (/[À-ÿ]/.test(en)) restes.push(`${r.id} : ${en}`);
+      if (en !== BRIEFS_REGLES.fr[r.id]) differents++;
+    }
+    expect(restes, restes.join(" · ")).toEqual([]);
+    // Une table recopiee du francais passerait le test precedent sans rien
+    // traduire.
+    expect(differents).toBe(ONE_RULES.length);
+  });
+
+  it("une règle inconnue s'explique quand même", () => {
+    // Une règle sans explication serait pire qu'une règle mal traduite : le
+    // joueur ne saurait pas ce qui lui est interdit.
+    poseLangue("en");
+    expect(briefDeRegle("regleQuiNExistePas", "le secours")).toBe("le secours");
+    poseLangue("fr");
   });
 });

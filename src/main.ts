@@ -62,7 +62,9 @@ import {
   jetons,
   libelleCompte,
   accrocheDuJour,
+  briefDeRegle,
   libelleQuete,
+  nomAllure,
   t,
   TEXTES,
 } from "./i18n";
@@ -535,13 +537,13 @@ function renderPace(): void {
     opts,
     lentesDabord.map((v, i) => ({
       value: String(v),
-      label: PACE_LABELS[v] ?? String(v),
+      label: nomAllure(v, PACE_LABELS[v] ?? String(v)),
       hint: `${Math.round(windowMs(10) * v)} MS`,
       level: i + 1,
       steps: lentesDabord.length,
       icon: "bars" as const,
       selected: v === current,
-      aria: `${PACE_LABELS[v] ?? v} — ${Math.round(windowMs(10) * v)} millisecondes à la manche 10`,
+      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(windowMs(10) * v)} ms`,
     })),
   );
   for (const btn of Array.from(opts.children)) {
@@ -558,13 +560,13 @@ function renderPace(): void {
   // La ligne ne porte plus le chiffre — il est sur chaque bouton. Elle dit ce
   // qu'aucune jauge ne peut dire : à quoi sert l'allure choisie, et laquelle
   // des trois compte pour le record.
-  const ref = PACE_LABELS[PACE_DEFAULT] ?? "NORMAL";
+  const ref = nomAllure(PACE_DEFAULT, PACE_LABELS[PACE_DEFAULT] ?? "NORMAL");
   hint.textContent =
     current === PACE_DEFAULT
-      ? "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD"
+      ? t("allureRef")
       : current > PACE_DEFAULT
-        ? `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${ref}`
-        : `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${ref}`;
+        ? t("alluurePlus")(ref)
+        : t("allureMoins")(ref);
 }
 
 function renderCodex(): void {
@@ -584,7 +586,7 @@ function renderCodex(): void {
   const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
   const tenues = ONE_RULES.filter((r) => s.encountered[r.id]?.cleared).length;
   $("codexProgress").textContent =
-    `${vues} / ${ONE_RULES.length} RENCONTRÉES · ${tenues} TENUES`;
+    t("carnetProgres")(vues, ONE_RULES.length, tenues);
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
     const row = document.createElement("div");
@@ -598,9 +600,9 @@ function renderCodex(): void {
     row.querySelector<HTMLElement>(".codexrow__name")!.textContent = rec ? r.name : "— — — — —";
     row.querySelector<HTMLElement>(".codexrow__score")!.textContent = rec
       ? rec.cleared
-        ? `TENU · ${rec.best}`
-        : `MEILLEUR ${rec.best}`
-      : "JAMAIS RENCONTRÉE";
+        ? t("carnetTenu")(rec.best)
+        : t("carnetMeilleur")(rec.best)
+      : t("carnetJamais");
     /*
      * L'explication n'apparaît QUE pour une règle déjà rencontrée.
      *
@@ -608,7 +610,9 @@ function renderCodex(): void {
      * qui nous attend. La surprise du run du jour est le seul contenu neuf du
      * jeu, et la brûler ici la brûlerait partout.
      */
-    row.querySelector<HTMLElement>(".codexrow__brief")!.textContent = rec ? r.brief : "";
+    row.querySelector<HTMLElement>(".codexrow__brief")!.textContent = rec
+      ? briefDeRegle(r.id, r.brief)
+      : "";
     list.appendChild(row);
   }
   show("codex");
@@ -860,7 +864,8 @@ const estJouableIci = (rule: OneRule): boolean => regleJouableIci(rule) === rule
 function regleAffichee(s: Session): OneRule {
   const nouvelle = s.derniereAjoutee;
   if (!nouvelle || s.pile.length < 2) return s.rule;
-  return { ...s.rule, brief: `${nouvelle.name} — ${nouvelle.brief}` };
+  // Le NOM reste francais — c'est un nom — mais son explication suit la langue.
+  return { ...s.rule, brief: `${nouvelle.name} — ${briefDeRegle(nouvelle.id, nouvelle.brief)}` };
 }
 
 /* ------------------------------------------------------------------ *
@@ -903,7 +908,7 @@ function openBrief(mode: Mode): void {
   $("briefText").textContent =
     mode === "escalade"
       ? t("briefEscalade")(PALIER)
-      : pendingRule.brief;
+      : briefDeRegle(pendingRule.id, pendingRule.brief);
 
   const warn = $("briefWarn");
   const hold = mode !== "escalade" && pendingRule.watchRelease === " ";
@@ -1060,7 +1065,7 @@ async function openRanked(): Promise<void> {
   const div = offer.me.division ?? divisionOf(offer.me.rating);
   $("briefEyebrow").textContent = t("rankedEyebrow")(div.name, offer.me.rating);
   $("briefName").textContent = rule.name;
-  $("briefText").textContent = rule.brief;
+  $("briefText").textContent = briefDeRegle(rule.id, rule.brief);
   const warn = $("briefWarn");
   warn.textContent = offer.opponent
     ? `CONTRE ${offer.opponent.name} (${offer.opponent.rating}) · IL A TENU ${offer.opponent.score} MANCHES`
@@ -1228,12 +1233,12 @@ function finishRun(): void {
   $("tally").textContent = String(mode === "escalade" ? paliers : end.score);
   $("tallyLabel").textContent =
     mode === "escalade"
-      ? `RÈGLE${paliers > 1 ? "S" : ""} TENUE${paliers > 1 ? "S" : ""} · ${end.score} MANCHES`
+      ? t("finReglesTenues")(paliers, end.score)
       : end.cleared
-        ? "MANCHES · SANS FAUTE"
+        ? t("finSansFaute")
         : mode === "daily"
-          ? `MANCHES SUR ${DAILY_LENGTH}`
-          : "MANCHES TENUES";
+          ? t("finSurTotal")(DAILY_LENGTH)
+          : t("finManchesTenues");
   renderMarks($("marks"), end.marks);
 
   const reward = $("reward");
@@ -1567,7 +1572,7 @@ function loadChallenge(r: Replay): void {
   pendingRule = rule;
   $("briefEyebrow").textContent = r.who ? t("defiDe")(r.who.toUpperCase()) : t("defiRecu");
   $("briefName").textContent = rule.name;
-  $("briefText").textContent = rule.brief;
+  $("briefText").textContent = briefDeRegle(rule.id, rule.brief);
   const warn = $("briefWarn");
   warn.textContent = t("defiMemeOrdre")(ghostFinal(r));
   warn.classList.remove("hidden");

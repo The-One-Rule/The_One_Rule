@@ -398,6 +398,20 @@ type Dyn = {
   trainingNeuf: string;
   trainingRecord: (n: number) => string;
   teaserDefaut: string;
+  /* --- l'allure, sur le brief d'entrainement --- */
+  /* --- le carnet --- */
+  carnetProgres: (vues: number, total: number, tenues: number) => string;
+  carnetJamais: string;
+  carnetTenu: (best: number) => string;
+  carnetMeilleur: (best: number) => string;
+  /* --- l'ecran de fin --- */
+  finReglesTenues: (n: number, score: number) => string;
+  finSansFaute: string;
+  finSurTotal: (total: number) => string;
+  finManchesTenues: string;
+  allureRef: string;
+  alluurePlus: (ref: string) => string;
+  allureMoins: (ref: string) => string;
   /* --- bascules de reglages : « SON : ON » --- */
   prefSon: string;
   prefMusique: string;
@@ -498,6 +512,17 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "COMMENCE ICI · TU NE PERDS RIEN",
     trainingRecord: (n) => `RECORD · ${n} MANCHES`,
     teaserDefaut: "Une règle t'attend.",
+    carnetProgres: (v, t, k) => `${v} / ${t} RENCONTRÉES · ${k} TENUES`,
+    carnetJamais: "JAMAIS RENCONTRÉE",
+    carnetTenu: (b) => `TENU · ${b}`,
+    carnetMeilleur: (b) => `MEILLEUR ${b}`,
+    finReglesTenues: (n, sc) => `RÈGLE${n > 1 ? "S" : ""} TENUE${n > 1 ? "S" : ""} · ${sc} MANCHES`,
+    finSansFaute: "MANCHES · SANS FAUTE",
+    finSurTotal: (t) => `MANCHES SUR ${t}`,
+    finManchesTenues: "MANCHES TENUES",
+    allureRef: "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD",
+    alluurePlus: (r) => `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
+    allureMoins: (r) => `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
     prefSon: "SON",
     prefMusique: "MUSIQUE",
     prefMotifs: "MOTIFS",
@@ -595,6 +620,17 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "START HERE · NOTHING TO LOSE",
     trainingRecord: (n) => `BEST · ${n} ROUNDS`,
     teaserDefaut: "A rule is waiting for you.",
+    carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} HELD`,
+    carnetJamais: "NEVER MET",
+    carnetTenu: (b) => `HELD · ${b}`,
+    carnetMeilleur: (b) => `BEST ${b}`,
+    finReglesTenues: (n, sc) => `${n > 1 ? "RULES" : "RULE"} HELD · ${sc} ROUNDS`,
+    finSansFaute: "ROUNDS · FLAWLESS",
+    finSurTotal: (t) => `ROUNDS OUT OF ${t}`,
+    finManchesTenues: "ROUNDS HELD",
+    allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",
+    alluurePlus: (r) => `MORE TIME TO LEARN · ONLY ${r} SETS YOUR BEST`,
+    allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
     prefSon: "SOUND",
     prefMusique: "MUSIC",
     prefMotifs: "PATTERNS",
@@ -939,6 +975,83 @@ const ACCROCHES: Record<Lang, Record<string, [string, string]>> = {
 export function accrocheDuJour(ruleId: string, jour: number): string {
   const paire = ACCROCHES[courante][ruleId];
   return paire ? paire[jour % 2 === 0 ? 0 : 1] : DYN[courante].teaserDefaut;
+}
+
+
+/* ------------------------------------------------------------------ *
+ * LES BRIEFS DE RÈGLES
+ *
+ * Le NOM de la règle reste français — « LE SANG » est un nom, et son
+ * identifiant est la clé du carnet, des performances et de la
+ * comparabilité. Son BRIEF, lui, est une explication : c'est le seul
+ * endroit où le joueur apprend ce que la règle lui interdit, et il le lit
+ * juste avant de jouer. Le laisser en français revenait à annoncer une
+ * contrainte que l'anglophone ne pouvait pas comprendre.
+ *
+ * Même schéma que les consignes et les quêtes : `engine/rules` garde le
+ * français canonique, l'affichage recompose depuis l'IDENTIFIANT. Le
+ * moteur reste pur et ignorant des langues.
+ * ------------------------------------------------------------------ */
+const BRIEFS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Ne clique jamais sur du rouge. Une consigne finira par te le demander.",
+    pointe: "Ne clique jamais un triangle, même quand la consigne le désigne.",
+    voyelle: "Ne tape jamais A E I O U Y, même si la consigne l'exige.",
+    colosse: "Ne clique jamais la plus grosse forme de l'écran. Repère-la avant d'agir.",
+    gaucher: "Ne clique jamais la première colonne. Elle est hachurée, aucun clic n'y est toléré.",
+    seconde: "N'agis jamais dans les 400 premières millisecondes d'une manche. Attends.",
+    eclair: "La consigne ne s'affiche qu'un instant, puis disparaît. Lis vite, retiens.",
+    menteur:
+      "Une consigne sur cinq est fausse et se corrige après un instant. Ne te fie pas au premier regard.",
+    daltonien:
+      "Les noms de couleur s'affichent dans la mauvaise couleur. Lis le mot, ignore l'encre.",
+    jumeau: "Chaque action doit être faite deux fois de suite. Une seule ne compte pas.",
+    acceleration: "Tout va 30 % plus vite, du début à la fin. Aucun interdit, juste moins de temps.",
+    mainGauche: "Garde ESPACE enfoncée du début à la fin. Joue avec la souris et l'autre main.",
+  },
+  en: {
+    sang: "Never click on red. Sooner or later an order will ask you to.",
+    pointe: "Never click a triangle, even when the order points at one.",
+    voyelle: "Never type A E I O U Y, even if the order demands it.",
+    colosse: "Never click the biggest shape on screen. Spot it before you act.",
+    gaucher: "Never click the first column. It is hatched, and no click is tolerated there.",
+    seconde: "Never act in the first 400 milliseconds of a round. Wait.",
+    eclair: "The order shows for an instant, then vanishes. Read fast, remember.",
+    menteur:
+      "One order in five is false and corrects itself after a moment. Do not trust the first glance.",
+    daltonien: "Colour names appear in the wrong colour. Read the word, ignore the ink.",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+  },
+};
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/* ------------------------------------------------------------------ *
+ * L'ALLURE
+ * ------------------------------------------------------------------ */
+
+const ALLURES: Record<Lang, Record<string, string>> = {
+  fr: { "1.5": "DÉCOUVERTE", "1": "NORMAL", "0.8": "RAPIDE" },
+  en: { "1.5": "DISCOVERY", "1": "NORMAL", "0.8": "FAST" },
+};
+
+/** Le nom d'une allure. `secours` est l'étiquette française du moteur. */
+export function nomAllure(valeur: number, secours: string): string {
+  return ALLURES[courante][String(valeur)] ?? secours;
 }
 
 /**
