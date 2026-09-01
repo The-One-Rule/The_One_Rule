@@ -5130,9 +5130,19 @@ button.chip:active:not(:disabled) {
  * vocabulaire que le chrome. La langue choisie est pleine, l'autre
  * est un liseré — comme une plaque vivante contre une plaque morte.
  */
+/*
+ * La langue vit SOUS le bandeau, alignee a droite.
+ *
+ * `align-self: flex-end` est indispensable : `.topbar` etire ses enfants
+ * (`align-items: stretch`), et sans lui le groupe FR|EN prenait toute la
+ * largeur — mesure a 349 px au lieu de 96. Un selecteur de deux boutons large
+ * comme la page se lit comme une barre de navigation, pas comme un reglage.
+ */
 .lang {
   display: inline-flex;
-  margin-top: var(--sp-3);
+  align-self: flex-end;
+  margin-top: 0;
+  margin-right: var(--sp-4);
   border: var(--bd-hair) solid var(--line);
   background: var(--ink);
 }
@@ -6350,42 +6360,44 @@ button.chip:active:not(:disabled) {
  * d'un `.screen`, qui est une surcouche. Le terrain, lui, est dans le flux de
  * `#app` et n'a jamais la barre pour voisine — `show(null)` la masque.
  */
+/*
+ * LA BARRE HAUTE.
+ *
+ * Elle vit DANS le flux de l'ecran (voir `show()` dans main.ts) et non en
+ * absolu : elle prend exactement la place qu'elle occupe, quelle que soit sa
+ * hauteur. Deux hauteurs a tenir d'accord avaient deja produit un
+ * recouvrement de 58 px sur le logo.
+ *
+ * ⚠️ Elle ne rogne PAS le champ de jeu : elle vit a l'interieur d'un
+ * `.screen`, qui est une surcouche. Le terrain est dans le flux de `#app` et
+ * `show(null)` masque la barre.
+ */
 .topbar {
   position: relative;
   top: 0;
-  /*
-   * `.screen` n'a AUCUN padding horizontal — mesure, 0 px des deux cotes.
-   * Des marges negatives poussaient donc la barre 24 px hors du cadre de
-   * chaque cote, soit 1326 px de large dans un `#app` de 1280 : le
-   * debordement lateral qu'on venait de corriger, revenu par la fenetre.
-   */
   left: 0;
   right: 0;
   z-index: 11;
-  /*
-   * Deux groupes, pas trois colonnes. La grille en tiers laissait le tiers
-   * gauche VIDE des que MENU etait masque — c'est-a-dire sur l'accueil, le
-   * premier ecran que voit un inconnu.
-   */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+/*
+ * LE BANDEAU proprement dit : une seule rangee, deux groupes.
+ *
+ * C'est lui qui porte le fond. La langue, posee EN DESSOUS, reste donc hors
+ * du bandeau : empilee dedans, elle le portait a 126 px dont l'essentiel
+ * etait du vide, et l'accueil defilait de 124 px sur mobile.
+ */
+.topbar__row {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--sp-2);
-  /*
-   * Plus basse : 68 px prenaient trop de place pour trois commandes et un
-   * signe. 52 px suffisent — le plancher tactile de 44 px plus la respiration
-   * qu'il faut pour que ca ne colle pas au bord.
-   */
-  /*
-   * La barre se serre pour que le contenu s'aere.
-   *
-   * Empilee — les commandes puis la langue — elle atteint 126 px, dont
-   * l'essentiel est du bandeau vide. Chaque pixel qu'elle prend est un pixel
-   * de moins entre le logo, l'accroche et JOUER, sur un ecran ou tout se
-   * touchait deja.
-   */
   min-height: 52px;
-  padding: var(--sp-1) var(--sp-4) var(--sp-1);
+  padding: var(--sp-1) var(--sp-4);
   background:
     repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px)
       0 50% / 6px 28px no-repeat,
@@ -6552,9 +6564,19 @@ button.chip:active:not(:disabled) {
     display: none;
   }
 
-  .topbar {
+  /*
+   * Le resserrement mobile vise le BANDEAU, pas le conteneur : depuis que la
+   * langue est sortie du bandeau, un padding sur `.topbar` rentrait le fond
+   * de 12 px de chaque cote — mesure a 349 px de large dans un cadre de 373,
+   * soit une bande flottante au lieu d'une barre.
+   */
+  .topbar__row {
     padding-left: 12px;
     padding-right: 12px;
+  }
+
+  .lang {
+    margin-right: 12px;
   }
 
   .btn--top {

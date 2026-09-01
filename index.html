@@ -572,24 +572,33 @@
 
            Deux bords occupes, plus de tiers mort. C'est aussi ce qui permet a
            la barre de redescendre : elle n'a plus a etaler trois colonnes. -->
+      <!-- BARRE HAUTE — enseigne a GAUCHE, commandes a DROITE.
+           Le signe etait au centre d'une grille en trois colonnes, mais MENU
+           est masque sur l'accueil : le tiers gauche restait vide et tout le
+           poids tombait a droite. Deux bords occupes valent mieux qu'un
+           centre exact.
+
+           La LANGUE sort du bandeau et se pose JUSTE EN DESSOUS : empilee
+           dedans, elle portait la barre a 126 px dont l'essentiel etait du
+           vide, et l'accueil se mettait a defiler. Dehors, le bandeau
+           retombe a sa hauteur d'une rangee et la langue reste au meme
+           endroit pour l'oeil. -->
       <header id="topbar" class="topbar hidden">
-        <div class="topbar__left">
-          <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
-            <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
-          </button>
-          <button class="btn btn--ghost btn--top" id="btnTopMenu" data-i18n="commun.menu">MENU</button>
-        </div>
-        <div class="topbar__right">
-          <div class="topbar__cmds">
+        <div class="topbar__row">
+          <div class="topbar__left">
+            <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
+              <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
+            </button>
+            <button class="btn btn--ghost btn--top" id="btnTopMenu" data-i18n="commun.menu">MENU</button>
+          </div>
+          <div class="topbar__right">
             <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">ACCOUNT</button>
             <button class="btn btn--ghost btn--top" id="btnTopReglages">SETTINGS</button>
           </div>
-          <!-- La langue sous les commandes, comme demande : c'est un reglage,
-               il appartient au meme groupe. -->
-          <div class="lang" id="lang" role="group" aria-label="Language">
-            <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FR</button>
-            <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">EN</button>
-          </div>
+        </div>
+        <div class="lang" id="lang" role="group" aria-label="Language">
+          <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FR</button>
+          <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">EN</button>
         </div>
       </header>
 
