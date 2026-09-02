@@ -908,6 +908,18 @@ déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
 CSS décrivait (« deux bords occupés valent mieux qu'un centre exact »). La
 grille rend la question sans objet.
 
+⚠️ **Le HUD de jeu se peignait par-dessous.** Rapporté par Pierre : une barre
+horizontale pleine largeur sous le bandeau, au niveau de FR/EN. `#band`,
+`#head` et `#foot` vivent dans `#app`, à côté des écrans qui les recouvrent —
+la plupart sont transparents, mais ces trois-là PEIGNENT (fond, bordure basse,
+barre encadrée, filet haut). Masqués sur `#app.has-topbar`, qui marque
+exactement les écrans de menu.
+
+⚠️ **En `visibility`, jamais en `display`.** Les retirer du flux ferait remonter
+`#stage`, donc redimensionner le canvas, donc changer `fieldRect()` — et la
+taille du champ EST du gameplay (n°10). Vérifié : canvas à y=155, h=616, buffer
+746×1232, identiques avant/après et identiques entre menu et partie.
+
 Mesuré, animations coupées : centre du bandeau **267** = centre du signe
 **267**, sur l'accueil comme sur SOLO, et `elementFromPoint` au centre rend
 bien `topbar__mark`. À 375 px avec les QUATRE éléments visibles :

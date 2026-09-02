@@ -6505,6 +6505,34 @@ button.chip:active:not(:disabled) {
  * `.screen`, qui est une surcouche. Le terrain est dans le flux de `#app` et
  * `show(null)` masque la barre.
  */
+/* ==================================================================
+ * LE HUD DE JEU NE SE PEINT PAS SUR LES ÉCRANS DE MENU
+ *
+ * Le bandeau, le compte à rebours et le pied vivent dans `#app`, à côté des
+ * écrans qui les recouvrent. La plupart sont transparents et ne se voyaient
+ * pas — mais trois d'entre eux PEIGNENT : `#band` a un fond et une bordure
+ * basse, `#timer` est une barre encadrée, `#foot` a un filet haut.
+ *
+ * Résultat, rapporté par Pierre : une barre horizontale pleine largeur sous la
+ * barre du haut, au niveau de FR/EN — c'était la bordure basse de `#band`, à
+ * y=56, juste sous le bandeau de commandes. Et une seconde, plus bas, à
+ * y=148 : le compte à rebours d'une partie qui n'a pas commencé.
+ *
+ * ⚠️ `visibility`, PAS `display`. Les retirer du flux ferait remonter
+ * `#stage`, donc redimensionner le canvas, donc changer `fieldRect()` — et la
+ * taille du champ EST du gameplay (§6 n°10). Ici la boîte reste, seul le
+ * dessin s'arrête, et la géométrie du terrain ne bouge pas d'un pixel.
+ *
+ * `has-topbar` est posée par `show()` exactement sur les écrans de menu :
+ * l'écran de jeu est le seul à ne pas l'avoir, donc c'est le bon marqueur, et
+ * il n'y en a pas un second à tenir d'accord avec celui-ci.
+ * ================================================================== */
+#app.has-topbar #band,
+#app.has-topbar #head,
+#app.has-topbar #foot {
+  visibility: hidden;
+}
+
 .topbar {
   position: relative;
   top: 0;
