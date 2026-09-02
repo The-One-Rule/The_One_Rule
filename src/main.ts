@@ -904,6 +904,48 @@ function renderPick(): void {
   const grille = $("pickGrid");
   grille.innerHTML = "";
 
+  /*
+   * RIEN À CHOISIR ? PAS DE SÉLECTEUR.
+   *
+   * Un joueur qui n'a encore rencontré aucune règle voyait douze barres
+   * censurées, un seul bouton actif, et une ligne qui lui disait d'aller
+   * débloquer des règles ailleurs. Trois défauts d'un coup :
+   *
+   *   · un sélecteur à une seule option n'est pas un sélecteur — c'est
+   *     exactement la « fonctionnalité cassée » que la grille visible était
+   *     censée éviter, retournée contre elle-même ;
+   *   · la ligne MENTAIT : c'est l'entraînement LUI-MÊME qui débloque une
+   *     règle, en la jouant. L'envoyer ailleurs était faux, et faux au pire
+   *     endroit — l'entraînement est le mode vers lequel on pousse les
+   *     nouveaux (« COMMENCE ICI · TU NE PERDS RIEN ») ;
+   *   · « 0 / 12 DÉCOUVERTES » comme toute première chose lue.
+   *
+   * Le seuil est UN : dès qu'une règle est au carnet, choisir « celle que je
+   * viens de me prendre » est exactement la boucle qu'on cherche à créer.
+   */
+  /*
+   * DEUX COMPTAGES, parce que ce sont DEUX QUESTIONS.
+   *
+   *   · `jouables` — « y a-t-il quelque chose à choisir ICI ? » Une règle
+   *     rencontrée sur un PC puis descendue par le compte sur un téléphone
+   *     (LA MAIN GAUCHE, qui demande de tenir ESPACE) n'y est pas jouable :
+   *     compter les rencontrées rouvrirait la grille sur une seule barre
+   *     censurée et un bouton, le défaut qu'on vient de corriger.
+   *
+   *   · `rencontrees` — « où j'en suis dans le catalogue ? » Celui-là ignore
+   *     l'appareil, comme le carnet : une règle découverte l'est pour de bon.
+   *
+   * Les avoir confondus donnait une ligne absurde — « 3 DÉCOUVERTES ·
+   * 3 MAÎTRISÉES » avec quatre règles au carnet, et à un cran de plus on
+   * pouvait afficher PLUS de maîtrisées que de découvertes.
+   */
+  const jouables = ONE_RULES.filter((r) => !!s.encountered[r.id] && estJouableIci(r)).length;
+  if (jouables === 0) {
+    boite.classList.add("hidden");
+    return;
+  }
+  const rencontrees = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+
   const puce = (
     libelle: string,
     opts: { on: boolean; verrou?: boolean; maitrisee?: boolean; aria?: string; sur?: () => void },
@@ -938,12 +980,10 @@ function renderPick(): void {
     sur: () => choisit(null),
   });
 
-  let vues = 0;
   let maitrisees = 0;
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
     const nom = nomDeRegle(r.id, r.name);
-    if (rec) vues++;
     const maitrisee = estMaitrisee(r, rec);
     if (maitrisee) maitrisees++;
     /*
@@ -962,7 +1002,7 @@ function renderPick(): void {
     });
   }
 
-  $("pickCount").textContent = t("pickCompte")(vues, ONE_RULES.length, maitrisees);
+  $("pickCount").textContent = t("pickCompte")(rencontrees, ONE_RULES.length, maitrisees);
 
   /*
    * L'aide dit ce qu'il RESTE à faire, pas ce qui est fait.
@@ -977,7 +1017,7 @@ function renderPick(): void {
     : undefined;
   const aide = $("pickHint");
   if (!choisieMaintenant) {
-    aide.textContent = vues === 0 ? t("pickAideVerrou") : t("pickAideAleatoire");
+    aide.textContent = t("pickAideAleatoire");
   } else if (estMaitrisee(choisieMaintenant, s.encountered[choisieMaintenant.id])) {
     aide.textContent = t("pickMaitrisee");
   } else {

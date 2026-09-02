@@ -1126,6 +1126,21 @@ Récompenser les manches tenues récompenserait la moitié **copiable** de TOR.
 D'où la condition en deux temps : avoir tenu `MANCHES_MAITRISE`, ET avoir
 déjoué un piège quand la règle sait en poser.
 
+⚠️ **UN JOUEUR NEUF NE VOIT PAS LA GRILLE.** À zéro règle rencontrée, elle est
+masquée : douze barres censurées, un seul bouton actif et une ligne qui envoie
+le joueur débloquer des règles ailleurs, c'était exactement la « fonctionnalité
+cassée » que la grille visible devait éviter — et la ligne MENTAIT, puisque
+c'est l'entraînement lui-même qui débloque, en jouant. Le seuil est UN : dès
+qu'une règle est au carnet, choisir « celle que je viens de me prendre » est la
+boucle. Signalé par Pierre, trouvé en effaçant la sauvegarde.
+
+⚠️ **Le seuil compte les JOUABLES ICI, le compteur compte les RENCONTRÉES** —
+deux questions, deux nombres. Les confondre affichait « 3 DÉCOUVERTES ·
+3 MAÎTRISÉES » avec quatre règles au carnet, et pouvait donner plus de
+maîtrisées que de découvertes. Le cas se produit dès qu'un compte est branché :
+LA MAIN GAUCHE rencontrée sur un PC descend sur le téléphone, où elle est
+verrouillée.
+
 ⚠️ `MANCHES_MAITRISE = 15` est un **premier chiffre, pas une mesure** — on n'a
 aucune distribution de scores en entraînement. À remesurer au premier playtest
 qui en donne.

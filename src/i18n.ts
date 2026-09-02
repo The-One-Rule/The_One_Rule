@@ -457,7 +457,6 @@ type Dyn = {
   pickCompte: (vues: number, total: number, maitrisees: number) => string;
   pickAideAleatoire: string;
   pickAideChoisie: (regle: string) => string;
-  pickAideVerrou: string;
   pickResteManches: (n: number) => string;
   pickRestePiege: string;
   pickMaitrisee: string;
@@ -701,11 +700,12 @@ const DYN: Record<Lang, Dyn> = {
     teaserDefaut: "Une règle t'attend.",
     pickAleatoire: "AU HASARD",
     pickVerrouille: "— — —",
-    pickCompte: (v, t, m) => `${v} / ${t} DÉCOUVERTES · ${m} MAÎTRISÉES`,
-    pickAideAleatoire: "Le jeu choisit — les règles jamais vues d'abord.",
+    // « N / 12 DÉCOUVERTES » accorde avec le 12, comme la ligne du carnet.
+    // « MAÎTRISÉE », lui, est un compte NU : il accorde avec son propre nombre.
+    pickCompte: (v, t, m) => `${v} / ${t} DÉCOUVERTES · ${m} MAÎTRISÉE${m > 1 ? "S" : ""}`,
+    pickAideAleatoire:
+      "Le jeu choisit, les règles jamais vues d'abord — chacune rejoint la liste une fois jouée.",
     pickAideChoisie: (r) => `Tu travailles ${r}.`,
-    pickAideVerrou:
-      "Les règles verrouillées se débloquent en les rencontrant : run du jour, escalade, multijoueur.",
     pickResteManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     pickRestePiege: "1 PIÈGE",
     pickMaitrisee: "MAÎTRISÉE",
@@ -919,10 +919,9 @@ const DYN: Record<Lang, Dyn> = {
     pickAleatoire: "RANDOM",
     pickVerrouille: "— — —",
     pickCompte: (v, t, m) => `${v} / ${t} DISCOVERED · ${m} MASTERED`,
-    pickAideAleatoire: "The game picks — rules you have never seen come first.",
+    pickAideAleatoire:
+      "The game picks, unseen rules first — each joins the list once you have played it.",
     pickAideChoisie: (r) => `You are training ${r}.`,
-    pickAideVerrou:
-      "Locked rules unlock by meeting them: daily run, climb, multiplayer.",
     pickResteManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     pickRestePiege: "1 TRAP",
     pickMaitrisee: "MASTERED",
