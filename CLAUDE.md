@@ -1109,6 +1109,17 @@ pas apprendre tout le catalogue depuis l'entraînement, il faut être allé le
 chercher ailleurs. C'est la même doctrine que le carnet (décision n°7), et la
 grille reprend sa **barre de censure** hachurée plutôt que du texte pâle.
 
+**Elle est REPLIÉE, et emprunte `.aide` en entier** — cadre, sommaire, chevron,
+corps. Deux replis qui se ressemblent au trait près, c'est un geste à apprendre
+au lieu de deux ; le CSS de `.pick` ne déclare que ce qui diffère. L'ALLURE
+passe au-dessus d'elle : on règle comment on joue avant de choisir quoi.
+
+Le sommaire porte le compteur, donc la progression reste lisible sans rien
+ouvrir. ⚠️ Il est COURT (« 4 / 12 · 2 MAÎTRISÉES ») : la version longue
+mesurait 156 px et se serrait contre son libellé à 375. Et le `data-i18n` est
+sur la feuille DANS le `<summary>`, jamais sur le `<summary>` lui-même —
+l'écrire là détruirait le compteur, le piège des cartes de l'accueil.
+
 ⚠️ **Une seule grille, pas un filtre PLUS une grille.** Le choix est unique,
 donc le mécanisme doit l'être : un sélecteur de source (« rencontrées » /
 « maîtrisées ») posé à côté d'une grille de règles, ce sont deux façons de

@@ -559,31 +559,6 @@
                bouton — le seul endroit où l'annonce devait respirer. Le
                défaut (DÉCOUVERTE) est déjà celui dont un débutant a besoin,
                donc personne n'a à la trouver pour bien commencer. -->
-          <!-- CHOISIR SA RÈGLE — entraînement uniquement.
-               Une seule grille, pas un filtre PLUS une grille : le choix est
-               unique, donc le mécanisme doit l'être. Les règles jamais
-               rencontrées restent VERROUILLÉES et visibles — c'est ce qui rend
-               le compteur lisible plutôt que triste, et c'est déjà ce que fait
-               le carnet avec ses « — — — — ».
-
-               Le verrouillage est la valeur du dispositif : on ne peut pas
-               apprendre tout le jeu depuis l'entraînement, il faut être allé
-               le chercher dans le run du jour ou en multijoueur. -->
-          <div class="pick hidden" id="briefPick">
-            <div class="pick__head">
-              <span class="pick__label" data-i18n="brief.choisis">TRAIN A RULE</span>
-              <span class="pick__count" id="pickCount"></span>
-            </div>
-            <div
-              class="pick__grid"
-              id="pickGrid"
-              role="group"
-              aria-label="Rules to train"
-              data-i18n-aria="aria.regles"
-            ></div>
-            <p class="pick__hint" id="pickHint"></p>
-          </div>
-
           <div class="settings settings--foot hidden" id="briefPace" aria-label="Pace" data-i18n-aria="aria.allure">
             <div class="settings__row">
               <span class="settings__label" data-i18n="brief.allure">PACE</span>
@@ -591,6 +566,44 @@
             </div>
             <p class="settings__hint hidden" id="briefPaceHint"></p>
           </div>
+
+          <!-- CHOISIR SA RÈGLE — entraînement uniquement.
+
+               REPLIÉE, et volontairement la même mécanique que COMMENT ÇA
+               MARCHE : elle en reprend les classes, donc les deux replis se
+               ressemblent au trait près. Deux composants différents pour un
+               même geste, ce serait deux choses à apprendre au lieu d'une.
+
+               Repliée parce que l'écran de brief a UN sujet — la règle qu'on
+               va jouer — et que choisir la sienne est un geste de joueur qui
+               revient, pas de joueur qui arrive. Le sommaire porte quand même
+               le compteur : la progression reste lisible sans rien ouvrir.
+
+               Le libellé n'est PAS sur le <summary> mais sur la feuille qu'il
+               contient : `appliqueLangue` écrit dans le `textContent` de
+               l'élément qui porte l'attribut, et l'écrire ici détruirait le
+               compteur — le piège des cartes de l'accueil.
+
+               Une seule grille, pas un filtre PLUS une grille : le choix est
+               unique, donc le mécanisme doit l'être. Les règles jamais
+               rencontrées restent VERROUILLÉES et visibles — c'est le verrou
+               qu'on montre, comme le carnet avec ses « — — — — ». -->
+          <details class="aide pick hidden" id="briefPick">
+            <summary class="aide__titre">
+              <span data-i18n="brief.choisis">TRAIN A RULE</span>
+              <span class="pick__count" id="pickCount"></span>
+            </summary>
+            <div class="aide__corps">
+              <div
+                class="pick__grid"
+                id="pickGrid"
+                role="group"
+                aria-label="Rules to train"
+                data-i18n-aria="aria.regles"
+              ></div>
+              <p class="pick__hint" id="pickHint"></p>
+            </div>
+          </details>
         </div>
       </section>
 

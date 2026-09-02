@@ -3818,11 +3818,18 @@ button.chip:active:not(:disabled) {
  * choix imposé avant de pouvoir jouer ferait l'inverse de ce qu'on cherche.
  * Qui veut travailler une règle la choisit ; les autres lancent.
  * ================================================================== */
-.pick {
-  margin-top: 30px;
-  border-top: var(--bd-hair) solid var(--line);
-  padding-top: var(--sp-3);
-  text-align: left;
+/*
+ * Elle emprunte `.aide` en entier — cadre, sommaire, chevron, corps — et ne
+ * declare que ce qui DIFFERE. Deux replis qui se ressemblent au trait pres,
+ * c'est un geste a apprendre au lieu de deux.
+ */
+.pick__count {
+  /* Pousse a droite du sommaire : le chevron et le libelle sont les deux
+     premiers elements du flex, le compteur ferme la ligne. */
+  margin-left: auto;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
 }
 
 .pick.hidden {
@@ -3833,26 +3840,6 @@ button.chip:active:not(:disabled) {
    * refuse tout élément masqué qui n'aurait pas la sienne.
    */
   display: none;
-}
-
-.pick__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-2);
-}
-
-.pick__label {
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--paper);
-}
-
-.pick__count {
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  color: var(--paper-dim);
 }
 
 .pick__grid {

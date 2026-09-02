@@ -700,9 +700,18 @@ const DYN: Record<Lang, Dyn> = {
     teaserDefaut: "Une règle t'attend.",
     pickAleatoire: "AU HASARD",
     pickVerrouille: "— — —",
-    // « N / 12 DÉCOUVERTES » accorde avec le 12, comme la ligne du carnet.
-    // « MAÎTRISÉE », lui, est un compte NU : il accorde avec son propre nombre.
-    pickCompte: (v, t, m) => `${v} / ${t} DÉCOUVERTES · ${m} MAÎTRISÉE${m > 1 ? "S" : ""}`,
+    /*
+     * COURT : il vit dans le SOMMAIRE du repli, à côté de son libellé.
+     *
+     * « 4 / 12 DÉCOUVERTES · 2 MAÎTRISÉES » mesurait 156 px et passait sur deux
+     * lignes à 375 px, sous un libellé qui en prenait déjà deux. Le mot
+     * « découvertes » est de toute façon dit par le libellé juste à gauche :
+     * « TRAVAILLER UNE RÈGLE · 4 / 12 » se lit sans lui.
+     *
+     * « MAÎTRISÉE » est un compte NU, il accorde donc avec son propre nombre —
+     * contrairement au « 4 / 12 », qui accorde avec le 12 comme au carnet.
+     */
+    pickCompte: (v, t, m) => `${v} / ${t} · ${m} MAÎTRISÉE${m > 1 ? "S" : ""}`,
     pickAideAleatoire:
       "Le jeu choisit, les règles jamais vues d'abord — chacune rejoint la liste une fois jouée.",
     pickAideChoisie: (r) => `Tu travailles ${r}.`,
@@ -918,7 +927,7 @@ const DYN: Record<Lang, Dyn> = {
     teaserDefaut: "A rule is waiting for you.",
     pickAleatoire: "RANDOM",
     pickVerrouille: "— — —",
-    pickCompte: (v, t, m) => `${v} / ${t} DISCOVERED · ${m} MASTERED`,
+    pickCompte: (v, t, m) => `${v} / ${t} · ${m} MASTERED`,
     pickAideAleatoire:
       "The game picks, unseen rules first — each joins the list once you have played it.",
     pickAideChoisie: (r) => `You are training ${r}.`,
