@@ -115,6 +115,14 @@ export function litApparence(brut: unknown): Apparence {
 export interface CarnetEntree {
   best: number;
   cleared: boolean;
+  /**
+   * Pièges déjoués sous cette règle. Voir `RuleRecord` côté appareil.
+   *
+   * ⚠️ Optionnel : les agrégats déjà stockés côté serveur ne le portent pas,
+   * et `apparence` mis à part, rien ici ne doit exiger une migration pour
+   * continuer à fonctionner. Absent vaut zéro — la même doctrine que partout.
+   */
+  pieges?: number;
 }
 
 export interface Serie {
@@ -168,6 +176,16 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
     carnet[id] = {
       best: Math.max(x?.best ?? 0, y?.best ?? 0),
       cleared: (x?.cleared ?? false) || (y?.cleared ?? false),
+      /*
+       * MAXIMUM, pas somme — alors que le compteur est cumulatif en local.
+       *
+       * Sommer doublerait les pièges d'un joueur qui synchronise deux fois, ou
+       * qui joue sur deux appareils avec le même compte. Le maximum garde les
+       * trois propriétés qui rendent la fusion inoffensive (idempotente,
+       * commutative, monotone) au prix d'un sous-comptage possible. Un carnet
+       * qui rétrécit est le seul défaut vraiment grave ici — il est silencieux.
+       */
+      pieges: Math.max(x?.pieges ?? 0, y?.pieges ?? 0),
     };
   }
 

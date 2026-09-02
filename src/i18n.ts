@@ -215,6 +215,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.signe": "Ton signe",
     "aria.chat": "Message",
     "aria.emotes": "Réactions",
+    "aria.regles": "Règles à travailler",
+    "brief.choisis": "TRAVAILLER UNE RÈGLE",
     "aria.joueurs": "Joueurs",
     "aria.spectateur": "Spectateur",
     "aria.chutes": "Chutes",
@@ -309,6 +311,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.signe": "Your sign",
     "aria.chat": "Message",
     "aria.emotes": "Reactions",
+    "aria.regles": "Rules to train",
+    "brief.choisis": "TRAIN A RULE",
     "aria.joueurs": "Players",
     "aria.spectateur": "Spectating",
     "aria.chutes": "Eliminations",
@@ -447,6 +451,25 @@ type Dyn = {
   trainingRecord: (n: number) => string;
   teaserDefaut: string;
   /* --- l'allure, sur le brief d'entrainement --- */
+  /* --- choisir sa règle d'entrainement --- */
+  pickAleatoire: string;
+  pickVerrouille: string;
+  pickCompte: (vues: number, total: number, maitrisees: number) => string;
+  pickAideAleatoire: string;
+  pickAideChoisie: (regle: string) => string;
+  pickAideVerrou: string;
+  pickResteManches: (n: number) => string;
+  pickRestePiege: string;
+  pickMaitrisee: string;
+  /**
+   * Ce qu'il reste à faire, PONCTUATION COMPRISE.
+   *
+   * Le français met une espace avant les deux-points, l'anglais non. Composer
+   * la ligne ailleurs avec un ` : ` en dur donnait « TO MASTER IT : 6 ROUNDS »,
+   * ce qui trahit une traduction au premier coup d'œil. La ponctuation
+   * appartient à la langue, pas au code d'affichage.
+   */
+  pickPourMaitriser: (reste: string) => string;
   /* --- le carnet --- */
   carnetProgres: (vues: number, total: number, tenues: number) => string;
   carnetJamais: string;
@@ -676,6 +699,17 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "COMMENCE ICI · TU NE PERDS RIEN",
     trainingRecord: (n) => `RECORD · ${n} MANCHES`,
     teaserDefaut: "Une règle t'attend.",
+    pickAleatoire: "AU HASARD",
+    pickVerrouille: "— — —",
+    pickCompte: (v, t, m) => `${v} / ${t} DÉCOUVERTES · ${m} MAÎTRISÉES`,
+    pickAideAleatoire: "Le jeu choisit — les règles jamais vues d'abord.",
+    pickAideChoisie: (r) => `Tu travailles ${r}.`,
+    pickAideVerrou:
+      "Les règles verrouillées se débloquent en les rencontrant : run du jour, escalade, multijoueur.",
+    pickResteManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
+    pickRestePiege: "1 PIÈGE",
+    pickMaitrisee: "MAÎTRISÉE",
+    pickPourMaitriser: (r) => `POUR LA MAÎTRISER : ${r}`,
     carnetProgres: (v, t, k) => `${v} / ${t} RENCONTRÉES · ${k} TENUES`,
     carnetJamais: "JAMAIS RENCONTRÉE",
     carnetTenu: (b) => `TENU · ${b}`,
@@ -882,6 +916,17 @@ const DYN: Record<Lang, Dyn> = {
     trainingNeuf: "START HERE · NOTHING TO LOSE",
     trainingRecord: (n) => `BEST · ${n} ROUND${n === 1 ? "" : "S"}`,
     teaserDefaut: "A rule is waiting for you.",
+    pickAleatoire: "RANDOM",
+    pickVerrouille: "— — —",
+    pickCompte: (v, t, m) => `${v} / ${t} DISCOVERED · ${m} MASTERED`,
+    pickAideAleatoire: "The game picks — rules you have never seen come first.",
+    pickAideChoisie: (r) => `You are training ${r}.`,
+    pickAideVerrou:
+      "Locked rules unlock by meeting them: daily run, climb, multiplayer.",
+    pickResteManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
+    pickRestePiege: "1 TRAP",
+    pickMaitrisee: "MASTERED",
+    pickPourMaitriser: (r) => `TO MASTER IT: ${r}`,
     carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} HELD`,
     carnetJamais: "NEVER MET",
     carnetTenu: (b) => `HELD · ${b}`,

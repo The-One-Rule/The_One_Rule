@@ -14,6 +14,7 @@ import { PALIER, PALIER_MAX, pileEscalade } from "./engine/escalade";
 import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
+import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
@@ -879,6 +880,122 @@ function regleAffichee(s: Session): OneRule {
 }
 
 /* ------------------------------------------------------------------ *
+ * CHOISIR SA RÈGLE — entraînement uniquement
+ *
+ * La boucle que ça referme : on rencontre LE GAUCHER en multijoueur, on se
+ * fait massacrer, la règle entre au carnet, on va la travailler seul, on
+ * revient. L'entraînement cesse d'être un tutoriel pour devenir un outil.
+ *
+ * UNE SEULE GRILLE, pas un filtre PLUS une grille : le choix est unique, donc
+ * le mécanisme doit l'être. Un sélecteur de source (« rencontrées » /
+ * « maîtrisées ») posé à côté d'une grille de règles, ce sont deux façons de
+ * répondre à la même question, et l'écran cesse de dire ce qu'il fait.
+ *
+ * Les règles jamais rencontrées restent VISIBLES et verrouillées. C'est ce qui
+ * rend le compteur lisible plutôt que triste — un joueur du premier jour n'a
+ * qu'une règle au carnet, et une grille à un seul bouton se lit comme une
+ * fonctionnalité cassée, pas comme une progression. Le carnet fait déjà
+ * exactement ça avec ses « — — — — » (décision n°7 : on ne brûle pas la
+ * surprise du run du jour).
+ * ------------------------------------------------------------------ */
+function renderPick(): void {
+  const s = P.load();
+  const boite = $("briefPick");
+  const grille = $("pickGrid");
+  grille.innerHTML = "";
+
+  const puce = (
+    libelle: string,
+    opts: { on: boolean; verrou?: boolean; maitrisee?: boolean; aria?: string; sur?: () => void },
+  ): void => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className =
+      "pick__chip" +
+      (opts.on ? " is-on" : "") +
+      (opts.verrou ? " is-locked" : "") +
+      (opts.maitrisee ? " is-mastered" : "");
+    b.textContent = libelle;
+    b.disabled = !!opts.verrou;
+    if (opts.aria) b.setAttribute("aria-label", opts.aria);
+    b.setAttribute("aria-pressed", opts.on ? "true" : "false");
+    if (opts.sur) b.addEventListener("click", opts.sur);
+    grille.appendChild(b);
+  };
+
+  const choisit = (id: string | null): void => {
+    sfx.ui();
+    P.mutate((st) => {
+      st.trainingRegle = id;
+    });
+    // Rouvrir le brief plutôt que repeindre à la main : c'est lui qui décide
+    // du nom, du texte, de l'avertissement de touche maintenue et du bouton.
+    openBrief("training");
+  };
+
+  puce(t("pickAleatoire"), {
+    on: s.trainingRegle === null,
+    sur: () => choisit(null),
+  });
+
+  let vues = 0;
+  let maitrisees = 0;
+  for (const r of ONE_RULES) {
+    const rec = s.encountered[r.id];
+    const nom = nomDeRegle(r.id, r.name);
+    if (rec) vues++;
+    const maitrisee = estMaitrisee(r, rec);
+    if (maitrisee) maitrisees++;
+    /*
+     * Une règle rencontrée mais injouable ici — LA MAIN GAUCHE sur un
+     * téléphone — reste VERROUILLÉE plutôt que d'être masquée : la faire
+     * disparaître du compteur ferait croire à un carnet incomplet, et
+     * l'afficher cliquable promettrait une partie qu'on ne peut pas jouer.
+     */
+    const dispo = !!rec && estJouableIci(r);
+    puce(dispo ? nom : t("pickVerrouille"), {
+      on: s.trainingRegle === r.id,
+      verrou: !dispo,
+      maitrisee,
+      aria: dispo ? nom : undefined,
+      sur: dispo ? () => choisit(r.id) : undefined,
+    });
+  }
+
+  $("pickCount").textContent = t("pickCompte")(vues, ONE_RULES.length, maitrisees);
+
+  /*
+   * L'aide dit ce qu'il RESTE à faire, pas ce qui est fait.
+   *
+   * « MAÎTRISÉE » se lit sur la puce ; ce qu'un joueur cherche à savoir, c'est
+   * combien il lui manque. Et sur une règle qui piège, ce qui manque le plus
+   * souvent n'est pas des manches — c'est le piège lui-même, qui est
+   * précisément ce que l'entraînement doit apprendre.
+   */
+  const choisieMaintenant = s.trainingRegle
+    ? ONE_RULES.find((r) => r.id === s.trainingRegle)
+    : undefined;
+  const aide = $("pickHint");
+  if (!choisieMaintenant) {
+    aide.textContent = vues === 0 ? t("pickAideVerrou") : t("pickAideAleatoire");
+  } else if (estMaitrisee(choisieMaintenant, s.encountered[choisieMaintenant.id])) {
+    aide.textContent = t("pickMaitrisee");
+  } else {
+    const reste = resteAMaitriser(choisieMaintenant, s.encountered[choisieMaintenant.id]);
+    const bouts: string[] = [];
+    if (reste.manches > 0) bouts.push(t("pickResteManches")(reste.manches));
+    if (reste.piege) bouts.push(t("pickRestePiege"));
+    // « MAÎTRISÉE : 6 MANCHES » se lisait comme un constat — le mot d'état en
+    // tête d'une ligne qui énonce ce qui MANQUE. L'intitulé dit donc l'intention.
+    aide.textContent = bouts.length
+      ? t("pickPourMaitriser")(bouts.join(" · "))
+      : t("pickAideChoisie")(nomDeRegle(choisieMaintenant.id, choisieMaintenant.name));
+  }
+
+  boite.classList.remove("hidden");
+}
+
+/* ------------------------------------------------------------------ *
  * Lancement d'un run
  * ------------------------------------------------------------------ */
 function openBrief(mode: Mode): void {
@@ -902,13 +1019,31 @@ function openBrief(mode: Mode): void {
      */
     pendingRule = ONE_RULES.find(estJouableIci) ?? ONE_RULES[0]!;
   } else {
-    pendingRule = trainingRule({
-      duJour: ruleOfDay(day).id,
-      connues: new Set(Object.keys(s.encountered)),
-      derniere: derniereEntrainement,
-      sansMaintien: TOUCH_ONLY,
-      rng: Math.random,
-    });
+    /*
+     * LE CHOIX DU JOUEUR D'ABORD, le tirage ensuite.
+     *
+     * Trois garde-fous avant de l'honorer, et chacun a sa raison : la règle
+     * doit exister (une sauvegarde peut nommer une règle retirée du
+     * catalogue), avoir été RENCONTRÉE (sinon le verrouillage ne verrouille
+     * rien, et il est toute la valeur du dispositif), et être jouable ici —
+     * LA MAIN GAUCHE demande de tenir ESPACE, ce qu'un téléphone ne peut pas.
+     * Un choix invalide ne bloque personne : on retombe sur le tirage.
+     */
+    const choisie = s.trainingRegle
+      ? ONE_RULES.find(
+          (r) =>
+            r.id === s.trainingRegle && !!s.encountered[r.id] && estJouableIci(r),
+        )
+      : undefined;
+    pendingRule =
+      choisie ??
+      trainingRule({
+        duJour: ruleOfDay(day).id,
+        connues: new Set(Object.keys(s.encountered)),
+        derniere: derniereEntrainement,
+        sansMaintien: TOUCH_ONLY,
+        rng: Math.random,
+      });
     derniereEntrainement = pendingRule.id;
   }
 
@@ -920,6 +1055,11 @@ function openBrief(mode: Mode): void {
     mode === "escalade"
       ? t("briefEscalade")(PALIER)
       : briefDeRegle(pendingRule.id, pendingRule.brief);
+
+  // La grille ne vit QUE sur l'entraînement : le run du jour et l'escalade
+  // n'offrent aucun choix de règle, et en montrer un là serait un mensonge.
+  if (mode === "training") renderPick();
+  else $("briefPick").classList.add("hidden");
 
   const warn = $("briefWarn");
   const hold = mode !== "escalade" && pendingRule.watchRelease === " ";
@@ -1146,11 +1286,15 @@ function finishRun(): void {
 
   const s = P.mutate((st) => {
     ensureDay(st, day);
-    const prev = st.encountered[rule.id] ?? { best: 0, cleared: false };
-    st.encountered[rule.id] = {
-      best: Math.max(prev.best, end.score),
-      cleared: prev.cleared || end.cleared,
-    };
+    // La MÊME formule que `recordRun`, et une seule fois écrite : les deux
+    // copies avaient chacune leur `pieges` à tenir à jour, et seule celle-ci
+    // tourne vraiment.
+    st.encountered[rule.id] = P.majCarnet(
+      st.encountered[rule.id],
+      end.score,
+      end.cleared,
+      end.trapsSurvived,
+    );
     st.recent = [...st.recent, end.score].slice(-5);
 
     bump(st, "runs", 1);

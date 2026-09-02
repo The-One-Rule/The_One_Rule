@@ -10,6 +10,23 @@ const KEY = "oneRule.save.v1";
 export interface RuleRecord {
   best: number;
   cleared: boolean;
+  /**
+   * Pièges DÉJOUÉS sous cette règle, cumulés.
+   *
+   * C'est ce qui définit « maîtrisée » (voir `game/maitrise.ts`), et pas le
+   * nombre de manches tenues. La raison est mesurée : ouvrir le catalogue
+   * d'entraînement a fait passer les règles vues de 1 à 12 et, du même coup,
+   * les morts sur le PIÈGE de 42,9 % à 4,1 %. S'entraîner règle par règle
+   * pousse dans le même sens — une règle piégeuse seule ne produit que ~11 %
+   * de manches piégeuses, et sept règles sur douze n'en produisent aucune.
+   *
+   * Récompenser les manches tenues, ce serait donc récompenser la moitié
+   * COPIABLE de TOR. Le piège est la seule chose que personne ne peut copier ;
+   * c'est lui qu'on compte.
+   *
+   * ⚠️ Absent des sauvegardes d'avant : lire avec `?? 0`, jamais directement.
+   */
+  pieges?: number;
 }
 
 export interface Save {
@@ -69,6 +86,17 @@ export interface Save {
    * RAPIDE, et un chiffre qui mélange les deux ne veut plus rien dire.
    */
   trainingPace: number;
+  /**
+   * Règle épinglée pour l'entraînement, ou `null` pour un tirage.
+   *
+   * Persistée parce que travailler une règle demande PLUSIEURS parties : la
+   * remettre au hasard à chaque retour au menu annulerait exactement ce que
+   * l'entraînement ciblé sert à faire.
+   *
+   * Un identifiant inconnu (règle retirée du catalogue, sauvegarde bricolée)
+   * ou une règle jamais rencontrée retombe sur le tirage — voir `openBrief`.
+   */
+  trainingRegle: string | null;
   /** mesure d'usage : consentement, jour de première ouverture, jours vus */
   metrics: { on: boolean; asked: boolean; firstDay: number; lastDay: number };
   /**
@@ -133,6 +161,7 @@ const fresh = (): Save => ({
     typeof navigator === "undefined" ? undefined : navigator.languages ?? [navigator.language],
   ),
   bestTraining: 0,
+  trainingRegle: null,
   /*
    * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.
    *
@@ -225,13 +254,38 @@ export function touchStreak(s: Save, day: number): { kept: boolean; graceUsed: b
  * Carnet
  * ------------------------------------------------------------------ */
 
-export function recordRun(ruleId: string, score: number, cleared: boolean): Save {
+/**
+ * Ce qu'une partie ajoute au carnet, pour UNE règle.
+ *
+ * Extraite parce qu'elle était écrite DEUX fois — ici et dans `finishRun` —
+ * et que les deux copies n'ont pas les mêmes yeux dessus : celle de `main.ts`
+ * est la seule qui tourne vraiment, et aucun test ne l'atteint. Une formule
+ * dupliquée dont une seule moitié est testée finit toujours par diverger, et
+ * le symptôme serait un carnet qui compte faux — silencieux.
+ *
+ * Trois opérations, trois natures :
+ *   · `best` — un MAXIMUM, un record ne redescend pas ;
+ *   · `cleared` — un OU, on ne dé-termine pas un run terminé ;
+ *   · `pieges` — une SOMME. C'est le seul cumul du carnet, et c'est pour ça
+ *     que la fusion inter-appareils en prend le maximum plutôt que la somme
+ *     (voir `shared/compte.ts`) : sommer doublerait à chaque synchro.
+ */
+export function majCarnet(
+  prev: RuleRecord | undefined,
+  score: number,
+  cleared: boolean,
+  pieges: number,
+): RuleRecord {
+  return {
+    best: Math.max(prev?.best ?? 0, score),
+    cleared: (prev?.cleared ?? false) || cleared,
+    pieges: (prev?.pieges ?? 0) + pieges,
+  };
+}
+
+export function recordRun(ruleId: string, score: number, cleared: boolean, pieges = 0): Save {
   return mutate((s) => {
-    const prev = s.encountered[ruleId] ?? { best: 0, cleared: false };
-    s.encountered[ruleId] = {
-      best: Math.max(prev.best, score),
-      cleared: prev.cleared || cleared,
-    };
+    s.encountered[ruleId] = majCarnet(s.encountered[ruleId], score, cleared, pieges);
     s.recent = [...s.recent, score].slice(-5);
   });
 }

@@ -78,7 +78,16 @@ export function litAgregats(brut: unknown): Agregats {
     for (const [id, v] of Object.entries(o.carnet as Record<string, unknown>).slice(0, MAX_CARNET)) {
       if (typeof id !== "string" || !id || id.length > 32) continue;
       const e = (v ?? {}) as Partial<CarnetEntree>;
-      a.carnet[id] = { best: entier(e.best, MAX_VALEUR), cleared: e.cleared === true };
+      a.carnet[id] = {
+        best: entier(e.best, MAX_VALEUR),
+        cleared: e.cleared === true,
+        // Un champ ajouté après coup DOIT être listé ici : ce nettoyage
+        // RECONSTRUIT l'entrée, il ne la recopie pas. C'est voulu — on ne fait
+        // pas confiance à ce que le client envoie — mais ça veut dire qu'un
+        // oubli ne casse rien et se voit seulement au moment où un joueur
+        // change d'appareil et retrouve un compteur à zéro.
+        pieges: entier(e.pieges, MAX_VALEUR),
+      };
     }
   }
 

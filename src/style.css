@@ -3805,6 +3805,139 @@ button.chip:active:not(:disabled) {
  * Le filet du haut suffit à le détacher : la ligne unique n'a pas besoin de
  * son propre soulignement, qui donnerait deux traits pour un seul choix.
  */
+/* ==================================================================
+ * CHOISIR SA RÈGLE D'ENTRAÎNEMENT
+ *
+ * Une grille de puces, et rien d'autre : le choix est unique, donc le
+ * mécanisme doit l'être. Les règles jamais rencontrées y restent, muettes —
+ * c'est le verrou qu'on montre, pas qu'on cache, et c'est lui qui donne un
+ * sens au compteur.
+ *
+ * Elle vit SOUS le brief et AU-DESSUS de l'allure, donc jamais entre le
+ * joueur et COMMENCER : le public qui arrive part en quatre secondes, et un
+ * choix imposé avant de pouvoir jouer ferait l'inverse de ce qu'on cherche.
+ * Qui veut travailler une règle la choisit ; les autres lancent.
+ * ================================================================== */
+.pick {
+  margin-top: 30px;
+  border-top: var(--bd-hair) solid var(--line);
+  padding-top: var(--sp-3);
+  text-align: left;
+}
+
+.pick.hidden {
+  /*
+   * Sa propre règle de masquage, comme chaque composant : il n'y a pas de
+   * `.hidden` générique dans cette feuille, et une règle unique perdrait la
+   * cascade contre les `display` des composants. `tests/hidden.test.ts`
+   * refuse tout élément masqué qui n'aurait pas la sienne.
+   */
+  display: none;
+}
+
+.pick__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.pick__label {
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper);
+}
+
+.pick__count {
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+.pick__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pick__chip {
+  /*
+   * `min-height` et non une hauteur fixe : les noms de règles ne tiennent pas
+   * tous sur une ligne à 375 px, et un chip qui passe à deux lignes doit
+   * grandir plutôt que rogner son texte.
+   */
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pick__chip:hover:not(:disabled),
+.pick__chip:focus-visible:not(:disabled) {
+  color: var(--paper);
+  border-color: var(--paper-dim);
+}
+
+.pick__chip.is-on {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--paper);
+}
+
+/*
+ * MAÎTRISÉE : un liseré d'accent, pas un fond.
+ *
+ * Le fond plein est déjà pris par la sélection, et deux surfaces pleines de
+ * sens différents sur la même rangée se confondent. L'accent `--signal` est
+ * par ailleurs réservé à la règle unique et à l'action évidente (identité
+ * Nocturne) — il désigne donc ici exactement ce qu'il désigne ailleurs :
+ * ce qui compte.
+ */
+.pick__chip.is-mastered {
+  border-color: var(--signal);
+  color: var(--paper);
+}
+
+.pick__chip.is-mastered.is-on {
+  color: var(--ink);
+  background: var(--paper);
+}
+
+/*
+ * VERROUILLÉE : une barre de censure, pas du texte pale.
+ *
+ * Premier essai, mesuré : « — — — » en `--line` sur `--ink-2` donnait
+ * 1,33:1. Cacher une information en la rendant illisible FONCTIONNE, mais
+ * c'est du texte invisible : n'importe quel audit le signale à juste titre, et
+ * rien ne dit que c'est délibéré. Le carnet avait déjà payé exactement ce
+ * piege (1,46:1) et y avait répondu par une hachure — on reprend la sienne,
+ * au trait près, pour que les deux écrans disent « verrouillé » pareil.
+ *
+ * Les tirets restent dans le document pour les lecteurs d'écran, et la puce
+ * est `disabled` : elle s'annonce donc comme telle sans qu'on ait à mesurer
+ * un contraste sur du texte qui n'est plus affiché.
+ */
+.pick__chip.is-locked {
+  color: transparent;
+  border-style: dashed;
+  cursor: default;
+  background: repeating-linear-gradient(-45deg, var(--line) 0 5px, transparent 5px 10px);
+}
+
+.pick__hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
 .settings--foot {
   margin-top: 30px;
 }

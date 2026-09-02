@@ -70,7 +70,10 @@ describe("un appareil qui se connecte", () => {
     const { P, revendication } = await appareil(jetonPour());
 
     P.mutate((s) => {
-      s.encountered = { sang: { best: 23, cleared: true }, jumeau: { best: 9, cleared: false } };
+      s.encountered = {
+        sang: { best: 23, cleared: true, pieges: 4 },
+        jumeau: { best: 9, cleared: false },
+      };
       s.streak = { ...s.streak, count: 6, lastDay: 300 };
       s.bestTraining = 31;
       s.ranked.name = "PIERRE";
@@ -80,7 +83,10 @@ describe("un appareil qui se connecte", () => {
     expect(issue.quoi, JSON.stringify(issue)).toBe("faite");
 
     const u = (await depot.parId(idCompte))!;
-    expect(u.agregats.carnet.sang).toEqual({ best: 23, cleared: true });
+    expect(u.agregats.carnet.sang).toEqual({ best: 23, cleared: true, pieges: 4 });
+    // Une entrée d'avant le compteur de pièges monte à zéro plutôt que de
+    // remonter `undefined` : absent vaut zéro, comme partout ailleurs.
+    expect(u.agregats.carnet.jumeau).toEqual({ best: 9, cleared: false, pieges: 0 });
     expect(u.agregats.serie.count).toBe(6);
     expect(u.pseudo).toBe("PIERRE");
   });
@@ -99,7 +105,7 @@ describe("un appareil qui se connecte", () => {
   it("ne perd RIEN localement en revendiquant", async () => {
     const { P, revendication } = await appareil(jetonPour());
     P.mutate((s) => {
-      s.encountered = { sang: { best: 23, cleared: true } };
+      s.encountered = { sang: { best: 23, cleared: true, pieges: 2 } };
       s.streak = { ...s.streak, count: 6, lastDay: 300 };
       s.bestTraining = 31;
     });
@@ -107,7 +113,7 @@ describe("un appareil qui se connecte", () => {
     await revendication.revendiqueSiNecessaire();
 
     const apres = P.load();
-    expect(apres.encountered.sang).toEqual({ best: 23, cleared: true });
+    expect(apres.encountered.sang).toEqual({ best: 23, cleared: true, pieges: 2 });
     expect(apres.streak.count).toBe(6);
     expect(apres.bestTraining).toBe(31);
   });
@@ -119,7 +125,10 @@ describe("un SECOND appareil, le même compte", () => {
     // exactement là-dessus.
     const un = await appareil(jetonPour());
     un.P.mutate((s) => {
-      s.encountered = { sang: { best: 23, cleared: true }, pointe: { best: 14, cleared: false } };
+      s.encountered = {
+        sang: { best: 23, cleared: true, pieges: 5 },
+        pointe: { best: 14, cleared: false },
+      };
       s.streak = { ...s.streak, count: 6, lastDay: 300 };
       s.bestTraining = 31;
     });
@@ -136,6 +145,7 @@ describe("un SECOND appareil, le même compte", () => {
     expect(s.encountered.sang, "le carnet du premier appareil doit descendre").toEqual({
       best: 23,
       cleared: true,
+      pieges: 5,
     });
     expect(s.encountered.pointe?.best).toBe(14);
     expect(s.streak.count, "la série doit descendre").toBe(6);
@@ -145,20 +155,29 @@ describe("un SECOND appareil, le même compte", () => {
   it("n'écrase pas ce que le premier avait de plus", async () => {
     const un = await appareil(jetonPour());
     un.P.mutate((s) => {
-      s.encountered = { sang: { best: 40, cleared: true } };
+      s.encountered = { sang: { best: 40, cleared: true, pieges: 7 } };
       s.streak = { ...s.streak, count: 9, lastDay: 300 };
     });
     await un.revendication.revendiqueSiNecessaire();
 
     const deux = await appareil(jetonPour());
     deux.P.mutate((s) => {
-      s.encountered = { sang: { best: 3, cleared: false } };
+      s.encountered = { sang: { best: 3, cleared: false, pieges: 3 } };
       s.streak = { ...s.streak, count: 1, lastDay: 301 };
     });
     await deux.revendication.revendiqueSiNecessaire();
 
     const u = (await depot.parId(idCompte))!;
-    expect(u.agregats.carnet.sang).toEqual({ best: 40, cleared: true });
+    /*
+     * ⚠️ LES PIÈGES SE FUSIONNENT AU MAXIMUM, alors qu'ils s'ADDITIONNENT en
+     * local. L'asymétrie est le point : 7 et 3 donnent 7, jamais 10. Sommer
+     * doublerait le compteur d'un joueur qui synchronise deux fois ou qui joue
+     * sur deux appareils, et « maîtrisée » se déclencherait tout seul.
+     *
+     * On peut donc sous-compter en changeant d'appareil — jamais gonfler, et
+     * jamais perdre. C'est le même marché que `best` juste à côté.
+     */
+    expect(u.agregats.carnet.sang).toEqual({ best: 40, cleared: true, pieges: 7 });
     expect(u.agregats.serie.count).toBe(9);
     expect(deux.P.load().encountered.sang!.best).toBe(40);
   });

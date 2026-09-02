@@ -667,7 +667,7 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 502 tests (43 fichiers) ·
+**Branche** `master`. **Vérification** : `tsc` · 519 tests (44 fichiers) ·
 e2e 79 assertions (~2 min 30) · `vite build`.
 
 ⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
@@ -1084,6 +1084,53 @@ millions de pages. La découverte viendra d'itch.io, de Reddit et du lien de
 partage — pas de Google. Le slogan **« sometimes, obeying is the mistake »**
 est ce qui rend le titre cherchable, et il remplace « jusqu'où tu tiens ? »,
 qui décrivait l'endurance — la partie *copiable* du jeu.
+
+### Entraînement ciblé — fait, jamais vu par un joueur
+
+Demandé par Pierre, et c'est la première boucle de progression du jeu : on
+rencontre LE GAUCHER en multijoueur, on se fait massacrer, la règle entre au
+carnet, on va la travailler seul, on revient. L'entraînement cesse d'être un
+tutoriel pour devenir un outil.
+
+**Le verrouillage est la valeur du dispositif**, pas une limite : on ne peut
+pas apprendre tout le catalogue depuis l'entraînement, il faut être allé le
+chercher ailleurs. C'est la même doctrine que le carnet (décision n°7), et la
+grille reprend sa **barre de censure** hachurée plutôt que du texte pâle.
+
+⚠️ **Une seule grille, pas un filtre PLUS une grille.** Le choix est unique,
+donc le mécanisme doit l'être : un sélecteur de source (« rencontrées » /
+« maîtrisées ») posé à côté d'une grille de règles, ce sont deux façons de
+répondre à la même question. Les règles verrouillées restent VISIBLES — un
+joueur du premier jour n'a qu'une règle au carnet, et une grille à un bouton se
+lit comme une fonctionnalité cassée, pas comme une progression.
+
+⚠️ **« MAÎTRISÉE » COMPTE LES PIÈGES, PAS LES MANCHES** (`game/maitrise.ts`).
+C'est le point de conception, et il vient d'un chiffre : ouvrir le catalogue
+d'entraînement a fait passer les règles vues de 1 à 12 et, du même coup, les
+morts sur le piège de 42,9 % à **4,1 %**. S'entraîner règle par règle pousse
+dans le même sens et plus fort — une règle piégeuse seule ne produit que 11 %
+de manches piégeuses, et les sept règles sans `traps` en produisent zéro.
+Récompenser les manches tenues récompenserait la moitié **copiable** de TOR.
+D'où la condition en deux temps : avoir tenu `MANCHES_MAITRISE`, ET avoir
+déjoué un piège quand la règle sait en poser.
+
+⚠️ `MANCHES_MAITRISE = 15` est un **premier chiffre, pas une mesure** — on n'a
+aucune distribution de scores en entraînement. À remesurer au premier playtest
+qui en donne.
+
+**Deux pièges payés en le construisant :**
+
+- **Le nettoyage de `api/moi.ts` RECONSTRUIT chaque entrée de carnet**, il ne la
+  recopie pas — c'est voulu, on ne fait pas confiance au client. Conséquence :
+  un champ ajouté au carnet et oublié là ne casse rien et se voit seulement
+  quand un joueur change d'appareil et retrouve un compteur à zéro. Trouvé par
+  `tests/revendication`, pas en relisant.
+- **Le compteur s'ADDITIONNE en local et se fusionne au MAXIMUM**
+  (`shared/compte.ts`). Sommer deux appareils doublerait le compteur à chaque
+  synchro et déclencherait « maîtrisée » tout seul. On peut sous-compter en
+  changeant d'appareil, jamais gonfler — le même marché que `best`.
+- La formule d'écriture était **écrite deux fois**, et seule celle de `main.ts`
+  tournait vraiment sans qu'aucun test ne l'atteigne. Extraite en `majCarnet`.
 
 ### Backlog
 
