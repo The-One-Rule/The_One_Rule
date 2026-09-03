@@ -1338,7 +1338,7 @@ son rayon, un triangle monte à 1,15 r et s'étale à 1,1 r, une pièce barrée 
 sa croix jusqu'à 1,35 r. LE COLOSSE débordait à 105,75 dans un cadre de 100 ;
 trouvé par le test, pas à l'œil.
 
- reste le point d'accroche : le jour où un habillage se
+`Apparence.carte` reste le point d'accroche : le jour où un habillage se
 possède, il remplacera les trois déclarations d'état du CSS et rien d'autre.
 
 ### Backlog
