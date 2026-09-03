@@ -428,6 +428,7 @@ type Dyn = {
   /* --- les essais du run du jour --- */
   dailyEssaisRestants: (n: number) => string;
   dailyEpuise: (score: number) => string;
+  dailyTermine: (score: number) => string;
   /* --- ce que le pied et le bandeau affichent EN PARTIE --- */
   piedVies: string;
   piedSpectateur: string;
@@ -684,6 +685,7 @@ const DYN: Record<Lang, Dyn> = {
     goUnSeulEssai: "COMMENCER",
     dailyEssaisRestants: (n) => `${n} ESSAI${n > 1 ? "S" : ""} RESTANT${n > 1 ? "S" : ""}`,
     dailyEpuise: (sc) => `${sc} MANCHE${sc > 1 ? "S" : ""} · REVIENS DEMAIN`,
+    dailyTermine: (sc) => `TERMINÉ · ${sc} MANCHES`,
     piedVies: "VIES",
     piedSpectateur: "SPECTATEUR",
     piedMulti: "MULTI",
@@ -915,6 +917,7 @@ const DYN: Record<Lang, Dyn> = {
     goUnSeulEssai: "START",
     dailyEssaisRestants: (n) => `${n} ATTEMPT${n === 1 ? "" : "S"} LEFT`,
     dailyEpuise: (sc) => `${sc} ROUND${sc === 1 ? "" : "S"} · COME BACK TOMORROW`,
+    dailyTermine: (sc) => `CLEARED · ${sc} ROUNDS`,
     piedVies: "LIVES",
     piedSpectateur: "SPECTATING",
     piedMulti: "MULTI",

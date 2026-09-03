@@ -7,6 +7,7 @@
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
+import { LECTURE_NEUVE_MS } from "../src/game/lecture";
 
 const ctxStub = new Proxy({}, { get: () => () => undefined }) as CanvasRenderingContext2D;
 
@@ -107,6 +108,24 @@ describe("application", () => {
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
+    /*
+     * ⚠️ LE CLIC NE LANCE PLUS TOUT DE SUITE, et ce test l'affirmait.
+     *
+     * Un battement de lecture sépare désormais COMMENCER de la première
+     * consigne : mesuré à 50 ms avant, ce qui jetait un joueur neuf sous une
+     * fenêtre d'une seconde et demie sans lui laisser le temps de retenir sa
+     * règle. Le brief RESTE affiché pendant ce temps, sa règle en grand.
+     *
+     * Le battement est porté par la boucle de jeu et non par un `setTimeout` —
+     * c'est exactement ce qui permet à `pump` de le dérouler ici. Une minuterie
+     * ne serait jamais jouée par ce filet, et le correctif serait donc non
+     * testé sur le chemin le plus chaud du jeu.
+     */
+    expect(
+      document.getElementById("brief")!.classList.contains("hidden"),
+      "le brief reste pendant le temps de lecture",
+    ).toBe(false);
+    pump(LECTURE_NEUVE_MS + 100);
     expect(document.getElementById("brief")!.classList.contains("hidden")).toBe(true);
     expect(document.getElementById("bandRule")!.textContent).toBe(name);
 
@@ -139,6 +158,7 @@ describe("application", () => {
     document.getElementById("btnDaily")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Le battement de lecture d'abord, le run ensuite — `pump` déroule les deux.
     pump(30000);
 
     const teaser = document.getElementById("teaser")!;

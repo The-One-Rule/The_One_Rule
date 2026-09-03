@@ -40,6 +40,8 @@ import { Hud } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
+import { vueDuJour } from "./render/jour";
+import { tempsDeLecture } from "./game/lecture";
 import { cleanEnv } from "./env";
 import {
   compte,
@@ -240,6 +242,19 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
 ]);
 
 function show(id: ScreenId): void {
+  /*
+   * Quitter le brief ANNULE le battement de lecture.
+   *
+   * `show` est le passage obligé de tout changement d'écran : le brancher ici
+   * plutôt que sur le bouton RETOUR couvre aussi les sorties qu'on n'a pas
+   * prévues — une invitation qui arrive, un retour à l'accueil. Sans ça, le
+   * rebours continuerait de courir et lancerait un run par-dessus l'écran où
+   * le joueur vient d'aller.
+   *
+   * `id === null` est l'écran de jeu, donc l'arrivée normale : le battement
+   * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
+   */
+  if (lecture && id !== null) annuleLecture();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   /*
@@ -354,7 +369,8 @@ function renderHome(): void {
    * irréversible du jeu. Tant qu'il reste quelque chose à faire en solo,
    * l'accent y va.
    */
-  const versMulti = P.essaisDuJour(s) >= DAILY_ESSAIS && multi.available;
+  const vjm = vueDuJour(s, day);
+  const versMulti = (vjm.acquis || vjm.verrouille) && multi.available;
   $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
   $("btnMulti").classList.toggle("faille__zone--primary", versMulti);
 
@@ -408,39 +424,42 @@ function renderSolo(): void {
   chip(`${j.regles} <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
   // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
   // identifiant est la clé du carnet et de la comparabilité.
-  if (P.essaisDuJour(s) >= DAILY_ESSAIS) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
+  // « FAIT » dès que le run est TERMINÉ, sans attendre l'épuisement des
+  // essais : c'est l'accomplissement qu'on annonce, pas la consommation.
+  const vj = vueDuJour(s, day);
+  if (vj.acquis || vj.verrouille) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
   else chip(`${j.aujourdhui} <b>${nomDeRegle(rule.id, rule.name)}</b>`);
 
   renderQuests("homeQuests");
 
   const neuf = s.recent.length === 0;
   /*
-   * Trois essais par jour, et la carte dit COMBIEN il en reste.
+   * La PRIORITÉ des quatre états vit dans `render/jour.ts`, pur et testé.
    *
-   * « Fait » ne suffit plus : un joueur qui a joué une fois peut rejouer, et
-   * une carte grisée le lui cacherait. C'est le nombre restant qui décide, pas
-   * le fait d'avoir joué.
+   * Elle était écrite ici, en ternaires, et elle s'est trompée : en passant à
+   * trois essais, tout dépendait de « combien il en reste » et l'état TERMINÉ
+   * avait disparu — un joueur qui finissait les quarante manches lisait
+   * « 2 ESSAIS RESTANTS ». La même famille que `plate.ts`, un cran plus loin.
    */
-  const essais = P.essaisDuJour(s);
-  const restants = Math.max(0, DAILY_ESSAIS - essais);
-  $<HTMLButtonElement>("btnDaily").disabled = restants === 0;
+  const vue = vueDuJour(s, day);
+  $<HTMLButtonElement>("btnDaily").disabled = vue.verrouille;
 
   /*
    * L'état va dans `.card__state`, jamais dans le textContent de la carte :
    * l'écrire sur le bouton effacerait son titre et sa description.
    */
   $("cardDailyDesc").textContent =
-    restants === 0 ? t("dailyFait") : accrocheDuJour(rule.id, day);
-  /*
-   * Trois états, et non deux : jamais joué · des essais restent · épuisé.
-   * Le cas du milieu est le seul nouveau, et c'est celui qui fait revenir.
-   */
+    vue.etat === "vierge" || vue.etat === "reste"
+      ? accrocheDuJour(rule.id, day)
+      : t("dailyFait");
   $("cardDailyState").textContent =
-    restants === 0
-      ? t("dailyEpuise")(s.daily.score)
-      : essais === 0
-        ? t("dailyUnEssai")
-        : t("dailyEssaisRestants")(restants);
+    vue.etat === "termine"
+      ? t("dailyTermine")(s.daily.score)
+      : vue.etat === "epuise"
+        ? t("dailyEpuise")(s.daily.score)
+        : vue.etat === "vierge"
+          ? t("dailyUnEssai")
+          : t("dailyEssaisRestants")(vue.restants);
   $("cardEscaladeState").textContent = t("escaladeEtat");
   $("cardTrainingState").textContent = neuf
     ? t("trainingNeuf")
@@ -456,7 +475,8 @@ function renderSolo(): void {
    *
    * L'accent va donc à l'entraînement, qui pardonne et qui enseigne.
    */
-  const suivant = neuf || restants === 0 ? "btnTraining" : "btnDaily";
+  const suivant =
+    neuf || vue.etat === "termine" || vue.etat === "epuise" ? "btnTraining" : "btnDaily";
   for (const id of ["btnDaily", "btnTraining", "btnEscalade"]) {
     $(id).classList.toggle("card--primary", id === suivant);
   }
@@ -1272,6 +1292,26 @@ function openBrief(mode: Mode): void {
 /** Vrai dès que la fin de l'échauffement a été annoncée, pour ce run-là. */
 let finEchauffementDite = false;
 
+/**
+ * LE BATTEMENT DE LECTURE, entre COMMENCER et la première consigne.
+ *
+ * Mesuré avant : **50 ms**. Le joueur cliquait, et l'instant d'après une
+ * consigne lui demandait d'agir en moins d'une seconde et demie, sa règle
+ * réduite à trois mots dans le bandeau. Rapporté comme « jeté dans la fosse
+ * aux lions ». Le multijoueur avait déjà résolu ça (`COUNTDOWN_MS`, « c'est le
+ * temps de LIRE sa règle ») ; le solo n'avait rien.
+ *
+ * ⚠️ Il est porté par la BOUCLE DE JEU, pas par un `setTimeout`. Deux raisons :
+ * le filet de `smoke.test.ts` déroule des frames et ne verrait jamais une
+ * minuterie, et une minuterie continuerait de courir sur un onglet qui ne
+ * compose pas — le joueur reviendrait sur un run déjà commencé sans lui.
+ *
+ * Le joueur reste sur le BRIEF pendant ce temps : sa règle y est déjà en grand
+ * avec son explication. Aucun panneau de plus à entretenir, et comme le brief
+ * est un écran de menu, `fieldRect()` n'est pas touché (décision n°10).
+ */
+let lecture: { jusqua: number; maintien: boolean; libelle: string } | null = null;
+
 function startRun(): void {
   if (!pendingRule) return;
   if (pendingRule.watchRelease === " " && !spaceDown) {
@@ -1280,6 +1320,65 @@ function startRun(): void {
     return;
   }
   unlock();
+  const s = P.load();
+  const bouton = $<HTMLButtonElement>("btnGo");
+  bouton.disabled = true;
+  bouton.classList.add("btn--lecture");
+  lecture = {
+    // La règle du BRIEF, et elle seule. En escalade, celles qui s'ajoutent
+    // ensuite ont déjà leur annonce en jeu (`regleAjoutee`), et la pile n'est
+    // tirée qu'au lancement — la recalculer ici la ferait diverger du run.
+    jusqua: performance.now() + tempsDeLecture(pendingRule, s),
+    maintien: pendingRule.watchRelease === " ",
+    // On MÉMORISE le libellé plutôt que de le recalculer : trois endroits
+    // l'écrivent (entraînement, maintien, défi), et un quatrième calcul
+    // finirait par diverger des trois autres.
+    libelle: bouton.textContent ?? "",
+  };
+  majLecture(performance.now());
+}
+
+/** Le rebours à l'écran, et le départ quand il tombe à zéro. */
+function majLecture(now: number): void {
+  if (!lecture) return;
+  /*
+   * ⚠️ Une règle à MAINTIEN se surveille pendant le battement.
+   *
+   * LA MAIN GAUCHE demande de tenir ESPACE. Le contrôle se faisait au clic ;
+   * avec trois secondes d'attente, on peut relâcher entre-temps et entrer en
+   * partie sans maintien — donc mourir sur-le-champ sans comprendre.
+   */
+  if (lecture.maintien && !spaceDown) {
+    annuleLecture();
+    $("briefWarn").textContent = t("briefEspace");
+    $("briefWarn").classList.remove("hidden");
+    return;
+  }
+  const reste = lecture.jusqua - now;
+  if (reste <= 0) {
+    const b = $<HTMLButtonElement>("btnGo");
+    b.disabled = false;
+    b.classList.remove("btn--lecture");
+    lecture = null;
+    lanceRun();
+    return;
+  }
+  $("btnGo").textContent = String(Math.ceil(reste / 1000));
+}
+
+/** Retour au brief sans lancer : sortie d'écran, ou maintien relâché. */
+function annuleLecture(): void {
+  if (!lecture) return;
+  const { libelle } = lecture;
+  lecture = null;
+  const b = $<HTMLButtonElement>("btnGo");
+  b.disabled = false;
+  b.classList.remove("btn--lecture");
+  b.textContent = libelle;
+}
+
+function lanceRun(): void {
+  if (!pendingRule) return;
   const s = P.load();
   // Un duel rejoue la graine de l'adversaire : les deux joueurs affrontent
   // exactement la même suite de manches, sinon la comparaison ne vaut rien.
@@ -2266,6 +2365,10 @@ const heatOf = (ratio: number, level: number): number =>
 
 function loop(now: number): void {
   requestAnimationFrame(loop);
+
+  // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
+  // aucune session n'existe encore.
+  if (lecture) majLecture(now);
 
   let multiDraw: ReturnType<typeof multi.syncFrame> = null;
 

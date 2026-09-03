@@ -3221,6 +3221,35 @@ body {
   color: var(--ink);
 }
 
+/*
+ * LE BATTEMENT DE LECTURE : le bouton devient le rebours.
+ *
+ * Mesure avant correction : 50 ms entre COMMENCER et la premiere consigne. Le
+ * joueur lisait le nom de sa regle, cliquait, et se retrouvait sous une fenetre
+ * d'une seconde et demie sans avoir eu le temps de la retenir — rapporte comme
+ * « jete dans la fosse aux lions ». Le multijoueur donnait deja 4500 ms pour ca.
+ *
+ * Le brief RESTE a l'ecran pendant ce temps : la regle y est en grand avec son
+ * explication. Le bouton porte le decompte, donc rien ne se deplace — le
+ * regard reste ou il doit etre, sur la regle, et pas sur un panneau qui arrive.
+ *
+ * `:disabled` est neutralise ici : le bouton n'est pas indisponible, il
+ * COMPTE. Le griser dirait « rate », alors qu'il dit « tiens-toi pret ».
+ */
+.btn--lecture,
+.btn--lecture:disabled {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: var(--ink);
+  opacity: 1;
+  cursor: default;
+  font-variant-numeric: tabular-nums;
+  /* Le chiffre est seul sur le bouton : il peut etre lu d'un coup d'oeil
+     peripherique pendant qu'on relit la regle au-dessus. */
+  font-size: var(--t-lire);
+  letter-spacing: 0.08em;
+}
+
 .btn--primary:active {
   background: var(--signal);
   color: var(--ink);
