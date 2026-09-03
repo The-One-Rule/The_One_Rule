@@ -190,6 +190,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "compte.nom": "CHANGER DE NOM",
     "compte.deconnexion": "SE DÉCONNECTER",
     "compte.supprimer": "SUPPRIMER LE COMPTE",
     "multi.eyebrow": "MULTIJOUEUR",
@@ -287,6 +288,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "compte.nom": "CHANGE NAME",
     "compte.deconnexion": "SIGN OUT",
     "compte.supprimer": "DELETE ACCOUNT",
     "multi.eyebrow": "MULTIPLAYER",
@@ -359,6 +361,9 @@ export const CHAINES = STATIQUE;
 
 type Dyn = {
   compteSupprimer: string;
+  compteNom: string;
+  cptNomEnvoi: string;
+  cptNomRate: string;
   compteConfirmer: string;
   compteTitreConnecte: string;
   compteTitreAnonyme: string;
@@ -619,6 +624,9 @@ function rangSuffixe(n: number): string {
 const DYN: Record<Lang, Dyn> = {
   fr: {
     compteSupprimer: "SUPPRIMER LE COMPTE",
+    compteNom: "CHANGER DE NOM",
+    cptNomEnvoi: "ENVOI…",
+    cptNomRate: "LE NOM N'A PAS PU ÊTRE ENREGISTRÉ — IL RESTE VALABLE SUR CET APPAREIL",
     compteConfirmer: "CONFIRMER LA SUPPRESSION",
     compteTitreConnecte: "TON COMPTE",
     compteTitreAnonyme: "ENREGISTRER TES PERFS",
@@ -851,6 +859,9 @@ const DYN: Record<Lang, Dyn> = {
   },
   en: {
     compteSupprimer: "DELETE ACCOUNT",
+    compteNom: "CHANGE NAME",
+    cptNomEnvoi: "SAVING…",
+    cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
     compteConfirmer: "CONFIRM DELETION",
     compteTitreConnecte: "YOUR ACCOUNT",
     compteTitreAnonyme: "SAVE YOUR RUNS",

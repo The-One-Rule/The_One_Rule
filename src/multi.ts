@@ -122,6 +122,31 @@ export type MultiApi = {
    * boutons français au milieu d'une page anglaise.
    */
   onLangue: () => void;
+  /**
+   * Ouvre l'écran NOM ET SIGNE depuis ailleurs que le multijoueur.
+   *
+   * Rapporté par Pierre : « impossible de changer nom après connexion ». Le nom
+   * n'était saisissable QUE sur le chemin du multijoueur — donc un joueur solo
+   * n'en avait aucun, et personne ne pouvait revenir sur le sien.
+   *
+   * On réutilise cet écran-là plutôt que d'en bâtir un second dans COMPTE :
+   * deux champs de nom finiraient par diverger, et c'est déjà ici que vivent la
+   * grille des signes et la contrainte de longueur.
+   *
+   * `revenir` dit où ramener le joueur, par CONTINUER comme par RETOUR. C'est
+   * une FONCTION et non un nom d'écran : le multi ne connaît que les siens, et
+   * lui apprendre à en nommer d'autres l'attacherait à l'application.
+   */
+  ouvreIdentite: (revenir: () => void) => void;
+  /**
+   * Le nom vient d'être validé — quel que soit l'écran d'où l'on venait.
+   *
+   * C'était le vrai défaut : l'écran d'identité n'écrivait que la sauvegarde
+   * locale et ne parlait jamais au compte. Un joueur connecté se renommait donc
+   * pour lui seul, et le classement continuait d'afficher l'ancien nom — ou
+   * rien du tout.
+   */
+  onIdentite: (cb: (nom: string, glyphe: number) => void) => void;
 };
 
 type MatchState = {
@@ -631,6 +656,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     blurChat: () => {},
     onScreen: () => {},
     onLangue: () => {},
+    ouvreIdentite: () => {},
+    onIdentite: () => {},
   };
 
   if (!wsUrl) {
@@ -2058,6 +2085,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /*
+   * Où ramener le joueur après CONTINUER ou RETOUR.
+   *
+   * `null` = le comportement historique du multijoueur (vers `multi-join`, ou
+   * le salon si l'on y était). Rempli quand on arrive d'ailleurs — aujourd'hui
+   * l'écran COMPTE, où l'on vient se renommer.
+   */
+  let retourIdentite: (() => void) | null = null;
+  let surIdentite: ((nom: string, glyphe: number) => void) | null = null;
+
   function openIdentity(): void {
     glyphChoisi = P.load().multi.glyph;
     $<HTMLInputElement>("idName").value = savedName() ?? "";
@@ -2500,6 +2537,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       net.close();
       net = null;
     }
+    /*
+     * On prévient l'extérieur AVANT de changer d'écran.
+     *
+     * C'est ici que le nom rejoint le COMPTE : sans ce rappel, l'écran
+     * n'écrivait que la sauvegarde locale, et un joueur connecté se renommait
+     * pour lui seul pendant que le classement gardait l'ancien nom.
+     */
+    surIdentite?.(nom, glyphChoisi);
+
+    const revenir = retourIdentite;
+    retourIdentite = null;
+    if (revenir) {
+      revenir();
+      return;
+    }
     const suite = apresIdentite;
     apresIdentite = null;
     if (suite) suite();
@@ -2509,6 +2561,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $("btnIdBack").addEventListener("click", () => {
     sfx.ui();
     apresIdentite = null;
+    if (retourIdentite) {
+      const revenir = retourIdentite;
+      retourIdentite = null;
+      revenir();
+      return;
+    }
     // On peut arriver ici DEPUIS le salon (bouton « choisir ton nom ») : y
     // renvoyer, sinon renoncer a se nommer ferait quitter la partie.
     if (roomCode) {
@@ -2752,5 +2810,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     blurChat,
     onScreen,
     onLangue,
+    ouvreIdentite: (revenir: () => void) => {
+      retourIdentite = revenir;
+      openIdentity();
+    },
+    onIdentite: (cb) => {
+      surIdentite = cb;
+    },
   };
 }

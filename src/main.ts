@@ -44,6 +44,7 @@ import { vueDuJour } from "./render/jour";
 import { tempsDeLecture } from "./game/lecture";
 import { cleanEnv } from "./env";
 import {
+  changeIdentite,
   compte,
   connexion,
   deconnexion,
@@ -2231,6 +2232,31 @@ $("btnCompteSupprimer").addEventListener("click", () => {
   });
 });
 
+/*
+ * CHANGER DE NOM — depuis le compte, sur l'écran qui sait déjà le faire.
+ *
+ * Rapporté par Pierre : « impossible de changer nom après connexion ». Deux
+ * défauts se cachaient derrière, et le second est le pire :
+ *
+ * 1. le nom n'était saisissable QUE sur le chemin du multijoueur, donc un
+ *    joueur solo qui se connectait arrivait avec un pseudo VIDE — vérifié en
+ *    production, le classement rendait `{"rang":1,"pseudo":"",…}` ;
+ * 2. `changeIdentite` existait, avec sa route serveur complète, et n'était
+ *    appelée de NULLE PART.
+ *
+ * On rouvre l'écran NOM ET SIGNE du multi plutôt que d'en bâtir un second :
+ * deux champs de nom finiraient par diverger, et c'est là que vivent déjà la
+ * grille des signes et la limite de quatorze caractères.
+ */
+$("btnCompteNom").addEventListener("click", () => {
+  sfx.ui();
+  // On repasse par `ouvreCompte` plutôt que de rappeler `show` : c'est le
+  // point d'entrée unique de cet écran, et `tests/invariants-compte` vérifie
+  // qu'il le reste — le compte ne doit jamais s'ouvrir autrement que par un
+  // clic délibéré.
+  multi.ouvreIdentite(() => void ouvreCompte());
+});
+
 $("btnCompteQuitter").addEventListener("click", () => {
   deconnexion();
   P.mutate((st) => {
@@ -2640,6 +2666,39 @@ renderHome();
  * qu'en jeu.
  */
 multi.onLangue();
+
+/*
+ * LE NOM VALIDÉ REJOINT LE COMPTE — quel que soit l'écran d'où l'on venait.
+ *
+ * C'était le défaut de fond derrière « impossible de changer nom après
+ * connexion » : l'écran d'identité n'écrivait que la sauvegarde locale. Un
+ * joueur connecté se renommait donc pour lui seul, et le classement — la seule
+ * surface où son nom est vu par d'autres — gardait l'ancien, ou rien du tout.
+ *
+ * Posé ici plutôt que sur le bouton de l'écran COMPTE : le multijoueur aussi
+ * fait passer par cet écran, et un nom changé avant d'entrer dans un salon doit
+ * suivre de la même façon. Un seul chemin, donc un seul comportement.
+ *
+ * ⚠️ L'ÉCHEC N'EST PAS BLOQUANT, et c'est la doctrine n°12 : aucune
+ * fonctionnalité de jeu ne dépend du compte. Le nom est déjà écrit localement
+ * quand on arrive ici — le multijoueur marchera. Le serveur, lui, rattrapera au
+ * prochain rafraîchissement de jeton.
+ */
+multi.onIdentite((nom, glyphe) => {
+  if (!estConnecte()) return;
+  void changeIdentite(nom, glyphe).then((moi) => {
+    if (!moi) {
+      // On ne le dit QUE si le joueur regarde l'écran du compte : ailleurs, ce
+      // serait une alerte sur un problème qui ne l'empêche de rien faire.
+      if (screen !== "compte") return;
+      $("compteDanger").textContent = t("cptNomRate");
+      $("compteDanger").classList.remove("hidden");
+      return;
+    }
+    if (screen === "compte") renderCompte();
+  });
+});
+
 void demarreCompte();
 
 const invite = readInvite();

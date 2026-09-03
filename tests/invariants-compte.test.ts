@@ -177,6 +177,75 @@ describe("aucun texte de joueur n'est injecté en HTML", () => {
  * L'écran de compte n'est pas une porte
  * ------------------------------------------------------------------ */
 
+describe("le nom du joueur", () => {
+  /*
+   * LE BUG QUE CE BLOC AURAIT ATTRAPÉ.
+   *
+   * Rapporté par Pierre : « impossible de changer nom après connexion ». Deux
+   * défauts derrière, et le second est le pire :
+   *
+   * 1. le nom n'était saisissable QUE sur le chemin du multijoueur — un joueur
+   *    solo qui se connectait arrivait donc avec un pseudo VIDE, vérifié en
+   *    production où le classement rendait `{"rang":1,"pseudo":"",…}` ;
+   * 2. `changeIdentite` existait, avec sa route serveur complète et testée, et
+   *    n'était appelée de NULLE PART. Du code mort qui ressemblait à une
+   *    fonctionnalité livrée.
+   *
+   * Le second est celui qu'une relecture ne trouve pas : rien ne casse, rien
+   * n'avertit, et la fonction se lit parfaitement.
+   */
+  it("l'écran d'identité est atteignable depuis le COMPTE", () => {
+    const src = lit("src/main.ts");
+    expect(src, "le bouton CHANGER DE NOM doit être câblé").toMatch(/btnCompteNom/);
+    expect(src, "il rouvre l'écran NOM ET SIGNE existant").toMatch(/ouvreIdentite/);
+    expect(lit("index.html")).toMatch(/id="btnCompteNom"/);
+  });
+
+  it("⚠️ un nom validé REJOINT le compte", () => {
+    // `changeIdentite` a existé des mois sans appelant. Ce test refuse qu'elle
+    // y retourne : sans lui, un joueur connecté se renomme pour lui seul et le
+    // classement garde l'ancien nom, en silence.
+    const src = lit("src/main.ts");
+    expect(src).toMatch(/onIdentite\(/);
+    expect(src).toMatch(/changeIdentite\(/);
+  });
+
+  it("le renommage passe par le crochet, PAS par le seul bouton du compte", () => {
+    /*
+     * Le multijoueur fait passer par le même écran d'identité. Poser la
+     * synchronisation sur le bouton de l'écran COMPTE seulement laisserait un
+     * nom changé avant d'entrer dans un salon sans jamais rejoindre le compte —
+     * un chemin qui marche, un autre qui ne marche pas, pour le même geste.
+     *
+     * On le vérifie par la structure : `changeIdentite` doit être appelée dans
+     * le corps de `onIdentite`, pas dans celui du gestionnaire du bouton.
+     */
+    const src = lit("src/main.ts");
+    const i = src.indexOf("onIdentite(");
+    const j = src.indexOf("changeIdentite(", i);
+    expect(i, "onIdentite doit être posé").toBeGreaterThan(-1);
+    expect(j, "changeIdentite doit suivre onIdentite").toBeGreaterThan(i);
+    // Dans la même lampeée de code, pas trois écrans plus loin.
+    expect(j - i).toBeLessThan(1200);
+  });
+
+  it("⚠️ un échec d'enregistrement ne bloque PAS le jeu", () => {
+    /*
+     * Décision n°12 : aucune fonctionnalité de jeu ne dépend du compte. Le nom
+     * est écrit LOCALEMENT par l'écran d'identité avant que le crochet ne
+     * parte ; si le serveur refuse, le multijoueur doit continuer de marcher.
+     *
+     * Concrètement : l'appel est en `void` — personne ne l'attend — et l'écran
+     * d'identité n'a aucune raison de le savoir.
+     */
+    const src = lit("src/main.ts");
+    expect(src).toMatch(/void changeIdentite\(/);
+    expect(lit("src/multi.ts"), "le multi ne connaît pas le compte").not.toMatch(
+      /changeIdentite/,
+    );
+  });
+});
+
 describe("l'écran de compte", () => {
   it("n'est jamais ouvert automatiquement", () => {
     const src = lit("src/main.ts")

@@ -793,6 +793,13 @@
           <div class="account__on hidden" id="compteConnecte">
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
+              <!-- CHANGER DE NOM.
+                   Rapporte par un joueur : « impossible de changer nom apres
+                   connexion ». Le nom n'etait saisissable que sur le chemin du
+                   multijoueur, donc un joueur solo n'en avait aucun et personne
+                   ne pouvait revenir sur le sien. Ce bouton rouvre l'ecran NOM
+                   ET SIGNE deja existant plutot que d'en dupliquer un ici. -->
+              <button class="btn" id="btnCompteNom" data-i18n="compte.nom">CHANGE NAME</button>
               <button class="btn btn--ghost" id="btnCompteQuitter" data-i18n="compte.deconnexion">SIGN OUT</button>
               <!-- Deux temps, jamais un seul : le premier clic dit ce qui va
                    disparaître, le second le fait. Un bouton de suppression qui
