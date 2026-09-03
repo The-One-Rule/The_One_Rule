@@ -4622,12 +4622,118 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/* ==================================================================
+ * LE CARNET EST UNE COLLECTION DE CARTES
+ *
+ * C'était une liste de lignes. Une liste se consulte ; une collection se
+ * COMPLÈTE — et c'est la seule chose réclamée par les joueurs qui manquait
+ * vraiment : mesuré, les pièces ne s'achètent rien et 15 % seulement des
+ * joueurs valident une quête.
+ *
+ * `auto-fill` et non `auto-fit` : à deux cartes découvertes sur seize, `auto-fit`
+ * étirerait ces deux-là sur toute la largeur et la grille cesserait de
+ * ressembler à une collection. Les emplacements restent, c'est le sujet.
+ * ================================================================== */
 .codexlist {
   margin-top: var(--sp-4);
   text-align: left;
   display: grid;
-  gap: var(--sp-1);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-2);
 }
+
+.carte {
+  display: flex;
+  flex-direction: column;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  /* Aucun arrondi : les angles droits SONT l'identité (décision n°8). */
+  overflow: hidden;
+}
+
+/*
+ * L'emblème occupe un carré. `aspect-ratio` seul suffit ici — pas de plancher
+ * de hauteur, qui imposerait la dimension croisée et ferait déborder la
+ * rangée (piège déjà payé sur les cases du code de salon).
+ */
+.carte__vue {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-2);
+  background: var(--ink);
+  border-bottom: var(--bd-hair) solid var(--line);
+}
+
+.carte__svg {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.carte__corps {
+  flex: 1 1 auto;
+  padding: var(--sp-2) var(--sp-2) 0;
+}
+
+.carte__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base, 0.04em);
+  color: var(--paper);
+}
+
+.carte__brief {
+  margin: 6px 0 0;
+  font-size: var(--t-micro);
+  line-height: 1.45;
+  color: var(--paper-dim);
+}
+
+.carte__etat {
+  margin: var(--sp-2) 0 0;
+  padding: 6px var(--sp-2);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  border-top: var(--bd-hair) solid var(--line);
+}
+
+/*
+ * LES TROIS ÉTATS — et c'est le premier habillage de carte.
+ *
+ * Le cadre porte l'état, pas un badge posé par-dessus : une carte se reconnaît
+ * de loin, dans une grille de seize, sans rien lire. C'est aussi le point
+ * d'accroche de `Apparence.carte` — le jour où un habillage se possède, il
+ * remplacera CES trois déclarations et rien d'autre.
+ */
+.carte.is-verrouillee {
+  border-style: dashed;
+}
+
+.carte.is-verrouillee .carte__nom {
+  color: var(--line);
+}
+
+/*
+ * MAÎTRISÉE : le liseré d'accent, comme la puce d'entraînement.
+ *
+ * `--signal` est réservé à la règle unique et à l'action évidente : il désigne
+ * donc ici exactement ce qu'il désigne ailleurs — ce qui compte. Et c'est le
+ * même signe que sur la grille de choix, pour que les deux écrans disent la
+ * maîtrise de la même façon.
+ */
+.carte.is-maitrisee {
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__etat {
+  color: var(--signal-pale);
+  border-top-color: var(--signal);
+}
+
+
 
 .codexrow {
   display: block;

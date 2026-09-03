@@ -1300,6 +1300,47 @@ donc monter de plusieurs crans en un appel. L'assertion tenait uniquement à la
 distribution des règles, c'est-à-dire au nombre de règles au catalogue. Encore
 la famille décrite au §11.
 
+### Le carnet est devenu une COLLECTION de cartes
+
+Une règle, une carte. C'était une liste de lignes ; une liste se consulte, une
+collection se COMPLÈTE — et c'est la seule chose réclamée par les joueurs qui
+manquait vraiment : mesuré, les pièces ne s'achètent rien et 15 % seulement des
+joueurs valident une quête.
+
+⚠️ **L'ILLUSTRATION EST ENGENDRÉE, PAS DESSINÉE.** Pierre demandait des cartes
+« comme Genshin », en cherchant des bibliothèques d'images. TOR n'a aucune
+illustration et son identité l'interdit — pas de dégradé, pas d'arrondi, angles
+droits (n°8) — et douze dessins seraient douze fichiers à produire, licencier et
+charger.
+
+Or **chaque règle EST déjà une forme du jeu**. LE SANG interdit un carré
+garance, LA ROUE un rond, LES ANGLES quatre coins hachurés — qui sont
+littéralement déjà dessinés sur le terrain. L'emblème est donc une petite scène
+faite des MÊMES primitives, en SVG inline : zéro fichier, zéro licence,
+impossible d'être hors-marque, et ça dit exactement ce que la règle interdit.
+Ajouter une règle, c'est ajouter quatre lignes de données, pas commander une
+image.
+
+**La grammaire est constante, et testée** : ce qui est BARRÉ d'une croix est ce
+que la règle interdit, ce qui est PÂLE n'est là que pour la comparaison, une
+BANDE hachurée est une zone. Un joueur qui a vu deux cartes sait lire la
+troisième. Les déformations — LE JUMEAU, L'ACCÉLÉRATION — n'ont ni croix ni
+bande, ce qui les distingue à l'œil des neuf règles qui piègent.
+
+⚠️ **Une carte verrouillée ne laisse RIEN fuiter dans le DOM.** La censure
+REMPLACE la scène, elle ne la couvre pas : un emblème caché sous un voile se
+lirait en ouvrant l'inspecteur, et tout le catalogue avec — la décision n°7
+tenue jusque dans le HTML. Éprouvé en voilant au lieu de remplacer : le test
+tombe.
+
+**L'enveloppe des emblèmes est vérifiée forme par forme** — un rond tient dans
+son rayon, un triangle monte à 1,15 r et s'étale à 1,1 r, une pièce barrée porte
+sa croix jusqu'à 1,35 r. LE COLOSSE débordait à 105,75 dans un cadre de 100 ;
+trouvé par le test, pas à l'œil.
+
+ reste le point d'accroche : le jour où un habillage se
+possède, il remplacera les trois déclarations d'état du CSS et rien d'autre.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

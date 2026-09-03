@@ -473,7 +473,6 @@ type Dyn = {
   /* --- le carnet --- */
   carnetProgres: (vues: number, total: number, tenues: number) => string;
   carnetJamais: string;
-  carnetTenu: (best: number) => string;
   carnetMeilleur: (best: number) => string;
   /* --- l'ecran de fin --- */
   finReglesTenues: (n: number, score: number) => string;
@@ -721,9 +720,8 @@ const DYN: Record<Lang, Dyn> = {
     pickRestePiege: "1 PIÈGE",
     pickMaitrisee: "MAÎTRISÉE",
     pickPourMaitriser: (r) => `POUR LA MAÎTRISER : ${r}`,
-    carnetProgres: (v, t, k) => `${v} / ${t} RENCONTRÉES · ${k} TENUES`,
+    carnetProgres: (v, t, k) => `${v} / ${t} RENCONTRÉES · ${k} MAÎTRISÉE${k > 1 ? "S" : ""}`,
     carnetJamais: "JAMAIS RENCONTRÉE",
-    carnetTenu: (b) => `TENU · ${b}`,
     carnetMeilleur: (b) => `MEILLEUR ${b}`,
     finReglesTenues: (n, sc) => `RÈGLE${n > 1 ? "S" : ""} TENUE${n > 1 ? "S" : ""} · ${sc} MANCHES`,
     finSansFaute: "MANCHES · SANS FAUTE",
@@ -938,9 +936,8 @@ const DYN: Record<Lang, Dyn> = {
     pickRestePiege: "1 TRAP",
     pickMaitrisee: "MASTERED",
     pickPourMaitriser: (r) => `TO MASTER IT: ${r}`,
-    carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} HELD`,
+    carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} MASTERED`,
     carnetJamais: "NEVER MET",
-    carnetTenu: (b) => `HELD · ${b}`,
     carnetMeilleur: (b) => `BEST ${b}`,
     finReglesTenues: (n, sc) =>
       `${n === 1 ? "RULE" : "RULES"} HELD · ${sc} ROUND${sc === 1 ? "" : "S"}`,

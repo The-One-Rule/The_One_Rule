@@ -15,6 +15,7 @@ import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
+import { emblemeDe, emblemeSvg, etatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
@@ -598,27 +599,34 @@ function renderCodex(): void {
    * répond à quelque chose.
    */
   const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
-  const tenues = ONE_RULES.filter((r) => s.encountered[r.id]?.cleared).length;
-  $("codexProgress").textContent =
-    t("carnetProgres")(vues, ONE_RULES.length, tenues);
+  const maitrisees = ONE_RULES.filter((r) => estMaitrisee(r, s.encountered[r.id])).length;
+  $("codexProgress").textContent = t("carnetProgres")(vues, ONE_RULES.length, maitrisees);
+
+  /*
+   * LE CARNET EST DEVENU UNE COLLECTION.
+   *
+   * C'était une liste de lignes ; c'est une grille de cartes. Le changement
+   * n'est pas décoratif : une liste se consulte, une collection se COMPLÈTE, et
+   * c'est la seule chose que les joueurs ont réclamée qui manquait vraiment —
+   * mesuré, les pièces ne s'achètent rien et 15 % seulement valident une quête.
+   *
+   * Le compteur compte désormais les MAÎTRISÉES et non les « tenues » : c'est
+   * le même objectif que l'entraînement ciblé, donc le même nombre partout.
+   */
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
-    const row = document.createElement("div");
-    row.className = "codexrow" + (rec ? (rec.cleared ? " is-cleared" : "") : " is-locked");
-    row.innerHTML =
-      `<span class="codexrow__head">` +
-      `<span class="codexrow__name"></span>` +
-      `<span class="codexrow__score"></span>` +
-      `</span>` +
-      `<span class="codexrow__brief"></span>`;
-    row.querySelector<HTMLElement>(".codexrow__name")!.textContent = rec
-      ? nomDeRegle(r.id, r.name)
-      : "— — — — —";
-    row.querySelector<HTMLElement>(".codexrow__score")!.textContent = rec
-      ? rec.cleared
-        ? t("carnetTenu")(rec.best)
-        : t("carnetMeilleur")(rec.best)
-      : t("carnetJamais");
+    const etat = etatCarte(rec, estMaitrisee(r, rec));
+    const carte = document.createElement("article");
+    carte.className = `carte is-${etat}`;
+    carte.innerHTML =
+      `<div class="carte__vue">${emblemeSvg(emblemeDe(r), { verrouille: etat === "verrouillee" })}</div>` +
+      `<div class="carte__corps">` +
+      `<h3 class="carte__nom"></h3>` +
+      `<p class="carte__brief"></p>` +
+      `</div>` +
+      `<p class="carte__etat"></p>`;
+    carte.querySelector<HTMLElement>(".carte__nom")!.textContent =
+      etat === "verrouillee" ? t("pickVerrouille") : nomDeRegle(r.id, r.name);
     /*
      * L'explication n'apparaît QUE pour une règle déjà rencontrée.
      *
@@ -626,10 +634,15 @@ function renderCodex(): void {
      * qui nous attend. La surprise du run du jour est le seul contenu neuf du
      * jeu, et la brûler ici la brûlerait partout.
      */
-    row.querySelector<HTMLElement>(".codexrow__brief")!.textContent = rec
-      ? briefDeRegle(r.id, r.brief)
-      : "";
-    list.appendChild(row);
+    carte.querySelector<HTMLElement>(".carte__brief")!.textContent =
+      etat === "verrouillee" ? "" : briefDeRegle(r.id, r.brief);
+    carte.querySelector<HTMLElement>(".carte__etat")!.textContent =
+      etat === "verrouillee"
+        ? t("carnetJamais")
+        : etat === "maitrisee"
+          ? t("pickMaitrisee")
+          : t("carnetMeilleur")(rec?.best ?? 0);
+    list.appendChild(carte);
   }
   show("codex");
 }
