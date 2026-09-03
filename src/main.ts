@@ -778,6 +778,40 @@ async function ouvreCompte(): Promise<void> {
 }
 
 /**
+ * L'endpoint de mesure, lu UNE fois.
+ *
+ * Hissé au niveau du module parce que deux endroits en dépendent désormais :
+ * l'initialisation, et la décision de proposer le bandeau après la première
+ * partie. `cleanEnv` reste indispensable — un BOM devant l'URL rend chaque
+ * envoi silencieusement 404 (piège déjà payé, voir `setupAnalytics`).
+ */
+const ENDPOINT_MESURE = cleanEnv(import.meta.env.VITE_COLLECT_URL as string | undefined);
+
+/**
+ * LA MESURE SE DEMANDE APRÈS LA PREMIÈRE PARTIE, PLUS À L'ARRIVÉE.
+ *
+ * Ce que ça change pour la collecte : RIEN. `metrics.on` vaut déjà `true` par
+ * défaut et le bandeau ne conditionnait aucune collecte — il informait, et
+ * offrait un refus. Les deux restent vrais, une minute plus tard, sur un écran
+ * où le joueur n'a plus rien à faire d'autre. Le réglage MESURE des réglages
+ * n'a pas bougé non plus : le refus reste accessible en permanence.
+ *
+ * ⚠️ L'arbitrage JURIDIQUE reste celui de Pierre. Ce qui est mesuré ici est un
+ * fait de produit — 76 % des joueurs n'ont jamais lancé une partie, et cet
+ * objet couvrait 27 % de l'écran devant les deux portes du jeu.
+ *
+ * Une seule sollicitation par écran : quand le bandeau paraît, l'invitation au
+ * compte attend le run suivant. Deux demandes empilées sur l'écran de fin, ce
+ * serait exactement le mur qu'on vient de retirer de l'accueil.
+ */
+function proposeMesure(): boolean {
+  const s = P.load();
+  if (s.metrics.asked || !ENDPOINT_MESURE) return false;
+  $("notice").classList.remove("hidden");
+  return true;
+}
+
+/**
  * L'invitation de l'écran de fin.
  *
  * Elle ne s'affiche que quand les trois conditions sont réunies : les comptes
@@ -785,9 +819,10 @@ async function ouvreCompte(): Promise<void> {
  * troisième, l'invitation serait une réclame ; avec elle, c'est une
  * information.
  */
-function renderInvite(score: number, record: boolean): void {
+function renderInvite(score: number, record: boolean, mesureDemandee = false): void {
   const boite = $("compteInvite");
-  const montrer = comptesPossibles() && !estConnecte() && !inviteEcartee && score > 0;
+  const montrer =
+    !mesureDemandee && comptesPossibles() && !estConnecte() && !inviteEcartee && score > 0;
   boite.classList.toggle("hidden", !montrer);
   if (!montrer) return;
 
@@ -1138,6 +1173,10 @@ function openBrief(mode: Mode): void {
   show("brief");
 }
 
+
+/** Vrai dès que la fin de l'échauffement a été annoncée, pour ce run-là. */
+let finEchauffementDite = false;
+
 function startRun(): void {
   if (!pendingRule) return;
   if (pendingRule.watchRelease === " " && !spaceDown) {
@@ -1186,6 +1225,7 @@ function startRun(): void {
     pace: challenge ? PACE_DEFAULT : s.trainingPace,
     pile,
   });
+  finEchauffementDite = false;
   hud.setRule(session.rule);
   hud.hideStamp();
   hud.setFooter(
@@ -1496,7 +1536,9 @@ function finishRun(): void {
    */
   const recordBattu =
     mode !== "daily" && end.score > 0 && end.score >= (s.encountered[rule.id]?.best ?? 0);
-  renderInvite(end.score, recordBattu);
+  // Le bandeau de mesure d'abord, une seule fois dans la vie du joueur ; il
+  // fait céder l'invitation au compte pour ce run-là.
+  renderInvite(end.score, recordBattu, proposeMesure());
 
   hud.hideStamp();
   hud.setRule(null);
@@ -2139,6 +2181,11 @@ function loop(now: number): void {
       } else if (session.tierJustCrossed) {
         session.tierJustCrossed = false;
         hud.announce(TIER_NAMES[session.tier] ?? "");
+      } else if (session.graceJustEnded && !finEchauffementDite) {
+        // Une seule fois par run : `announce` relance son animation à chaque
+        // appel, et la boucle passe ici soixante fois par seconde.
+        finEchauffementDite = true;
+        hud.announce(t("echauffementFini"));
       }
       // L'urgence s'entend avant d'être lue : on ne quitte pas la consigne
       // des yeux pour vérifier une barre.
@@ -2224,7 +2271,7 @@ function setupAnalytics(): void {
    * Le bon endroit pour s'en protéger est ici, une fois, plutôt que dans
    * chaque procédure de déploiement.
    */
-  const endpoint = cleanEnv(import.meta.env.VITE_COLLECT_URL as string | undefined);
+  const endpoint = ENDPOINT_MESURE;
 
   initAnalytics({
     id: s.anonId,
@@ -2256,7 +2303,19 @@ function setupAnalytics(): void {
     if (document.visibilityState === "hidden") flush();
   });
 
-  if (!s.metrics.asked && endpoint) $("notice").classList.remove("hidden");
+  /*
+   * ⚠️ LE BANDEAU NE S'AFFICHE PLUS À L'ARRIVÉE. Voir `proposeMesure()`.
+   *
+   * Il s'affichait ici, donc avant la première partie. Mesuré sur 139 joueurs
+   * réels : 106 — soit 76 % — n'ont JAMAIS lancé une partie. Et mesuré sur un
+   * 375×812, le bandeau fait 223 px, soit 27 % de l'écran ; `elementFromPoint`
+   * au centre de la faille rend le BANDEAU et non le bouton, donc les deux
+   * portes SOLO et MULTI sont inertes tant qu'il est là.
+   *
+   * Ce n'est pas une preuve de causalité, mais c'est le seul objet qui se
+   * tient entre l'arrivée et le jeu, et il tue la seule chose qu'un inconnu
+   * regarde en premier.
+   */
   refreshMetricsButton();
 }
 

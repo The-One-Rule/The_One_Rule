@@ -160,6 +160,29 @@ export class Session {
     return this.level < this.grace;
   }
 
+  /**
+   * La manche où l'échauffement vient de s'arrêter.
+   *
+   * ⚠️ LA FALAISE, MESURÉE. Sur 569 runs réels, la répartition des morts par
+   * manche est : 0 à la manche 0, 0 à la 1, 0 à la 2 — l'échauffement protège
+   * — puis **76 à la manche 3**, contre 30 à la 4 et 21 à la 6. La première
+   * manche qui compte tue plus du double de n'importe quelle autre.
+   *
+   * La cause est de conception : pendant trois manches on APPREND au joueur
+   * que se tromper ne coûte rien, et le bandeau le lui dit en toutes lettres.
+   * Puis le message disparaît en silence et la règle change sans prévenir.
+   * L'échauffement n'enseignait pas, il repoussait.
+   *
+   * On ne touche NI à la courbe de difficulté NI à `GRACE_ROUNDS` : les deux
+   * entrent dans `VERSION_CONTENU` et couperaient la comparabilité de tous les
+   * scores déjà enregistrés. On annonce le passage, c'est tout — la même
+   * doctrine que la rotation de règle en multijoueur, qui coûtait deux tiers
+   * des pertes de vies tant qu'elle était muette.
+   */
+  get graceJustEnded(): boolean {
+    return this.grace > 0 && this.level === this.grace;
+  }
+
   get tier(): number {
     return tierOf(this.level);
   }

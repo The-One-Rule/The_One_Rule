@@ -428,6 +428,7 @@ type Dyn = {
   piedSpectateur: string;
   piedMulti: string;
   echauffement: string;
+  echauffementFini: string;
   piegeDejoue: string;
   tenu: string;
   faitMaj: string;
@@ -678,6 +679,7 @@ const DYN: Record<Lang, Dyn> = {
     piedSpectateur: "SPECTATEUR",
     piedMulti: "MULTI",
     echauffement: "ÉCHAUFFEMENT — TU NE PEUX PAS MOURIR",
+    echauffementFini: "À TOI DE JOUER",
     piegeDejoue: "PIÈGE DÉJOUÉ",
     tenu: "TENU",
     faitMaj: "FAIT",
@@ -905,6 +907,7 @@ const DYN: Record<Lang, Dyn> = {
     piedSpectateur: "SPECTATING",
     piedMulti: "MULTI",
     echauffement: "WARM-UP — YOU CANNOT DIE",
+    echauffementFini: "NOW IT COUNTS",
     piegeDejoue: "TRAP AVOIDED",
     tenu: "HELD",
     faitMaj: "DONE",

@@ -491,6 +491,51 @@ de test de collision.
 
 ## 8. Ce que les playtests ont établi
 
+### Jours 238-245 — LE CHIFFRE QUI COMMANDE TOUT LE RESTE
+
+139 joueurs uniques, 572 runs, sept jours. Et une mesure qui écrase les autres :
+
+> **106 joueurs sur 139 — 76 % — n'ont JAMAIS lancé une partie.**
+> 9 en ont joué une seule, 24 en ont joué deux ou plus.
+
+Tant que ce nombre ne bouge pas, aucune métrique de jeu ne veut dire
+grand-chose : elles décrivent les 24 % qui restent. La collecte est fiable pour
+en juger — `metrics.on` vaut `true` par DÉFAUT et le bandeau ne conditionne
+rien, donc on mesure bien tout le monde, y compris ceux qui repartent.
+
+**Le jeu n'est PAS trop dur — sauf à la première manche qui compte.** Sur les
+572 runs : score médian **12**, p75 **20**, record **201**. Mais le PREMIER run
+de chaque joueur a une médiane de **4**, et la moitié de ces morts sont des
+dépassements de temps.
+
+⚠️ **LA FALAISE, et elle est de conception.** Répartition des morts par manche,
+tous runs confondus :
+
+| manche | 0 | 1 | 2 | **3** | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| morts | 0 | 0 | 0 | **76** | 30 | 42 | 21 | 22 | 26 | 16 |
+
+`GRACE_ROUNDS = 3`. Zéro mort tant que l'échauffement protège, puis **76 à la
+manche 3** — plus du double de n'importe quelle autre. Pendant trois manches on
+APPREND au joueur que se tromper ne coûte rien, et le bandeau le lui écrit ;
+puis le message disparaît en silence et la manche suivante tue.
+L'échauffement n'enseignait pas, il repoussait. Corrigé par une ANNONCE
+(« À TOI DE JOUER »), pas en touchant à la courbe : `GRACE_ROUNDS` et `windowMs`
+entrent dans `VERSION_CONTENU` et couperaient la comparabilité de tous les
+scores déjà enregistrés.
+
+Le pic secondaire de la manche 5 est un `FORCED_TRAP_ROUNDS` **hors
+échauffement** — le commentaire de `difficulty.ts` annonce « deux fois, pendant
+l'échauffement où l'erreur ne tue pas », or seule la manche 2 y est. Constaté,
+pas corrigé : le changer modifie le run du jour. À trancher avec une mesure.
+
+**Autres chiffres du relevé** : entraînement **538 runs** contre 13 pour le run
+du jour et 18 pour l'escalade — le bouton JOUER de l'accueil mène droit à
+l'entraînement, et les deux autres modes sont devenus invisibles. Quêtes
+validées par 15 % des joueurs. Invitations envoyées par 5 %. Partage **0 %**,
+comme depuis le début. D1 **8,3 %** — à ne pas comparer aux 35,7 % du jour 3,
+qui portaient sur 14 amis contre 120 inconnus.
+
 ### Jour 3 (30/08/2026) — les deux correctifs tiennent, et un effet de bord
 
 50 joueurs uniques sur trois jours, 181 runs, dont **39 joueurs le jour 240** —
@@ -669,6 +714,24 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · 519 tests (44 fichiers) ·
 e2e 79 assertions (~2 min 30) · `vite build`.
+
+### Le bandeau de mesure a quitté l'accueil
+
+Il s'affichait à l'ARRIVÉE, avant la première partie. Mesuré sur un 375×812 :
+**223 px, 27 % de l'écran**, et `elementFromPoint` au centre de la faille rendait
+le BANDEAU — donc les deux portes SOLO et MULTI étaient inertes tant qu'il était
+là. JOUER, lui, restait cliquable.
+
+Il se demande maintenant **après la première partie**, sur l'écran de fin.
+
+⚠️ **Ce que ça change pour la collecte : RIEN.** `metrics.on` vaut déjà `true`
+par défaut et le bandeau ne conditionnait aucune collecte — il informait et
+offrait un refus. Les deux restent vrais, une minute plus tard. Le réglage
+MESURE reste accessible en permanence. **L'arbitrage juridique appartient à
+Pierre** ; ce qui est mesuré ici est un fait de produit.
+
+Une seule sollicitation par écran : quand le bandeau paraît, l'invitation au
+compte cède sa place pour ce run-là.
 
 ⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
 rien perdu` (scénario DUO) a échoué une fois sur deux lancements consécutifs,
