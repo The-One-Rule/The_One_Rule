@@ -1,6 +1,7 @@
 import "./style.css";
 
 import {
+  DAILY_ESSAIS,
   DAILY_LENGTH,
   PACE_CHOICES,
   PACE_DEFAULT,
@@ -353,7 +354,7 @@ function renderHome(): void {
    * irréversible du jeu. Tant qu'il reste quelque chose à faire en solo,
    * l'accent y va.
    */
-  const versMulti = s.daily.played && multi.available;
+  const versMulti = P.essaisDuJour(s) >= DAILY_ESSAIS && multi.available;
   $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
   $("btnMulti").classList.toggle("faille__zone--primary", versMulti);
 
@@ -407,24 +408,39 @@ function renderSolo(): void {
   chip(`${j.regles} <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
   // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
   // identifiant est la clé du carnet et de la comparabilité.
-  if (s.daily.played) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
+  if (P.essaisDuJour(s) >= DAILY_ESSAIS) chip(`${j.jourFait(day)} <b>${t("faitMaj")}</b>`);
   else chip(`${j.aujourdhui} <b>${nomDeRegle(rule.id, rule.name)}</b>`);
 
   renderQuests("homeQuests");
 
   const neuf = s.recent.length === 0;
-  $<HTMLButtonElement>("btnDaily").disabled = s.daily.played;
+  /*
+   * Trois essais par jour, et la carte dit COMBIEN il en reste.
+   *
+   * « Fait » ne suffit plus : un joueur qui a joué une fois peut rejouer, et
+   * une carte grisée le lui cacherait. C'est le nombre restant qui décide, pas
+   * le fait d'avoir joué.
+   */
+  const essais = P.essaisDuJour(s);
+  const restants = Math.max(0, DAILY_ESSAIS - essais);
+  $<HTMLButtonElement>("btnDaily").disabled = restants === 0;
 
   /*
    * L'état va dans `.card__state`, jamais dans le textContent de la carte :
    * l'écrire sur le bouton effacerait son titre et sa description.
    */
-  $("cardDailyDesc").textContent = s.daily.played
-    ? t("dailyFait")
-    : accrocheDuJour(rule.id, day);
-  $("cardDailyState").textContent = s.daily.played
-    ? t("dailyRevient")(s.daily.score)
-    : t("dailyUnEssai");
+  $("cardDailyDesc").textContent =
+    restants === 0 ? t("dailyFait") : accrocheDuJour(rule.id, day);
+  /*
+   * Trois états, et non deux : jamais joué · des essais restent · épuisé.
+   * Le cas du milieu est le seul nouveau, et c'est celui qui fait revenir.
+   */
+  $("cardDailyState").textContent =
+    restants === 0
+      ? t("dailyEpuise")(s.daily.score)
+      : essais === 0
+        ? t("dailyUnEssai")
+        : t("dailyEssaisRestants")(restants);
   $("cardEscaladeState").textContent = t("escaladeEtat");
   $("cardTrainingState").textContent = neuf
     ? t("trainingNeuf")
@@ -440,7 +456,7 @@ function renderSolo(): void {
    *
    * L'accent va donc à l'entraînement, qui pardonne et qui enseigne.
    */
-  const suivant = neuf ? "btnTraining" : s.daily.played ? "btnTraining" : "btnDaily";
+  const suivant = neuf || restants === 0 ? "btnTraining" : "btnDaily";
   for (const id of ["btnDaily", "btnTraining", "btnEscalade"]) {
     $(id).classList.toggle("card--primary", id === suivant);
   }
@@ -1463,8 +1479,22 @@ function finishRun(): void {
     if (!end.usedKeyboard) bump(st, "noKey", end.score, "max");
 
     if (mode === "daily") {
-      st.daily = { day, played: true, score: end.score, cleared: end.cleared };
+      /*
+       * LE MEILLEUR DES ESSAIS, jamais le dernier.
+       *
+       * `st.daily = {…}` écrasait le score : avec trois essais, un second run
+       * raté aurait effacé un bon premier. C'est la même loi que le carnet et
+       * que la fusion des comptes — un maximum, jamais une affectation.
+       *
+       * Et surtout, le SERVEUR fait déjà ça : `posePerf` améliore et ne
+       * remplace pas. Garder le dernier ici ferait afficher à la carte SOLO un
+       * chiffre différent de celui du classement, pour le même joueur et le
+       * même jour.
+       */
+      st.daily = P.majJour(st.daily, day, end.score, end.cleared);
       if (end.cleared) bump(st, "dailyCleared", 1);
+      // Idempotent par jour : `touchStreak` sort sans rien faire quand
+      // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
       P.touchStreak(st, day);
     } else if (pace === PACE_DEFAULT) {
       // Un record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu en
@@ -1596,14 +1626,25 @@ function finishRun(): void {
 
   // Un duel se rejoue à volonté : c'est la même partie, la comparaison reste
   // valable. Le run du jour, lui, reste à un seul essai.
-  $<HTMLButtonElement>("btnAgain").disabled = mode === "daily" && !challenge;
+  /*
+   * REJOUER reste ouvert tant qu'un essai demeure.
+   *
+   * C'est le seul endroit où les trois essais se vivent : proposer de revenir
+   * demain juste après un run raté à quatre manches était la fin de partie la
+   * plus fréquente du jeu, et la plus décourageante.
+   */
+  const essaisRestants = mode === "daily" ? Math.max(0, DAILY_ESSAIS - P.essaisDuJour(s)) : 0;
+  $<HTMLButtonElement>("btnAgain").disabled =
+    mode === "daily" && !challenge && essaisRestants === 0;
   $<HTMLButtonElement>("btnAgain").textContent =
     mode === "ranked"
       ? t("goMatchSuivant")
       : challenge
         ? t("goRevanche")
         : mode === "daily"
-          ? t("goReviensDemain")
+          ? essaisRestants > 0
+            ? t("goRejouer")
+            : t("goReviensDemain")
           : t("goRejouer");
   $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
 

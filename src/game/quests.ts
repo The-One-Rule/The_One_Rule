@@ -63,7 +63,7 @@ export function ensureDay(s: Save, day: number): void {
     s.quests = { day, state: {}, claimed: [] };
   }
   if (s.daily.day !== day) {
-    s.daily = { day, played: false, score: 0, cleared: false };
+    s.daily = { day, played: false, score: 0, cleared: false, essais: 0 };
   }
 }
 

@@ -425,6 +425,9 @@ type Dyn = {
   briefTiens: string;
   goCommencer: string;
   goUnSeulEssai: string;
+  /* --- les essais du run du jour --- */
+  dailyEssaisRestants: (n: number) => string;
+  dailyEpuise: (score: number) => string;
   /* --- ce que le pied et le bandeau affichent EN PARTIE --- */
   piedVies: string;
   piedSpectateur: string;
@@ -674,11 +677,13 @@ const DYN: Record<Lang, Dyn> = {
     piedRecord: "RECORD",
     briefEscalade: (p) =>
       `Tu commences avec une règle. Toutes les ${p} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`,
-    briefDailyLignes: (m) => `${m} MANCHES · UN SEUL ESSAI PAR JOUR`,
+    briefDailyLignes: (m) => `${m} MANCHES · LE MEILLEUR DE TES ESSAIS COMPTE`,
     briefEscaladeLignes: (m) => `${m} RÈGLES AU MAXIMUM · LE SCORE EST CE QUE TU TIENS`,
     briefTiens: "APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE",
     goCommencer: "COMMENCER",
-    goUnSeulEssai: "COMMENCER · UN SEUL ESSAI",
+    goUnSeulEssai: "COMMENCER",
+    dailyEssaisRestants: (n) => `${n} ESSAI${n > 1 ? "S" : ""} RESTANT${n > 1 ? "S" : ""}`,
+    dailyEpuise: (sc) => `${sc} MANCHE${sc > 1 ? "S" : ""} · REVIENS DEMAIN`,
     piedVies: "VIES",
     piedSpectateur: "SPECTATEUR",
     piedMulti: "MULTI",
@@ -699,7 +704,7 @@ const DYN: Record<Lang, Dyn> = {
     cptMeilleurRun: "MEILLEUR RUN DU JOUR",
     dailyFait: "C'est fait pour aujourd'hui.",
     dailyRevient: (n) => `${n} MANCHES · REVIENS DEMAIN`,
-    dailyUnEssai: "UN SEUL ESSAI",
+    dailyUnEssai: "TROIS ESSAIS",
     escaladeEtat: "JUSQU'OÙ TU TIENS ?",
     trainingNeuf: "COMMENCE ICI · TU NE PERDS RIEN",
     trainingRecord: (n) => `RECORD · ${n} MANCHES`,
@@ -903,11 +908,13 @@ const DYN: Record<Lang, Dyn> = {
     piedRecord: "BEST",
     briefEscalade: (p) =>
       `You start with one rule. Every ${p} rounds another one is added — and you hold them all. How far?`,
-    briefDailyLignes: (m) => `${m} ROUNDS · ONE ATTEMPT PER DAY`,
+    briefDailyLignes: (m) => `${m} ROUNDS · YOUR BEST ATTEMPT COUNTS`,
     briefEscaladeLignes: (m) => `${m} RULES AT MOST · YOUR SCORE IS WHAT YOU HOLD`,
     briefTiens: "PRESS SPACE AND HOLD IT DOWN",
     goCommencer: "START",
-    goUnSeulEssai: "START · ONE ATTEMPT ONLY",
+    goUnSeulEssai: "START",
+    dailyEssaisRestants: (n) => `${n} ATTEMPT${n === 1 ? "" : "S"} LEFT`,
+    dailyEpuise: (sc) => `${sc} ROUND${sc === 1 ? "" : "S"} · COME BACK TOMORROW`,
     piedVies: "LIVES",
     piedSpectateur: "SPECTATING",
     piedMulti: "MULTI",
@@ -928,7 +935,7 @@ const DYN: Record<Lang, Dyn> = {
     cptMeilleurRun: "BEST DAILY RUN",
     dailyFait: "Done for today.",
     dailyRevient: (n) => `${n} ROUND${n === 1 ? "" : "S"} · COME BACK TOMORROW`,
-    dailyUnEssai: "ONE ATTEMPT ONLY",
+    dailyUnEssai: "THREE ATTEMPTS",
     escaladeEtat: "HOW FAR DO YOU HOLD?",
     trainingNeuf: "START HERE · NOTHING TO LOSE",
     trainingRecord: (n) => `BEST · ${n} ROUND${n === 1 ? "" : "S"}`,

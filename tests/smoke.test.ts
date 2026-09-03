@@ -145,11 +145,27 @@ describe("application", () => {
     expect(teaser.textContent).toContain("DEMAIN");
     expect(teaser.querySelector("b")!.textContent!.length).toBeGreaterThan(2);
 
-    // un seul essai par jour : le bouton doit être verrouillé au retour.
-    // Le verrou est posé par `renderSolo`, donc il faut repasser par SOLO —
-    // c'est aussi ce que fait un joueur.
+    /*
+     * TROIS essais par jour : le bouton reste OUVERT après le premier.
+     *
+     * Ce test affirmait l'inverse — « un seul essai par jour » — et c'est
+     * exactement ce qui a changé. La mesure le demandait : la médiane du
+     * PREMIER run d'un joueur est de 4 manches, donc un essai unique faisait de
+     * toute sa relation au run du jour un échec à quatre manches.
+     *
+     * Le verrou est posé par `renderSolo`, donc il faut repasser par SOLO —
+     * c'est aussi ce que fait un joueur. Le verrou à trois essais, lui, se
+     * teste sur `essaisDuJour` : `main.ts` ne s'évalue qu'une fois ici, on ne
+     * peut donc pas rejouer une journée entière dans ce fichier.
+     */
     document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect((document.getElementById("btnDaily") as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (document.getElementById("btnDaily") as HTMLButtonElement).disabled,
+      "un essai consommé sur trois : on doit pouvoir rejouer",
+    ).toBe(false);
+    // Et l'écran DIT combien il en reste — sans ça, le joueur ne peut pas le
+    // savoir, et un bouton actif après un run se lit comme un bug.
+    expect(document.getElementById("cardDailyState")!.textContent).toMatch(/2/);
   });
 });

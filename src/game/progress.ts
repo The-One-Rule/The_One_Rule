@@ -37,7 +37,16 @@ export interface Save {
   streak: { count: number; lastDay: number; graceWeek: number; graceLeft: number };
   /** 5 derniers scores, sert à calibrer la quête de performance */
   recent: number[];
-  daily: { day: number; played: boolean; score: number; cleared: boolean };
+  /**
+   * Le run du jour. `score` est le MEILLEUR des essais, jamais le dernier.
+   *
+   * `essais` est arrivé avec les trois tentatives : il est donc absent des
+   * sauvegardes déjà écrites. On le lit avec `essaisDuJour`, qui retombe sur
+   * `played` — un joueur qui avait joué avant ce changement a bien consommé un
+   * essai, et lui en rendre trois d'un coup lui donnerait un avantage sur ceux
+   * qui jouent après.
+   */
+  daily: { day: number; played: boolean; score: number; cleared: boolean; essais?: number };
   quests: { day: number; state: Record<string, number>; claimed: string[] };
   coins: number;
   /** identité du classé : pseudo court et dernier classement connu */
@@ -288,6 +297,51 @@ export function recordRun(ruleId: string, score: number, cleared: boolean, piege
     s.encountered[ruleId] = majCarnet(s.encountered[ruleId], score, cleared, pieges);
     s.recent = [...s.recent, score].slice(-5);
   });
+}
+
+/**
+ * Combien d'essais du jour sont déjà consommés.
+ *
+ * Absent vaut « ce que `played` dit » : la doctrine habituelle, appliquée à un
+ * champ ajouté après coup. Sans ce repli, toute sauvegarde antérieure
+ * repartirait à zéro essai le jour du déploiement.
+ */
+export const essaisDuJour = (s: Save): number =>
+  s.daily.essais ?? (s.daily.played ? 1 : 0);
+
+/**
+ * Ce qu'une tentative du jour laisse derrière elle.
+ *
+ * Extraite pour la même raison que `majCarnet` : une formule écrite deux fois
+ * — une en production, une dans un test — finit par diverger, et seule celle
+ * de production tourne. Ici la divergence se verrait au pire endroit, sur le
+ * seul mode dont les résultats se comparent entre joueurs.
+ *
+ * Trois opérations, trois natures :
+ *   · `score` — un MAXIMUM. Un second essai raté n'efface pas un bon premier,
+ *     et surtout le SERVEUR fait déjà ça (`posePerf` améliore, ne remplace
+ *     pas) : garder le dernier ferait afficher à la carte SOLO un chiffre
+ *     différent de celui du classement ;
+ *   · `cleared` — un OU. On ne dé-termine pas un run terminé ;
+ *   · `essais` — un incrément, remis à zéro quand le jour change.
+ *
+ * La garde `avant.day === jour` fait tout le travail du changement de jour :
+ * sans elle, le score d'hier survivrait à minuit.
+ */
+export function majJour(
+  avant: Save["daily"],
+  jour: number,
+  score: number,
+  cleared: boolean,
+): Save["daily"] {
+  const memeJour = avant.day === jour;
+  return {
+    day: jour,
+    played: true,
+    score: Math.max(memeJour ? avant.score : 0, score),
+    cleared: (memeJour && avant.cleared) || cleared,
+    essais: (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+  };
 }
 
 export const isEncountered = (s: Save, ruleId: string): boolean => !!s.encountered[ruleId];

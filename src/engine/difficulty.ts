@@ -82,6 +82,26 @@ export const PACE_DEFAULT = 1;
 /** Nombre de manches d'un run quotidien. */
 export const DAILY_LENGTH = 40;
 
+/**
+ * Essais autorisés par jour sur le run du jour.
+ *
+ * Un seul essai jusqu'ici, et c'était défendable : la rareté fait la valeur.
+ * Mais la mesure dit autre chose — le PREMIER run d'un joueur a une médiane de
+ * **4 manches**, et la moitié de ces morts sont des dépassements de temps. À un
+ * essai par jour, toute la relation d'un nouveau venu au run du jour est donc
+ * un échec à quatre manches. Trois essais transforment ça en apprentissage
+ * dans la même journée, sans rien changer à ce qui se compare : tout le monde
+ * en a trois, et c'est le MEILLEUR qui compte.
+ *
+ * ⚠️ N'ENTRE PAS DANS `VERSION_CONTENU`, et c'est délibéré. La clé de
+ * comparabilité du run du jour porte déjà le JOUR : le classement d'hier garde
+ * donc le sien, et celui d'aujourd'hui est uniforme puisque tout le monde
+ * reçoit le même déploiement. L'y ajouter invaliderait en prime tous les
+ * records d'entraînement et d'escalade, qui partagent cette version et que ce
+ * réglage ne concerne pas.
+ */
+export const DAILY_ESSAIS = 3;
+
 /** Manches d'échauffement pendant lesquelles on ne meurt pas. */
 export const GRACE_ROUNDS = 3;
 

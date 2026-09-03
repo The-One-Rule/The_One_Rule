@@ -241,7 +241,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | Salon | `MAX_PLAYERS 10`, `MAX_ROUNDS 60`, `ROTATION_EVERY 8` |
 | Réglages hôte | vitesse `[1.7 … 0.65]` · vies `[1,3,5]` · rotation `[4,8,16,999]` |
 | Allure solo | `PACE_CHOICES [1.5, 1, 0.8]`, `PACE_DEFAULT 1`, défaut du joueur **1.5** |
-| Solo | `DAILY_LENGTH 40`, `GRACE_ROUNDS 3`, `FORCED_TRAP_ROUNDS {2,5,9}` |
+| Solo | `DAILY_LENGTH 40`, `DAILY_ESSAIS 3`, `GRACE_ROUNDS 3`, `FORCED_TRAP_ROUNDS {2,5,9}` |
 | Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
 
@@ -959,6 +959,44 @@ puis les variables : `TOR_AUTH_SECRET` (le même des deux côtés), `TOR_APP_URL
 `DISCORD_CLIENT_ID/SECRET` sur Vercel — et `TOR_AUTH_SECRET` sur Fly.
 ⚠️ `fly secrets set` redémarre la machine et tue les salons : à faire quand
 personne ne joue, puis revérifier `fly scale count 1`.
+
+### Trois essais sur le run du jour
+
+Réclamé par les joueurs, mais retenu pour une raison qu'ils n'avaient pas
+donnée : le **PREMIER** run d'un joueur a une médiane de **4 manches**, et la
+moitié de ces morts sont des dépassements de temps. À un essai par jour, toute
+la relation d'un nouveau venu au run du jour était donc un échec à quatre
+manches, sans recours avant le lendemain.
+
+**Ce qui se compare ne change pas** : tout le monde en a trois, et c'est le
+MEILLEUR qui compte.
+
+⚠️ **`DAILY_ESSAIS` n'entre PAS dans `VERSION_CONTENU`**, et c'est délibéré. La
+clé de comparabilité du run du jour porte déjà le JOUR : le classement d'hier
+garde donc le sien, et celui d'aujourd'hui est uniforme puisque tout le monde
+reçoit le même déploiement. L'y ajouter invaliderait en prime tous les records
+d'entraînement et d'escalade, que ce réglage ne concerne pas.
+
+⚠️ **Le score du jour était une AFFECTATION.** `st.daily = { …, score: end.score }`
+écrasait : un second essai raté aurait effacé un bon premier. C'est désormais un
+MAXIMUM — la même loi que le carnet et que la fusion des comptes. Et surtout, le
+SERVEUR faisait déjà ça (`posePerf` améliore, ne remplace pas) : garder le
+dernier aurait fait afficher à la carte SOLO un chiffre différent de celui du
+classement, pour le même joueur et le même jour.
+
+**La série ne triple pas** : `touchStreak` sort sans rien faire quand `lastDay`
+est déjà aujourd'hui. Elle était idempotente par construction, vérifié avant de
+s'y fier.
+
+⚠️ **`essais` est arrivé après, donc absent des sauvegardes écrites.**
+`essaisDuJour` retombe sur `played` : un joueur qui avait déjà fait son run reste
+à un essai consommé. Sans ce repli, le déploiement aurait rendu trois essais
+neufs à tous ceux déjà venus — un avantage sur ceux qui jouent après, et sur le
+seul mode dont les résultats se comparent.
+
+La formule est extraite en `majJour`, pour la même raison que `majCarnet` : une
+formule écrite deux fois — une en production, une dans un test — finit par
+diverger, et seule celle de production tourne.
 
 ### Le classement du jour — fait, jamais vu par un joueur
 
