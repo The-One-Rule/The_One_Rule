@@ -245,13 +245,20 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
 
-**`MULTI_RULES` = 10, ou 11 en salon clavier** (`multiRulesFor`) :
-`mainGauche` est exclue dans les deux cas — tenir ESPACE en recevant la
+**`MULTI_RULES` = 14, ou 15 en salon clavier** (`multiRulesFor`) :
+`mainGauche` est exclue dans les deux cas : tenir ESPACE en recevant la
 consigne par rotation reste injouable même au clavier. `voyelle` ne sort que du
 pool TACTILE : elle ne piège que sur des consignes clavier, donc là-bas elle
-serait inerte, c'est-à-dire un avantage gratuit. Marge zéro pour 10 joueurs en
-tactile, verrouillée par test — et c'est ce que l'e2e exploite pour garantir
-qu'à effectif plein chaque règle tombe exactement une fois.
+serait inerte, c'est-à-dire un avantage gratuit.
+
+⚠️ **LA BIJECTION EST MORTE, et elle était exploitée.** Le pool tactile faisait
+exactement 10 règles pour 10 sièges : à effectif plein, chaque règle tombait une
+fois et une seule. L'e2e s'en servait pour garantir qu'un siège portait LE
+GAUCHER. À 14 règles pour 10 sièges, il n'apparaît plus que 10 fois sur 14 —
+l'assertion serait devenue intermittente, environ une fois sur trois, sans
+qu'aucun code de jeu n'ait changé. **Le scénario relance donc le match jusqu'à
+l'obtenir**, boucle bornée et échec nommé. Mesuré : obtenu au premier lancement
+sur deux passages.
 
 ---
 
@@ -611,7 +618,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
 | Aucun filet sur la mise en page | jsdom ne calcule pas de layout — décision Playwright en attente |
 | Hôte coupé | bloque le lancement ≤ 25 s |
-| Plafond de contenu | 12 règles ; 45 combinaisons possibles à deux règles |
+| Plafond de contenu | 16 règles ; 120 combinaisons possibles à deux règles |
 | Pièces sans dépense | `st.coins` s'accumule et ne sert à rien |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
 | Couleur sans second canal | les pièces ne se distinguent que par la teinte, et garance/jade est la collision classique du daltonisme rouge-vert. Voir la note en §12 |
@@ -1232,6 +1239,66 @@ qui en donne.
   changeant d'appareil, jamais gonfler — le même marché que `best`.
 - La formule d'écriture était **écrite deux fois**, et seule celle de `main.ts`
   tournait vraiment sans qu'aucun test ne l'atteigne. Extraite en `majCarnet`.
+
+### Quatre règles de plus — et le catalogue double sa capacité à piéger
+
+Le catalogue passe de **12 à 16 règles**, et surtout de **5 à 9 règles qui
+piègent**. C'était le chiffre à bouger : le piège est le seul élément non
+copiable du jeu, et sept règles sur douze n'en produisaient aucun.
+
+**Ce que la mesure demandait, et pourquoi ces quatre-là.** Quatre des cinq
+règles piégeantes étaient parmi les six plus DURES (médianes 5 à 7), et ce sont
+elles qu'on sert en premier aux débutants depuis le correctif du jour 3. La
+seule facile était LE SANG, à 12 — parce que la couleur est le canal perceptif
+le plus rapide : on VOIT rouge, on ne le cherche pas.
+
+| Règle | Interdit | Taux de pièges |
+|---|---|---|
+| **L'AZUR** / THE AZURE | le bleu | 21,9 % |
+| **LA ROUE** / THE CIRCLE | les ronds | 26,8 % |
+| **LE SOLITAIRE** / THE LONER | une forme seule de son genre | 27,6 % |
+| **LES ANGLES** / THE CORNERS | les quatre coins de la grille | 24,4 % |
+
+⚠️ **LE SOLITAIRE a été resserré par la mesure, pas par le goût.** En version
+COULEUR il atteignait **31,9 %** — et le test de calibration l'a refusé, avec
+exactement le chiffre que le commentaire de `BANNED_X` donne comme mortel
+(« à la moitié de l'écran, 31 % des manches devenaient "ne rien faire" et le
+jeu s'éteignait »). Passé à la FORME — trois valeurs au lieu de quatre, donc
+l'unicité deux fois plus rare — il tombe à 27,6 %. Il reste **près du plafond
+de 28 %** : la prochaine consigne ajoutée peut l'y pousser, et c'est le test qui
+le dira.
+
+⚠️ **LES ANGLES n'est pas « le bord », et la géométrie l'impose.** Pierre
+demandait une règle pensée pour le pouce. « Ne clique pas au bord » au sens
+littéral couvre l'anneau extérieur de la grille 5×3, soit **12 cellules sur
+15 — 80 % du terrain**, injouable. Les quatre coins font 4 cellules sur 15,
+soit 27 %, la même bande calibrée que LE GAUCHER — et les angles sont
+exactement là où le pouce n'arrive pas.
+
+Son jugement porte sur la position **AU REPOS** (`ox`, `oy`), jamais sur la
+position animée : une forme mobile oscille de ±22 px, ce qui ne lui fait jamais
+changer de cellule (200 px), mais juger sur une valeur qui bouge rendrait le
+verdict dépendant de l'instant du clic — donc l'aperçu pourrait contredire le
+verdict, le seul défaut tenu pour fatal.
+
+**`zone` est devenue une LISTE de rectangles.** LES ANGLES en demande quatre, et
+une pile d'escalade peut désormais porter DEUX règles spatiales : `combineRules`
+concatène donc les zones au lieu de garder la première, sinon l'une des deux
+serait invisible — donc injuste. Le champ est purement décoratif (les `judge`
+décident sur la géométrie), donc l'élargir ne pouvait rien changer à un verdict.
+
+**L'escalade tire maintenant 9 règles** au lieu de 5, et toujours ni LA MAIN
+GAUCHE ni LE DALTONIEN : la propriété qui compte — le tirage ne dépend pas de
+l'appareil — tient, et c'est elle que le test vérifie plutôt qu'une liste de
+noms.
+
+⚠️ **Un test passait par chance, et l'ajout l'a révélé.** `tests/multi.test.ts`
+exigeait `streak === 1` après une mort suivie d'une survie. Mais l'aide
+`surviveAt` ouvre des manches jusqu'à en trouver une jouable et referme celles
+qu'elle saute — or **se taire sur un piège EST une survie**. Le compteur peut
+donc monter de plusieurs crans en un appel. L'assertion tenait uniquement à la
+distribution des règles, c'est-à-dire au nombre de règles au catalogue. Encore
+la famille décrite au §11.
 
 ### Backlog
 

@@ -40,6 +40,10 @@ export const MOTIFS = {
 
   /* --- les règles uniques : une par interdit --- */
   rouge: "TU AS CLIQUÉ SUR DU ROUGE",
+  bleu: "TU AS CLIQUÉ SUR DU BLEU",
+  rond: "TU AS CLIQUÉ UN ROND",
+  solitaire: "TU AS CLIQUÉ UNE COULEUR UNIQUE",
+  angle: "TU AS CLIQUÉ DANS UN ANGLE",
   triangle: "TU AS CLIQUÉ UN TRIANGLE",
   voyelle: "TU AS TAPÉ UNE VOYELLE",
   plusGrosse: "TU AS CLIQUÉ LA PLUS GROSSE FORME",

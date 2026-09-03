@@ -1,7 +1,7 @@
 import { FIELD_H, FIELD_W } from "../engine/types";
 import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
 import { MOTIFS, encrePour } from "./motif";
-import type { ColorId, Entity, OneRule, Round } from "../engine/types";
+import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
 
 /**
  * Palette de jeu.
@@ -520,29 +520,55 @@ export class SceneRenderer {
     }
   }
 
-  /** Bande interdite d'une règle spatiale : invisible, elle serait injuste. */
-  private drawZone(zone: { x0: number; x1: number }): void {
+  /** Zones interdites d'une règle spatiale : invisibles, elles seraient injustes. */
+  private drawZones(zones: readonly ZoneRect[]): void {
+    for (const z of zones) this.drawZone(z);
+  }
+
+  private drawZone(z: ZoneRect): void {
     const { ctx } = this;
+    const w = z.x1 - z.x0;
+    const h = z.y1 - z.y0;
     ctx.save();
     ctx.beginPath();
-    ctx.rect(zone.x0, 0, zone.x1 - zone.x0, FIELD_H);
+    ctx.rect(z.x0, z.y0, w, h);
     ctx.clip();
     ctx.fillStyle = "rgba(145,132,217,0.07)";
-    ctx.fillRect(zone.x0, 0, zone.x1 - zone.x0, FIELD_H);
+    ctx.fillRect(z.x0, z.y0, w, h);
     ctx.strokeStyle = "rgba(145,132,217,0.22)";
     ctx.lineWidth = 3;
-    for (let i = -FIELD_H; i < zone.x1 - zone.x0 + FIELD_H; i += 16) {
+    // Les hachures suivent la DIAGONALE du rectangle : sur une bande pleine
+    // hauteur comme sur un carré d'angle, l'inclinaison reste la même.
+    for (let i = -h; i < w + h; i += 16) {
       ctx.beginPath();
-      ctx.moveTo(zone.x0 + i, FIELD_H);
-      ctx.lineTo(zone.x0 + i + FIELD_H, 0);
+      ctx.moveTo(z.x0 + i, z.y1);
+      ctx.lineTo(z.x0 + i + h, z.y0);
       ctx.stroke();
     }
     ctx.restore();
+    /*
+     * Le liseré ne se pose que sur les bords INTÉRIEURS au terrain : souligner
+     * une arête qui est déjà celle de l'écran ajoute un trait pour rien.
+     */
     ctx.strokeStyle = "rgba(145,132,217,0.55)";
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(zone.x1, 0);
-    ctx.lineTo(zone.x1, FIELD_H);
+    if (z.x1 < FIELD_W) {
+      ctx.moveTo(z.x1, z.y0);
+      ctx.lineTo(z.x1, z.y1);
+    }
+    if (z.x0 > 0) {
+      ctx.moveTo(z.x0, z.y0);
+      ctx.lineTo(z.x0, z.y1);
+    }
+    if (z.y1 < FIELD_H) {
+      ctx.moveTo(z.x0, z.y1);
+      ctx.lineTo(z.x1, z.y1);
+    }
+    if (z.y0 > 0) {
+      ctx.moveTo(z.x0, z.y0);
+      ctx.lineTo(z.x1, z.y0);
+    }
     ctx.stroke();
   }
 
@@ -599,7 +625,7 @@ export class SceneRenderer {
     // évite qu'un interlude ne fasse disparaître l'aire de jeu.
     this.drawField();
 
-    if (rule?.zone) this.drawZone(rule.zone);
+    if (rule?.zone) this.drawZones(rule.zone);
 
     if (round) {
       if (round !== this.bornRound) {

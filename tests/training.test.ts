@@ -65,7 +65,9 @@ describe("règle d'entraînement", () => {
     const connues = new Set<string>();
     const ordre: OneRule[] = [];
     let derniere: string | null = null;
-    for (let i = 0; i < 12; i++) {
+    // Le catalogue entier, pas un nombre en dur : ce test s'est mis a echouer
+    // en ajoutant des regles, alors que ce qu'il verifie n'a pas change.
+    for (let i = 0; i < ONE_RULES.length; i++) {
       const r = trainingRule(base({ duJour, connues, derniere, rng }));
       ordre.push(r);
       connues.add(r.id);

@@ -2,7 +2,7 @@ import { MOTIFS } from "../motifs";
 import { rChance, rInt } from "../rng";
 import { STEP_MS } from "../difficulty";
 import { INSTRUCTIONS } from "../instructions";
-import { COLOR_IDS, FIELD_W } from "../types";
+import { COLOR_IDS, FIELD_H, FIELD_W } from "../types";
 import type { ColorId, Entity, OneRule, Want } from "../types";
 import { VOWELS } from "../instructions";
 
@@ -57,6 +57,27 @@ const LE_SANG: OneRule = {
     a.kind === "click" && a.ent?.color === "garance" ? MOTIFS.rouge : null,
 };
 
+/*
+ * Le clone assumé de LE SANG, et c'est la mesure qui le demande.
+ *
+ * Sur les cinq règles piégeantes du catalogue, quatre sont parmi les six plus
+ * DURES (médianes 5 à 7) — et ce sont elles qu'on sert en premier aux
+ * débutants. La seule facile est LE SANG, à 12, parce que la couleur est le
+ * canal perceptif le plus rapide : on VOIT rouge, on ne le cherche pas.
+ *
+ * Ajouter une seconde interdiction de couleur est donc la façon la plus fiable
+ * d'obtenir une règle qui piège ET qui se lit en 200 ms. Sans imagination,
+ * exprès.
+ */
+const L_AZUR: OneRule = {
+  id: "azur",
+  name: "L'AZUR",
+  brief: "Ne clique jamais sur du bleu. Une consigne finira par te le demander.",
+  traps: true,
+  forbids: (want, ents) => targets(want, ents).some((e) => e.color === "azur"),
+  judge: (a) => (a.kind === "click" && a.ent?.color === "azur" ? MOTIFS.bleu : null),
+};
+
 const LA_POINTE: OneRule = {
   id: "pointe",
   name: "LA POINTE",
@@ -65,6 +86,23 @@ const LA_POINTE: OneRule = {
   forbids: (want, ents) => targets(want, ents).some((e) => e.shape === "triangle"),
   judge: (a) =>
     a.kind === "click" && a.ent?.shape === "triangle" ? MOTIFS.triangle : null,
+};
+
+/*
+ * Le miroir de LA POINTE sur la forme la plus banale.
+ *
+ * Les formes sont tirées uniformément sur trois, donc un rond sort une fois sur
+ * trois là où le triangle se remarque justement parce qu'il est rare. Même
+ * mécanique, mais elle mord plus souvent — et c'est voulu : le catalogue
+ * manquait de règles piégeantes FACILES, pas de règles astucieuses.
+ */
+const LA_ROUE: OneRule = {
+  id: "roue",
+  name: "LA ROUE",
+  brief: "Ne clique jamais un rond, même quand la consigne le désigne.",
+  traps: true,
+  forbids: (want, ents) => targets(want, ents).some((e) => e.shape === "rond"),
+  judge: (a) => (a.kind === "click" && a.ent?.shape === "rond" ? MOTIFS.rond : null),
 };
 
 const LA_VOYELLE: OneRule = {
@@ -105,9 +143,76 @@ const LE_GAUCHER: OneRule = {
   name: "LE GAUCHER",
   brief: "Ne clique jamais la première colonne. Elle est hachurée, aucun clic n'y est toléré.",
   traps: true,
-  zone: { x0: 0, x1: BANNED_X },
+  zone: [{ x0: 0, x1: BANNED_X, y0: 0, y1: FIELD_H }],
   forbids: (want, ents) => targets(want, ents).some((e) => e.x < BANNED_X),
   judge: (a) => (a.kind === "click" && a.x < BANNED_X ? MOTIFS.zoneInterdite : null),
+};
+
+/**
+ * La seule forme de sa couleur à l'écran.
+ *
+ * Le miroir exact de la consigne « CLIQUE L'INTRUS », qui fabrique justement
+ * une pièce unique au milieu d'identiques : le piège y est donc GARANTI, en
+ * plus des unicités qui apparaissent naturellement.
+ *
+ * Elle ouvre un acte perceptif que le catalogue n'avait pas — comparer une
+ * pièce au GROUPE — sans le coût de LE COLOSSE, qui demande d'ordonner des
+ * tailles. Une couleur seule au milieu d'autres se voit ; une taille se mesure.
+ */
+const seuleDeSaForme = (e: Entity, ents: Entity[]): boolean =>
+  ents.filter((x) => x.shape === e.shape).length === 1;
+
+const LE_SOLITAIRE: OneRule = {
+  id: "solitaire",
+  name: "LE SOLITAIRE",
+  brief: "Ne clique jamais une forme seule de son genre à l'écran. Compte avant d'agir.",
+  traps: true,
+  forbids: (want, ents) => targets(want, ents).some((e) => seuleDeSaForme(e, ents)),
+  judge: (a, ctx) =>
+    a.kind === "click" && a.ent && seuleDeSaForme(a.ent, ctx.round.ents)
+      ? MOTIFS.solitaire
+      : null,
+};
+
+/*
+ * LES ANGLES — les quatre cellules de coin de la grille 5×3.
+ *
+ * ⚠️ LA GÉOMÉTRIE N'EST PAS CHOISIE, ELLE EST CONTRAINTE. « Ne clique pas au
+ * bord » au sens littéral couvrirait l'anneau extérieur, soit 12 cellules sur
+ * 15 — 80 % du terrain. Or le commentaire de `BANNED_X` porte la mesure : à la
+ * moitié de l'écran, LE GAUCHER transformait déjà 31 % des manches en « ne
+ * rien faire » et le jeu s'éteignait. Les quatre coins font 4 cellules sur 15,
+ * soit 27 % des positions — la même bande calibrée que LE GAUCHER.
+ *
+ * Et c'est la version qui a du sens sur téléphone : les angles sont exactement
+ * là où le pouce n'arrive pas bien.
+ *
+ * Le jugement porte sur la position AU REPOS (`ox`, `oy`), jamais sur la
+ * position animée : une forme mobile oscille de ±22 px, ce qui ne lui fait
+ * jamais changer de cellule (elles font 200 px), mais juger sur une valeur qui
+ * bouge rendrait le verdict dépendant de l'instant du clic. Le serveur
+ * reconstruit la même valeur depuis la même graine — c'est la condition pour
+ * que l'aperçu ne contredise jamais le verdict.
+ */
+const CELL_W = FIELD_W / 5;
+const CELL_H = FIELD_H / 3;
+
+const dansUnAngle = (e: Entity): boolean =>
+  (e.ox < CELL_W || e.ox > FIELD_W - CELL_W) && (e.oy < CELL_H || e.oy > FIELD_H - CELL_H);
+
+const LES_ANGLES: OneRule = {
+  id: "angles",
+  name: "LES ANGLES",
+  brief: "Ne clique jamais dans les quatre coins. Ils sont hachurés.",
+  traps: true,
+  zone: [
+    { x0: 0, x1: CELL_W, y0: 0, y1: CELL_H },
+    { x0: FIELD_W - CELL_W, x1: FIELD_W, y0: 0, y1: CELL_H },
+    { x0: 0, x1: CELL_W, y0: FIELD_H - CELL_H, y1: FIELD_H },
+    { x0: FIELD_W - CELL_W, x1: FIELD_W, y0: FIELD_H - CELL_H, y1: FIELD_H },
+  ],
+  forbids: (want, ents) => targets(want, ents).some(dansUnAngle),
+  judge: (a) => (a.kind === "click" && a.ent && dansUnAngle(a.ent) ? MOTIFS.angle : null),
 };
 
 const LA_SECONDE: OneRule = {
@@ -281,7 +386,11 @@ export function withoutInk(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule 
 
 export const ONE_RULES: OneRule[] = [
   LE_SANG,
+  L_AZUR,
   LA_POINTE,
+  LA_ROUE,
+  LE_SOLITAIRE,
+  LES_ANGLES,
   LA_VOYELLE,
   LE_COLOSSE,
   LE_GAUCHER,

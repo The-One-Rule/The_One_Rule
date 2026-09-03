@@ -255,6 +255,14 @@ export interface JudgeContext {
  *  - judge   : cette action enfreint-elle la règle ? (motif de mort, ou null)
  *  - transform : déformation de la présentation ou de la difficulté
  */
+/** Un rectangle interdit, en coordonnées de terrain. */
+export interface ZoneRect {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
 export interface OneRule {
   id: string;
   name: string;
@@ -266,8 +274,14 @@ export interface OneRule {
   transform?(round: Round, rng: Rng, level: number): Round;
   /** touche qui doit rester enfoncée toute la partie */
   watchRelease?: string;
-  /** bande interdite à afficher : une règle spatiale doit être visible pour être juste */
-  zone?: { x0: number; x1: number };
+  /**
+   * Zones interdites à AFFICHER — une règle spatiale invisible serait injuste.
+   *
+   * Une LISTE de rectangles, et non plus une bande unique : LES ANGLES en
+   * demande quatre. Purement décoratif — les `judge` décident sur la géométrie,
+   * jamais sur ce champ — donc l'élargir ne peut rien changer à un verdict.
+   */
+  zone?: readonly ZoneRect[];
 }
 
 export type Outcome =

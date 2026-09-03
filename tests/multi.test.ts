@@ -519,7 +519,23 @@ describe("statistiques de siège", () => {
     expect(m.statsOf("a").streak).toBe(0);
     expect(m.statsOf("a").bestStreak).toBe(peak);
     expect(surviveAt(m, "a", 200, ["b"])).toBe(true);
-    expect(m.statsOf("a").streak).toBe(1);
+    /*
+     * ⚠️ AU MOINS un, pas exactement un.
+     *
+     * `surviveAt` ouvre des manches jusqu'à en trouver une jouable, et referme
+     * celles qu'il saute — or se taire sur un piège EST une survie. Le compteur
+     * peut donc monter de plusieurs crans en un seul appel.
+     *
+     * L'assertion `toBe(1)` passait par chance : elle dépendait de quelle règle
+     * tombait sur quel siège, donc du nombre de règles au catalogue. En ajouter
+     * quatre l'a fait tomber, sans qu'aucun comportement n'ait changé. C'est
+     * exactement la famille de bugs que CLAUDE.md décrit — un test qui s'adosse
+     * en silence à la distribution des règles.
+     *
+     * Ce que ce test veut dire, et qui reste vrai : la mort REMET la série à
+     * zéro, et le record de série lui survit.
+     */
+    expect(m.statsOf("a").streak).toBeGreaterThanOrEqual(1);
     expect(m.statsOf("a").bestStreak).toBe(peak);
   });
 

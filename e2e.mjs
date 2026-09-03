@@ -521,19 +521,28 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const { ONE_RULES: RULES } = await import("./src/engine/rules/index.ts");
   const gaucher = RULES.find((r) => r.id === "gaucher");
 
-  // Le porteur se DECOUVRE, il ne se suppose pas — et a effectif plein, sa
-  // presence est garantie.
-  //
-  // Ce bloc affirmait « le 4e arrivant porte LE GAUCHER des la manche 0 »,
-  // parce que rulesAt indexait MULTI_RULES par l'ordre des sieges sans jamais
-  // toucher a la graine. C'etait le defaut lui-meme transforme en assertion :
-  // le siege 0 recevait LE SANG a chaque match, a vie.
-  //
-  // Le pool est desormais permute par match. Mais MULTI_RULES compte DIX
-  // regles et un salon accepte DIX joueurs : a effectif plein, rulesAt
-  // distribue une bijection — chaque regle tombe exactement une fois. LE
-  // GAUCHER est donc present a coup sur, quelle que soit la permutation, et un
-  // seul salon suffit. Rien a retirer, rien d'aleatoire.
+  /*
+   * Le porteur se DECOUVRE, il ne se suppose pas.
+   *
+   * Ce bloc affirmait « le 4e arrivant porte LE GAUCHER des la manche 0 »,
+   * parce que rulesAt indexait MULTI_RULES par l'ordre des sieges sans jamais
+   * toucher a la graine. C'etait le defaut lui-meme transforme en assertion :
+   * le siege 0 recevait LE SANG a chaque match, a vie.
+   *
+   * Il s'est ensuite appuye sur une BIJECTION : dix regles au pool, dix sieges
+   * au maximum, donc chaque regle tombait exactement une fois et LE GAUCHER
+   * etait garanti.
+   *
+   * ⚠️ CETTE GARANTIE EST MORTE. Le catalogue est passe a seize regles, donc le
+   * pool tactile a quatorze pour dix sieges : LE GAUCHER n'apparait plus que
+   * 10 fois sur 14. L'assertion serait devenue INTERMITTENTE — elle tomberait
+   * environ une fois sur trois, sans qu'aucun code de jeu n'ait change.
+   *
+   * On RELANCE donc le match jusqu'a l'obtenir. Chaque `start` tire une graine
+   * neuve, donc une permutation neuve, et le salon survit au match : c'est le
+   * chemin le moins cher. La boucle est bornee et son echec est nomme — un
+   * test qui abandonne en silence ne prouve rien.
+   */
   const eq = [];
   for (let i = 0; i < 10; i++) eq.push(await client("G" + i, "cle-G" + i));
   eq[0].ws.send(JSON.stringify({ t: "create" }));
@@ -541,14 +550,28 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const code = eq[0].room.code;
   for (const c of eq.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(120); }
   await sleep(300);
-  eq[0].ws.send(JSON.stringify({ t: "start" }));
-  // Assez tot pour marquer le porteur AVANT la premiere manche : le compte a
-  // rebours dure COUNTDOWN_MS, et rien n'est joue pendant ce temps.
-  await sleep(500);
-  const cible = eq.find((c) => c.rules[c.id] === "gaucher");
-  ok(!!cible, "un siege porte LE GAUCHER (bijection a effectif plein)");
+
+  let cible = null;
+  let essais = 0;
+  for (; essais < 12 && !cible; essais++) {
+    for (const c of eq) { c.rules = {}; c.ended = null; }
+    eq[0].ws.send(JSON.stringify({ t: "start" }));
+    // Assez tot pour marquer le porteur AVANT la premiere manche : le compte a
+    // rebours dure COUNTDOWN_MS, et rien n'est joue pendant ce temps.
+    await sleep(500);
+    cible = eq.find((c) => c.rules[c.id] === "gaucher") ?? null;
+    if (cible) break;
+    // Personne ne le porte : on vide le match en cours pour pouvoir relancer.
+    for (const c of eq) c.manuel = true;
+    const finMatch = Date.now() + 30000;
+    while (!eq[0].ended && Date.now() < finMatch) await sleep(150);
+    for (const c of eq) c.manuel = false;
+    await sleep(400);
+  }
+  info(`LE GAUCHER obtenu en ${essais + 1} lancement(s) — pool de 14 pour 10 sieges`);
+  ok(!!cible, "un siege porte LE GAUCHER");
   // Le pilote automatique le laisse tranquille : son scenario le conduit.
-  cible.manuel = true;
+  if (cible) cible.manuel = true;
   await sleep(APRES_DEPART - 500);
 
   // Il clique la piece la PLUS A DROITE a chaque manche. Ce sera souvent la
@@ -558,7 +581,9 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   let vus = 0;
   let dernier = -1;
   const limite = Date.now() + 30000;
-  while (vus < 5 && Date.now() < limite) {
+  // `cible` peut manquer si la boucle ci-dessus a echoue : l assertion l a
+  // deja dit, et on ne veut pas planter sur un null par-dessus.
+  while (cible && vus < 5 && Date.now() < limite) {
     // On agit sur la manche que le serveur vient d'ouvrir, jamais sur une
     // manche devinee : sinon l'input est rejete et le test ne prouve rien.
     if (cible.roundIdx === dernier || cible.roundIdx < 0 || !cible.seed) {

@@ -1426,6 +1426,10 @@ export function accrocheDuJour(ruleId: string, jour: number): string {
 const BRIEFS: Record<Lang, Record<string, string>> = {
   fr: {
     sang: "Ne clique jamais sur du rouge. Une consigne finira par te le demander.",
+    azur: "Ne clique jamais sur du bleu. Une consigne finira par te le demander.",
+    roue: "Ne clique jamais un rond, même quand la consigne le désigne.",
+    solitaire: "Ne clique jamais une forme seule de son genre à l'écran. Compte avant d'agir.",
+    angles: "Ne clique jamais dans les quatre coins. Ils sont hachurés.",
     pointe: "Ne clique jamais un triangle, même quand la consigne le désigne.",
     voyelle: "Ne tape jamais A E I O U Y, même si la consigne l'exige.",
     colosse: "Ne clique jamais la plus grosse forme de l'écran. Repère-la avant d'agir.",
@@ -1442,6 +1446,10 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
   },
   en: {
     sang: "Never click on red. Sooner or later an order will ask you to.",
+    azur: "Never click on blue. Sooner or later an order will ask you to.",
+    roue: "Never click a circle, even when the order points at one.",
+    solitaire: "Never click a shape that is alone of its kind on screen. Count before you act.",
+    angles: "Never click the four corners. They are hatched.",
     pointe: "Never click a triangle, even when the order points at one.",
     voyelle: "Never type A E I O U Y, even if the order demands it.",
     colosse: "Never click the biggest shape on screen. Spot it before you act.",
@@ -1490,7 +1498,11 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
 const NOMS: Record<Lang, Record<string, string>> = {
   fr: {
     sang: "LE SANG",
+    azur: "L'AZUR",
     pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
     voyelle: "LA VOYELLE",
     colosse: "LE COLOSSE",
     gaucher: "LE GAUCHER",
@@ -1504,7 +1516,11 @@ const NOMS: Record<Lang, Record<string, string>> = {
   },
   en: {
     sang: "THE BLOOD",
+    azur: "THE AZURE",
     pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
     voyelle: "THE VOWEL",
     colosse: "THE COLOSSUS",
     gaucher: "THE SOUTHPAW",
@@ -1626,6 +1642,10 @@ const MOTIFS_EN: Record<MotifId, string> = {
   mauvaiseForme: "WRONG SHAPE",
   mauvaiseCible: "WRONG TARGET",
   rouge: "YOU CLICKED ON RED",
+  bleu: "YOU CLICKED ON BLUE",
+  rond: "YOU CLICKED A CIRCLE",
+  solitaire: "YOU CLICKED A ONE-OF-A-KIND COLOUR",
+  angle: "YOU CLICKED A CORNER",
   triangle: "YOU CLICKED A TRIANGLE",
   voyelle: "YOU TYPED A VOWEL",
   plusGrosse: "YOU CLICKED THE BIGGEST SHAPE",

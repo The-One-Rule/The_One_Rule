@@ -102,7 +102,14 @@ export function combineRules(rules: readonly OneRule[]): OneRule {
     // Une seule bande interdite peut s'afficher, et une seule règle en porte
     // une aujourd'hui. Si une deuxième arrive, ce `find` devra devenir un choix
     // explicite plutôt qu'un premier-arrivé silencieux.
-    zone: ordre.find((r) => r.zone)?.zone,
+    /*
+     * TOUTES les zones, pas la première.
+     *
+     * Une pile peut désormais contenir DEUX règles spatiales — LE GAUCHER et
+     * LES ANGLES. N'en afficher qu'une rendrait l'autre invisible, donc
+     * injuste : « une règle spatiale doit être visible pour être juste ».
+     */
+    zone: ordre.flatMap((r) => r.zone ?? []),
     watchRelease: ordre.find((r) => r.watchRelease)?.watchRelease,
   };
 }
