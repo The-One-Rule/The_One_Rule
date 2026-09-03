@@ -23,8 +23,18 @@
  * lui-même. Les deux chemins ne doivent pas se confondre : c'est ce qui
  * garantit qu'un futur classement ne partira pas de faits invérifiables.
  *
- * ⚠️ Aucun classement n'est servi ici. Cette route REMPLIT la table ; rien ne
- * la lit encore hormis l'historique personnel de son propre auteur.
+ * Cette route REMPLIT la table (POST) et en SERT le classement (GET ?a=top).
+ * Les deux vivent ici parce qu'ils partagent la clé de comparabilité : les
+ * séparer aurait fait exister deux endroits où l'écrire, et deux endroits où
+ * se tromper.
+ *
+ * ⚠️ LA LIMITE DE FOND N'A PAS DISPARU. `verifyRun` prouve qu'un journal est
+ * COHÉRENT, pas qu'un humain l'a produit : la graine du jour étant publique et
+ * déterministe, on peut chercher un journal optimal hors ligne et y injecter
+ * des délais d'apparence humaine. Le classement QUOTIDIEN borne le mal — une
+ * graine ne vaut d'être forgée que 24 h, et la contrainte d'unicité de la
+ * table impose une soumission par compte et par jour. Un classement permanent
+ * n'aurait pas cette borne, et c'est pourquoi il n'en existe pas.
  */
 
 import { verifyRun } from "../src/engine/verify";
@@ -43,6 +53,20 @@ export const config = { runtime: "edge" };
 
 /** Même plafond que `api/ranked.ts` : un journal de 40 manches y tient large. */
 const MAX_BODY = 120_000;
+
+/**
+ * TROIS, et un plafond bas.
+ *
+ * Le podium s'arrête au troisième parce qu'un classement mondial complet n'est
+ * pas défendable ici : la graine du jour est forgeable hors ligne, et une liste
+ * longue multiplie les places qui valent d'être forgées. Trois places, un rang
+ * personnel, et la comparaison redevient sociale plutôt que technique.
+ *
+ * Le plafond borne aussi ce qu'un appelant peut réclamer : sans lui, `?n=10000`
+ * ferait payer à la base une requête que personne n'a demandée.
+ */
+const TOP_DEFAUT = 3;
+const TOP_MAX = 20;
 
 /**
  * Fenêtre d'acceptation, en jours.
@@ -78,6 +102,49 @@ export async function traite(
   const secret = cleanEnv(env.TOR_AUTH_SECRET);
   const depot = depotInjecte ?? depotConfigure(env);
   if (!secret || !depot) return json({ disponible: false }, 503);
+
+  /* ------------------------------------------------------------------ *
+   * LE CLASSEMENT DU JOUR — lecture
+   *
+   * Le jeton est FACULTATIF ici, et c'est délibéré : le podium se regarde sans
+   * compte, comme le jeu se joue sans compte (décision n°12). Un jeton valide
+   * ajoute seulement deux choses — sa propre ligne marquée dans le podium, et
+   * son rang quand on n'y est pas.
+   * ------------------------------------------------------------------ */
+  if (req.method === "GET" && new URL(req.url).searchParams.get("a") === "top") {
+    const url = new URL(req.url);
+    const jour = Number(url.searchParams.get("jour") ?? jourDe(maintenant));
+    if (!Number.isInteger(jour)) return json({ error: "jour" }, 400);
+    const limite = Math.max(1, Math.min(TOP_MAX, Number(url.searchParams.get("n") ?? TOP_DEFAUT)));
+    const cle = cleDuJour(jour);
+
+    // Un jeton illisible ou périmé ne fait PAS échouer la lecture : il rend
+    // simplement le classement anonyme. Absent vaut anonyme, partout.
+    const r = await verifieJeton(jetonDeLaRequete(req), secret, maintenant);
+    const moiId = r?.sub;
+
+    const top = await depot.classement(cle, limite, moiId);
+    let moi: { rang: number; valeur: number; valeur2: number } | null = null;
+    if (moiId && !top.some((e) => e.moi)) {
+      /*
+       * Hors du podium : on ne calcule son rang que dans ce cas.
+       *
+       * Un joueur qui EST dans le podium y lit déjà son rang ; lancer le
+       * comptage quand même doublerait les requêtes de tous ceux qu'on veut
+       * justement récompenser.
+       */
+      const miennes = (await depot.mesPerfs(moiId, 40)).find((x) => x.cle === cle);
+      if (miennes) {
+        moi = {
+          rang: await depot.rangDe(cle, miennes.valeur, miennes.valeur2),
+          valeur: miennes.valeur,
+          valeur2: miennes.valeur2,
+        };
+      }
+    }
+    return json({ jour, top, moi });
+  }
+
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
   const r = await verifieJeton(jetonDeLaRequete(req), secret, maintenant);

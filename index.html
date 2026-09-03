@@ -628,6 +628,21 @@
             <div class="marks" id="marks"></div>
             <div class="reward hidden" id="reward"></div>
             <div class="rank hidden" id="rankResult"></div>
+
+            <!-- LE PODIUM DU JOUR.
+                 Trois places, et le rang personnel en dessous quand on n'y est
+                 pas. Trois et non dix : la graine du jour est forgeable hors
+                 ligne, et chaque place publiée est une place qui vaut d'être
+                 forgée. Trois rend la comparaison sociale plutôt que technique.
+
+                 Il ne parait qu'apres un RUN DU JOUR, et seulement s'il y a
+                 quelque chose a montrer : un cadre vide sur l'ecran de fin se
+                 lirait comme un chargement rate. -->
+            <div class="podium hidden" id="podium">
+              <p class="eyebrow" data-i18n="podium.titre">TODAY'S BEST</p>
+              <ol class="podium__liste" id="podiumListe"></ol>
+              <p class="podium__moi" id="podiumMoi"></p>
+            </div>
           </div>
 
           <div class="col over__next">

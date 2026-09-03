@@ -15,6 +15,7 @@ import type { Action, OneRule, Outcome } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
+import { classementDuJour } from "./compte";
 import { emblemeDe, emblemeSvg, etatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
@@ -53,7 +54,7 @@ import {
 import { enfile, vide } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
-import { glyphSvg } from "./net/glyph";
+import { glyphFromIndex, glyphSvg } from "./net/glyph";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -825,6 +826,71 @@ function proposeMesure(): boolean {
 }
 
 /**
+ * LE PODIUM DU JOUR, sur l'écran de fin.
+ *
+ * Il ne paraît qu'après un RUN DU JOUR — c'est le seul mode dont deux
+ * résultats se comparent, puisque tout le monde y joue la même graine et la
+ * même règle.
+ *
+ * ⚠️ IL SE TAIT PLUTÔT QUE DE MONTRER UN CADRE VIDE. Un déploiement sans
+ * comptes, un réseau coupé, une base lente ou simplement personne qui a encore
+ * joué aujourd'hui : dans tous ces cas `classementDuJour` rend `null` ou une
+ * liste vide, et l'écran n'affiche rien. Un tableau vide se lirait comme un
+ * chargement raté, et le joueur n'a rien à réparer.
+ *
+ * Il est appelé sans être attendu : l'écran de fin s'affiche tout de suite, le
+ * podium s'y ajoute quand il arrive. Le faire attendre retarderait le seul
+ * écran que le joueur veut voir vite — celui qui dit REJOUER.
+ */
+function renderPodium(mode: Mode): void {
+  const boite = $("podium");
+  boite.classList.add("hidden");
+  if (mode !== "daily") return;
+
+  const jourDemande = day;
+  void classementDuJour(jourDemande).then((c) => {
+    // L'écran a pu changer, ou le joueur relancer, pendant l'appel : on ne
+    // peint que si l'on est encore sur la fin du run qu'on a demandé.
+    if (!c || screen !== "over" || jourDemande !== day) return;
+    if (!c.top.length) return;
+
+    const liste = $("podiumListe");
+    liste.innerHTML = "";
+    for (const e of c.top) {
+      const li = document.createElement("li");
+      li.className = "podium__ligne" + (e.moi ? " is-moi" : "");
+      li.innerHTML =
+        `<span class="podium__rang"></span>` +
+        `<span class="podium__glyphe"></span>` +
+        `<span class="podium__nom"></span>` +
+        `<span class="podium__score"></span>`;
+      li.querySelector<HTMLElement>(".podium__rang")!.textContent = t("rangEme")(e.rang);
+      li.querySelector<HTMLElement>(".podium__glyphe")!.innerHTML = glyphSvg(
+        glyphFromIndex(e.glyphe),
+        16,
+      );
+      // `textContent` et jamais `innerHTML` : un pseudo vient d'un joueur.
+      li.querySelector<HTMLElement>(".podium__nom")!.textContent = e.pseudo || t("cptSansNom");
+      li.querySelector<HTMLElement>(".podium__score")!.textContent = String(e.valeur);
+      liste.appendChild(li);
+    }
+
+    /*
+     * La ligne du dessous dit ce qui manque, pas ce qui va bien : hors du
+     * podium on lit son rang, sans compte on lit comment y entrer, et sur le
+     * podium on ne lit rien de plus — la ligne accentuée l'a déjà dit.
+     */
+    const moi = $("podiumMoi");
+    moi.textContent = c.moi
+      ? t("podiumRang")(c.moi.rang, c.moi.valeur)
+      : estConnecte()
+        ? ""
+        : t("podiumAbsent");
+    boite.classList.remove("hidden");
+  });
+}
+
+/**
  * L'invitation de l'écran de fin.
  *
  * Elle ne s'affiche que quand les trois conditions sont réunies : les comptes
@@ -1552,6 +1618,7 @@ function finishRun(): void {
   // Le bandeau de mesure d'abord, une seule fois dans la vie du joueur ; il
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
+  renderPodium(mode);
 
   hud.hideStamp();
   hud.setRule(null);

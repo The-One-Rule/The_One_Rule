@@ -323,6 +323,63 @@ export async function mesPerfs(): Promise<PerfPublique[]> {
 }
 
 /**
+ * Un appel à `api/perf`, calqué sur celui de `api/moi`.
+ *
+ * Le point d'entrée est réglable par variable de build comme les autres : un
+ * déploiement peut servir les fonctions ailleurs que sous le même domaine.
+ */
+const POINT_PERF = cleanEnv(import.meta.env.VITE_PERF_URL as string | undefined) ?? "/api/perf";
+
+async function appelPerf<T>(suffixe: string): Promise<T | null> {
+  // Le jeton s'il existe, et rien de plus : contrairement à `appelMoi`, son
+  // absence n'annule pas l'appel — le podium se regarde sans compte.
+  const j = compte()?.jeton;
+  try {
+    const r = await fetch(`${POINT_PERF}${suffixe}`, {
+      headers: j ? { Authorization: `Bearer ${j}` } : {},
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * LE CLASSEMENT DU JOUR
+ * ------------------------------------------------------------------ */
+
+export interface EntreeClassement {
+  rang: number;
+  pseudo: string;
+  glyphe: number;
+  valeur: number;
+  valeur2: number;
+  moi: boolean;
+}
+
+export interface Classement {
+  jour: number;
+  top: EntreeClassement[];
+  moi: { rang: number; valeur: number; valeur2: number } | null;
+}
+
+/**
+ * Le podium du jour.
+ *
+ * Le jeton part s'il existe, mais il n'est pas exigé : le podium se regarde
+ * sans compte, comme le jeu se joue sans compte. Un jeton valide ajoute
+ * seulement sa propre ligne marquée, et son rang quand on n'y est pas.
+ *
+ * Renvoie `null` sur n'importe quel échec — déploiement sans comptes, réseau
+ * coupé, base lente. L'appelant n'affiche alors rien : un classement absent
+ * n'est pas une panne à signaler au joueur, c'est un écran de moins.
+ */
+export async function classementDuJour(jour: number): Promise<Classement | null> {
+  return appelPerf<Classement>(`?a=top&jour=${jour}`);
+}
+
+/**
  * Supprime le compte, définitivement.
  *
  * Efface aussi l'état local : rester « connecté » à un compte qui n'existe

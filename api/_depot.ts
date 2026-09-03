@@ -65,6 +65,27 @@ export interface Perf {
   creeLe: number;
 }
 
+/**
+ * Une ligne de classement — et RIEN de plus.
+ *
+ * Pas d'identifiant de compte, pas de date, pas de graine. Ce qu'un classement
+ * publie sort du périmètre de son propriétaire : tout champ ajouté ici devient
+ * public pour toujours, et on ne reprend pas ce qu'on a publié. Le pseudo et le
+ * signe suffisent à reconnaître quelqu'un — c'est exactement ce à quoi ils
+ * servent déjà dans les salons.
+ *
+ * `moi` est calculé côté serveur en comparant à l'appelant : le client n'a donc
+ * jamais besoin de savoir QUI sont les autres pour se situer parmi eux.
+ */
+export interface EntreeClassement {
+  rang: number;
+  pseudo: string;
+  glyphe: number;
+  valeur: number;
+  valeur2: number;
+  moi: boolean;
+}
+
 export interface Depot {
   parLien(l: Lien): Promise<Utilisateur | null>;
   parId(id: string): Promise<Utilisateur | null>;
@@ -94,6 +115,26 @@ export interface Depot {
   posePerf(p: Perf): Promise<boolean>;
   /** L'historique personnel, du plus récent au plus ancien. */
   mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]>;
+  /**
+   * Le classement d'une clé de comparabilité.
+   *
+   * ⚠️ Ne rend QUE des performances vérifiées et jugées humaines. Le schéma le
+   * dit déjà — « douteux est conservé mais ne devra jamais alimenter un
+   * classement » — et c'est ici que cette phrase devient du code. Filtrer à
+   * l'affichage aurait laissé la porte ouverte au premier appelant suivant.
+   *
+   * `moiId` sert à marquer sa propre ligne, jamais à filtrer : un joueur voit
+   * le même classement que tout le monde.
+   */
+  classement(cle: string, limite: number, moiId?: string): Promise<EntreeClassement[]>;
+  /**
+   * Combien de comptes font STRICTEMENT mieux, sous la même clé.
+   *
+   * Le rang d'un joueur hors du podium ne se déduit pas du podium : il faut
+   * compter. Départage identique à l'index — valeur décroissante, puis durée
+   * croissante — sinon deux écrans donneraient deux rangs pour un même score.
+   */
+  rangDe(cle: string, valeur: number, valeur2: number): Promise<number>;
   /**
    * Incrémente le cumul de suspicion.
    *
@@ -225,6 +266,44 @@ export class DepotMemoire implements Depot {
       .sort((a, b) => b.creeLe - a.creeLe)
       .slice(0, limite)
       .map((p) => ({ ...p }));
+  }
+
+  /**
+   * Le même ORDRE que l'index de la table, écrit une fois et réutilisé.
+   *
+   * Deux tris écrits séparément — un en SQL, un en mémoire — finissent par
+   * diverger, et le symptôme serait un rang qui change selon le dépôt. Les
+   * tests tournent sur celui-ci, la production sur l'autre : c'est exactement
+   * la configuration où une divergence ne se voit jamais.
+   */
+  private static mieux(a: Perf, b: Perf): number {
+    return b.valeur - a.valeur || a.valeur2 - b.valeur2;
+  }
+
+  private classables(cle: string): Perf[] {
+    return this.perfs
+      .filter((p) => p.cle === cle && p.verdictBot === "humain")
+      .sort(DepotMemoire.mieux);
+  }
+
+  async classement(cle: string, limite: number, moiId?: string): Promise<EntreeClassement[]> {
+    return this.classables(cle)
+      .slice(0, Math.max(1, limite))
+      .map((p, i) => ({
+        rang: i + 1,
+        pseudo: this.users.get(p.utilisateurId)?.pseudo ?? "",
+        glyphe: Number(this.users.get(p.utilisateurId)?.apparence.glyphe ?? 0),
+        valeur: p.valeur,
+        valeur2: p.valeur2,
+        moi: !!moiId && p.utilisateurId === moiId,
+      }));
+  }
+
+  async rangDe(cle: string, valeur: number, valeur2: number): Promise<number> {
+    const devant = this.classables(cle).filter(
+      (p) => p.valeur > valeur || (p.valeur === valeur && p.valeur2 < valeur2),
+    ).length;
+    return devant + 1;
   }
 
   async leveDrapeau(id: string): Promise<number> {
@@ -472,6 +551,65 @@ export class DepotSupabase implements Depot {
       verdictBot: String(l.verdict_bot ?? "humain"),
       creeLe: Date.parse(String(l.cree_le)) || Date.now(),
     }));
+  }
+
+  /**
+   * Le classement, en UNE requête.
+   *
+   * `utilisateur(...)` est une jointure PostgREST : elle passe par la clé
+   * étrangère déclarée dans la migration, donc rien à configurer. Sans elle il
+   * faudrait une seconde requête par ligne — et un classement qui coûte N+1
+   * appels à une base distante depuis une fonction edge finit par expirer.
+   *
+   * Les trois filtres ne sont pas décoratifs : `verifiee` écarte ce qui n'a pas
+   * été rejoué par le serveur, `verdict_bot` écarte ce que l'anti-triche a
+   * jugé douteux — le schéma l'exige explicitement — et `cle` est la loi de
+   * comparabilité, sans laquelle on mélangerait deux jours ou deux versions de
+   * contenu dans un même tableau.
+   */
+  async classement(cle: string, limite: number, moiId?: string): Promise<EntreeClassement[]> {
+    const n = Math.max(1, Math.min(100, limite));
+    const res = await this.req(
+      `performance?select=valeur,valeur2,utilisateur_id,utilisateur(pseudo,apparence)` +
+        `&cle=eq.${encodeURIComponent(cle)}&verifiee=is.true&verdict_bot=eq.humain` +
+        `&order=valeur.desc,valeur2.asc&limit=${n}`,
+    );
+    if (!res.ok) throw new Error(`supabase classement ${res.status}`);
+    const lignes = (await res.json()) as Record<string, unknown>[];
+    return lignes.map((l, i) => {
+      const u = (l.utilisateur ?? {}) as Record<string, unknown>;
+      const app = litApparence(u.apparence);
+      return {
+        rang: i + 1,
+        pseudo: String(u.pseudo ?? ""),
+        glyphe: app.glyphe,
+        valeur: Number(l.valeur),
+        valeur2: Number(l.valeur2),
+        moi: !!moiId && String(l.utilisateur_id) === moiId,
+      };
+    });
+  }
+
+  /**
+   * Un COMPTE, pas une liste : on ne rapatrie pas mille lignes pour en
+   * dénombrer les meilleures. `Prefer: count=exact` avec `head` renvoie le
+   * total dans l'en-tête `Content-Range` sans corps de réponse.
+   *
+   * Le `or` reproduit exactement le départage de l'index — mieux, ou aussi bien
+   * mais plus vite.
+   */
+  async rangDe(cle: string, valeur: number, valeur2: number): Promise<number> {
+    const filtre =
+      `performance?select=id&cle=eq.${encodeURIComponent(cle)}` +
+      `&verifiee=is.true&verdict_bot=eq.humain` +
+      `&or=(valeur.gt.${valeur},and(valeur.eq.${valeur},valeur2.lt.${valeur2}))`;
+    const res = await this.req(filtre, {
+      method: "HEAD",
+      headers: { Prefer: "count=exact", Range: "0-0" },
+    });
+    if (!res.ok) throw new Error(`supabase rang ${res.status}`);
+    const total = Number((res.headers.get("content-range") ?? "").split("/")[1]);
+    return (Number.isFinite(total) ? total : 0) + 1;
   }
 
   async leveDrapeau(id: string): Promise<number> {

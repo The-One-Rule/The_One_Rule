@@ -960,7 +960,59 @@ puis les variables : `TOR_AUTH_SECRET` (le même des deux côtés), `TOR_APP_URL
 ⚠️ `fly secrets set` redémarre la machine et tue les salons : à faire quand
 personne ne joue, puis revérifier `fly scale count 1`.
 
-**Pas de classement, et c'est délibéré.** L'index `performance_classement`
+### Le classement du jour — fait, jamais vu par un joueur
+
+Livré parce que ce n'était plus une demande de joueurs contents : c'est le
+TICKET d'un playtest sur un gros serveur, et la distribution est la ressource
+que Pierre ne peut pas fabriquer.
+
+**L'inventaire était déjà là**, et c'est ce qui a rendu le chantier court :
+`api/perf.ts` remplissait la table en exigeant un jeton et en rejouant le run,
+la colonne `verifiee` existait, l'index `performance_classement (cle, valeur
+desc, valeur2 asc) where verifiee` était déjà une requête de classement, et le
+départage — durée croissante — était tranché. Il manquait une route de lecture
+et un écran.
+
+`GET /api/perf?a=top&jour=N` rend **trois places** et, si l'appelant porte un
+jeton, sa propre ligne marquée ou son rang. Trois et non dix : chaque place
+publiée est une place qui vaut d'être forgée.
+
+⚠️ **Le jeton est FACULTATIF en lecture.** Le podium se regarde sans compte,
+comme le jeu se joue sans compte (n°12) : un jeton absent, faux ou périmé rend
+un classement anonyme, jamais une erreur.
+
+⚠️ **Trois filtres, et aucun n'est décoratif.** `cle` porte la loi de
+comparabilité — sans elle on mélangerait deux jours ou deux versions de
+contenu. `verifiee` écarte ce que le serveur n'a pas rejoué. Et `verdict_bot`
+écarte ce que l'anti-triche juge douteux : le schéma de la migration l'exigeait
+en toutes lettres depuis le début (« douteux est conservé mais ne devra jamais
+alimenter un classement »), et c'est le DÉPÔT qui refuse, pas l'affichage —
+filtrer à l'affichage aurait laissé la porte ouverte au prochain appelant.
+
+⚠️ **Ce qu'un classement publie est public pour toujours.** La route ne rend que
+`rang`, `pseudo`, `glyphe`, `valeur`, `valeur2`, `moi` — **jamais
+d'identifiant de compte**, qui permettrait de suivre quelqu'un d'un jour à
+l'autre et de le relier à un salon. Un test compare la liste exacte des clés et
+cherche l'identifiant dans la réponse brute ; éprouvé en le laissant fuiter, il
+tombe.
+
+**Le rang hors podium se COMPTE**, il ne se déduit pas : `rangDe` dénombre ceux
+qui font strictement mieux, avec le même départage que l'index. Deux tris écrits
+séparément — un en SQL, un en mémoire pour les tests — finissent par diverger,
+et le symptôme serait un rang différent selon l'écran ; l'ordre est donc écrit
+une fois par dépôt et réutilisé.
+
+**Le podium se TAIT plutôt que de montrer un cadre vide** : déploiement sans
+comptes, réseau coupé, ou personne qui n'a encore joué aujourd'hui. Un tableau
+vide se lirait comme un chargement raté, et le joueur n'a rien à réparer.
+
+⚠️ **La limite de fond n'a pas bougé** : `verifyRun` prouve qu'un journal est
+COHÉRENT, pas qu'un humain l'a produit. Ce qui borne le mal, c'est la forme
+QUOTIDIENNE — une graine ne vaut d'être forgée que 24 h — et la contrainte
+d'unicité de la table, qui impose une soumission par compte et par jour. Un
+classement permanent n'aurait aucune de ces deux bornes.
+
+**Pas de classement PERMANENT, et c'est délibéré.** L'index `performance_classement`
 existe, la clé de comparabilité existe, aucune route ne rend les performances
 de quelqu'un d'autre. Ce qu'il faut regarder d'abord, ce sont les trois
 événements `compte_invite` → `compte_start` → `compte_lie` : les testeurs ont

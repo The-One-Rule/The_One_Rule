@@ -6834,6 +6834,85 @@ button.chip:active:not(:disabled) {
   }
 }
 
+/* ==================================================================
+ * LE PODIUM DU JOUR
+ *
+ * Trois places, et son propre rang en dessous quand on n'y est pas. Trois et
+ * non dix : la graine du jour est forgeable hors ligne, et chaque place
+ * publiée est une place qui vaut d'être forgée.
+ * ================================================================== */
+.podium {
+  margin-top: var(--sp-4);
+  border-top: var(--bd-hair) solid var(--line);
+  padding-top: var(--sp-3);
+  text-align: left;
+}
+
+.podium.hidden {
+  /* Sa propre règle : il n'y a pas de `.hidden` générique dans cette feuille,
+     et une règle unique perdrait la cascade contre les `display` des
+     composants. `tests/hidden.test.ts` refuse tout élément masqué sans elle. */
+  display: none;
+}
+
+.podium__liste {
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.podium__ligne {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-2);
+  background: var(--ink-2);
+  border-left: var(--bd-frame) solid var(--line);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+}
+
+/*
+ * MA ligne : l'accent, comme partout ailleurs — la règle unique, l'action
+ * évidente, la règle maîtrisée. Il désigne toujours la même chose.
+ */
+.podium__ligne.is-moi {
+  border-left-color: var(--signal);
+  color: var(--paper);
+}
+
+.podium__rang {
+  flex: 0 0 auto;
+  min-width: 2ch;
+  font-family: var(--display);
+  color: var(--paper);
+}
+
+.podium__nom {
+  flex: 1 1 auto;
+  /* Un pseudo long ne doit pas pousser le score hors du cadre. */
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium__score {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper);
+}
+
+.podium__moi {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
 .prefs--screen {
   margin-top: var(--sp-4);
   border-top: none;

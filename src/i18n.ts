@@ -216,6 +216,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.chat": "Message",
     "aria.emotes": "Réactions",
     "aria.regles": "Règles à travailler",
+    "podium.titre": "LES MEILLEURS DU JOUR",
     "brief.choisis": "TRAVAILLER UNE RÈGLE",
     "aria.joueurs": "Joueurs",
     "aria.spectateur": "Spectateur",
@@ -312,6 +313,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.chat": "Message",
     "aria.emotes": "Reactions",
     "aria.regles": "Rules to train",
+    "podium.titre": "TODAY'S BEST",
     "brief.choisis": "TRAIN A RULE",
     "aria.joueurs": "Players",
     "aria.spectateur": "Spectating",
@@ -461,6 +463,9 @@ type Dyn = {
   pickResteManches: (n: number) => string;
   pickRestePiege: string;
   pickMaitrisee: string;
+  /* --- le podium du jour --- */
+  podiumRang: (rang: number, score: number) => string;
+  podiumAbsent: string;
   /**
    * Ce qu'il reste à faire, PONCTUATION COMPRISE.
    *
@@ -719,6 +724,8 @@ const DYN: Record<Lang, Dyn> = {
     pickResteManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     pickRestePiege: "1 PIÈGE",
     pickMaitrisee: "MAÎTRISÉE",
+    podiumRang: (r, sc) => `TU ES ${r}${r === 1 ? "ᵉʳ" : "ᵉ"} · ${sc} MANCHE${sc > 1 ? "S" : ""}`,
+    podiumAbsent: "CRÉE UN COMPTE POUR Y FIGURER",
     pickPourMaitriser: (r) => `POUR LA MAÎTRISER : ${r}`,
     carnetProgres: (v, t, k) => `${v} / ${t} RENCONTRÉES · ${k} MAÎTRISÉE${k > 1 ? "S" : ""}`,
     carnetJamais: "JAMAIS RENCONTRÉE",
@@ -935,6 +942,8 @@ const DYN: Record<Lang, Dyn> = {
     pickResteManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     pickRestePiege: "1 TRAP",
     pickMaitrisee: "MASTERED",
+    podiumRang: (r, sc) => `YOU ARE ${r}${rangSuffixe(r)} · ${sc} ROUND${sc === 1 ? "" : "S"}`,
+    podiumAbsent: "CREATE AN ACCOUNT TO APPEAR HERE",
     pickPourMaitriser: (r) => `TO MASTER IT: ${r}`,
     carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} MASTERED`,
     carnetJamais: "NEVER MET",
