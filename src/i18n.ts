@@ -209,6 +209,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "cpt.collection": "TA COLLECTION",
+    "cpt.jour": "RUN DU JOUR",
+    "cpt.opposable": "OPPOSABLE",
+    "cpt.fine": "Seuls les runs rejoués par le serveur sont opposables. Carnet, série et records d'entraînement sont des déclarations de ton appareil — ils ne touchent aucun classement.",
     "gout.carte": "TA CARTE",
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
@@ -340,6 +344,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "cpt.collection": "YOUR COLLECTION",
+    "cpt.jour": "DAILY RUN",
+    "cpt.opposable": "VERIFIED",
+    "cpt.fine": "Only runs replayed by the server can be held against anyone else. Codex, streak and training records are claims from your device — they touch no leaderboard.",
     "gout.carte": "YOUR CARD",
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
@@ -490,6 +498,21 @@ type Dyn = {
   avanceTravailler: (regle: string) => string;
   goutFaitAvancer: (quoi: string) => string;
   goutRienAAvancer: string;
+  cptConnecte: string;
+  cptMeilleur: string;
+  cptCourtRecord: string;
+  cptCourtCartes: string;
+  cptCourtSerie: string;
+  cptRegleCarnet: string;
+  cptMaitrisees: string;
+  cptSerieEnCours: string;
+  cptEnJours: (n: number) => string;
+  cptRepartition: (p: number, m: number, d: number, v: number) => string;
+  cptJourFait: (score: number) => string;
+  cptJourRang: (rang: number) => string;
+  cptJourRien: string;
+  cptGarde: (score: number) => string;
+  cptGardeRien: string;
   decouverteNote: (manche: number, vues: number, total: number) => string;
   butModeEntrainement: string;
   /* --- première arrivée --- */
@@ -836,6 +859,22 @@ const DYN: Record<Lang, Dyn> = {
     avanceTravailler: (regle) => `TRAVAILLER ${regle}`,
     goutFaitAvancer: (quoi) => `Ce run fait avancer : ${quoi}`,
     goutRienAAvancer: "Cette carte est parfaite.",
+    cptConnecte: "CONNECTÉ",
+    cptMeilleur: "MEILLEUR SCORE",
+    cptCourtRecord: "RECORD",
+    cptCourtCartes: "CARTES",
+    cptCourtSerie: "SÉRIE",
+    cptRegleCarnet: "RÈGLES AU CARNET",
+    cptMaitrisees: "MAÎTRISÉES",
+    cptSerieEnCours: "SÉRIE EN COURS",
+    cptEnJours: (n) => `${n} J`,
+    cptRepartition: (p, m, d, v) =>
+      `${p} parfaite${p > 1 ? "s" : ""} · ${m} maîtrisée${m > 1 ? "s" : ""} · ${d} découverte${d > 1 ? "s" : ""} · ${v} verrouillée${v > 1 ? "s" : ""}`,
+    cptJourFait: (score) => `${score} aujourd'hui`,
+    cptJourRang: (rang) => `${rang}ᵉ du jour · vérifié par rejeu`,
+    cptJourRien: "Pas encore joué aujourd'hui.",
+    cptGarde: (score) => `GARDE CE ${score}`,
+    cptGardeRien: "GARDE TA PROGRESSION",
     decouverteNote: (manche, vues, total) =>
       `Rencontrée à la manche ${manche}. Entrée au carnet · ${vues} / ${total}.`,
     butModeEntrainement: "ENTRAÎNEMENT",
@@ -1154,6 +1193,22 @@ const DYN: Record<Lang, Dyn> = {
     avanceTravailler: (regle) => `WORK ON ${regle}`,
     goutFaitAvancer: (quoi) => `This run advances: ${quoi}`,
     goutRienAAvancer: "This card is perfect.",
+    cptConnecte: "SIGNED IN",
+    cptMeilleur: "BEST SCORE",
+    cptCourtRecord: "BEST",
+    cptCourtCartes: "CARDS",
+    cptCourtSerie: "STREAK",
+    cptRegleCarnet: "RULES IN CODEX",
+    cptMaitrisees: "MASTERED",
+    cptSerieEnCours: "CURRENT STREAK",
+    cptEnJours: (n) => `${n} D`,
+    cptRepartition: (p, m, d, v) =>
+      `${p} perfect · ${m} mastered · ${d} discovered · ${v} locked`,
+    cptJourFait: (score) => `${score} today`,
+    cptJourRang: (rang) => `#${rang} today · replayed by the server`,
+    cptJourRien: "Not played today yet.",
+    cptGarde: (score) => `KEEP THAT ${score}`,
+    cptGardeRien: "KEEP YOUR PROGRESS",
     decouverteNote: (manche, vues, total) =>
       `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
     butModeEntrainement: "TRAINING",

@@ -1085,8 +1085,12 @@
           <h2 class="rulename" id="compteTitre">SAVE YOUR RUNS</h2>
           <p class="lede" id="compteLede"></p>
 
-          <!-- Anonyme : le choix du fournisseur. -->
+          <!-- Anonyme : le choix du fournisseur.
+               Le titre porte le CHIFFRE du joueur — « garde ce 31 » dit ce
+               qu'un compte sert a faire, la ou « cree un compte » ne dit que ce
+               qu'on demande. -->
           <div id="compteAnon">
+            <div class="cpt__grille" id="cptGrilleAnon"></div>
             <p class="fineprint" id="compteQuoi"></p>
             <div class="btnrow" id="compteFournisseurs"></div>
             <p class="warn hidden" id="compteErr"></p>
@@ -1094,6 +1098,39 @@
 
           <!-- Connecté : qui l'on est, et ce que le compte porte. -->
           <div class="account__on hidden" id="compteConnecte">
+            <!-- L'IDENTITE : le signe, le nom, le fournisseur. Le signe est ce
+                 a quoi les autres reconnaissent le joueur en salon — il vient
+                 avant le nom. -->
+            <div class="cpt__tete">
+              <div class="cpt__signe" id="cptSigne" aria-hidden="true"></div>
+              <div class="cpt__qui">
+                <p class="cpt__nom" id="cptNom"></p>
+                <p class="cpt__via" id="cptVia"></p>
+              </div>
+            </div>
+
+            <!-- Quatre chiffres, et aucun n'est un jugement. -->
+            <div class="cpt__grille" id="cptGrille"></div>
+
+            <!-- TA COLLECTION : une case par regle, coloree par son etat, plus
+                 le compte de chaque etat. C'est la meme jauge que la barre
+                 laterale du carnet — un seul objet a apprendre. -->
+            <p class="eyebrow" data-i18n="cpt.collection">YOUR COLLECTION</p>
+            <div class="codexbar__jauge" id="cptJauge" aria-hidden="true"></div>
+            <p class="cpt__repartition" id="cptRepartition"></p>
+
+            <!-- LE RUN DU JOUR : le seul resultat OPPOSABLE a quelqu'un
+                 d'autre, parce qu'il est le seul que le serveur ait rejoue. -->
+            <p class="eyebrow" data-i18n="cpt.jour">DAILY RUN</p>
+            <div class="cpt__jour" id="cptJour">
+              <div class="cpt__jourTxt">
+                <p class="cpt__jourVal" id="cptJourVal"></p>
+                <p class="cpt__jourNote" id="cptJourNote"></p>
+              </div>
+              <span class="cpt__badge hidden" id="cptOpposable" data-i18n="cpt.opposable">VERIFIED</span>
+            </div>
+            <p class="cpt__fine" data-i18n="cpt.fine">Only runs replayed by the server can be held against anyone else. Codex, streak and training records are claims from your device — they touch no leaderboard.</p>
+
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
               <!-- CHANGER DE NOM.

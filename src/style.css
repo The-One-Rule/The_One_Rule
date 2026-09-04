@@ -9581,3 +9581,204 @@ button.chip:active:not(:disabled) {
 .gout__fantome.hidden {
   display: none;
 }
+
+/* ==================================================================
+   L'ECRAN DE COMPTE
+
+   Ce que le compte porte, dit avec des chiffres plutot qu'avec des promesses.
+   Et une distinction que le jeu doit rendre visible : le run du jour est le
+   seul resultat OPPOSABLE a quelqu'un d'autre, parce qu'il est le seul que le
+   serveur ait rejoue. Le reste — carnet, serie, records d'entrainement — sont
+   des declarations de l'appareil. C'est la decision n°14, montree au joueur.
+   ================================================================== */
+
+/*
+ * L'ecran de compte s'aligne a GAUCHE.
+ *
+ * C'est le seul ecran du jeu qui est une FICHE : une suite de faits qu'on
+ * parcourt du regard de haut en bas. Un texte centre oblige l'oeil a chercher
+ * le debut de chaque ligne, et les quatre chiffres ne s'alignent plus entre
+ * eux. Les briefs, eux, restent centres — on les lit d'un bloc.
+ */
+#compte .screen__scroll {
+  text-align: left;
+}
+
+#compte .eyebrow,
+#compte .rulename,
+#compte .lede {
+  text-align: left;
+}
+
+#compteTitre.hidden,
+#compteLede.hidden {
+  display: none;
+}
+
+/*
+ * La fiche est une SUITE DE SECTIONS, chacune annoncee par son intitule.
+ * Le rythme se pose ici une fois plutot que sur chaque bloc : c'est ce qui
+ * empeche un ajout futur d'arriver colle a son voisin.
+ */
+.account__on {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.account__on > .eyebrow {
+  margin: 8px 0 0;
+}
+
+.cpt__tete {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cpt__signe {
+  flex: none;
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  background: var(--ink-2);
+  border: 2px solid var(--signal);
+}
+
+.cpt__qui {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cpt__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.cpt__via {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/* Quatre chiffres, et aucun n'est un jugement. */
+.cpt__grille {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.cpt__cel {
+  flex: 1 1 40%;
+  min-width: max-content;
+  padding: 12px 14px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cpt__val {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.cpt__lab {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.cpt__repartition {
+  margin: 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  color: var(--paper-dim);
+}
+
+/* Le run du jour, et son badge. */
+.cpt__jour {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+}
+
+.cpt__jourTxt {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cpt__jourVal {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.cpt__jourNote {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+/*
+ * OPPOSABLE : le seul badge du jeu, et il ne se donne pas.
+ *
+ * Il ne parait que si le serveur a rejoue le run. Le poser sur un score que
+ * personne n'a verifie ferait exactement ce que la decision n°14 interdit :
+ * confondre une declaration avec une preuve.
+ */
+.cpt__badge {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--jade, #40f7c0);
+  border: 1px solid var(--jade, #40f7c0);
+  padding: 4px 9px;
+}
+
+.cpt__badge.hidden {
+  display: none;
+}
+
+.cpt__fine {
+  margin: 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.5;
+  color: var(--paper-dim);
+  max-width: 52ch;
+}
+
+/* La jauge du compte est la MEME que celle du carnet : un seul objet a
+   apprendre, et il dit la meme chose aux deux endroits. */
+#cptJauge {
+  margin-top: 0;
+}

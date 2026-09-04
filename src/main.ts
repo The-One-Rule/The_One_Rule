@@ -970,14 +970,108 @@ function renderCompte(): void {
   suppressionArmee = false;
   $("compteDanger").classList.add("hidden");
   $("btnCompteSupprimer").textContent = t("compteSupprimer");
+  /*
+   * CONNECTE : le NOM est le titre, et il n'y en a pas deux.
+   *
+   * Un « MON COMPTE » pose au-dessus de « PIERRE » repete la meme chose deux
+   * fois et repousse d'autant les chiffres, qui sont ce qu'on vient voir. Le
+   * titre et le chapo ne servent donc que l'etat ANONYME, ou il faut d'abord
+   * dire a quoi sert un compte.
+   */
+  $("compteTitre").classList.toggle("hidden", connecte);
+  $("compteLede").classList.toggle("hidden", connecte);
   $("compteTitre").textContent = connecte ? t("compteTitreConnecte") : t("compteTitreAnonyme");
+
+  /*
+   * La REPARTITION de la collection, et une case par regle.
+   *
+   * C'est la meme jauge que la barre laterale du carnet : un seul objet a
+   * apprendre, et il dit la meme chose aux deux endroits.
+   */
+  const etats = ONE_RULES.map((r) =>
+    etatCarte(franchies(echelleMaitrise(r, s.encountered[r.id]))),
+  );
+  // ⚠️ Pas `compte` : ce nom est deja celui de l'etat du COMPTE, importe de
+  // `./compte`. Le masquer ici cassait `c.pseudo` vingt lignes plus bas.
+  const combien = (e: EtatCarte): number => etats.filter((x) => x === e).length;
+  const jaugeCpt = $("cptJauge");
+  jaugeCpt.innerHTML = "";
+  for (const e of etats) {
+    const i = document.createElement("i");
+    if (e !== "verrouillee") {
+      i.className = `est-${e === "parfaite" ? "parfaite" : e === "maitrisee" ? "maitrisee" : "decouverte"}`;
+    }
+    jaugeCpt.appendChild(i);
+  }
+  $("cptRepartition").textContent = t("cptRepartition")(
+    combien("parfaite"),
+    combien("maitrisee"),
+    combien("decouverte") + combien("encours"),
+    combien("verrouillee"),
+  );
+
+  /** Une cellule de la grille de chiffres — quatre faits, aucun jugement. */
+  const grille = (hote: HTMLElement, cellules: ReadonlyArray<readonly [string, string]>): void => {
+    hote.innerHTML = "";
+    for (const [valeur, label] of cellules) {
+      const cel = document.createElement("div");
+      cel.className = "cpt__cel";
+      cel.innerHTML = `<b class="cpt__val"></b><span class="cpt__lab"></span>`;
+      cel.querySelector<HTMLElement>(".cpt__val")!.textContent = valeur;
+      cel.querySelector<HTMLElement>(".cpt__lab")!.textContent = label;
+      hote.appendChild(cel);
+    }
+  };
+
+  const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+  const maitriseesN = combien("maitrisee") + combien("parfaite");
+  const monRecord = P.recordDeSonAllure(s);
 
   if (connecte) {
     $("compteLede").textContent = t("cptEnregistre");
+    $("cptSigne").innerHTML = glyphSvg(signeAffiche(s), 34);
+    $("cptNom").textContent = c.pseudo || t("cptSansNom");
+    /*
+     * ⚠️ Le FOURNISSEUR n'est pas affiché, et c'est un manque assumé.
+     *
+     * La maquette montre « CONNECTÉ · GOOGLE », mais le jeton ne porte pas le
+     * fournisseur : `EtatCompte` a le pseudo, le glyphe et la péremption, rien
+     * de plus. L'afficher demanderait une revendication de plus dans le JWT —
+     * donc de toucher aussi le serveur de salons, qui le vérifie. Deviner
+     * serait pire que se taire.
+     */
+    $("cptVia").textContent = t("cptConnecte");
+    grille($("cptGrille"), [
+      [String(monRecord), t("cptMeilleur")],
+      [`${vues} / ${ONE_RULES.length}`, t("cptRegleCarnet")],
+      [String(maitriseesN), t("cptMaitrisees")],
+      [t("cptEnJours")(s.streak.count), t("cptSerieEnCours")],
+    ]);
+
+    /*
+     * LE RUN DU JOUR est le seul resultat OPPOSABLE a quelqu'un d'autre.
+     *
+     * C'est la decision n°14 rendue visible : ce qui est opposable est REJOUE
+     * par le serveur, le reste est une declaration de l'appareil. Le badge ne
+     * parait donc que si le serveur a bien rejoue ce run — sinon on affiche le
+     * score sans le presenter comme une preuve.
+     */
+    const vueJ = vueDuJour(s, day);
+    $("cptJourVal").textContent = vueJ.acquis || s.daily.score > 0
+      ? t("cptJourFait")(s.daily.score)
+      : t("cptJourRien");
+    $("cptJourNote").textContent = "";
+    $("cptOpposable").classList.add("hidden");
+    void classementDuJour(day).then((cl) => {
+      if (screen !== "compte" || !cl) return;
+      const moi = cl.moi ?? cl.top?.find((e) => e.moi) ?? null;
+      if (!moi) return;
+      $("cptJourNote").textContent = t("cptJourRang")(moi.rang);
+      $("cptOpposable").classList.remove("hidden");
+    });
+
     const hote = $("compteIdentite");
     hote.innerHTML = "";
-    const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
-    hote.appendChild(ligneCompte(t("cptNom"), c.pseudo || t("cptSansNom"), glyphSvg(signeAffiche(s), 18)));
     hote.appendChild(ligneCompte(t("cptCarnet"), t("cptRegles")(vues, ONE_RULES.length)));
     hote.appendChild(
       ligneCompte(t("cptSerie"), t("cptJours")(s.streak.count)),
@@ -1005,6 +1099,28 @@ function renderCompte(): void {
     return;
   }
 
+  /*
+   * ANONYME : le titre porte SON chiffre.
+   *
+   * « GARDE CE 31 » dit ce qu'un compte sert a faire ; « cree un compte » ne
+   * dit que ce qu'on lui demande. Et sans chiffre — un joueur qui n'a encore
+   * rien fait — la promesse porte sur la progression plutot que sur un zero.
+   */
+  $("compteTitre").textContent =
+    monRecord > 0 ? t("cptGarde")(monRecord) : t("cptGardeRien");
+  /*
+   * ⚠️ Trois libelles COURTS ici, longs dans la grille du connecte.
+   *
+   * L'anonyme les met sur UNE rangee — mesure a 375 px : « MEILLEUR SCORE » et
+   * « REGLES AU CARNET » repliaient la troisieme cellule sur sa propre ligne.
+   * C'est la quatrieme fois que ce projet paie un libelle long dans une barre
+   * segmentee ; le remede est toujours de raccourcir le mot, pas la barre.
+   */
+  grille($("cptGrilleAnon"), [
+    [String(monRecord), t("cptCourtRecord")],
+    [String(vues), t("cptCourtCartes")],
+    [t("cptEnJours")(s.streak.count), t("cptCourtSerie")],
+  ]);
   $("compteLede").textContent = t("cptSansCompte");
 
   /*
