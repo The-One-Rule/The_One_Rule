@@ -1691,6 +1691,44 @@ existant qui l'a rappelé.
 pour trois règles débloquées, zéro pour les treize autres. La décision n°7
 tenait dans le DOM ; elle tient maintenant dans le trafic.
 
+#### La fiche de carte, et deux données qu'il fallait mesurer
+
+`#fiche` rend la maîtrise ACTIONNABLE : les six cases avec leur état, **une
+seule phrase** (celle de la première case non franchie — six choses à faire ne
+se retiennent pas, une seule se fait), et un bouton qui pose l'allure ET la
+règle avant d'ouvrir le brief. C'est ce bouton qui ferme la boucle ; sans lui la
+fiche serait un tableau de bord.
+
+**La FAMILLE est dérivée, jamais déclarée** (`src/game/famille.ts`) : `traps` →
+INTERDIT (9), `transform` → DÉFORMATION (5), le reste → CONTRAINTE (2 — LA MAIN
+GAUCHE tient une touche, LA SECONDE interdit d'agir trop tôt). Un champ posé à
+la main se serait désynchronisé du comportement à la première règle ajoutée.
+
+⚠️ **Le TAUX DE PIÈGE de la maquette est FAUX pour le catalogue actuel** : elle
+annonce 15,9 % pour LE SANG, 13,8 % pour LE GAUCHER, 20,1 % pour LA POINTE.
+Mesuré avec `buildRound` sur 120 runs × 45 niveaux — le protocole du test
+d'équilibrage — c'est **21,8 · 19,6 · 26,4**. Les quatre règles ajoutées depuis
+ont changé la distribution des consignes. La table est gelée (la recalculer à
+l'affichage coûterait 5400 manches par règle) et **gardée par un test qui refait
+la mesure** : il tombera le jour où une pondération changera.
+
+⚠️ **Trois libellés ont encore débordé** : « MEILLEURE SÉRIE » et « PIÈGES
+DÉJOUÉS » réclamaient 396 px pour 325 à 375 px. Raccourcis en SÉRIE et PIÈGES,
+plus `flex-wrap`. C'est la troisième fois que ce projet paie un libellé long
+dans une barre segmentée — après le sommaire de l'entraînement et la barre des
+allures. **Le remède est toujours le même : raccourcir le mot, pas la barre.**
+
+**La collection vide** montrait seize barres hachurées sans rien d'ouvrable —
+un mur, pas une collection. Une phrase la retourne en invitation, et elle dit
+vrai : une carte se débloque en JOUANT.
+
+**Quatre par rangée à 1280** : `.screen__scroll` plafonne à une colonne de
+LECTURE, juste partout sauf pour une grille. Mesuré 560 px et 3 cartes ;
+débridé à 780 au-delà de 900 px → 4 cartes. Le téléphone ne bouge pas.
+
+**Reste de la maquette, non fait** : la salle d'entraînement (filtres,
+progression globale), et le desktop de l'accueil, du jeu et du salon.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De
