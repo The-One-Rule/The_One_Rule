@@ -204,6 +204,33 @@
         </div>
       </div>
 
+      <!-- LES GOUTTIERES DU SOLO.
+           A gauche TA CARTE — celle de la regle en cours, avec sa jauge et ce
+           que ce run fait avancer. A droite CE RUN — les marques manche par
+           manche, et le fantome quand on releve un defi.
+
+           ⚠️ Elles vivent HORS FLUX, dans la meme bande que les plaques du
+           multijoueur (`--field-top`, `--field-h`, `--gutter-w`) : elles ne
+           rognent pas le champ. Et `pointer-events: none` — un clic destine a
+           la scene ne doit pas mourir sur une gouttiere. -->
+      <div id="gout" class="gout hidden" aria-hidden="true">
+        <div class="gout__col gout__col--g">
+          <p class="gout__titre" data-i18n="gout.carte">YOUR CARD</p>
+          <img class="gout__img" id="goutImg" width="64" height="64" alt="" />
+          <p class="gout__nom" id="goutNom"></p>
+          <div class="gout__jauge" id="goutJauge"></div>
+          <p class="gout__note" id="goutNote"></p>
+        </div>
+        <div class="gout__col gout__col--d">
+          <p class="gout__titre" data-i18n="gout.run">THIS RUN</p>
+          <div class="gout__marques" id="goutMarques"></div>
+          <div class="gout__fantome hidden" id="goutFantome">
+            <p class="gout__titre" id="goutFantomeQui"></p>
+            <p class="gout__nom" id="goutFantomeEtat"></p>
+          </div>
+        </div>
+      </div>
+
       <div id="plates" class="plates hidden" aria-label="Players" data-i18n-aria="aria.joueurs">
         <div class="plates__col" id="platesL"></div>
         <div class="plates__col" id="platesR"></div>

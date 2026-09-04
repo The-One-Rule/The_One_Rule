@@ -2633,6 +2633,68 @@ function marksToString(marks: string[]): string {
  * sinon on double le son de mort, ce qui s'entend immédiatement.
  */
 /**
+ * LES GOUTTIERES DU SOLO — ta carte a gauche, ce run a droite.
+ *
+ * ⚠️ Elles vivent HORS FLUX, dans la meme bande que les plaques du
+ * multijoueur : elles ne rognent pas le champ, et la taille du champ est du
+ * gameplay. Elles ne paraissent que quand la gouttiere est assez large — c'est
+ * `has-gutters`, decide par la geometrie et pas par le mode.
+ *
+ * Elles se rafraichissent A CHAQUE MANCHE et pas a chaque image : la seule
+ * chose qui bouge est la liste des marques, et repeindre soixante fois par
+ * seconde ce qui change une fois toutes les deux secondes est du travail rendu
+ * au ramasse-miettes sur le chemin le plus chaud du jeu.
+ */
+function majGouttieres(): void {
+  const el = $("gout");
+  if (!session) {
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  const r = session.rule;
+  const rec = P.load().encountered[r.id];
+  const cases = echelleMaitrise(r, rec);
+
+  $<HTMLImageElement>("goutImg").src = `/cartes/${r.id}.png`;
+  $("goutNom").textContent = nomDeRegle(r.id, r.name);
+  const jauge = $("goutJauge");
+  jauge.innerHTML = "";
+  for (const c of cases) {
+    const i = document.createElement("i");
+    if (c.faite) i.className = "is-on";
+    jauge.appendChild(i);
+  }
+  // La PROCHAINE case, celle que ce run peut faire tomber. C'est la seule
+  // ligne de l'ecran qui relie le geste en cours a la collection.
+  const suivante = prochaineCase(cases);
+  $("goutNote").textContent = suivante
+    ? t("goutFaitAvancer")(libelleCase(suivante.c))
+    : t("goutRienAAvancer");
+
+  /*
+   * Les marques du moteur, telles quelles : 🟩 propre, 🟦 piege dejoue,
+   * 🟨 faute d'echauffement. Aucune donnee nouvelle — c'est ce que l'ecran de
+   * fin affiche deja, montre pendant au lieu d'apres.
+   */
+  const marques = $("goutMarques");
+  marques.innerHTML = "";
+  for (const m of session.marks.slice(-40)) {
+    const i = document.createElement("i");
+    i.className = m === "🟦" ? "est-piege" : m === "🟨" ? "est-faute" : "est-tenue";
+    marques.appendChild(i);
+  }
+
+  // Le fantome d'un defi : ou en est l'adversaire, et qui mene.
+  const f = $("goutFantome");
+  f.classList.toggle("hidden", !challenge);
+  if (challenge) {
+    $("goutFantomeQui").textContent = challenge.who ?? "";
+    $("goutFantomeEtat").textContent = String(session.level);
+  }
+}
+
+/**
  * CE QUE CE RUN A FAIT AVANCER.
  *
  * La question à laquelle l'écran de fin doit répondre est « qu'est-ce que je
@@ -3390,12 +3452,14 @@ function loop(now: number): void {
     if (session.phase === "over") {
       finishRun();
       session = null;
+      $("gout").classList.add("hidden");
     } else if (session.phase === "playing") {
       const key = `${session.mode}:${runId}:${session.level}`;
       if (key !== lastRoundKey) {
         lastRoundKey = key;
         urgentDone = false;
         sfx.roundStart();
+        majGouttieres();
       }
       /*
        * Une règle qui s'ajoute doit se VOIR, et prime sur le palier de vitesse.

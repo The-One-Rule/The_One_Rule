@@ -9441,3 +9441,143 @@ button.chip:active:not(:disabled) {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
 }
+
+/* ==================================================================
+   LES GOUTTIERES DU SOLO
+
+   A gauche TA CARTE, a droite CE RUN. Elles vivent dans la meme bande que les
+   plaques du multijoueur et par le meme mecanisme : hors flux, calees sur
+   `--field-top` / `--field-h` / `--gutter-w`.
+
+   ⚠️ Elles ne rognent JAMAIS le champ, et la taille du champ est du gameplay.
+   Elles n'existent que quand `has-gutters` est pose — c'est-a-dire quand la
+   gouttiere est deja assez large, decide par la geometrie et pas par le mode.
+   ================================================================== */
+
+.gout {
+  display: none;
+}
+
+.gout.hidden {
+  display: none;
+}
+
+#app.has-gutters .gout:not(.hidden) {
+  display: block;
+  position: absolute;
+  top: var(--field-top);
+  left: 0;
+  right: 0;
+  height: var(--field-h);
+  z-index: 4;
+  /* Un clic destine a la scene ne doit pas mourir sur une gouttiere. */
+  pointer-events: none;
+}
+
+.gout__col {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: var(--gutter-w);
+  padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.gout__col--g {
+  left: 0;
+}
+
+.gout__col--d {
+  right: 0;
+}
+
+.gout__titre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.gout__img {
+  width: 100%;
+  max-width: 92px;
+  height: auto;
+  image-rendering: pixelated;
+  border: var(--bd-hair) solid var(--line);
+  display: block;
+}
+
+.gout__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.gout__jauge {
+  display: flex;
+  gap: 2px;
+}
+
+.gout__jauge i {
+  flex: 1;
+  height: 4px;
+  background: var(--line);
+}
+
+.gout__jauge i.is-on {
+  background: var(--signal);
+}
+
+.gout__note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+/* Les marques du moteur, manche par manche — ce que l'ecran de fin montre
+   deja, montre PENDANT au lieu d'APRES. */
+.gout__marques {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+
+.gout__marques i {
+  aspect-ratio: 1;
+  background: var(--line);
+}
+
+.gout__marques i.est-tenue {
+  background: var(--jade, #40f7c0);
+}
+
+.gout__marques i.est-piege {
+  background: var(--signal);
+}
+
+.gout__marques i.est-faute {
+  background: var(--ambre);
+}
+
+.gout__fantome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: var(--bd-hair) solid var(--line);
+}
+
+.gout__fantome.hidden {
+  display: none;
+}

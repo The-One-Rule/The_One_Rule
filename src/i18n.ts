@@ -209,6 +209,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "gout.carte": "TA CARTE",
+    "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
     "piege.rien": "TU N'AS RIEN FAIT",
@@ -338,6 +340,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "gout.carte": "YOUR CARD",
+    "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
     "piege.rien": "YOU DID NOTHING",
@@ -484,6 +488,8 @@ type Dyn = {
   avanceCase: string;
   avanceRien: string;
   avanceTravailler: (regle: string) => string;
+  goutFaitAvancer: (quoi: string) => string;
+  goutRienAAvancer: string;
   decouverteNote: (manche: number, vues: number, total: number) => string;
   butModeEntrainement: string;
   /* --- première arrivée --- */
@@ -828,6 +834,8 @@ const DYN: Record<Lang, Dyn> = {
     avanceCase: "Une case de plus.",
     avanceRien: "Rien de neuf sur cette règle cette fois.",
     avanceTravailler: (regle) => `TRAVAILLER ${regle}`,
+    goutFaitAvancer: (quoi) => `Ce run fait avancer : ${quoi}`,
+    goutRienAAvancer: "Cette carte est parfaite.",
     decouverteNote: (manche, vues, total) =>
       `Rencontrée à la manche ${manche}. Entrée au carnet · ${vues} / ${total}.`,
     butModeEntrainement: "ENTRAÎNEMENT",
@@ -1144,6 +1152,8 @@ const DYN: Record<Lang, Dyn> = {
     avanceCase: "One more box.",
     avanceRien: "Nothing new on this rule this time.",
     avanceTravailler: (regle) => `WORK ON ${regle}`,
+    goutFaitAvancer: (quoi) => `This run advances: ${quoi}`,
+    goutRienAAvancer: "This card is perfect.",
     decouverteNote: (manche, vues, total) =>
       `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
     butModeEntrainement: "TRAINING",
