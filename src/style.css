@@ -8523,3 +8523,39 @@ button.chip:active:not(:disabled) {
 .carte.is-ouvrable:focus-visible {
   border-color: var(--signal);
 }
+
+/* L'etat pauvre de la collection — voir index.html. */
+.codexvide {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.5;
+  color: var(--signal-pale);
+  max-width: 46ch;
+}
+
+.codexvide.hidden {
+  display: none;
+}
+
+/* ==================================================================
+   LA COLLECTION EN LARGE — quatre par rangee
+
+   `.screen__scroll` plafonne a une colonne de LECTURE, ce qui est juste
+   partout ailleurs : au-dela de ~70 caracteres, une ligne se relit mal. Mais
+   une collection n'est pas un texte, c'est une grille — et a 1280 elle
+   n'affichait que trois cartes par rangee dans 560 px, avec le reste de
+   l'ecran vide.
+
+   Mesure a 1280x860 : 560 px de colonne, 3 cartes de 164. A 780, la grille
+   `auto-fill minmax(150px, 1fr)` en pose quatre.
+
+   Seule la collection est debridee : la fiche reste une colonne de lecture,
+   parce qu'elle se lit.
+   ================================================================== */
+
+@media (min-width: 900px) {
+  #codex .screen__scroll {
+    max-width: 780px;
+  }
+}

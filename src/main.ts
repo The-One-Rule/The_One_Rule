@@ -703,6 +703,10 @@ function renderCodex(): void {
    * Le compteur compte désormais les MAÎTRISÉES et non les « tenues » : c'est
    * le même objectif que l'entraînement ciblé, donc le même nombre partout.
    */
+  // Le mur de cartes verrouillées devient une invitation quand il est TOTAL.
+  $("codexVide").textContent = t("codexVide");
+  $("codexVide").classList.toggle("hidden", vues > 0);
+
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
     const cases = echelleMaitrise(r, rec);

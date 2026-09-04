@@ -405,6 +405,7 @@ type Dyn = {
   /* --- les cartes --- */
   carteCases: (n: number) => string;
   carteParfaite: string;
+  codexVide: string;
   /* --- la fiche --- */
   famInterdit: string;
   famDeformation: string;
@@ -716,6 +717,8 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGER DE NOM",
     carteCases: (n) => `${n} / 6 · MAÎTRISE`,
     carteParfaite: "PARFAITE",
+    codexVide:
+      "Aucune règle rencontrée pour l'instant. Lance une partie : une carte se débloque en JOUANT, jamais en lisant.",
     famInterdit: "INTERDIT",
     famDeformation: "DÉFORMATION",
     famContrainte: "CONTRAINTE",
@@ -996,6 +999,8 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGE NAME",
     carteCases: (n) => `${n} / 6 · MASTERY`,
     carteParfaite: "PERFECT",
+    codexVide:
+      "No rule met yet. Start a run: a card unlocks by PLAYING, never by reading.",
     famInterdit: "FORBIDS",
     famDeformation: "DISTORTION",
     famContrainte: "CONSTRAINT",
