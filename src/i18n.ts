@@ -400,6 +400,10 @@ export const CHAINES = STATIQUE;
 type Dyn = {
   compteSupprimer: string;
   compteNom: string;
+  /* --- l'écran de jeu --- */
+  hudGeste: string;
+  hudGestes: (n: number) => string;
+  hudDerniereVie: string;
   /* --- l'objectif de l'accueil --- */
   butTien: string;
   butManches: (n: number) => string;
@@ -685,6 +689,9 @@ const DYN: Record<Lang, Dyn> = {
   fr: {
     compteSupprimer: "SUPPRIMER LE COMPTE",
     compteNom: "CHANGER DE NOM",
+    hudGeste: "1 GESTE",
+    hudGestes: (n) => `${n} GESTES`,
+    hudDerniereVie: "DERNIÈRE VIE",
     butTien: "TON RECORD",
     butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     butMieux: "Tu peux faire mieux ?",
@@ -940,6 +947,9 @@ const DYN: Record<Lang, Dyn> = {
   en: {
     compteSupprimer: "DELETE ACCOUNT",
     compteNom: "CHANGE NAME",
+    hudGeste: "1 MOVE",
+    hudGestes: (n) => `${n} MOVES`,
+    hudDerniereVie: "LAST LIFE",
     butTien: "YOUR BEST",
     butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     butMieux: "Think you can do better?",

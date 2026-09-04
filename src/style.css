@@ -3211,7 +3211,17 @@ body {
   background: var(--paper);
   border-color: var(--paper);
   color: var(--ink);
+  /* L'ombre DECALEE d'un module, sans flou : le vocabulaire de la couche
+     pixel, applique au seul bouton qu'on vient chercher. Une ombre floue
+     jurerait avec des angles droits. */
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+.btn--primary:active {
+  /* Le bouton s'enfonce DANS son ombre : elle disparait, il descend d'autant.
+     C'est le meme geste qu'un objet qu'on presse, sans une seule transition. */
   box-shadow: none;
+  transform: translate(4px, 4px);
 }
 
 .btn--primary:hover,
@@ -5245,20 +5255,44 @@ button.chip:active:not(:disabled) {
   margin-bottom: var(--sp-3);
 }
 
-.btn--play {
+/*
+ * LANCEMENT — cadre d'accent, jamais un aplat.
+ *
+ * C'est la variante la plus forte du systeme, et elle se distingue du primaire
+ * autrement que par la taille : le primaire est un APLAT de papier, celui-ci
+ * est un CADRE. Deux objets qu'on ne confond pas d'un coup d'oeil, meme
+ * cote a cote.
+ *
+ * Il surcharge `.btn--primary` que porte le meme bouton : l'aplat papier
+ * cederait sinon au cadre et on aurait les deux a moitie.
+ */
+.btn--play,
+.btn--primary.btn--play {
   font-family: var(--display);
   font-weight: 600;
   font-size: clamp(20px, 4vw, 28px);
   letter-spacing: 0.04em;
   padding: var(--sp-3) clamp(40px, 12vw, 96px);
   min-height: 60px;
-  /* Le meme cadre en marches que la couche pixel, en accent : c'est le seul
-     endroit de l'accueil qui le porte, donc il ne se dispute avec rien. */
-  box-shadow:
-    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
-    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
-    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 45%, transparent),
-    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 45%, transparent);
+  background: color-mix(in srgb, var(--signal) 12%, transparent);
+  border: 4px solid var(--signal);
+  color: var(--paper);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+.btn--play:hover,
+.btn--primary.btn--play:hover,
+.btn--play:focus-visible,
+.btn--primary.btn--play:focus-visible {
+  background: color-mix(in srgb, var(--signal) 24%, transparent);
+  border-color: var(--signal-pale);
+  color: var(--paper);
+}
+
+.btn--play:active,
+.btn--primary.btn--play:active {
+  box-shadow: none;
+  transform: translate(4px, 4px);
 }
 
 /* ==================================================================
@@ -8062,4 +8096,160 @@ button.chip:active:not(:disabled) {
      pouvoir se casser proprement sur un telephone plutot que deborder. */
   max-width: 34ch;
   text-wrap: balance;
+}
+
+/* ==================================================================
+   L'ECRAN DE JEU — passage sur la maquette
+
+   Quatre ajouts, et un seul est structurel : les VIES montent dans le
+   bandeau, contre la regle. Les deux decident ensemble d'une manche —
+   combien il te reste, et ce que tu n'as pas le droit de faire — et le pied
+   ne garde que ce qu'on consulte entre deux manches.
+
+   ⚠️ Tout ce qui grossit le bandeau ou le pied rogne la scene, et la taille
+   du champ EST du gameplay. Les vies sont donc posees dans une colonne qui
+   existait deja (`auto 1fr auto`, la troisieme piste portait `band__meta`),
+   et la hauteur du bandeau est mesuree avant/apres a chaque fois.
+   ================================================================== */
+
+.band__droite {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  line-height: 1;
+}
+
+/* Les vies sont des SYMBOLES, jamais un nombre : « VIES 2 » se lit,
+   « ▪▪▫ » se voit — et c'est la seule information qu'on consulte en pleine
+   manche, quand la fenetre fait 800 ms. */
+.band__vies {
+  display: flex;
+  gap: 4px;
+}
+
+.band__vies:empty {
+  display: none;
+}
+
+.band__viesLabel {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  color: var(--paper-dim);
+  white-space: nowrap;
+}
+
+.band__viesLabel:empty {
+  display: none;
+}
+
+/* La derniere vie parle : c'est l'information qui change une decision. */
+.band__droite.is-last .band__viesLabel {
+  /* --rouge, l'urgence du HUD — volontairement distincte de la garance
+     jouable #F74058, qui appartient aux pieces. */
+  color: var(--rouge);
+}
+
+.band__droite.is-last .band__vies i:not(.is-off) {
+  animation: viePulse 1.1s steps(2, end) infinite;
+}
+
+@keyframes viePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ------------------------------------------------------------------
+   COMBIEN DE GESTES la consigne demande
+
+   La fenetre en tient deja compte — `windowForSteps` ajoute 280 ms par geste
+   supplementaire — mais rien ne le DISAIT. Sous LE JUMEAU, qui double chaque
+   action, on decouvrait qu'il en fallait deux en ratant le premier.
+
+   Il remplace `#sub` quand `#sub` est vide, et se pose sous lui sinon : les
+   deux ne prennent jamais deux lignes, sinon le champ paierait la difference.
+   ------------------------------------------------------------------ */
+
+/* Au dernier quart, la ligne passe a l'urgence en meme temps que la barre :
+   l'oeil recoit une seule information, pas deux desaccordees. */
+#app.is-critical #sub {
+  color: var(--rouge);
+}
+
+/* ------------------------------------------------------------------
+   LES QUATRE EQUERRES
+
+   Elles doublent le cadre de temps du canvas. Hors flux et purement
+   decoratives (`aria-hidden`), donc elles ne rognent pas le champ — et comme
+   tout le reste du mouvement, elles n'animent que `transform` et `opacity`.
+   ------------------------------------------------------------------ */
+
+.equerres {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  /* Quatre traits par coin, en dur : deux gradients suffisent, un par axe. */
+  background-image:
+    linear-gradient(to right, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to bottom, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to left, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to top, var(--signal) 0 34px, transparent 34px);
+  background-size:
+    100% 3px,
+    3px 100%,
+    100% 3px,
+    3px 100%;
+  background-position:
+    left top,
+    left top,
+    right bottom,
+    right bottom;
+  background-repeat: no-repeat;
+  /* Elles se retractent quand la chaleur monte : le cadre se resserre avec le
+     temps qui reste. Une opacite, jamais une taille — un trait qui grandit
+     ferait bouger la geometrie apparente du champ. */
+  opacity: calc(0.35 + var(--heat, 0) * 0.5);
+}
+
+/* ------------------------------------------------------------------
+   LA BORDURE D'ECRAN DE LA CHALEUR
+
+   `--heat` pilotait deja un halo de bord et un cadre qui bat ; la maquette
+   lui ajoute une bordure franche au dernier quart. Elle vit sur `#app`, hors
+   flux, donc elle ne prend pas un pixel au terrain.
+   ------------------------------------------------------------------ */
+
+#app.is-critical::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 9;
+  pointer-events: none;
+  border: 3px solid color-mix(in srgb, var(--rouge) 70%, transparent);
+  box-shadow: inset 0 0 60px color-mix(in srgb, var(--rouge) 45%, transparent);
+  animation: bordCritique 0.4s steps(2, end) infinite;
+}
+
+@keyframes bordCritique {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #app.is-critical::after,
+  .band__droite.is-last .band__vies i:not(.is-off) {
+    animation: none;
+  }
 }

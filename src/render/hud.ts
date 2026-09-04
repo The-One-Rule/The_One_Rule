@@ -19,6 +19,9 @@ export class Hud {
   private bandBrief = $("bandBrief");
   private bandMeta = $("bandMeta");
   private instr = $("instr");
+  private vies = $("bandVies");
+  private viesLabel = $("bandViesLabel");
+  private droite = $("bandVies").parentElement as HTMLElement;
   private sub = $("sub");
   private fill = $("timerFill");
   private fScore = $("fScore");
@@ -73,6 +76,33 @@ export class Hud {
     this.bandMeta.textContent = text;
   }
 
+  /**
+   * LES VIES, DANS LE BANDEAU — contre la règle unique.
+   *
+   * Les deux décident ensemble d'une manche : combien il te reste, et ce que
+   * tu n'as pas le droit de faire. Elles vivaient au pied, où l'on ne regarde
+   * qu'entre deux manches.
+   *
+   * Des SYMBOLES et jamais un nombre : « VIES 2 » se lit, « ▪▪▫ » se voit —
+   * et c'est la seule information qu'on consulte pendant une fenêtre de
+   * 800 ms.
+   *
+   * @param lives `null` efface le bloc : le solo n'a pas de vies, et un
+   * emplacement vide qui garde son étiquette se lit comme une donnée perdue.
+   */
+  setVies(lives: number | null, max = 3): void {
+    if (lives === null) {
+      this.vies.innerHTML = "";
+      this.viesLabel.textContent = "";
+      this.droite.classList.remove("is-last");
+      return;
+    }
+    const n = Math.max(0, lives);
+    this.vies.innerHTML = livesDots(n, max);
+    this.viesLabel.textContent = n === 1 ? t("hudDerniereVie") : t("piedVies");
+    this.droite.classList.toggle("is-last", n === 1);
+  }
+
   setFooter(score: number, best: number, mode: string, midLabel = t("piedRecord")): void {
     this.fScore.textContent = String(score);
     this.fBest.className = "foot__value";
@@ -82,18 +112,19 @@ export class Hud {
   }
 
   /**
-   * Pied de page du multijoueur. Les vies sont des symboles, jamais un nombre :
-   * « VIES 2 » se lit, « ▪▪▫ » se voit — et c'est la seule information qu'on
-   * consulte en pleine manche.
+   * Pied du multijoueur — les VIES sont MONTÉES dans le bandeau.
+   *
+   * Elles occupaient la case du milieu, c'est-à-dire l'endroit qu'on regarde
+   * entre deux manches et pas pendant. Le pied garde le score et le mode ; la
+   * case du milieu redevient ce qu'elle dit être.
    */
   setFooterLives(score: number, lives: number, max: number, mode: string): void {
     this.fScore.textContent = String(score);
     this.fMidLabel.textContent = t("piedVies");
-    this.fBest.className = "foot__value lifedots";
-    this.fBest.innerHTML = livesDots(lives, max);
+    this.fBest.className = "foot__value";
+    this.fBest.textContent = String(Math.max(0, lives));
     this.fMode.textContent = mode;
-    // La dernière vie se signale : c'est l'information qui change une décision.
-    this.fBest.classList.toggle("is-last", lives === 1);
+    this.setVies(lives, max);
   }
 
   clearRound(): void {
@@ -140,8 +171,23 @@ export class Hud {
     this.instr.className = round.glyph && !hidden ? "is-glyph" : "";
     this.instr.style.color = round.inkColor ? colorHex(round.inkColor) : "";
 
+    /*
+     * LA LIGNE SOUS LA CONSIGNE : la sous-consigne, PUIS le nombre de gestes.
+     *
+     * `windowForSteps` ajoute déjà 280 ms par geste supplémentaire — la
+     * fenêtre en tenait compte, mais rien ne le DISAIT. Sous LE JUMEAU, qui
+     * double chaque action, on découvrait qu'il en fallait deux en ratant le
+     * premier.
+     *
+     * ⚠️ Les deux partagent UNE ligne, jamais deux. Mesuré : un second bloc
+     * coûtait 21 px de terrain (616 → 595), et la taille du champ est du
+     * gameplay.
+     */
     const subText = hidden ? "" : round.glyph ? text : composeSous(round.sousPhrase, round.sub ?? "");
-    if (this.sub.textContent !== subText) this.sub.textContent = subText;
+    const n = round.steps.length;
+    const compte = n > 1 ? t("hudGestes")(n) : t("hudGeste");
+    const ligne = hidden ? "" : subText ? `${subText}  ·  ${compte}` : compte;
+    if (this.sub.textContent !== ligne) this.sub.textContent = ligne;
 
     /*
      * La barre est le seul élément écrit à chaque image : elle ne change donc
