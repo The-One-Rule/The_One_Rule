@@ -1726,8 +1726,40 @@ vrai : une carte se débloque en JOUANT.
 LECTURE, juste partout sauf pour une grille. Mesuré 560 px et 3 cartes ;
 débridé à 780 au-delà de 900 px → 4 cartes. Le téléphone ne bouge pas.
 
-**Reste de la maquette, non fait** : la salle d'entraînement (filtres,
-progression globale), et le desktop de l'accueil, du jeu et du salon.
+#### La salle de travail, et le desktop
+
+⚠️ **UNE SEULE GRILLE, PAS UN FILTRE PLUS UNE GRILLE.** La maquette dessinait un
+écran TRAINING séparé avec sa propre liste de règles. La collection en a déjà
+une : deux façons de répondre à « quelle règle travailler ? » finissent par se
+contredire. Les filtres se posent donc SUR la grille existante — c'est la même
+règle que l'entraînement ciblé s'était déjà donnée.
+
+**CELLE QUI TE RÉSISTE** : parmi les règles rencontrées et non maîtrisées, la
+plus retentée (départage sur les cases franchies). C'est la seule ligne de
+l'écran qui DÉSIGNE un exercice au lieu d'en proposer seize, donc le seul filet
+d'accent — deux accents ne désignent plus rien. Elle ouvre la FICHE et non
+l'exercice : la fiche dit ce qui manque, et c'est elle qui lance.
+
+⚠️ **Deux seuils d'apparition** : la règle qui résiste attend DEUX runs (à un
+seul, elle ferait passer une rencontre pour un échec) et les filtres attendent
+deux règles rencontrées (trois boutons pour trier un élément se lisent comme une
+fonctionnalité inutile). Un quatrième champ au carnet, `runs`, une somme comme
+`pieges`.
+
+⚠️ **L'ACCUEIL EN LARGE : le desktop manque de HAUTEUR, pas de largeur.**
+Mesuré à 1280×860, la faille finissait à 906 pour 860 — 46 px sous la ligne.
+L'enseigne et l'action passent côte à côte, la fissure reste pleine largeur, et
+la faille remonte à 829, soit **31 px au-dessus** — 77 px regagnés.
+
+⚠️ **Les rangées doivent être EXPLICITES** (`grid-row`). En placement
+automatique, le trait de séparation — qui est entre les deux dans le document et
+prend toute la largeur — s'intercalait et renvoyait le bouton sur une troisième
+rangée.
+
+**Reste de la maquette, non fait** : le salon en trois bandes, et la barre de
+navigation basse (CARTES / TRAINING / JOUER / DAILY / MULTI) qui remplacerait
+les cartes de mode de l'écran SOLO. Les deux touchent au multijoueur ou à la
+navigation de tous les écrans ; ni l'un ni l'autre n'a été entamé à moitié.
 
 ### Backlog
 
