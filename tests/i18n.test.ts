@@ -8,7 +8,7 @@
  * change les bons nœuds, et les boutons gardent leurs trois `<span>`.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import {
   appliqueLangue,
   estLang,
@@ -24,6 +24,17 @@ beforeAll(() => {
   const html = readFileSync("index.html", "utf8");
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 });
+
+/** Tous les fichiers TypeScript sous un dossier, récursivement. */
+function filsDe(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? filsDe(`${dir}/${e.name}`)
+      : e.name.endsWith(".ts")
+        ? [`${dir}/${e.name}`]
+        : [],
+  );
+}
 
 describe("sélecteur de langue", () => {
   it("vit DANS les réglages, et nulle part ailleurs", () => {
@@ -552,6 +563,48 @@ describe("les accords, qui ne se ressemblent pas d'une langue à l'autre", () =>
       fautes,
       `accord français dans la table anglaise :\n${fautes.join("\n")}\n` +
         "En anglais, zéro prend le pluriel : `n === 1 ? \"\" : \"s\"`.",
+    ).toEqual([]);
+  });
+
+  it("aucun texte du document n'est ORPHELIN", () => {
+    /*
+     * LA PANNE QUE CE TEST ATTRAPE, et elle est muette.
+     *
+     * `#multiLobbyCodeHint` portait « SAY IT OUT LOUD, OR SEND THE LINK » en
+     * dur, sans `data-i18n`, et aucun code ne le réécrivait avant qu'on copie
+     * le code. La ligne restait donc anglaise pour tout le monde, pour
+     * toujours. Le filet à accents ne pouvait pas la voir : elle est en ASCII
+     * pur — c'est la limite écrite au §12 du dépôt, et voici ce qui la couvre.
+     *
+     * Un texte du document est légitime à deux conditions, dont une suffit :
+     * il porte un `data-i18n`, ou son identifiant apparaît dans les sources —
+     * donc quelque chose l'écrit.
+     */
+    const html = readFileSync("index.html", "utf8");
+    const src = ["src", "shared"]
+      .flatMap((d) => filsDe(d))
+      .map((f) => readFileSync(f, "utf8"))
+      .join("\n");
+
+    const orphelins: string[] = [];
+    const re = /<(p|span|h1|h2|h3|button|b|small)\b([^>]*)>([^<]{3,})<\/\1>/g;
+    for (const m of html.matchAll(re)) {
+      const attrs = m[2];
+      const txt = m[3].trim();
+      if (attrs.includes("data-i18n")) continue;
+      // Trois lettres d'affilée : un chiffre, un « · » ou un sigle ne se
+      // traduisent pas, et n'ont donc rien à faire dans ce filet.
+      if (!/[A-Za-z]{3}/.test(txt)) continue;
+      const id = /id="([^"]+)"/.exec(attrs)?.[1];
+      // Sans identifiant, on ne peut pas savoir qui l'écrit : hors de portée.
+      if (!id) continue;
+      if (src.includes(`"${id}"`)) continue;
+      orphelins.push(`#${id} : « ${txt.slice(0, 60)} »`);
+    }
+    expect(
+      orphelins,
+      "texte figé dans le document, sans `data-i18n` et que rien n'écrit :\n" +
+        orphelins.join("\n"),
     ).toEqual([]);
   });
 });

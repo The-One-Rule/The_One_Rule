@@ -284,6 +284,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.code": "CODE DU SALON",
     "salon.copierCode": "COPIER LE CODE",
     "salon.copierLien": "COPIER LE LIEN",
+    "salon.dicteCode": "DICTE-LE À VOIX HAUTE, OU ENVOIE LE LIEN",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
     "salon.rotation": "ROTATION",
@@ -435,6 +436,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.code": "ROOM CODE",
     "salon.copierCode": "COPY THE CODE",
     "salon.copierLien": "COPY THE LINK",
+    "salon.dicteCode": "SAY IT OUT LOUD, OR SEND THE LINK",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
     "salon.rotation": "ROTATION",
@@ -700,9 +702,13 @@ type Dyn = {
   /* --- le salon, ce qu'il dit de lui-meme --- */
   salonJoueurs: (n: number, max: number) => string;
   salonSeulHint: string;
+  salonPlaceLibre: string;
   reglagesVerrouilles: string;
   reglagesTuDecides: string;
   reglagesInvite: string;
+  /** Ce que la vitesse choisie change, en millisecondes, a une manche témoin. */
+  vitesseQuoi: (nom: string, delta: number) => string;
+  vitesseQuoiRef: (nom: string, ms: number) => string;
   optJamais: string;
   optDuos: string;
   optChacun: string;
@@ -1054,9 +1060,13 @@ const DYN: Record<Lang, Dyn> = {
     allureMoins: (r) => `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
     salonJoueurs: (n, max) => `${n} / ${max} JOUEURS`,
     salonSeulHint: "LA PARTIE SE LANCE DÈS QUE QUELQU'UN ARRIVE",
+    salonPlaceLibre: "EMPLACEMENT LIBRE",
     reglagesVerrouilles: "RÉGLAGES VERROUILLÉS PENDANT UN MATCH",
     reglagesTuDecides: "TU DÉCIDES POUR TOUT LE SALON · TOUCHE UNE OPTION POUR LA CHANGER",
     reglagesInvite: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT CHANGER CES RÉGLAGES",
+    vitesseQuoi: (nom, delta) =>
+      `${nom} · ${delta > 0 ? "+" : ""}${delta} MS À LA MANCHE 20`,
+    vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS À LA MANCHE 20`,
     optJamais: "JAMAIS",
     optDuos: "DUOS",
     optChacun: "CHACUN",
@@ -1378,9 +1388,13 @@ const DYN: Record<Lang, Dyn> = {
     allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
     salonJoueurs: (n, max) => `${n} / ${max} PLAYERS`,
     salonSeulHint: "THE MATCH STARTS AS SOON AS SOMEONE ARRIVES",
+    salonPlaceLibre: "FREE SLOT",
     reglagesVerrouilles: "SETTINGS LOCKED DURING A MATCH",
     reglagesTuDecides: "YOU DECIDE FOR THE WHOLE ROOM · TAP AN OPTION TO CHANGE IT",
     reglagesInvite: "ONLY WHOEVER CREATED THE ROOM CAN CHANGE THESE SETTINGS",
+    vitesseQuoi: (nom, delta) =>
+      `${nom} · ${delta > 0 ? "+" : ""}${delta} MS ON ROUND 20`,
+    vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS ON ROUND 20`,
     optJamais: "NEVER",
     optDuos: "DUOS",
     optChacun: "EACH",
@@ -2147,15 +2161,23 @@ const VITESSES: Record<Lang, Record<string, [court: string, entier: string]>> = 
     "1.7": ["DÉCOUV.", "Découverte"],
     "1.3": ["LENT", "Lent"],
     "1": ["NORMAL", "Normal"],
-    "0.8": ["VITE", "Vite"],
-    "0.65": ["ÉCLAIR", "Éclair"],
+    "0.8": ["RAPIDE", "Rapide"],
+    /*
+     * ⚠️ BRUTAL, et pas « ÉCLAIR ».
+     *
+     * L'ÉCLAIR est le nom d'une RÈGLE du catalogue. Deux objets differents qui
+     * portent le meme mot dans le meme ecran — la plaque annonce la regle, la
+     * barre annonce la vitesse — se confondent exactement au moment ou l'on
+     * n'a pas le temps de lire.
+     */
+    "0.65": ["BRUTAL", "Brutal"],
   },
   en: {
     "1.7": ["EASY", "Discovery"],
     "1.3": ["SLOW", "Slow"],
     "1": ["NORMAL", "Normal"],
     "0.8": ["FAST", "Fast"],
-    "0.65": ["FLASH", "Flash"],
+    "0.65": ["BRUTAL", "Brutal"],
   },
 };
 

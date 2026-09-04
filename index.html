@@ -1347,7 +1347,11 @@
                 <button class="btn" id="btnMultiCopyCode" data-i18n="salon.copierCode">COPY THE CODE</button>
                 <button class="btn btn--ghost" id="btnMultiInvite" data-i18n="salon.copierLien">COPY THE LINK</button>
               </div>
-              <p class="fineprint" id="multiLobbyCodeHint">SAY IT OUT LOUD, OR SEND THE LINK</p>
+              <!-- ⚠️ Il portait son anglais EN DUR et aucun code ne le reecrivait avant
+                   une copie : la ligne restait anglaise pour tout le monde, pour
+                   toujours. Le filet a accents ne pouvait pas la voir — elle est en
+                   ASCII pur. Trouve en JOUANT, comme les quatre autres. -->
+              <p class="fineprint" id="multiLobbyCodeHint" data-i18n="salon.dicteCode">SAY IT OUT LOUD, OR SEND THE LINK</p>
             </div>
 
             <!-- La regle du jeu, rappelee la ou les joueurs attendent le
@@ -1364,6 +1368,14 @@
               <div class="settings__row" data-key="speed">
                 <span class="settings__label" data-i18n="salon.vitesse">SPEED</span>
                 <div class="settings__opts" id="optSpeed"></div>
+                <!-- ⚠️ CE QUE LA VITESSE CHANGE, en millisecondes.
+                     Une barre de cinq mots ne dit pas combien de temps on
+                     aura : c'est le defaut mesure en soiree — trois joueurs
+                     sur quatre ne savaient pas regler la vitesse. La phrase
+                     est CALCULEE depuis `windowMs`, jamais ecrite a la main :
+                     une valeur en dur divergerait au premier changement de
+                     courbe, et personne ne le verrait. -->
+                <p class="settings__quoi" id="speedQuoi"></p>
               </div>
               <!-- Deux réglages à trois ou quatre valeurs courtes : côte à côte
                    ils tiennent sur une ligne, et la colonne respire. -->

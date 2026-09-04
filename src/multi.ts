@@ -272,6 +272,15 @@ function setJoinErr(msg: string | null): void {
    (`nomVitesse`). */
 const ROTATION_LABEL: Record<number, string> = { 4: "4", 8: "8", 16: "16" };
 
+/*
+ * La manche TEMOIN sur laquelle la phrase de vitesse chiffre son ecart.
+ *
+ * 20 et pas 0 : a la manche 0 la fenetre est encore large et les cinq
+ * vitesses se ressemblent. 20 est deja dans le regime ou le choix se sent,
+ * et c'est un score que la plupart des salons atteignent.
+ */
+const MANCHE_TEMOIN = 20;
+
 function playerGlyph(p: PlayerPublic) {
   return p.glyph ?? glyphFor(p.id);
 }
@@ -376,6 +385,26 @@ function renderLobby(
   }
 
   /*
+   * UN EMPLACEMENT LIBRE, et un seul.
+   *
+   * La colonne des joueurs s'arretait sur le dernier arrive : rien ne disait
+   * qu'il restait de la place, alors que c'est la seule chose qu'on regarde en
+   * attendant. Une rangee pointillee le dit sans chiffrer — dix cases vides
+   * pour deux joueurs donneraient l'impression d'un salon desert.
+   *
+   * Elle disparait pendant le match : a ce moment-la, la place restante ne
+   * change plus rien pour personne.
+   */
+  if (!inMatch && players.length < MAX_PLAYERS) {
+    const libre = document.createElement("div");
+    libre.className = "seat seat--libre";
+    libre.setAttribute("aria-hidden", "true");
+    libre.innerHTML = `<span class="seat__glyph">+</span><span class="seat__id"><span class="seat__name"></span></span>`;
+    libre.querySelector<HTMLElement>(".seat__name")!.textContent = tr("salonPlaceLibre");
+    list.appendChild(libre);
+  }
+
+  /*
    * État vide du salon.
    *
    * Seul dans un salon, l'écran affichait « EN ATTENTE » et un bouton LANCER
@@ -458,6 +487,26 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   };
 
   const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
+  /*
+   * ⚠️ CE QUE LA VITESSE CHANGE, EN MILLISECONDES.
+   *
+   * Cinq mots dans une barre ne disent pas combien de temps on aura, et c'est
+   * le defaut mesure en soiree : trois joueurs sur quatre ne savaient pas
+   * regler la vitesse. La phrase est CALCULEE depuis `windowMs` a une manche
+   * temoin — un chiffre ecrit a la main divergerait au premier changement de
+   * courbe, en silence.
+   *
+   * NORMAL ne montre pas d'ecart : il EST la reference, donc « +0 MS » ne
+   * voudrait rien dire. Il montre sa duree.
+   */
+  const base = windowMs(MANCHE_TEMOIN);
+  const mien = Math.round(base * settings.speed);
+  const nom = nomVitesseEntier(settings.speed).toUpperCase();
+  $("speedQuoi").textContent =
+    settings.speed === 1
+      ? tr("vitesseQuoiRef")(nom, mien)
+      : tr("vitesseQuoi")(nom, mien - Math.round(base));
+
   fill("optSpeed", vitesses, settings.speed, {
     label: (n) => nomVitesse(n),
     aria: (n) => tr("ariaVitesse")(nomVitesseEntier(n)),
