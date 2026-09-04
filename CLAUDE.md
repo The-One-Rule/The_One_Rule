@@ -1802,6 +1802,36 @@ piège du §2 — *les documents mentent* — et il vaut aussi pour la maquette 
 plusieurs de ses écrans desktop décrivent du travail déjà fait. **Mesurer avant
 de refaire.**
 
+#### Les retours de manche, et la fin de run
+
+**Le piège déjoué est le seul retour qui PARLE.** Une réussite ordinaire ne dit
+rien et n'arrête rien ; une mort révèle le piège APRÈS (n°5). Entre les deux, le
+piège déjoué est le geste que le jeu existe pour apprendre — et il ne rendait
+qu'un son et une gerbe. Il annonce désormais la consigne qui piégeait, et il
+fait **avancer une carte à l'écran** : « LE SANG · 4 PIÈGES DÉJOUÉS · MAÎTRISE
+2/6 », à l'instant où le joueur la gagne.
+
+⚠️ **UN BUG QUE SEUL LE JEU RÉEL MONTRE.** Première version à l'écran : « la
+consigne demandait NE FAIS RIEN » — absurde. Cause : **`survive()` ouvre la
+manche SUIVANTE avant de rendre son verdict**, donc au moment où `react`
+s'exécute, `session.round` est déjà la manche d'après. La boucle capture
+maintenant la manche AVANT le `tick` et la passe à `react` — les deux appelants
+corrigés, la boucle et `sendAction`. Aucune relecture n'aurait vu ça : le code
+se lit juste.
+
+**« Ce que ce run a fait avancer »** répond à la question de l'écran de fin —
+*qu'est-ce que je viens de gagner ?* Le score dit ce qu'on a FAIT, pas ce qu'on
+a ACQUIS.
+
+⚠️ **La photo d'AVANT se prend DANS la mutation**, juste avant `majCarnet` :
+après elle, il n'y a plus aucun moyen de savoir ce qui a bougé — la fonction
+remplace l'entrée, elle ne la complète pas.
+
+⚠️ **Les deux blocs se taisent quand ils n'ont rien à dire.** Un bloc annonçant
+une progression nulle transforme un run ordinaire en échec. Et une règle NEUVE a
+sa propre annonce, donc le bloc de progression se tait pour ne pas dire deux fois
+la même chose.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De
