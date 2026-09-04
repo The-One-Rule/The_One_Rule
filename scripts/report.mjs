@@ -58,6 +58,7 @@ for await (const line of rl) {
   let u = users.get(e.id);
   if (!u) {
     u = { first: e.day, days: new Set(), sessions: [], shares: 0, runs: 0, sent: 0,
+          starts: 0, regles: new Set(),
           voitCompte: false, partCompte: false, aCompte: false };
     users.set(e.id, u);
   }
@@ -72,6 +73,19 @@ for await (const line of rl) {
   if (e.ev === "run_end") {
     u.runs++;
     runs.push(e);
+  }
+
+  /*
+   * On compte les runs LANCÉS, pas seulement terminés.
+   *
+   * `run_end` rate celui qui ferme l'onglet en pleine partie — or c'est
+   * précisément la population qu'on cherche à comprendre. Un joueur qui lance
+   * et abandonne A essayé le jeu ; le confondre avec celui qui n'a jamais
+   * cliqué mélange deux problèmes qui ne se réparent pas au même endroit.
+   */
+  if (e.ev === "run_start") {
+    u.starts++;
+    if (typeof e.rule === "string") u.regles.add(e.rule);
   }
 
   if (e.ev === "duel_sent") {
@@ -164,11 +178,117 @@ for (const n of [1, 2, 3, 5, 7, 10, 14]) {
   console.log(`  J+${String(n).padStart(2)}  ${pct(r.rate).padStart(7)}  ${bar}`);
 }
 
+/** Un rapport de deux nombres, ou un tiret quand le dénominateur est nul. */
+const ratio = (a, b) => (b ? pct(a / b) : "—");
+
+/* ------------------------------------------------------------------ *
+ * ENTONNOIR D'ENTRÉE — le chiffre qui commande tous les autres
+ *
+ * Relevé des jours 238-245 : 106 joueurs sur 139 — 76 % — n'avaient JAMAIS
+ * lancé une partie. Tant que ce nombre ne bouge pas, toutes les métriques de
+ * jeu décrivent les 24 % qui restent.
+ *
+ * Il n'était pas calculé ici, et c'est ce qui a permis à une cause bête de
+ * survivre : le bandeau de mesure s'affichait à l'ARRIVÉE, faisait 27 % d'un
+ * écran de téléphone, et `elementFromPoint` au centre de la faille rendait le
+ * BANDEAU — les deux portes SOLO et MULTI étaient inertes tant qu'il était là.
+ * Il est parti sur l'écran de fin depuis. Ce bloc existe pour dire si ça a
+ * suffi.
+ * ------------------------------------------------------------------ */
+const tous = [...users.values()];
+const aLance = tous.filter((u) => u.starts > 0);
+const aFini = tous.filter((u) => u.runs > 0);
+const aRejoue = tous.filter((u) => u.starts > 1);
+const revenus = tous.filter((u) => u.days.size > 1);
+
+console.log("\nENTONNOIR D'ENTRÉE");
+console.log(`  arrivés                ${String(tous.length).padStart(7)}   joueur(s)`);
+console.log(`  ont lancé une partie   ${String(aLance.length).padStart(7)}   ${ratio(aLance.length, tous.length).padStart(7)} des arrivés`);
+console.log(`  ont fini une partie    ${String(aFini.length).padStart(7)}   ${ratio(aFini.length, aLance.length).padStart(7)} de ceux qui ont lancé`);
+console.log(`  ont RELANCÉ            ${String(aRejoue.length).padStart(7)}   ${ratio(aRejoue.length, aLance.length).padStart(7)} de ceux qui ont lancé`);
+console.log(`  revenus un autre jour  ${String(revenus.length).padStart(7)}   ${ratio(revenus.length, tous.length).padStart(7)} des arrivés`);
+console.log("");
+const jamais = tous.length - aLance.length;
+console.log(`  ⇒ ${jamais} joueur(s) ne cliquent JAMAIS sur JOUER — ${ratio(jamais, tous.length)} des arrivés.`);
+console.log("");
+console.log("  Ce nombre-là ne se répare pas avec l'onboarding : personne n'a encore");
+console.log("  atteint le jeu. C'est la page d'accueil, la vitesse de chargement, ou");
+console.log("  quelque chose qui bloque le clic. À comparer aux 76,3 % des jours 238-245.");
+console.log("");
+console.log(`  Le second cran, lui, EST l'onboarding : ${ratio(aRejoue.length, aLance.length)} de ceux qui`);
+console.log("  lancent une partie en relancent une seconde.");
+
+/* ------------------------------------------------------------------ *
+ * DISTRIBUTION DES RUNS — jamais la moyenne
+ *
+ * Une moyenne de « runs par joueur » est un mensonge quand deux joueurs font
+ * 438 des 572 runs : elle décrit un joueur médian qui n'existe pas. Ce qu'on
+ * veut savoir est s'il y a une population moyenne, ou seulement un noyau et
+ * une falaise.
+ * ------------------------------------------------------------------ */
+const PALIERS = [
+  ["0 run  (arrivé, jamais joué)", (n) => n === 0],
+  ["1 run", (n) => n === 1],
+  ["2-3 runs", (n) => n >= 2 && n <= 3],
+  ["4-5 runs", (n) => n >= 4 && n <= 5],
+  ["6-10 runs", (n) => n >= 6 && n <= 10],
+  ["11-20 runs", (n) => n >= 11 && n <= 20],
+  ["20+ runs", (n) => n > 20],
+];
+
+console.log("\nDISTRIBUTION DES RUNS LANCÉS");
+for (const [label, test] of PALIERS) {
+  const dedans = tous.filter((u) => test(u.starts));
+  if (!tous.length) break;
+  const part = dedans.length / tous.length;
+  const bar = "█".repeat(Math.round(part * 40));
+  console.log(
+    `  ${label.padEnd(30)} ${String(dedans.length).padStart(5)}  ${pct(part).padStart(7)}  ${bar}`,
+  );
+}
+
+/*
+ * La part des runs portée par les plus gros joueurs.
+ *
+ * C'est ce qui dit si un chiffre agrégé est lisible. À 76 % du volume porté
+ * par deux personnes, « runs par joueur » et « score médian » décrivent ces
+ * deux personnes et personne d'autre.
+ */
+const parVolume = tous.map((u) => u.starts).sort((a, b) => b - a);
+const volume = parVolume.reduce((a, b) => a + b, 0);
+const top2 = parVolume.slice(0, 2).reduce((a, b) => a + b, 0);
+const top5 = parVolume.slice(0, 5).reduce((a, b) => a + b, 0);
+if (volume) {
+  console.log("");
+  console.log(`  les 2 plus gros joueurs portent ${ratio(top2, volume)} des runs lancés`);
+  console.log(`  les 5 plus gros joueurs portent ${ratio(top5, volume)} des runs lancés`);
+  if (top2 / volume > 0.5) {
+    console.log("");
+    console.log("  ⚠️ Plus de la moitié du volume vient de deux personnes. Toute moyenne");
+    console.log("  calculée sur ce relevé les décrit, elles, et pas les autres.");
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * DÉCOUVERTE DES RÈGLES — la matière première des cartes
+ *
+ * Le carnet ne se remplit qu'en rencontrant des règles, et la collection n'a
+ * de sens que si cette rencontre arrive. Combien de règles un joueur voit-il
+ * réellement ?
+ * ------------------------------------------------------------------ */
+const vues = aLance.map((u) => u.regles.size).sort((a, b) => a - b);
+if (vues.length) {
+  console.log("\nRÈGLES RENCONTRÉES (parmi ceux qui ont lancé)");
+  console.log(`  médiane                ${String(median(vues)).padStart(7)}   règle(s)`);
+  console.log(`  maximum                ${String(vues[vues.length - 1]).padStart(7)}   règle(s)`);
+  const une = vues.filter((v) => v <= 1).length;
+  console.log(`  n'en ont vu qu'une     ${String(une).padStart(7)}   ${ratio(une, vues.length).padStart(7)}`);
+}
+
 /* ---- entonnoir social : décide de ce qu'on construit ensuite ---- */
 const inviters = [...users.values()].filter((u) => u.sent > 0).length;
 const sentTotal = social.duelSent + social.inviteSent;
 const openedTotal = social.duelOpened + social.inviteOpened;
-const ratio = (a, b) => (b ? pct(a / b) : "—");
 
 console.log("\nENTONNOIR SOCIAL");
 console.log(`  envoyé            duel ${String(social.duelSent).padStart(5)}   ·   salon ${String(social.inviteSent).padStart(5)}`);
