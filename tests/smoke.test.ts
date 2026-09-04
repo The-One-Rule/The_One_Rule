@@ -73,6 +73,31 @@ function pump(ms: number, step = 16): void {
   }
 }
 
+/**
+ * Déroule la boucle JUSQU'À ce que `pret()` réponde vrai, ou échoue en le
+ * disant.
+ *
+ * ⚠️ Ce filet a déjà passé par chance, et il a fallu vingt lancements pour
+ * l'attraper. Il attendait la mort du joueur avec un `pump(20000)` calibré à la
+ * main : quatre manches à l'allure 1.5, plus la marge. Deux changements du même
+ * soir ont mangé cette marge — le battement de lecture prend 3 s du budget, et
+ * l'allure d'un joueur neuf est passée à 2.0, ce qui DOUBLE la durée de chaque
+ * manche. Selon le nombre d'étapes tirées, la mort tombait parfois après la
+ * vingtième seconde : deux échecs sur vingt lancements, sur un test qui ne
+ * disait rien de la cause.
+ *
+ * Une durée écrite en dur encode une hypothèse sur l'équilibrage. Attendre la
+ * CONDITION ne l'encode pas — et le plafond, très large, ne sert qu'à ne pas
+ * boucler indéfiniment si le run ne se termine jamais.
+ */
+function pumpJusqua(pret: () => boolean, quoi: string, maxMs = 120000): void {
+  for (let t = 0; t < maxMs; t += 16) {
+    if (pret()) return;
+    pump(16);
+  }
+  throw new Error(`la boucle n'a jamais atteint : ${quoi} (après ${maxMs} ms simulées)`);
+}
+
 describe("application", () => {
   it("démarre, joue et termine un run sans erreur", async () => {
     const errors: unknown[] = [];
@@ -135,8 +160,14 @@ describe("application", () => {
     const fill = document.getElementById("timerFill") as HTMLElement;
     expect(fill.style.transform).toMatch(/scaleX/);
 
-    // on laisse simplement le temps filer : mort par dépassement garantie
-    pump(20000);
+    // On laisse simplement le temps filer : la mort par dépassement est
+    // certaine, mais PAS son échéance — elle dépend de l'allure par défaut, du
+    // nombre de manches d'échauffement et du nombre d'étapes tirées. On attend
+    // donc l'écran de fin, on ne parie pas sur une durée.
+    pumpJusqua(
+      () => !document.getElementById("over")!.classList.contains("hidden"),
+      "l'écran de fin après une mort par dépassement de temps",
+    );
 
     expect(document.getElementById("over")!.classList.contains("hidden")).toBe(false);
     expect(document.getElementById("because")!.textContent!.length).toBeGreaterThan(3);
@@ -158,8 +189,12 @@ describe("application", () => {
     document.getElementById("btnDaily")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // Le battement de lecture d'abord, le run ensuite — `pump` déroule les deux.
-    pump(30000);
+    // Le battement de lecture d'abord, le run ensuite — et là encore on attend
+    // la CONDITION plutôt qu'une durée devinée.
+    pumpJusqua(
+      () => !document.getElementById("over")!.classList.contains("hidden"),
+      "la fin du run du jour",
+    );
 
     const teaser = document.getElementById("teaser")!;
     expect(teaser.textContent).toContain("DEMAIN");
