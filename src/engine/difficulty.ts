@@ -70,8 +70,34 @@ export const windowForSteps = (level: number, steps: number): number =>
  * RNG avant que la durée soit posée, donc deux allures produisent exactement
  * les mêmes scènes. Seul le temps disponible change.
  */
-export const PACE_CHOICES = [1.5, 1, 0.8] as const;
+/*
+ * ⚠️ UNE QUATRIÈME ALLURE, PLUS LENTE QUE TOUTES LES AUTRES.
+ *
+ * Demandée par Pierre après playtest : « la différence entre les niveaux est
+ * vraiment trop énorme … les nouveaux joueurs galèrent vraiment à comprendre
+ * sur leur première run, ils doivent s'y prendre à plusieurs fois ».
+ *
+ * Mesuré avant d'y toucher. Un débutant fait trois gestes conscients par manche
+ * — lire, confronter à sa règle, chercher la cible — soit environ 1100 ms
+ * avant que le deuxième ne devienne réflexe. Face à ça :
+ *
+ *   allure   manche 0   manche 39   passe sous 1100 ms à la manche…
+ *   2.0      3000 ms    1520 ms     jamais
+ *   1.5      2250 ms    1140 ms     jamais (mais 1140 est la limite)
+ *   1.0      1500 ms     760 ms     10  (et 6 dès que la consigne a deux actions)
+ *   0.8      1200 ms     608 ms      3  (et 0 à deux actions)
+ *
+ * DISCOVERY tenait donc à quarante millisecondes près en fin de run, sur une
+ * seule action et en supposant la règle déjà automatisée. Ce n'est pas une
+ * marge, c'est une coïncidence. 2.0 en est une vraie.
+ *
+ * On n'a RIEN retiré : chaque allure porte sa propre clé de record
+ * (`cleEntrainement`), donc ajouter n'invalide rien, et supprimer RAPIDE
+ * effacerait le mode des deux joueurs qui font l'essentiel des entraînements.
+ */
+export const PACE_CHOICES = [2, 1.5, 1, 0.8] as const;
 export const PACE_LABELS: Record<number, string> = {
+  2: "PREMIERS PAS",
   1.5: "DÉCOUVERTE",
   1: "NORMAL",
   0.8: "RAPIDE",

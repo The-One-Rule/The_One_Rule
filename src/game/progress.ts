@@ -172,17 +172,25 @@ const fresh = (): Save => ({
   bestTraining: 0,
   trainingRegle: null,
   /*
-   * L'entraînement démarre en DÉCOUVERTE, pas en NORMAL.
+   * L'entraînement démarre à l'allure la PLUS LENTE.
    *
    * Il est la rampe d'accès : sa raison d'être est qu'on y apprenne, et le
-   * réglage ne sert à rien si personne ne le trouve. Rapporté en soirée : « le
-   * mode entraînement est plutôt difficile actuellement », alors que l'allure
-   * existait déjà — elle n'était simplement pas celle par défaut.
+   * réglage ne sert à rien si personne ne le trouve. Rapporté une première
+   * fois : « le mode entraînement est plutôt difficile actuellement », alors
+   * que l'allure existait déjà — elle n'était simplement pas celle par défaut.
+   * On était donc passé de NORMAL à DÉCOUVERTE (1.5).
    *
-   * Le joueur accélère quand il veut, et `bestTraining` ne s'inscrit qu'à
-   * l'allure de référence : le record reste comparable.
+   * Rapporté une seconde fois, après playtest : « les nouveaux joueurs galèrent
+   * vraiment à comprendre sur leur première run ». Et la mesure donne raison au
+   * retour — à 1.5, la fenêtre de la manche 39 vaut 1140 ms pour un besoin
+   * estimé à 1100 : DÉCOUVERTE ne tenait qu'à quarante millisecondes près, et
+   * seulement sur une consigne à une action. D'où DÉBUT (2.0), où la marge
+   * existe vraiment.
+   *
+   * Le joueur accélère quand il veut, et chaque allure porte sa propre clé de
+   * record : passer à NORMAL ne se compare pas à un score fait à DÉBUT.
    */
-  trainingPace: 1.5,
+  trainingPace: 2,
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
   records: {},
   compte: { revendiquePar: null, glyphe: null },

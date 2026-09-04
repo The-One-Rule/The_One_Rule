@@ -3,6 +3,7 @@ import { buildRound } from "../src/engine/round";
 import { mulberry32 } from "../src/engine/rng";
 import { ONE_RULES } from "../src/engine/rules";
 import {
+  DAILY_LENGTH,
   PACE_CHOICES,
   PACE_DEFAULT,
   PACE_LABELS,
@@ -10,6 +11,8 @@ import {
   windowMs,
 } from "../src/engine/difficulty";
 import { Session } from "../src/game/session";
+import { cleEntrainement } from "../src/game/perfs";
+import { readFileSync } from "node:fs";
 
 /* ------------------------------------------------------------------ *
  * L'allure d'entraînement
@@ -96,5 +99,68 @@ describe("allure d'entraînement", () => {
   it("chaque allure porte un libellé", () => {
     for (const p of PACE_CHOICES) expect(PACE_LABELS[p]).toBeTruthy();
     expect(PACE_CHOICES).toContain(PACE_DEFAULT);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * L'ÉCHELLE DES ALLURES
+ * ------------------------------------------------------------------ */
+
+describe("l'échelle des allures", () => {
+  /*
+   * Demandé par Pierre après playtest : « la différence entre les niveaux est
+   * vraiment trop énorme … les nouveaux joueurs galèrent vraiment à comprendre
+   * sur leur première run ».
+   *
+   * Ce bloc tient les deux propriétés qui font qu'une échelle est une échelle,
+   * et le défaut qui décide de la première impression du jeu.
+   */
+
+  it("est ordonnée de la plus lente à la plus rapide, sans doublon", () => {
+    // `renderPace` la retourne pour l'affichage ; une jauge qui descend de
+    // gauche à droite se lit à l'envers, et un doublon donnerait deux segments
+    // qui se disputent la même clé de record.
+    const tri = [...PACE_CHOICES].sort((a, b) => b - a);
+    expect([...PACE_CHOICES]).toEqual(tri);
+    expect(new Set(PACE_CHOICES).size).toBe(PACE_CHOICES.length);
+  });
+
+  it("⚠️ un joueur neuf démarre à l'allure la PLUS LENTE", () => {
+    /*
+     * C'est la première impression du jeu, et elle s'est déjà trompée deux
+     * fois : NORMAL d'abord, puis DÉCOUVERTE. Ajouter une allure plus lente
+     * sans déplacer le défaut la rendrait invisible — exactement le défaut
+     * rapporté la première fois, « le mode entraînement est plutôt difficile
+     * actuellement », alors que le réglage existait déjà.
+     */
+    // On lit la SOURCE : la sauvegarde neuve est fabriquée par une fonction
+    // privée, et l'exporter pour un test ferait de son intérieur une API.
+    const laPlusLente = Math.max(...PACE_CHOICES);
+    const src = readFileSync("src/game/progress.ts", "utf8");
+    expect(src).toContain(`trainingPace: ${laPlusLente},`);
+  });
+
+  it("⚠️ l'allure la plus lente laisse VRAIMENT le temps, jusqu'au bout", () => {
+    /*
+     * Le chiffre qui a motivé l'ajout d'un quatrième cran.
+     *
+     * Un débutant fait trois gestes conscients par manche — lire la consigne,
+     * la confronter à sa règle, chercher la cible — soit environ 1100 ms tant
+     * que le deuxième n'est pas réflexe. À 1.5, la manche 39 donnait 1140 ms :
+     * ça tenait à quarante millisecondes, et seulement sur une consigne à une
+     * action. Ce n'est pas une marge, c'est une coïncidence.
+     *
+     * On exige donc une vraie marge sur la manche la plus serrée du run.
+     */
+    const derniere = DAILY_LENGTH - 1;
+    const fenetre = windowMs(derniere) * Math.max(...PACE_CHOICES);
+    expect(fenetre).toBeGreaterThan(1400);
+  });
+
+  it("chaque allure a sa propre clé de record", () => {
+    // C'est ce qui rend l'ajout d'une allure INOFFENSIF : rien d'existant ne
+    // change de clé, donc aucun record ne se trouve invalidé ni pollué.
+    const cles = new Set(PACE_CHOICES.map((v) => cleEntrainement(v)));
+    expect(cles.size).toBe(PACE_CHOICES.length);
   });
 });

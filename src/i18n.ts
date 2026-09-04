@@ -1603,8 +1603,12 @@ export const BRIEFS_REGLES = BRIEFS;
  * ------------------------------------------------------------------ */
 
 const ALLURES: Record<Lang, Record<string, string>> = {
-  fr: { "1.5": "DÉCOUVERTE", "1": "NORMAL", "0.8": "RAPIDE" },
-  en: { "1.5": "DISCOVERY", "1": "NORMAL", "0.8": "FAST" },
+  // Court, et pour une raison mesurée : la barre des allures est segmentée en
+  // `flex: 1 1 0` avec un plancher `max-content`, donc le libellé le plus long
+  // fixe la largeur de tous. Un quatrième segment resserre encore — vérifié à
+  // 375 px que chacun garde ses 44 px tactiles.
+  fr: { "2": "DÉBUT", "1.5": "DÉCOUVERTE", "1": "NORMAL", "0.8": "RAPIDE" },
+  en: { "2": "GENTLE", "1.5": "DISCOVERY", "1": "NORMAL", "0.8": "FAST" },
 };
 
 /** Le nom d'une allure. `secours` est l'étiquette française du moteur. */
