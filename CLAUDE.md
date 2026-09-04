@@ -237,10 +237,11 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | Multi | `MIN_ROUND_MS 700`, `MAX_ROUND_MS 2400`, `INPUT_TOLERANCE_MS 120` |
 | Interludes | normal 1100 · vie perdue 2400 · élimination 4200 · duel 500 · rotation 3400 |
 | Compte à rebours | `COUNTDOWN_MS 4500` — c'est le temps de LIRE sa règle |
+| Lecture solo | `LECTURE_NEUVE_MS 3000` / `LECTURE_CONNUE_MS 1200` — même rôle, côté solo |
 | Tension | duel `0.7` · warm `max(0.9, 1.45−0.02·idx)` · `ROTATION_GRACE_FACTOR 1.5` |
 | Salon | `MAX_PLAYERS 10`, `MAX_ROUNDS 60`, `ROTATION_EVERY 8` |
 | Réglages hôte | vitesse `[1.7 … 0.65]` · vies `[1,3,5]` · rotation `[4,8,16,999]` |
-| Allure solo | `PACE_CHOICES [1.5, 1, 0.8]`, `PACE_DEFAULT 1`, défaut du joueur **1.5** |
+| Allure solo | `PACE_CHOICES [2, 1.5, 1, 0.8]`, `PACE_DEFAULT 1`, défaut du joueur **2** |
 | Solo | `DAILY_LENGTH 40`, `DAILY_ESSAIS 3`, `GRACE_ROUNDS 3`, `FORCED_TRAP_ROUNDS {2,5,9}` |
 | Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
@@ -1430,6 +1431,99 @@ trouvé par le test, pas à l'œil.
 
 `Apparence.carte` reste le point d'accroche : le jour où un habillage se
 possède, il remplacera les trois déclarations d'état du CSS et rien d'autre.
+
+### La nuit d'audit — quatre correctifs, jamais vus par un joueur
+
+Pierre a rapporté cinq points après un playtest, puis est allé se coucher.
+L'audit complet est publié à part ; ce qui suit est ce qui ne se déduit pas du
+code.
+
+⚠️ **`VERSION_CONTENU` n'a PAS bougé** (`hdblrb`), vérifié par diff sur ses
+entrées. Le classement et les records survivent au déploiement. L'allure n'y
+entre pas : elle vit dans le *régime* de `cleEntrainement`, donc chaque allure a
+déjà sa propre clé — c'est ce qui rend l'ajout d'une quatrième inoffensif.
+
+**Le run du jour ne se validait jamais — régression du lot précédent.** En
+passant à trois essais, tout l'écran s'est mis à dépendre de `restants === 0`
+et l'état TERMINÉ a disparu de la priorité : un run bouclé 40/40 affichait
+« 2 ESSAIS RESTANTS ». La priorité est sortie dans **`render/jour.ts`**, pur,
+qui rend un IDENTIFIANT et non une phrase — troisième fois que ce projet paie
+une priorité en ternaires successifs, après `plate.ts` et `seat.ts`. TERMINÉ
+prime sur tout ; le run reste rejouable tant qu'il reste des essais.
+
+**Le solo n'avait aucun temps de lecture : mesuré à 50 ms** entre COMMENCER et
+la première consigne. Le brief s'affichait pourtant bien — vérifié avant de
+conclure, et c'est pour ça que « il ne voit plus sa règle » était trompeur.
+`game/lecture.ts` : **3000 ms** sur une règle jamais rencontrée, **1200 ms** sur
+une règle au carnet. Le joueur reste sur le BRIEF, le bouton porte le rebours.
+
+⚠️ **Le battement est porté par la BOUCLE DE JEU, pas par un `setTimeout`** —
+et ce n'est pas un goût. `smoke.test.ts` déroule des frames à la main et ne
+verrait jamais une minuterie : le correctif serait non testé sur le chemin le
+plus chaud du jeu. Et une minuterie courrait sur un onglet qui ne compose pas.
+La `Session` n'est construite qu'au terme, donc `verifyRun` voit exactement ce
+qu'il voyait avant.
+
+⚠️ **Trois branches du battement, toutes trouvées à la main, aucune par un
+test :**
+
+- une règle à MAINTIEN relâchée pendant le rebours entrait en partie sans
+  maintien — donc mort immédiate et incompréhensible ;
+- la REVANCHE d'un duel repart de l'écran de fin sans brief : le rebours courait
+  sur un bouton invisible, soit une pause morte de plusieurs secondes. D'où
+  `startRun(avecLecture)` ;
+- **appuyer sur ESPACE pendant le rebours remplaçait le libellé du bouton par un
+  chiffre, définitivement.** Le second appel relisait `bouton.textContent` pour
+  mémoriser le libellé à restituer — il vaut « 3 » à cet instant. Le plus
+  instructif des trois : mémoriser plutôt que recalculer était le bon choix (un
+  quatrième calcul aurait divergé des trois autres) et il a ouvert une faille
+  ailleurs. **Une valeur mémorisée doit l'être à un instant où l'on sait ce
+  qu'elle vaut.**
+
+`show()` annule le battement, pas le bouton RETOUR : c'est le passage obligé de
+tout changement d'écran, donc ça couvre les sorties qu'on n'a pas prévues.
+Vérifié : un rebours abandonné **ne consomme aucun essai** du run du jour.
+
+**Le nom était impossible à changer, et ne rejoignait jamais le compte.** Deux
+défauts : `ranked.name` n'est écrit que par l'écran d'identité du multi, donc un
+joueur solo se connectait avec un pseudo **vide** (vérifié en production, le
+classement rendait `pseudo: ""`) ; et **`changeIdentite` n'était appelée de
+nulle part**, route serveur complète à l'appui. Du code mort qui ressemblait à
+une fonctionnalité livrée — rien ne casse, rien n'avertit, la fonction se lit
+parfaitement. C'est exactement ce qu'une relecture ne trouve pas.
+
+On rouvre `#multi-id` plutôt que d'en bâtir un second : `multi.ouvreIdentite(revenir)`
+prend une FONCTION et non un nom d'écran — le multi ne connaît que les siens.
+Le crochet `multi.onIdentite` est posé sur la VALIDATION et non sur le bouton du
+compte : le multijoueur passe par le même écran, et un nom changé avant d'entrer
+dans un salon doit suivre pareil.
+
+**Une quatrième allure, plus lente que toutes.** Mesuré : un débutant a besoin
+d'environ 1100 ms, et à 1.5 la manche 39 en donne **1140** — quarante
+millisecondes de marge, sur une seule action. Ce n'est pas une marge, c'est une
+coïncidence. D'où **DÉBUT (2.0)**, nouveau défaut d'un joueur neuf. Rien n'a
+été retiré : Pierre proposait de faire de NORMAL le plus dur, mais ce que la
+mesure demande est qu'un joueur neuf ne le RENCONTRE plus par défaut.
+
+⚠️ **La barre des allures se replie en 2×2 à 375 px.** Quatre segments réclament
+~336 px, la colonne du brief en offre 250. Largeurs 84–110 px, hauteurs 66 px,
+aucun débordement : le plancher `max-content` fait son travail plutôt que
+d'écraser un segment. C'est la bonne réponse, mais c'est un changement visuel
+que personne n'a encore vu.
+
+**Le run du jour reste à 1.0 pour tout le monde**, et aucune allure ne s'y
+applique (décision n°11). Trois leviers existent — `GRACE_ROUNDS` 3→5,
+adoucir `windowMs`, ou ne rien faire — et **la recommandation est de ne rien
+faire** : trois correctifs viennent d'atterrir sur ce problème, un quatrième
+rendrait le relevé illisible.
+
+**La preuve d'usage n'a pas été faite, délibérément.** Un compteur cumulé est
+impossible — la collecte écrit dans des listes Redis à TTL, donc aucun cumul
+historique n'est récupérable et le compteur repartirait de zéro. Un « N joueurs
+en ce moment » dirait 0. **Le podium existe déjà et se tait quand il est vide**,
+mais il ne paraît que sur l'écran de FIN après un run du jour — donc les trois
+joueurs sur quatre qui ne jouent jamais ne le voient jamais. Le porter sur SOLO
+est le levier ; c'est une direction, elle appartient à Pierre.
 
 ### Backlog
 
