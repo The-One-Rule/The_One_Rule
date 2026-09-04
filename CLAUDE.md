@@ -1756,10 +1756,40 @@ automatique, le trait de séparation — qui est entre les deux dans le document
 prend toute la largeur — s'intercalait et renvoyait le bouton sur une troisième
 rangée.
 
-**Reste de la maquette, non fait** : le salon en trois bandes, et la barre de
-navigation basse (CARTES / TRAINING / JOUER / DAILY / MULTI) qui remplacerait
-les cartes de mode de l'écran SOLO. Les deux touchent au multijoueur ou à la
-navigation de tous les écrans ; ni l'un ni l'autre n'a été entamé à moitié.
+#### La barre de navigation, et un salon qui existait déjà
+
+**Cinq destinations, JOUER surélevée au milieu** — c'est la réponse par défaut,
+elle ne doit pas se chercher. Icônes en SVG pixel `crispEdges`, pas une police :
+le design system générique proposait Phosphor, et un jeu fait d'angles droits ne
+charge pas une police de glyphes arrondis pour cinq formes de quatre rectangles.
+
+⚠️ **En ABSOLU dans `#app`, donc hors flux.** Elle ne paraît que sur les écrans
+de menu, jamais sur le jeu. Mesuré : `#stage` à 616 et buffer 746×1232 en
+partie, identiques à la référence.
+
+⚠️ **UN SEUL JOUER, et c'est celui de la barre.** L'accueil en portait un au
+milieu de la page ; deux boutons du même nom à 300 px l'un de l'autre, ce n'est
+pas une insistance, c'est une hésitation. Celui de la barre gagne parce qu'il
+est PARTOUT. Sa disparition rend 74 px, et **l'accueil tient enfin sans
+défiler** : la faille finit à 719 pour 812, la barre occupe 729-812. Elle
+finissait à 818 avant l'objectif, 822 après.
+
+Conséquence : l'accueil en large redevient UNE colonne — le partage
+enseigne/bouton n'a plus rien à porter à droite.
+
+⚠️ **UNE MESURE DE BOÎTES NE VOIT PAS TOUT.** « TA RÈGLE T'ATTEND » demande
+~90 px dans une colonne de 82. En `nowrap`, la BOÎTE restait dans sa colonne —
+relevée de 149 à 231, aucun chevauchement — mais le TEXTE peignait par-dessus
+les libellés voisins. Le relevé disait « rien à signaler », l'écran disait
+l'inverse. Il faut mesurer la largeur du TEXTE
+(`Range.getBoundingClientRect`), pas celle de son élément.
+
+⚠️ **LE SALON EN TROIS BANDES EXISTAIT DÉJÀ**, et j'ai failli le reconstruire.
+Mesuré avec un vrai salon à 1280 : ce qu'on décide (x=25, 360 px), qui est là
+(x=437, 511 px), ce qu'on se dit (x=972, 307 px, pleine hauteur). C'est le
+piège du §2 — *les documents mentent* — et il vaut aussi pour la maquette :
+plusieurs de ses écrans desktop décrivent du travail déjà fait. **Mesurer avant
+de refaire.**
 
 ### Backlog
 
