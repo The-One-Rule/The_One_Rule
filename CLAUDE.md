@@ -1586,10 +1586,21 @@ on ne LIT pas sa première carte, on la GAGNE.
 
 #### L'objectif de l'accueil — atteignable, et étiqueté
 
-⚠️ **Montrer 201 à un débutant ne motive pas, ça écrase.** La médiane du premier
-run est de 4 manches : facteur cinquante. Donc RIEN tant que le joueur n'a pas
-un chiffre à lui, le meilleur connu seulement À CÔTÉ du sien, et il disparaît
-pour qui l'a dépassé.
+⚠️ **LE RECORD AFFICHÉ VIENT DU CLASSEMENT DU JOUR quand il répond.** Il est
+vérifié (`verifyRun` a rejoué le journal), VIVANT — il change chaque jour — et
+bien plus atteignable qu'un record de tous les temps. C'est ce qui règle
+l'objection d'origine : montrer 201 à quelqu'un dont le premier run fait 4
+manches en médiane, c'est un mur ; un score du jour est à sa portée.
+
+⚠️ **Le 201 n'est PAS un record de run du jour et ne doit JAMAIS être étiqueté
+comme tel** — il a été fait en entraînement, à une allure choisie, sur une règle
+choisie. Il sert de repli quand le classement se tait (comptes non configurés,
+réseau coupé, personne n'a encore joué), et il porte alors « ENTRAÎNEMENT ». Un
+test refuse explicitement l'étiquette « jour » sur lui.
+
+Le mode est affiché dans les DEUX cas, sur sa propre ligne. Et le jeu ne dit
+jamais à quelqu'un qu'il est moins bon que ce qu'il fait : à 240 contre 201, la
+ligne devient « tu fais mieux que ça ».
 
 ⚠️ **Un score sans son mode est un chiffre faux.** Le 201 a été fait en
 ENTRAÎNEMENT ; le poser nu près du run du jour comparerait deux épreuves. Voir
