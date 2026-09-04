@@ -8695,3 +8695,68 @@ button.chip:active:not(:disabled) {
   background: var(--paper);
   border-color: var(--paper);
 }
+
+/* ==================================================================
+   L'ACCUEIL EN LARGE — la marque et l'action cote a cote
+
+   Mesure a 1280x860 : la faille finissait a y=906 pour 860 de haut, soit
+   46 px sous la ligne de flottaison. Le desktop manque de HAUTEUR, pas de
+   largeur — et il en avait de reste, l'enseigne et le bouton s'empilant sur
+   toute la colonne.
+
+   La maquette repond par « une colonne de droite qui porte l'etat du joueur,
+   qui n'a pas la place d'exister sur telephone ». Ici c'est l'ACTION qui y
+   passe : l'etat du joueur vit deja sur l'ecran SOLO, et le dupliquer ferait
+   deux endroits a tenir d'accord pour une seule information.
+
+   La fissure, elle, reste PLEINE LARGEUR : c'est le sujet de la page.
+   ================================================================== */
+
+@media (min-width: 900px) {
+  #home .screen__scroll {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 18px 48px;
+  }
+
+  /*
+   * Rangee 1 : l'enseigne a gauche, l'action a droite.
+   *
+   * ⚠️ Les rangees sont EXPLICITES. Le trait de separation est entre les deux
+   * dans le document et prend toute la largeur : en placement automatique il
+   * s'intercalait, et le bouton retombait sur une troisieme rangee — mesure,
+   * l'enseigne finissait a 346 et le bouton commencait a 391.
+   */
+  #home .home__brand {
+    grid-column: 1;
+    grid-row: 1;
+    text-align: left;
+  }
+
+  #home .btnrow--play {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  /* Rangees 2 et 3 : le trait, puis la fissure, sur toute la largeur. */
+  #home .coupe {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  #home .faille {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  /* Le chapo et l'objectif s'alignent sur l'enseigne, pas sur le centre. */
+  #home .but,
+  #home #ledeHome {
+    align-items: flex-start;
+    text-align: left;
+    margin-left: 0;
+    margin-right: auto;
+  }
+}
