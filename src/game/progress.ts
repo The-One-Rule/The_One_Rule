@@ -43,6 +43,20 @@ export interface RuleRecord {
   serie?: number;
   /** Un run tenu jusqu'au palier sans une seule faute d'échauffement. */
   sansFaute?: boolean;
+  /**
+   * Combien de runs cette règle a déjà pris.
+   *
+   * Sert à désigner celle qui RÉSISTE : parmi les règles rencontrées et non
+   * maîtrisées, celle qu'on a le plus retentée est celle qui coince. C'est une
+   * information que le joueur ne peut pas tenir de tête, et la seule qui
+   * désigne un exercice sans qu'il ait à choisir.
+   *
+   * ⚠️ Une SOMME, comme `pieges`, et pour la même raison : elle compte des
+   * occurrences et non un niveau atteint. Elle ne se fusionne donc pas entre
+   * appareils autrement qu'au maximum — sommer doublerait le compteur à chaque
+   * synchro.
+   */
+  runs?: number;
 }
 
 export interface Save {
@@ -332,6 +346,7 @@ export function majCarnet(
     const cle = String(run.allure);
     parAllure[cle] = Math.max(parAllure[cle] ?? 0, score);
   }
+  const runs = (prev?.runs ?? 0) + (run ? 1 : 0);
   const serie = Math.max(prev?.serie ?? 0, run?.serie ?? 0);
   const sansFaute = (prev?.sansFaute ?? false) || (run?.sansFaute ?? false);
   /*
@@ -347,6 +362,7 @@ export function majCarnet(
     cleared: (prev?.cleared ?? false) || cleared,
     pieges: (prev?.pieges ?? 0) + pieges,
     ...(Object.keys(parAllure).length ? { parAllure } : {}),
+    ...(runs ? { runs } : {}),
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
   };

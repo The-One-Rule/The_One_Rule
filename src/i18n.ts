@@ -209,6 +209,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "salle.resiste": "CELLE QUI TE RÉSISTE",
     "fiche.retour": "◂ LA COLLECTION",
     "compte.nom": "CHANGER DE NOM",
     "compte.deconnexion": "SE DÉCONNECTER",
@@ -327,6 +328,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
     "fiche.retour": "◂ COLLECTION",
     "compte.nom": "CHANGE NAME",
     "compte.deconnexion": "SIGN OUT",
@@ -406,6 +408,14 @@ type Dyn = {
   carteCases: (n: number) => string;
   carteParfaite: string;
   codexVide: string;
+  /* --- la salle de travail --- */
+  filtreAMater: (n: number) => string;
+  filtreMaitrisees: (n: number) => string;
+  filtreToutes: (n: number) => string;
+  salleJamaisVues: (n: number) => string;
+  resisteNote: (runs: number, cases: number) => string;
+  resisteBouton: string;
+  filtreRien: string;
   /* --- la fiche --- */
   famInterdit: string;
   famDeformation: string;
@@ -719,6 +729,17 @@ const DYN: Record<Lang, Dyn> = {
     carteParfaite: "PARFAITE",
     codexVide:
       "Aucune règle rencontrée pour l'instant. Lance une partie : une carte se débloque en JOUANT, jamais en lisant.",
+    filtreAMater: (n) => `À MATER · ${n}`,
+    filtreMaitrisees: (n) => `MAÎTRISÉES · ${n}`,
+    filtreToutes: (n) => `TOUTES · ${n}`,
+    salleJamaisVues: (n) =>
+      n === 0
+        ? "Tu as rencontré les seize règles."
+        : `Il te reste ${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
+    resisteNote: (runs, cases) =>
+      `${runs} run${runs > 1 ? "s" : ""} sous cette règle, et ${cases} case${cases > 1 ? "s" : ""} sur 6.`,
+    resisteBouton: "TRAVAILLER CELLE-LÀ",
+    filtreRien: "Rien dans cette catégorie pour l'instant.",
     famInterdit: "INTERDIT",
     famDeformation: "DÉFORMATION",
     famContrainte: "CONTRAINTE",
@@ -1001,6 +1022,17 @@ const DYN: Record<Lang, Dyn> = {
     carteParfaite: "PERFECT",
     codexVide:
       "No rule met yet. Start a run: a card unlocks by PLAYING, never by reading.",
+    filtreAMater: (n) => `TO MASTER · ${n}`,
+    filtreMaitrisees: (n) => `MASTERED · ${n}`,
+    filtreToutes: (n) => `ALL · ${n}`,
+    salleJamaisVues: (n) =>
+      n === 0
+        ? "You have met all sixteen rules."
+        : `${n} rule${n === 1 ? "" : "s"} you have never seen. They only come up by playing.`,
+    resisteNote: (runs, cases) =>
+      `${runs} run${runs === 1 ? "" : "s"} under this rule, and ${cases} of 6 boxes.`,
+    resisteBouton: "WORK ON THAT ONE",
+    filtreRien: "Nothing in this category yet.",
     famInterdit: "FORBIDS",
     famDeformation: "DISTORTION",
     famContrainte: "CONSTRAINT",

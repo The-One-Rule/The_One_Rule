@@ -135,6 +135,8 @@ export interface CarnetEntree {
   serie?: number;
   /** Un run tenu jusqu'au palier sans une seule faute d'échauffement. */
   sansFaute?: boolean;
+  /** Combien de runs cette règle a déjà pris. */
+  runs?: number;
 }
 
 /**
@@ -149,9 +151,11 @@ function maigre(
   parAllure: Record<string, number>,
   serie: number,
   sansFaute: boolean,
+  runs: number,
 ): Partial<CarnetEntree> {
   return {
     ...(Object.keys(parAllure).length ? { parAllure } : {}),
+    ...(runs ? { runs } : {}),
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
   };
@@ -242,6 +246,7 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
         unionAllures(x?.parAllure, y?.parAllure),
         Math.max(x?.serie ?? 0, y?.serie ?? 0),
         (x?.sansFaute ?? false) || (y?.sansFaute ?? false),
+        Math.max(x?.runs ?? 0, y?.runs ?? 0),
       ),
     };
   }

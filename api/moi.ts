@@ -115,6 +115,8 @@ export function litAgregats(brut: unknown): Agregats {
        */
       const pa = allures(e.parAllure);
       if (Object.keys(pa).length) a.carnet[id]!.parAllure = pa;
+      const ru = entier(e.runs, MAX_VALEUR);
+      if (ru) a.carnet[id]!.runs = ru;
       const se = entier(e.serie, MAX_VALEUR);
       if (se) a.carnet[id]!.serie = se;
       if (e.sansFaute === true) a.carnet[id]!.sansFaute = true;

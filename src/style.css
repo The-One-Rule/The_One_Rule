@@ -8559,3 +8559,139 @@ button.chip:active:not(:disabled) {
     max-width: 780px;
   }
 }
+
+/* ==================================================================
+   LA COLLECTION DEVIENT UNE SALLE DE TRAVAIL
+
+   ⚠️ UNE SEULE GRILLE, PAS UN FILTRE PLUS UNE GRILLE. La maquette dessinait un
+   ecran TRAINING separe avec sa propre liste de regles — mais la collection en
+   a deja une, et deux facons de repondre a « quelle regle travailler ? »
+   finissent par se contredire. Les filtres se posent donc SUR la grille
+   existante : c'est le meme objet qu'on regarde autrement.
+   ================================================================== */
+
+.codexjamais,
+.codexrien {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.5;
+  color: var(--paper-dim);
+  max-width: 46ch;
+}
+
+.codexjamais.hidden,
+.codexrien.hidden {
+  display: none;
+}
+
+/* ------------------------------------------------------------------
+   CELLE QUI TE RESISTE
+
+   La seule ligne de l'ecran qui DESIGNE un exercice au lieu d'en proposer
+   seize. Elle porte donc le filet d'accent, et rien d'autre sur cet ecran ne
+   le porte : deux accents ne designent plus rien.
+   ------------------------------------------------------------------ */
+
+.resiste {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: var(--sp-3);
+  padding: 14px 16px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  border-left: 3px solid var(--signal);
+  text-align: left;
+}
+
+.resiste.hidden {
+  display: none;
+}
+
+.resiste__corps {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.resiste__img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.resiste__txt {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.resiste__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.resiste__note {
+  margin: 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+/* ------------------------------------------------------------------
+   LES FILTRES
+
+   Ils portent leur COMPTE : « A MATER · 3 » repond deja a la question qu'on
+   venait poser, meme sans cliquer. Base nulle pour la part egale, plancher
+   `max-content` pour ne jamais ecraser un mot, `wrap` pour se replier — la
+   meme regle que la barre des allures et que les chiffres de la fiche.
+   ------------------------------------------------------------------ */
+
+.filtres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: var(--sp-3);
+}
+
+.filtres.hidden {
+  display: none;
+}
+
+.filtre {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: var(--tap);
+  padding: 10px 14px;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.filtre:hover,
+.filtre:focus-visible {
+  color: var(--paper);
+  border-color: var(--signal);
+}
+
+.filtre.is-on {
+  color: var(--ink);
+  background: var(--paper);
+  border-color: var(--paper);
+}

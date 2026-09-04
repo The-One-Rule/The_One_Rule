@@ -692,6 +692,91 @@ function renderCodex(): void {
   const maitrisees = ONE_RULES.filter((r) => estMaitrisee(r, s.encountered[r.id])).length;
   $("codexProgress").textContent = t("carnetProgres")(vues, ONE_RULES.length, maitrisees);
 
+  /* ---------------------------------------------------------------- *
+   * LA SALLE DE TRAVAIL — filtres, et la règle qui résiste
+   * ---------------------------------------------------------------- */
+
+  const rencontrees = ONE_RULES.filter((r) => !!s.encountered[r.id]);
+  const aMater = rencontrees.filter((r) => !estMaitrisee(r, s.encountered[r.id]));
+
+  /*
+   * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
+   *
+   * On départage sur le nombre de cases franchies — à runs égaux, celle dont
+   * on est le plus loin. C'est la seule ligne de l'écran qui DÉSIGNE un
+   * exercice au lieu d'en proposer seize, et c'est ce qui évite au joueur
+   * d'avoir à choisir avant de savoir quoi choisir.
+   */
+  const resiste = [...aMater].sort((x, y) => {
+    const rx = s.encountered[x.id]?.runs ?? 0;
+    const ry = s.encountered[y.id]?.runs ?? 0;
+    if (rx !== ry) return ry - rx;
+    return (
+      franchies(echelleMaitrise(x, s.encountered[x.id])) -
+      franchies(echelleMaitrise(y, s.encountered[y.id]))
+    );
+  })[0];
+
+  // Elle ne paraît qu'au-delà d'un run : à zéro, « celle qui te résiste »
+  // désignerait une règle qu'on vient de croiser une fois.
+  const recResiste = resiste ? s.encountered[resiste.id] : undefined;
+  const montreResiste = !!resiste && (recResiste?.runs ?? 0) >= 2;
+  $("resiste").classList.toggle("hidden", !montreResiste);
+  if (montreResiste && resiste) {
+    $<HTMLImageElement>("resisteImg").src = `/cartes/${resiste.id}.png`;
+    $("resisteNom").textContent = nomDeRegle(resiste.id, resiste.name);
+    $("resisteNote").textContent = t("resisteNote")(
+      recResiste?.runs ?? 0,
+      franchies(echelleMaitrise(resiste, recResiste)),
+    );
+    $("btnResiste").textContent = t("resisteBouton");
+    $("btnResiste").dataset.regle = resiste.id;
+  }
+
+  /*
+   * Les filtres portent leur COMPTE : « À MATER · 3 » répond déjà à la question
+   * qu'on venait poser, même sans cliquer.
+   *
+   * Ils n'apparaissent qu'à partir de deux règles rencontrées : à une seule,
+   * trois boutons pour trier un élément se lisent comme une fonctionnalité qui
+   * ne sert à rien.
+   */
+  const hote = $("filtres");
+  hote.classList.toggle("hidden", rencontrees.length < 2);
+  hote.innerHTML = "";
+  for (const [id, libelle] of [
+    ["amater", t("filtreAMater")(aMater.length)],
+    ["maitrisees", t("filtreMaitrisees")(maitrisees)],
+    ["toutes", t("filtreToutes")(ONE_RULES.length)],
+  ] as const) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = `filtre${filtre === id ? " is-on" : ""}`;
+    b.textContent = libelle;
+    b.setAttribute("aria-pressed", String(filtre === id));
+    b.addEventListener("click", () => {
+      filtre = id as Filtre;
+      sfx.ui();
+      renderCodex();
+    });
+    hote.appendChild(b);
+  }
+
+  // Ce que le joueur n'a pas encore vu — et qui ne s'obtient qu'en jouant.
+  $("codexJamais").textContent = t("salleJamaisVues")(ONE_RULES.length - vues);
+  $("codexJamais").classList.toggle("hidden", vues === 0);
+
+  const visibles = ONE_RULES.filter((r) => {
+    if (filtre === "toutes") return true;
+    const rec = s.encountered[r.id];
+    if (!rec) return false;
+    return filtre === "maitrisees"
+      ? estMaitrisee(r, rec)
+      : !estMaitrisee(r, rec);
+  });
+  $("codexRien").textContent = t("filtreRien");
+  $("codexRien").classList.toggle("hidden", visibles.length > 0 || filtre === "toutes");
+
   /*
    * LE CARNET EST DEVENU UNE COLLECTION.
    *
@@ -707,7 +792,7 @@ function renderCodex(): void {
   $("codexVide").textContent = t("codexVide");
   $("codexVide").classList.toggle("hidden", vues > 0);
 
-  for (const r of ONE_RULES) {
+  for (const r of visibles) {
     const rec = s.encountered[r.id];
     const cases = echelleMaitrise(r, rec);
     const n = franchies(cases);
@@ -1570,6 +1655,18 @@ function lanceRun(): void {
 /** La règle dont la fiche est ouverte — pour que RETOUR sache d'où l'on vient. */
 let ficheRegle: OneRule | null = null;
 
+/**
+ * Le filtre de la collection, qui en fait une SALLE DE TRAVAIL.
+ *
+ * ⚠️ Une seule grille, pas un filtre PLUS une grille. La maquette dessinait un
+ * écran TRAINING séparé avec sa propre liste de règles — mais la collection en
+ * a déjà une, et deux façons de répondre à « quelle règle travailler ? »
+ * finissent par se contredire. Les filtres se posent donc SUR la grille
+ * existante : c'est le même objet qu'on regarde autrement.
+ */
+type Filtre = "amater" | "maitrisees" | "toutes";
+let filtre: Filtre = "toutes";
+
 const NOM_FAMILLE = {
   interdit: () => t("famInterdit"),
   deformation: () => t("famDeformation"),
@@ -1692,6 +1789,19 @@ function ouvreFiche(r: OneRule): void {
 
   show("fiche");
 }
+
+/*
+ * TRAVAILLER CELLE-LÀ — le raccourci qui évite de choisir.
+ *
+ * Il ouvre la FICHE plutôt que l'exercice : la fiche dit d'abord ce qui manque
+ * et à quelle allure, et c'est elle qui lance. Sauter directement au brief
+ * ferait perdre la seule explication du parcours.
+ */
+$("btnResiste").addEventListener("click", () => {
+  const id = $("btnResiste").dataset.regle;
+  const r = ONE_RULES.find((x) => x.id === id);
+  if (r) ouvreFiche(r);
+});
 
 $("btnFicheTrain").addEventListener("click", () => {
   if (!ficheRegle) return;

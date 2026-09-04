@@ -839,6 +839,33 @@
                invitation — et elle dit VRAI : la premiere carte se debloque en
                jouant, c'est exactement ce que fait la premiere arrivee. -->
           <p class="codexvide hidden" id="codexVide"></p>
+          <!-- Ce qu'il reste a rencontrer, et comment : « elles n'arrivent
+               qu'en jouant » est la seule facon d'en debloquer. -->
+          <p class="codexjamais hidden" id="codexJamais"></p>
+
+          <!-- CELLE QUI TE RESISTE.
+               Parmi les regles rencontrees et non maitrisees, celle qu'on a le
+               plus retentee est celle qui coince. C'est une information que le
+               joueur ne peut pas tenir de tete, et la seule qui designe un
+               exercice sans qu'il ait a choisir. -->
+          <div class="resiste hidden" id="resiste">
+            <p class="eyebrow" data-i18n="salle.resiste">THE ONE THAT KEEPS GETTING YOU</p>
+            <div class="resiste__corps">
+              <img class="resiste__img" id="resisteImg" width="64" height="64" alt="" />
+              <div class="resiste__txt">
+                <p class="resiste__nom" id="resisteNom"></p>
+                <p class="resiste__note" id="resisteNote"></p>
+              </div>
+            </div>
+            <button class="btn btn--primary" id="btnResiste"></button>
+          </div>
+
+          <!-- LES FILTRES.
+               Ils portent leur COMPTE : « A MATER · 3 » repond deja a la
+               question qu'on venait poser, meme sans cliquer. -->
+          <div class="filtres hidden" id="filtres" role="group"></div>
+
+          <p class="codexrien hidden" id="codexRien"></p>
           <div class="codexlist" id="codexList"></div>
           <div class="btnrow">
             <button class="btn btn--ghost" id="btnCodexBack" data-i18n="commun.retour">BACK</button>
