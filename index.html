@@ -172,6 +172,22 @@
              enseignerait un jeu qui n'existe pas.
              `pointer-events: none` — la seule chose cliquable ici reste le
              canvas, exactement comme en partie. -->
+        <!-- LE PIEGE DEJOUE — le seul retour de manche qui PARLE.
+             Une reussite ordinaire ne dit rien et n'arrete rien ; une mort
+             revele le piege APRES (decision n°5). Entre les deux, le piege
+             DEJOUE est le geste que le jeu existe pour apprendre, et c'est le
+             seul moment ou il vaut la peine de s'expliquer.
+
+             Hors flux et `pointer-events: none` comme l'aide du tutoriel : il
+             ne prend pas un pixel au terrain, et il n'arrete pas la manche
+             suivante. -->
+        <div id="piege" class="piege hidden" aria-live="polite">
+          <p class="piege__quoi" data-i18n="piege.rien">YOU DID NOTHING</p>
+          <p class="piege__titre" data-i18n="piege.dejoue">TRAP DEFUSED</p>
+          <p class="piege__pourquoi" id="piegePourquoi"></p>
+          <p class="piege__carte" id="piegeCarte"></p>
+        </div>
+
         <div id="tuto" class="tuto hidden" aria-live="polite">
           <p class="tuto__aide" id="tutoAide"></p>
           <p class="tuto__note" id="tutoNote"></p>
@@ -797,6 +813,29 @@
           </div>
 
           <div class="col over__next">
+            <!-- CE QUE CE RUN A FAIT AVANCER.
+                 La question a laquelle cet ecran doit repondre est « qu'est-ce
+                 que je viens de gagner ? ». Le score seul n'y repond pas : il
+                 dit ce qu'on a fait, pas ce qu'on a acquis.
+
+                 Masque quand le run n'a rien fait avancer — un bloc qui annonce
+                 une progression nulle est pire que pas de bloc. -->
+            <div class="avance hidden" id="avance">
+              <p class="eyebrow" data-i18n="fin.avance">WHAT THIS RUN ADVANCED</p>
+              <p class="avance__regle" id="avanceRegle"></p>
+              <p class="avance__quoi" id="avanceQuoi"></p>
+              <button class="btn" id="btnAvanceTrain"></button>
+            </div>
+
+            <!-- UNE REGLE DECOUVERTE est un evenement : c'est une carte de plus
+                 dans la collection, et la seule chose du jeu qui ne se rejoue
+                 pas. Elle merite sa propre annonce. -->
+            <div class="decouverte hidden" id="decouverte">
+              <p class="eyebrow" data-i18n="fin.decouverte">RULE DISCOVERED</p>
+              <p class="decouverte__nom" id="decouverteNom"></p>
+              <p class="decouverte__note" id="decouverteNote"></p>
+            </div>
+
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
                  seule page qui les montrait était l'accueil, qu'on ne revoit
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->

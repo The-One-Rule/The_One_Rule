@@ -12,7 +12,7 @@ import {
 import { mulberry32 } from "./engine/rng";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade } from "./engine/escalade";
-import type { Action, OneRule, Outcome } from "./engine/types";
+import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
@@ -274,6 +274,7 @@ function show(id: ScreenId): void {
    * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
    */
   if (lecture && id !== null) annuleLecture();
+  cachePiege();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   /*
@@ -2226,6 +2227,9 @@ function finishRun(): void {
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
 
+  /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
+  let avant: P.RuleRecord | undefined;
+
   const s = P.mutate((st) => {
     ensureDay(st, day);
     // La MÊME formule que `recordRun`, et une seule fois écrite : les deux
@@ -2239,6 +2243,16 @@ function finishRun(): void {
      * au moteur : une progression qui demande d'instrumenter le chemin chaud
      * est une progression qu'on paie à chaque manche.
      */
+    /*
+     * ⚠️ LA PHOTO D'AVANT, prise ICI et nulle part ailleurs.
+     *
+     * `majCarnet` remplace l'entrée : après elle, il n'y a plus aucun moyen de
+     * savoir ce que ce run a fait avancer. Et c'est exactement la question à
+     * laquelle l'écran de fin doit répondre — « qu'est-ce que je viens de
+     * gagner ? ». Le score seul n'y répond pas : il dit ce qu'on a fait, pas ce
+     * qu'on a acquis.
+     */
+    avant = st.encountered[rule.id] ? { ...st.encountered[rule.id]! } : undefined;
     st.encountered[rule.id] = P.majCarnet(
       st.encountered[rule.id],
       end.score,
@@ -2453,6 +2467,7 @@ function finishRun(): void {
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
   renderPodium(mode);
+  peintAvance(rule, avant, s, pace, end.score);
 
   hud.hideStamp();
   hud.setRule(null);
@@ -2524,7 +2539,143 @@ function marksToString(marks: string[]): string {
  * (une action du joueur, ou l'expiration de la fenêtre) passent par ici :
  * sinon on double le son de mort, ce qui s'entend immédiatement.
  */
-function react(outcome: Outcome, comboBefore: number): void {
+/**
+ * CE QUE CE RUN A FAIT AVANCER.
+ *
+ * La question à laquelle l'écran de fin doit répondre est « qu'est-ce que je
+ * viens de gagner ? ». Le score seul n'y répond pas : il dit ce qu'on a FAIT,
+ * pas ce qu'on a ACQUIS — et c'est la différence entre « j'ai joué à TOR » et
+ * « je suis en train de maîtriser TOR ».
+ *
+ * ⚠️ Il se TAIT quand le run n'a rien fait avancer. Un bloc qui annonce une
+ * progression nulle est pire que pas de bloc : il transforme un run ordinaire
+ * en échec.
+ *
+ * @param avant l'entrée de carnet AVANT ce run — `majCarnet` l'a remplacée
+ * depuis, et sans cette photo il n'y a plus aucun moyen de savoir ce qui a bougé
+ */
+function peintAvance(
+  regle: OneRule,
+  avant: P.RuleRecord | undefined,
+  apres: P.Save,
+  allure: number,
+  score: number,
+): void {
+  const rec = apres.encountered[regle.id];
+  const casesAvant = franchies(echelleMaitrise(regle, avant));
+  const casesApres = franchies(echelleMaitrise(regle, rec));
+
+  /*
+   * UNE RÈGLE DÉCOUVERTE est un événement à part : c'est une carte de plus dans
+   * la collection, et la seule chose du jeu qui ne se rejoue pas. On l'annonce
+   * séparément, pas comme un progrès parmi d'autres.
+   */
+  const neuve = !avant && !!rec;
+  const vues = ONE_RULES.filter((r) => !!apres.encountered[r.id]).length;
+  $("decouverte").classList.toggle("hidden", !neuve);
+  if (neuve) {
+    $("decouverteNom").textContent = nomDeRegle(regle.id, regle.name);
+    $("decouverteNote").textContent = t("decouverteNote")(score, vues, ONE_RULES.length);
+  }
+
+  // Ce qui a bougé, dans l'ordre où ça compte : une case franchie d'abord, les
+  // pièges ensuite, le record d'allure en dernier.
+  const piegesGagnes = (rec?.pieges ?? 0) - (avant?.pieges ?? 0);
+  const cleAllure = String(allure);
+  const allureAvant = avant?.parAllure?.[cleAllure] ?? 0;
+  const allureApres = rec?.parAllure?.[cleAllure] ?? 0;
+  const morceaux: string[] = [];
+  if (casesApres > casesAvant) morceaux.push(t("avanceCase"));
+  if (piegesGagnes > 0) morceaux.push(t("avancePieges")(piegesGagnes));
+  if (allureApres > allureAvant) {
+    morceaux.push(t("avanceManches")(allureApres, nomAllure(allure, String(allure))));
+  }
+
+  // Une règle NEUVE a déjà son annonce : répéter « une case de plus » sous
+  // elle dirait deux fois la même chose.
+  const montre = morceaux.length > 0 && !neuve;
+  $("avance").classList.toggle("hidden", !montre);
+  if (!montre) return;
+  $("avanceRegle").textContent = t("avanceRegle")(nomDeRegle(regle.id, regle.name), casesApres);
+  $("avanceQuoi").textContent = morceaux.join(" ");
+  const btn = $("btnAvanceTrain");
+  btn.textContent = t("avanceTravailler")(nomDeRegle(regle.id, regle.name));
+  btn.dataset.regle = regle.id;
+}
+
+$("btnAvanceTrain").addEventListener("click", () => {
+  const id = $("btnAvanceTrain").dataset.regle;
+  const r = ONE_RULES.find((x) => x.id === id);
+  // On ouvre la FICHE : elle dit ce qui manque et à quelle allure, et c'est
+  // elle qui lance. Le même chemin que « celle qui te résiste ».
+  if (r) ouvreFiche(r);
+});
+
+/**
+ * LE PIÈGE DÉJOUÉ — le seul retour de manche qui PARLE.
+ *
+ * Une réussite ordinaire ne dit rien et n'arrête rien ; une mort révèle le
+ * piège APRÈS, jamais pendant (décision n°5). Entre les deux, le piège déjoué
+ * est le geste que le jeu existe pour apprendre — et la mesure dit pourquoi il
+ * faut s'y arrêter : ouvrir le catalogue d'entraînement a fait tomber les morts
+ * sur le piège de 42,9 % à 4,1 %, donc un joueur peut désormais en croiser très
+ * peu. Chacun compte.
+ *
+ * ⚠️ IL N'ARRÊTE RIEN. Le calque est hors flux et `pointer-events: none` : la
+ * manche suivante s'ouvre normalement derrière, et il s'efface tout seul. Une
+ * pause ici casserait le rythme au moment précis où le joueur vient de réussir.
+ *
+ * ⚠️ IL FAIT AVANCER UNE CARTE À L'ÉCRAN. C'est le raccord entre le geste et la
+ * collection : le compteur de pièges et la case de maîtrise bougent sous les
+ * yeux du joueur, à l'instant où il les gagne.
+ */
+let piegeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function montrePiegeDejoue(round: Round): void {
+  if (!session) return;
+  const r = session.rule;
+  /*
+   * La consigne d'ORIGINE, celle qui piégeait — composée dans la langue du
+   * joueur comme elle l'était à l'écran. C'est elle qu'il faut lui remettre
+   * sous les yeux : c'est ce qu'il vient de refuser d'exécuter.
+   */
+  $("piegePourquoi").textContent = t("piegePourquoi")(
+    composePhrase(round.phrase, round.text),
+    nomDeRegle(r.id, r.name),
+  );
+
+  /*
+   * Le compteur du CARNET plus ceux de ce run : le carnet n'est écrit qu'à la
+   * fin, donc l'afficher seul montrerait un chiffre en retard d'un run entier.
+   */
+  const rec = P.load().encountered[r.id];
+  const total = (rec?.pieges ?? 0) + session.trapsSurvived;
+  const projete = { ...(rec ?? { best: 0, cleared: false }), pieges: total };
+  $("piegeCarte").textContent = t("piegeCarte")(
+    nomDeRegle(r.id, r.name),
+    total,
+    franchies(echelleMaitrise(r, projete)),
+  );
+
+  const el = $("piege");
+  el.classList.remove("hidden");
+  // On relance l'animation d'entrée : deux pièges d'affilée doivent produire
+  // deux annonces, pas une seule qui reste.
+  el.classList.remove("is-vu");
+  void el.offsetWidth;
+  el.classList.add("is-vu");
+  if (piegeTimer) clearTimeout(piegeTimer);
+  piegeTimer = setTimeout(() => el.classList.add("hidden"), 1500);
+}
+
+/** Efface l'annonce — tout changement d'écran passe par là. */
+function cachePiege(): void {
+  if (piegeTimer) clearTimeout(piegeTimer);
+  piegeTimer = null;
+  $("piege").classList.add("hidden");
+}
+
+function react(outcome: Outcome, comboBefore: number, manche: Round): void {
   if (!session) return;
   /*
    * Un pas intermédiaire ne renvoyait RIEN — ni son, ni particule.
@@ -2548,6 +2699,7 @@ function react(outcome: Outcome, comboBefore: number): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
+      montrePiegeDejoue(manche);
     } else {
       sfx.success(comboBefore);
       scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
@@ -2576,7 +2728,10 @@ function react(outcome: Outcome, comboBefore: number): void {
 function send(action: Action): void {
   if (!session || session.phase !== "playing") return;
   const combo = session.level;
-  react(session.input(action, performance.now()), combo);
+  // Même capture que dans la boucle : `input` peut conclure la manche, et
+  // `survive()` ouvre la suivante avant de rendre son verdict.
+  const manche = session.round;
+  react(session.input(action, performance.now()), combo, manche);
 }
 
 /** Route une action vers le multi si un match est actif (et pas de run solo). */
@@ -3126,8 +3281,17 @@ function loop(now: number): void {
 
   if (session) {
     const combo = session.level;
+    /*
+     * ⚠️ ON CAPTURE LA MANCHE AVANT LE `tick`.
+     *
+     * `survive()` ouvre la manche SUIVANTE avant de rendre son verdict : au
+     * moment où `react` s'exécute, `session.round` est déjà la manche d'après.
+     * Le retour du piège déjoué affichait donc la consigne de la manche
+     * suivante — « la consigne demandait NE FAIS RIEN », vu à l'écran.
+     */
+    const manche = session.round;
     const outcome = session.tick(now);
-    if (outcome) react(outcome, combo);
+    if (outcome) react(outcome, combo, manche);
 
     if (session.phase === "over") {
       finishRun();

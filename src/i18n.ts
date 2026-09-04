@@ -209,6 +209,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
+    "fin.decouverte": "RÈGLE DÉCOUVERTE",
+    "piege.rien": "TU N'AS RIEN FAIT",
+    "piege.dejoue": "PIÈGE DÉJOUÉ",
     "but.aBattre": "LE RECORD À BATTRE",
     "nav.cartes": "CARTES",
     "nav.training": "ENTRAÎNEMENT",
@@ -334,6 +338,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "fin.avance": "WHAT THIS RUN ADVANCED",
+    "fin.decouverte": "RULE DISCOVERED",
+    "piege.rien": "YOU DID NOTHING",
+    "piege.dejoue": "TRAP DEFUSED",
     "but.aBattre": "THE RECORD TO BEAT",
     "nav.cartes": "CARDS",
     "nav.training": "TRAINING",
@@ -459,6 +467,15 @@ type Dyn = {
   butDejaBattu: string;
   butSien: (n: number) => string;
   butModeJour: string;
+  piegePourquoi: (consigne: string, regle: string) => string;
+  piegeCarte: (regle: string, pieges: number, cases: number) => string;
+  avanceRegle: (regle: string, cases: number) => string;
+  avancePieges: (n: number) => string;
+  avanceManches: (n: number, allure: string) => string;
+  avanceCase: string;
+  avanceRien: string;
+  avanceTravailler: (regle: string) => string;
+  decouverteNote: (manche: number, vues: number, total: number) => string;
   butModeEntrainement: string;
   /* --- première arrivée --- */
   onbEtape: (n: number, total: number) => string;
@@ -783,6 +800,18 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "Tu fais mieux que ça.",
     butSien: (n) => `TON RECORD · ${n}`,
     butModeJour: "RUN DU JOUR",
+    piegePourquoi: (consigne, regle) =>
+      `La consigne demandait « ${consigne} ». ${regle} l'interdit.`,
+    piegeCarte: (regle, pieges, cases) =>
+      `${regle} · ${pieges} PIÈGE${pieges > 1 ? "S" : ""} DÉJOUÉ${pieges > 1 ? "S" : ""} · MAÎTRISE ${cases}/6`,
+    avanceRegle: (regle, cases) => `${regle} · MAÎTRISE ${cases} / 6`,
+    avancePieges: (n) => `+${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}.`,
+    avanceManches: (n, allure) => `Meilleur à l'allure ${allure} : ${n} manches.`,
+    avanceCase: "Une case de plus.",
+    avanceRien: "Rien de neuf sur cette règle cette fois.",
+    avanceTravailler: (regle) => `TRAVAILLER ${regle}`,
+    decouverteNote: (manche, vues, total) =>
+      `Rencontrée à la manche ${manche}. Entrée au carnet · ${vues} / ${total}.`,
     butModeEntrainement: "ENTRAÎNEMENT",
     onbEtape: (n, total) => `ÉTAPE ${n} SUR ${total}`,
     onbSuivant: "D'ACCORD",
@@ -1078,6 +1107,18 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "You are already past that.",
     butSien: (n) => `YOUR BEST · ${n}`,
     butModeJour: "DAILY RUN",
+    piegePourquoi: (consigne, regle) =>
+      `The order asked for « ${consigne} ». ${regle} forbids it.`,
+    piegeCarte: (regle, pieges, cases) =>
+      `${regle} · ${pieges} TRAP${pieges === 1 ? "" : "S"} DEFUSED · MASTERY ${cases}/6`,
+    avanceRegle: (regle, cases) => `${regle} · MASTERY ${cases} / 6`,
+    avancePieges: (n) => `+${n} trap${n === 1 ? "" : "s"} defused.`,
+    avanceManches: (n, allure) => `Best at ${allure} pace: ${n} rounds.`,
+    avanceCase: "One more box.",
+    avanceRien: "Nothing new on this rule this time.",
+    avanceTravailler: (regle) => `WORK ON ${regle}`,
+    decouverteNote: (manche, vues, total) =>
+      `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
     butModeEntrainement: "TRAINING",
     onbEtape: (n, total) => `STEP ${n} OF ${total}`,
     onbSuivant: "GOT IT",

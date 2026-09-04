@@ -8959,3 +8959,158 @@ button.chip:active:not(:disabled) {
     border-right: var(--bd-hair) solid var(--line);
   }
 }
+
+/* ==================================================================
+   LE PIEGE DEJOUE — le seul retour de manche qui parle
+
+   Une reussite ordinaire ne dit rien et n'arrete rien ; une mort revele le
+   piege APRES, jamais pendant (decision n°5). Entre les deux, le piege dejoue
+   est le geste que le jeu existe pour apprendre.
+
+   ⚠️ HORS FLUX et `pointer-events: none` : il ne prend pas un pixel au
+   terrain, et la manche suivante s'ouvre normalement derriere. Une pause ici
+   casserait le rythme au moment precis ou le joueur vient de reussir.
+   ================================================================== */
+
+.piege {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 var(--gap);
+  pointer-events: none;
+  text-align: center;
+}
+
+.piege.hidden {
+  display: none;
+}
+
+.piege__quoi {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.piege__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(30px, 6vw, 46px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--signal-pale);
+}
+
+.piege__pourquoi {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.45;
+  color: var(--paper);
+  text-wrap: balance;
+}
+
+/* La carte qui AVANCE, sous les yeux du joueur, a l'instant ou il la gagne. */
+.piege__carte {
+  margin: 4px 0 0;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--signal-pale);
+  background: var(--ink);
+  border: 1px solid var(--signal);
+}
+
+/* Seuls `transform` et `opacity` s'animent — la meme regle que --heat. */
+.piege.is-vu {
+  animation: piegeEntre 1.5s ease-out forwards;
+}
+
+@keyframes piegeEntre {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  12% {
+    opacity: 1;
+    transform: none;
+  }
+  76% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* ⚠️ Neutraliser l'animation SANS remettre l'opacite laisserait l'element
+     invisible — le piege deja paye avec `animation-fill-mode: backwards`. */
+  .piege.is-vu {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ==================================================================
+   CE QUE CE RUN A FAIT AVANCER
+
+   La question a laquelle l'ecran de fin doit repondre est « qu'est-ce que je
+   viens de gagner ? ». Le score seul n'y repond pas : il dit ce qu'on a FAIT,
+   pas ce qu'on a ACQUIS.
+   ================================================================== */
+
+.avance,
+.decouverte {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 13px 15px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  border-left: 3px solid var(--signal);
+  text-align: left;
+}
+
+.avance.hidden,
+.decouverte.hidden {
+  display: none;
+}
+
+.avance__regle,
+.decouverte__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+}
+
+.avance__quoi,
+.decouverte__note {
+  margin: 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.45;
+  color: var(--paper-dim);
+}
+
+/* Le bouton reste discret : l'action evidente de cet ecran est REJOUER, et
+   deux accents ne designent plus rien. */
+.avance .btn {
+  align-self: flex-start;
+  margin-top: 2px;
+}
