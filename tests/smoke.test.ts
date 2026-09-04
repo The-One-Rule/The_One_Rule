@@ -120,7 +120,41 @@ describe("application", () => {
      * donc par SOLO — et ce test le suit, parce qu'un joueur le suit.
      */
     document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(document.getElementById("solo")!.classList.contains("hidden")).toBe(false);
+
+    /*
+     * ⚠️ UN JOUEUR NEUF NE VA PLUS SUR SOLO — il va sur la PREMIÈRE ARRIVÉE.
+     *
+     * Ce test partait d'une sauvegarde vierge, donc il décrit exactement le
+     * parcours d'un nouveau venu : c'est lui qui a changé. Rapporté par Pierre
+     * après avoir fait tester le jeu à ses camarades — « ils ont adoré mais ils
+     * n'ont pas immédiatement compris, j'étais à côté pour expliquer ».
+     *
+     * La première arrivée n'est PAS déclenchée à l'ouverture du site : elle
+     * l'est par les portes de jeu, parce que le joueur doit avoir choisi de
+     * jouer. On vérifie les deux moitiés de cette règle.
+     */
+    expect(
+      document.getElementById("onb")!.classList.contains("hidden"),
+      "un joueur neuf qui clique JOUER arrive sur la première arrivée",
+    ).toBe(false);
+    expect(
+      document.getElementById("solo")!.classList.contains("hidden"),
+      "…et pas sur le menu SOLO",
+    ).toBe(true);
+    // Le premier temps montre la RÈGLE, et rien d'autre : c'est tout le sujet.
+    expect(document.getElementById("onbT1")!.classList.contains("hidden")).toBe(false);
+    expect(document.getElementById("onbT1Nom")!.textContent!.length).toBeGreaterThan(2);
+
+    // PASSER remet le joueur sur l'accueil sans rien casser, et le marque comme
+    // ayant vu l'arrivée : le reste du parcours redevient celui d'un habitué.
+    document.getElementById("btnOnbSkip")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
+
+    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(
+      document.getElementById("solo")!.classList.contains("hidden"),
+      "une fois l'arrivée vue, SOLO s'ouvre normalement",
+    ).toBe(false);
     expect(document.querySelectorAll("#homeQuests .quest").length).toBe(3);
 
     // entraînement → brief → run

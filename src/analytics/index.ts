@@ -38,6 +38,21 @@ export const EVENT_NAMES = [
   "invite_opened",
   "optout",
   /*
+   * LA PREMIÈRE ARRIVÉE, mesurée en trois points.
+   *
+   * `onb_start` compte ceux qui la voient, `onb_done` ceux qui vont au bout,
+   * `onb_skip` ceux qui la coupent. Les trois se réparent différemment : trop
+   * de `skip` veut dire que la promesse d'entrée est mauvaise, et un `start`
+   * sans `done` ni `skip` veut dire qu'on est parti au milieu — c'est-à-dire
+   * qu'un des six temps décroche, et le rapport dira lequel.
+   *
+   * C'est la mesure qui manquait le plus : le premier run d'un joueur a une
+   * médiane de 4 manches, et personne ne savait où ça se perdait.
+   */
+  "onb_start",
+  "onb_done",
+  "onb_skip",
+  /*
    * Le compte, mesuré en trois points.
    *
    * L'entonnoir tient en deux rapports : combien voient l'invitation, combien

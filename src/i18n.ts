@@ -143,6 +143,25 @@ export const TEXTES: Record<Lang, Textes> = {
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
     "home.play": "JOUER",
+    "onb.regleUnique": "TA RÈGLE UNIQUE",
+    "onb.t1.titre": "Le jeu te donne une seule règle.",
+    "onb.t1.lede": "Elle vaut pour toute la partie, et elle reste affichée.",
+    "onb.t1.pied": "AUCUN CHRONO N'A ENCORE DÉMARRÉ",
+    "onb.t2.titre": "Par-dessus, une consigne arrive toutes les deux secondes.",
+    "onb.t2.cas1": "CAS 1 · LA CONSIGNE EST COMPATIBLE",
+    "onb.t2.rep1": "Tu cliques. Le carré bleu n'enfreint pas ta règle.",
+    "onb.t2.cas2": "CAS 2 · LA CONSIGNE ENFREINT TA RÈGLE",
+    "onb.t2.rep2": "Tu ne fais RIEN. Obéir serait la faute.",
+    "onb.t2.pied": "C'EST TOUT LE JEU. ON ESSAIE.",
+    "onb.t4.oui": "OUI.",
+    "onb.t4.titre": "Le carré bleu n'enfreignait pas ta règle, donc obéir était correct.",
+    "onb.t4.kicker": "CE QUE TU VIENS DE FAIRE",
+    "onb.t4.geste": "Lire la consigne · la confronter à ta règle · cliquer.",
+    "onb.t4.pied": "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. CERTAINES SONT DES PIÈGES — ET ELLES ARRIVENT VITE.",
+    "onb.t6.rien": "TU N'AS RIEN FAIT.",
+    "onb.t6.titre": "C'est exactement ça, le jeu.",
+    "onb.t6.debloquee": "PREMIÈRE CARTE DÉBLOQUÉE",
+    "onb.passer": "PASSER",
     "piege.court": "Si une consigne enfreint ta règle, NE FAIS RIEN.",
     "aide.titre": "COMMENT ÇA MARCHE",
     "aide.pas1": "Une règle unique tient toute la partie. Elle reste affichée.",
@@ -241,6 +260,25 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
   },
   en: {
     "home.play": "PLAY",
+    "onb.regleUnique": "YOUR ONE RULE",
+    "onb.t1.titre": "The game gives you one single rule.",
+    "onb.t1.lede": "It holds for the whole run, and it stays on screen.",
+    "onb.t1.pied": "NO CLOCK HAS STARTED YET",
+    "onb.t2.titre": "On top of it, an order arrives every two seconds.",
+    "onb.t2.cas1": "CASE 1 · THE ORDER FITS YOUR RULE",
+    "onb.t2.rep1": "You click. The blue square breaks no rule.",
+    "onb.t2.cas2": "CASE 2 · THE ORDER BREAKS YOUR RULE",
+    "onb.t2.rep2": "You do NOTHING. Obeying would be the mistake.",
+    "onb.t2.pied": "THAT IS THE WHOLE GAME. LET'S TRY.",
+    "onb.t4.oui": "YES.",
+    "onb.t4.titre": "The blue square broke no rule, so obeying was right.",
+    "onb.t4.kicker": "WHAT YOU JUST DID",
+    "onb.t4.geste": "Read the order · check it against your rule · click.",
+    "onb.t4.pied": "MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.",
+    "onb.t6.rien": "YOU DID NOTHING.",
+    "onb.t6.titre": "That is exactly the game.",
+    "onb.t6.debloquee": "FIRST CARD UNLOCKED",
+    "onb.passer": "SKIP",
     "piege.court": "If an order breaks your rule, do NOTHING.",
     "aide.titre": "HOW IT WORKS",
     "aide.pas1": "One rule holds for the whole run. It stays on screen.",
@@ -362,6 +400,22 @@ export const CHAINES = STATIQUE;
 type Dyn = {
   compteSupprimer: string;
   compteNom: string;
+  /* --- première arrivée --- */
+  onbEtape: (n: number, total: number) => string;
+  onbSuivant: string;
+  onbEssayer: string;
+  onbMontre: string;
+  onbLancer: string;
+  onbSuite: (reste: number) => string;
+  onbCompte: (vues: number, total: number) => string;
+  /** L'aide posée sur le terrain pendant les deux temps joués. */
+  tutoVasy: string;
+  tutoSansChrono: string;
+  tutoRelis: string;
+  tutoRienFaire: string;
+  tutoRalenti: string;
+  tutoPasCelleLa: string;
+  tutoInterdit: string;
   cptNomEnvoi: string;
   cptNomRate: string;
   compteConfirmer: string;
@@ -625,6 +679,21 @@ const DYN: Record<Lang, Dyn> = {
   fr: {
     compteSupprimer: "SUPPRIMER LE COMPTE",
     compteNom: "CHANGER DE NOM",
+    onbEtape: (n, total) => `ÉTAPE ${n} SUR ${total}`,
+    onbSuivant: "D'ACCORD",
+    onbEssayer: "ESSAYER",
+    onbMontre: "MONTRE-MOI",
+    onbLancer: "LANCER LA VRAIE PARTIE",
+    onbSuite: (reste) =>
+      `${reste} autres règles t'attendent. Chacune change ce qu'il faut faire.`,
+    onbCompte: (vues, total) => `${vues} / ${total}`,
+    tutoVasy: "VAS-Y, PRENDS TON TEMPS",
+    tutoSansChrono: "LE CHRONO EST DÉSACTIVÉ",
+    tutoRelis: "RELIS TA RÈGLE AVANT D'AGIR",
+    tutoRienFaire: "NE TOUCHE À RIEN — LAISSE PASSER",
+    tutoRalenti: "CHRONO RALENTI POUR CETTE MANCHE",
+    tutoPasCelleLa: "PAS CELLE-LÀ — REGARDE LA COULEUR DEMANDÉE",
+    tutoInterdit: "TA RÈGLE INTERDIT LE ROUGE",
     cptNomEnvoi: "ENVOI…",
     cptNomRate: "LE NOM N'A PAS PU ÊTRE ENREGISTRÉ — IL RESTE VALABLE SUR CET APPAREIL",
     compteConfirmer: "CONFIRMER LA SUPPRESSION",
@@ -860,6 +929,21 @@ const DYN: Record<Lang, Dyn> = {
   en: {
     compteSupprimer: "DELETE ACCOUNT",
     compteNom: "CHANGE NAME",
+    onbEtape: (n, total) => `STEP ${n} OF ${total}`,
+    onbSuivant: "GOT IT",
+    onbEssayer: "TRY IT",
+    onbMontre: "SHOW ME",
+    onbLancer: "START THE REAL RUN",
+    onbSuite: (reste) =>
+      `${reste} more rules are waiting. Each one changes what you must do.`,
+    onbCompte: (vues, total) => `${vues} / ${total}`,
+    tutoVasy: "GO AHEAD, TAKE YOUR TIME",
+    tutoSansChrono: "THE CLOCK IS OFF",
+    tutoRelis: "READ YOUR RULE AGAIN BEFORE ACTING",
+    tutoRienFaire: "TOUCH NOTHING — LET IT PASS",
+    tutoRalenti: "CLOCK SLOWED FOR THIS ROUND",
+    tutoPasCelleLa: "NOT THAT ONE — LOOK AT THE COLOUR ASKED FOR",
+    tutoInterdit: "YOUR RULE FORBIDS RED",
     cptNomEnvoi: "SAVING…",
     cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
     compteConfirmer: "CONFIRM DELETION",

@@ -96,6 +96,15 @@ export interface Save {
    */
   trainingPace: number;
   /**
+   * La première arrivée a-t-elle été vue ?
+   *
+   * ⚠️ Absent vaut FAUX, donc un joueur déjà venu la verra une fois — c'est
+   * assumé et c'est le bon sens du repli : mieux vaut la montrer une fois de
+   * trop à quelqu'un qui connaît le jeu que jamais à quelqu'un qui arrive.
+   * L'inverse est exactement le défaut qu'on corrige.
+   */
+  onboarded?: boolean;
+  /**
    * Règle épinglée pour l'entraînement, ou `null` pour un tirage.
    *
    * Persistée parce que travailler une règle demande PLUSIEURS parties : la

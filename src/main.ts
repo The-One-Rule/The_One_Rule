@@ -42,6 +42,13 @@ import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { tempsDeLecture } from "./game/lecture";
+import {
+  CHRONO_PIEGE_MS,
+  REGLE_TUTO,
+  jugeClic,
+  mancheDe,
+} from "./game/onboarding";
+import type { MancheTuto, Temps } from "./game/onboarding";
 import { cleanEnv } from "./env";
 import {
   changeIdentite,
@@ -59,6 +66,7 @@ import { enfile, vide } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
+import { composePhrase } from "./i18n";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -184,6 +192,7 @@ function syncField(): void {
 
 const SCREENS = [
   "home",
+  "onb",
   "solo",
   "brief",
   "over",
@@ -1465,6 +1474,194 @@ function lanceRun(): void {
 }
 
 /* ------------------------------------------------------------------ *
+ * LA PREMIÈRE ARRIVÉE — six temps, et le piège est la leçon
+ *
+ * Rapporté par Pierre : ses camarades ont adoré mais n'ont pas compris, et il
+ * était à côté pour expliquer. Tant qu'un humain compense, on ne sait pas si le
+ * jeu s'explique.
+ *
+ * ⚠️ Les temps 3 et 5 se jouent sur le VRAI terrain — `show(null)`, le vrai
+ * canvas, le vrai `scene.hit()`. Un tutoriel qui simule le jeu enseigne un jeu
+ * qui n'existe pas. L'aide est un calque HORS FLUX posé sur la scène, donc
+ * `fieldRect()` ne bouge pas (décision n°10).
+ * ------------------------------------------------------------------ */
+const ONB_TOTAL = 6;
+
+let tuto: { temps: Temps; manche: MancheTuto | null; debut: number } | null = null;
+
+/** Ce que le bouton d'un temps dit, et ce qu'il fait ensuite. */
+const ONB_BOUTON: Record<number, () => string> = {
+  1: () => t("onbSuivant"),
+  2: () => t("onbEssayer"),
+  4: () => t("onbMontre"),
+  6: () => t("onbLancer"),
+};
+
+function regleTuto(): OneRule {
+  // Le tutoriel enseigne LE SANG : la couleur est le canal perceptif le plus
+  // rapide, on la VOIT sans la chercher. C'est la seule règle facile qui
+  // piège, et un tutoriel doit être facile ET piéger.
+  return ONE_RULES.find((r) => r.id === REGLE_TUTO) ?? ONE_RULES[0]!;
+}
+
+function poseTemps(n: Temps): void {
+  const regle = regleTuto();
+  $("onbEtape").textContent = t("onbEtape")(n, ONB_TOTAL);
+  for (const k of [1, 2, 4, 6]) {
+    $(`onbT${k}`).classList.toggle("hidden", k !== n);
+  }
+
+  if (n === 1) {
+    $("onbT1Nom").textContent = nomDeRegle(regle.id, regle.name);
+    $("onbT1Brief").textContent = briefDeRegle(regle.id, regle.brief);
+  }
+  if (n === 2) {
+    // Les deux consignes d'exemple sont COMPOSÉES comme celles du jeu : elles
+    // doivent être mot pour mot ce que le joueur lira en partie.
+    $("onbT2Ordre1").textContent = composePhrase({ cle: "clicFormeCouleur", forme: "carre", couleur: "azur" }, "CLIQUE LE CARRÉ BLEU");
+    $("onbT2Ordre2").textContent = composePhrase({ cle: "clicCouleur", couleur: "garance" }, "CLIQUE LE ROUGE");
+  }
+  if (n === 6) {
+    $("onbT6Nom").textContent = nomDeRegle(regle.id, regle.name);
+    $("onbT6Embleme").innerHTML = emblemeSvg(emblemeDe(regle), { verrouille: false });
+    const vues = Object.keys(P.load().encountered).length;
+    $("onbT6Compte").textContent = t("onbCompte")(Math.max(1, vues), ONE_RULES.length);
+    $("onbT6Suite").textContent = t("onbSuite")(ONE_RULES.length - Math.max(1, vues));
+  }
+
+  $("btnOnbNext").textContent = (ONB_BOUTON[n] ?? (() => t("onbSuivant")))();
+  show("onb");
+}
+
+/** Ouvre un temps JOUÉ : on quitte les écrans, on passe sur le terrain. */
+function joueTemps(n: Temps): void {
+  const m = mancheDe(n);
+  if (!m) return;
+  tuto = { temps: n, manche: m, debut: performance.now() };
+  hud.setRule(regleTuto());
+  hud.hideStamp();
+  hud.clearRound();
+  hud.setMeta("");
+  hud.setFooter(0, 0, "—");
+  $("tuto").classList.remove("hidden");
+  poseAideTuto(n === 3 ? t("tutoVasy") : t("tutoRelis"), n === 3 ? t("tutoSansChrono") : t("tutoRalenti"));
+  show(null);
+}
+
+function poseAideTuto(aide: string, note: string): void {
+  $("tutoAide").textContent = aide;
+  $("tutoNote").textContent = note;
+}
+
+function fermeTuto(): void {
+  tuto = null;
+  $("tuto").classList.add("hidden");
+  hud.setRule(null);
+  hud.clearRound();
+}
+
+/**
+ * Un clic pendant un temps joué.
+ *
+ * ⚠️ Rien ne TUE ici, et c'est le sujet : au temps 3 une erreur se corrige et
+ * on recommence, au temps 5 elle explique le piège et on recommence aussi. Un
+ * tutoriel qui punit renvoie le joueur au menu avec la même incompréhension.
+ */
+function tutoClic(idx: number | null): void {
+  if (!tuto?.manche) return;
+  const m = tuto.manche;
+  const verdict = jugeClic(m, idx);
+
+  if (tuto.temps === 3) {
+    if (verdict === "juste") {
+      sfx.success(1);
+      fermeTuto();
+      poseTemps(4);
+      return;
+    }
+    // On NOMME l'erreur. « Raté » n'apprend rien ; « ta règle interdit le
+    // rouge » apprend la règle au moment exact où elle vient de servir.
+    sfx.fail();
+    poseAideTuto(
+      verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"),
+      t("tutoSansChrono"),
+    );
+    return;
+  }
+
+  // Temps 5 : TOUT clic est une faute, y compris celui que la consigne demande.
+  sfx.fail();
+  poseAideTuto(t("tutoInterdit"), t("tutoRienFaire"));
+  tuto.debut = performance.now();
+}
+
+/** Le temps 5 se gagne en LAISSANT le chrono s'écouler. */
+function majTuto(now: number): void {
+  if (!tuto?.manche) return;
+  if (tuto.temps !== 5) return;
+  const ecoule = now - tuto.debut;
+  if (ecoule >= CHRONO_PIEGE_MS) {
+    // Le son du piège DÉJOUÉ, pas celui d'une manche réussie : c'est un geste
+    // différent, et le jeu le distingue déjà à l'oreille.
+    sfx.trapAvoided();
+    fermeTuto();
+    // La règle entre au carnet : la première carte se débloque en JOUANT, pas
+    // en lisant. C'est le raccord entre l'arrivée et la collection.
+    P.recordRun(REGLE_TUTO, 0, false, 1);
+    poseTemps(6);
+  }
+}
+
+/**
+ * Un joueur VRAIMENT neuf — jamais rencontré une seule règle.
+ *
+ * ⚠️ Deux conditions et non une. `onboarded` est absent des sauvegardes déjà
+ * écrites, donc il vaut faux pour TOUT LE MONDE, y compris pour quelqu'un qui a
+ * deux cents manches au compteur. Sans la seconde condition, le déploiement
+ * renverrait tous les habitués au tutoriel. C'est le même piège que `essais` il
+ * y a deux jours : un champ ajouté après coup doit toujours se demander ce que
+ * son absence veut dire.
+ */
+function estNouveau(): boolean {
+  const s = P.load();
+  return !s.onboarded && Object.keys(s.encountered).length === 0;
+}
+
+function ouvreOnboarding(): void {
+  track("onb_start", {});
+  poseTemps(1);
+}
+
+/** Sortie — par le bouton PASSER, ou au terme du sixième temps. */
+function finitOnboarding(passe: boolean): void {
+  fermeTuto();
+  P.mutate((st) => {
+    st.onboarded = true;
+  });
+  track(passe ? "onb_skip" : "onb_done", {});
+  if (passe) {
+    renderHome();
+    show("home");
+    return;
+  }
+  openBrief("training");
+}
+
+$("btnOnbNext").addEventListener("click", () => {
+  sfx.ui();
+  const courant = [1, 2, 4, 6].find((k) => !$(`onbT${k}`).classList.contains("hidden")) ?? 1;
+  if (courant === 1) poseTemps(2);
+  else if (courant === 2) joueTemps(3);
+  else if (courant === 4) joueTemps(5);
+  else finitOnboarding(false);
+});
+
+$("btnOnbSkip").addEventListener("click", () => {
+  sfx.ui();
+  finitOnboarding(true);
+});
+
+/* ------------------------------------------------------------------ *
  * Le mode classé
  * ------------------------------------------------------------------ */
 async function openRanked(): Promise<void> {
@@ -1936,6 +2133,17 @@ $("cv").addEventListener("pointerdown", (ev) => {
   e.preventDefault();
   unlock();
 
+  // Le tutoriel d'abord : pendant ses deux temps joués, aucune session
+  // n'existe et c'est lui qui juge.
+  if (tuto?.manche) {
+    const { x, y } = scene.toField(e.clientX, e.clientY);
+    scene.flash(x, y, performance.now());
+    const ent = scene.hit(tuto.manche.round.ents, x, y);
+    if (ent) scene.burst(x, y, colorHex(ent.color), 10, 190);
+    tutoClic(ent ? ent.idx : null);
+    return;
+  }
+
   if (session?.phase === "playing") {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
@@ -2168,12 +2376,30 @@ $("btnHome").addEventListener("click", () => backHome());
  * et suppose de connaitre la mecanique. Le brief reste sur le chemin : c'est
  * la que le joueur lit sa regle unique, et le sauter a deja ete un bug.
  */
+/*
+ * LES DEUX PORTES DE JEU PASSENT PAR LA PREMIÈRE ARRIVÉE.
+ *
+ * Elle n'est PAS déclenchée à l'arrivée sur le site, et c'est délibéré : le
+ * joueur doit avoir choisi de jouer. Un tutoriel imposé avant même qu'on ait vu
+ * de quoi il s'agit, c'est reproduire la faute du bandeau de mesure — un objet
+ * posé entre le visiteur et les portes, qui a coûté 76 % d'entrées.
+ *
+ * L'accueil vend, la première partie enseigne.
+ */
 $("btnPlay").addEventListener("click", () => {
   sfx.ui();
+  if (estNouveau()) {
+    ouvreOnboarding();
+    return;
+  }
   openBrief("training");
 });
 $("btnSolo").addEventListener("click", () => {
   sfx.ui();
+  if (estNouveau()) {
+    ouvreOnboarding();
+    return;
+  }
   renderSolo();
   show("solo");
 });
@@ -2418,6 +2644,7 @@ function loop(now: number): void {
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.
   if (lecture) majLecture(now);
+  if (tuto) majTuto(now);
 
   let multiDraw: ReturnType<typeof multi.syncFrame> = null;
 
@@ -2500,7 +2727,24 @@ function loop(now: number): void {
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant
   // qu'elle se joue reviendrait à donner la réponse.
-  if (session) {
+  if (tuto?.manche) {
+    /*
+     * Le tutoriel se dessine AVANT la session parce qu'il n'y en a aucune.
+     *
+     * `ratio` reste indéfini au temps 3 : la barre de temps ne descend pas,
+     * et c'est exactement ce qu'on promet à l'écran — « le chrono est
+     * désactivé ». Au temps 5 elle descend, lentement, et c'est elle qui
+     * valide en arrivant au bout.
+     */
+    const m = tuto.manche;
+    hud.updateRound(m.round, now - tuto.debut, tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
+    scene.draw({
+      round: m.round,
+      rule: regleTuto(),
+      now,
+      ratio: tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
+    });
+  } else if (session) {
     scene.draw({
       round: session.round,
       rule: session.rule,

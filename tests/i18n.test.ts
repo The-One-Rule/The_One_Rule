@@ -390,6 +390,22 @@ describe("la langue ne contraint pas le joueur en partie", () => {
       // Un JETON de protocole, pas du texte affiché : le serveur envoie
       // `detail: "déconnecté"` pour distinguer une coupure d'un salon inconnu.
       "déconnecté": "jeton de protocole envoyé par le serveur",
+      /*
+       * Le FRANÇAIS CANONIQUE d'une consigne, passé en secours à
+       * `composePhrase` — exactement le rôle de `round.text` dans le moteur,
+       * qui en contient une par consigne.
+       *
+       * Les deux exemples du deuxième temps de la première arrivée sont
+       * composés par la même fonction que les consignes du jeu, donc ils sont
+       * traduits et ne peuvent pas diverger de ce que le joueur lira en
+       * partie. Le secours ne sert que si la clé disparaissait — et une
+       * consigne muette serait pire qu'une consigne en français.
+       *
+       * ⚠️ Sa jumelle « CLIQUE LE ROUGE » n'est PAS dans cette liste, et ce
+       * n'est pas un oubli : le filet ne voit que l'ACCENT, donc il ne la
+       * trouve jamais. L'y mettre ferait tomber le test des exceptions mortes.
+       */
+      "CLIQUE LE CARRÉ BLEU": "français canonique de secours, comme round.text du moteur",
     };
 
     const restants: string[] = [];
@@ -412,7 +428,7 @@ describe("la langue ne contraint pas le joueur en partie", () => {
     // Une exception qui ne sert plus laisse une porte ouverte : le jour où la
     // chaîne revient pour une mauvaise raison, plus rien ne la signale.
     const trouves = new Set([...litteraux(main), ...litteraux(multi)]);
-    for (const v of ["ÉCOUL", "RÈGLE", "déconnecté"]) {
+    for (const v of ["ÉCOUL", "RÈGLE", "déconnecté", "CLIQUE LE CARRÉ BLEU"]) {
       expect(trouves.has(v), `exception morte à retirer : « ${v} »`).toBe(true);
     }
   });

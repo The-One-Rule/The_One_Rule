@@ -7769,3 +7769,234 @@ button.chip:active:not(:disabled) {
     transition: none;
   }
 }
+
+/* ==================================================================
+   LA PREMIERE ARRIVEE — six temps
+
+   Rapporte par Pierre apres un test avec ses camarades : « ils ont adore
+   mais ils n'ont pas immediatement compris, j'etais a cote pour expliquer ».
+   Tant qu'un humain compense l'onboarding, on ne sait pas si le jeu
+   s'explique tout seul.
+
+   L'ecran reprend la grammaire du BRIEF — colonne etroite, centree, une
+   annonce et pas un tableau de bord — parce que c'est la meme fonction :
+   poser une regle avant d'agir. Deux ecrans qui se ressemblent au trait pres
+   sont un geste a apprendre au lieu de deux.
+   ================================================================== */
+
+#onb.hidden {
+  display: none;
+}
+
+.onb {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Chaque temps est un bloc, un seul visible a la fois. */
+.onb__temps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.onb__temps.hidden {
+  display: none;
+}
+
+.onb__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  color: var(--paper);
+}
+
+/* Le grand OUI / TU N'AS RIEN FAIT : le verdict avant l'explication. */
+.onb__oui {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--signal-pale);
+}
+
+.onb__kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/* Le cadre de la regle : le meme objet aux temps 1 et 4. */
+.onb__regle,
+.onb__carte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  /* Le filet d'accent a GAUCHE : --signal est reserve a la regle unique et a
+     l'action evidente, et ici c'est bien la regle unique. */
+  border-left: 3px solid var(--signal);
+}
+
+.onb__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.onb__brief {
+  margin: 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.5;
+  color: var(--paper-dim);
+}
+
+/* Les deux cas, cote a cote quand la place le permet. */
+.onb__cas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.onb__cas1,
+.onb__cas2 {
+  /* Base nulle pour la part egale, plancher max-content pour ne jamais
+     ecraser un mot. La meme regle que la barre des allures. */
+  flex: 1 1 0;
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+}
+
+.onb__cas2 {
+  border-color: var(--signal);
+}
+
+.onb__consigne {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.01em;
+  color: var(--paper);
+}
+
+.onb__consigne--piege {
+  color: var(--signal-pale);
+}
+
+.onb__verdict {
+  margin: 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.45;
+  color: var(--paper-dim);
+}
+
+.onb__pied {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  line-height: 1.5;
+  color: var(--paper-dim);
+}
+
+/* L'embleme de la premiere carte, au temps 6. */
+.onb__embleme {
+  width: 96px;
+  height: 96px;
+}
+
+.onb__embleme svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.onb__compte {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--signal-pale);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------
+   L'AIDE POSEE SUR LE TERRAIN — temps 3 et 5
+
+   ⚠️ HORS FLUX, obligatoirement. `#stage` est en `position: relative` et le
+   canvas est en absolu dessus : un calque en absolu ne participe donc pas au
+   dimensionnement, et `fieldRect()` ne bouge pas d'un pixel. Tout ce qui
+   grossit le bandeau ou le pied rogne la scene, et la taille du champ EST du
+   gameplay — un tutoriel qui retrecit le terrain enseignerait un jeu qui
+   n'existe pas.
+
+   `pointer-events: none` : la seule chose cliquable ici reste le canvas,
+   exactement comme en partie.
+   ------------------------------------------------------------------ */
+
+.tuto {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 12px 12px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.tuto.hidden {
+  display: none;
+}
+
+.tuto__aide {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  font-weight: 500;
+  letter-spacing: var(--ls-petit);
+  color: var(--signal-pale);
+  /* Un fond plein plutot qu'une ombre : le texte se pose sur la scene, et une
+     ombre floue jurerait avec des angles droits. */
+  background: var(--ink);
+  border: 1px solid var(--signal);
+  padding: 6px 12px;
+}
+
+.tuto__note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  background: var(--ink);
+  padding: 3px 8px;
+}

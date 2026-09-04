@@ -145,6 +145,18 @@
 
       <main id="stage">
         <canvas id="cv"></canvas>
+
+        <!-- L'AIDE DU TUTORIEL, HORS FLUX.
+             Posée en absolu par-dessus la scène, jamais dans le flux : tout ce
+             qui grossit le bandeau ou le pied rogne le champ, et la taille du
+             champ EST du gameplay. Un tutoriel qui rétrécit le terrain
+             enseignerait un jeu qui n'existe pas.
+             `pointer-events: none` — la seule chose cliquable ici reste le
+             canvas, exactement comme en partie. -->
+        <div id="tuto" class="tuto hidden" aria-live="polite">
+          <p class="tuto__aide" id="tutoAide"></p>
+          <p class="tuto__note" id="tutoNote"></p>
+        </div>
       </main>
 
       <div id="drama" class="drama hidden" aria-live="assertive" aria-hidden="true">
@@ -450,6 +462,75 @@
       </section>
 
       <!-- BRIEF -->
+      <!-- PREMIÈRE ARRIVÉE — SIX TEMPS.
+           Les temps 3 et 5 ne sont PAS ici : ils se jouent sur le vrai
+           terrain, avec le vrai canvas et le vrai test de clic. Ce qu'on
+           apprend doit être ce qu'on retrouvera. -->
+      <section class="screen hidden" id="onb">
+        <div class="screen__scroll onb">
+          <p class="eyebrow" id="onbEtape"></p>
+
+          <!-- 1 · LA RÈGLE, AVANT TOUT LE RESTE -->
+          <div class="onb__temps hidden" id="onbT1">
+            <h2 class="onb__titre" data-i18n="onb.t1.titre">The game gives you one single rule.</h2>
+            <p class="lede" data-i18n="onb.t1.lede">It holds for the whole run, and it stays on screen.</p>
+            <div class="onb__regle">
+              <p class="onb__kicker" data-i18n="onb.regleUnique">YOUR ONE RULE</p>
+              <p class="onb__nom" id="onbT1Nom"></p>
+              <p class="onb__brief" id="onbT1Brief"></p>
+            </div>
+            <p class="onb__pied" data-i18n="onb.t1.pied">NO CLOCK HAS STARTED YET</p>
+          </div>
+
+          <!-- 2 · CE QU'ON VA TE DEMANDER -->
+          <div class="onb__temps hidden" id="onbT2">
+            <h2 class="onb__titre" data-i18n="onb.t2.titre">On top of it, an order arrives every two seconds.</h2>
+            <div class="onb__cas">
+              <div class="onb__cas1">
+                <p class="onb__kicker" data-i18n="onb.t2.cas1">CASE 1 · THE ORDER FITS YOUR RULE</p>
+                <p class="onb__consigne" id="onbT2Ordre1"></p>
+                <p class="onb__verdict" data-i18n="onb.t2.rep1">You click. The blue square breaks no rule.</p>
+              </div>
+              <div class="onb__cas2">
+                <p class="onb__kicker" data-i18n="onb.t2.cas2">CASE 2 · THE ORDER BREAKS YOUR RULE</p>
+                <p class="onb__consigne onb__consigne--piege" id="onbT2Ordre2"></p>
+                <p class="onb__verdict" data-i18n="onb.t2.rep2">You do NOTHING. Obeying would be the mistake.</p>
+              </div>
+            </div>
+            <p class="onb__pied" data-i18n="onb.t2.pied">THAT IS THE WHOLE GAME. LET'S TRY.</p>
+          </div>
+
+          <!-- 4 · LE RETOUR EXPLIQUE POURQUOI -->
+          <div class="onb__temps hidden" id="onbT4">
+            <p class="onb__oui" data-i18n="onb.t4.oui">YES.</p>
+            <h2 class="onb__titre" data-i18n="onb.t4.titre">The blue square broke no rule, so obeying was right.</h2>
+            <div class="onb__regle">
+              <p class="onb__kicker" data-i18n="onb.t4.kicker">WHAT YOU JUST DID</p>
+              <p class="onb__brief" data-i18n="onb.t4.geste">Read the order · check it against your rule · click.</p>
+            </div>
+            <p class="onb__pied" data-i18n="onb.t4.pied">MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.</p>
+          </div>
+
+          <!-- 6 · LE JEU COMMENCE VRAIMENT -->
+          <div class="onb__temps hidden" id="onbT6">
+            <p class="onb__oui" data-i18n="onb.t6.rien">YOU DID NOTHING.</p>
+            <h2 class="onb__titre" data-i18n="onb.t6.titre">That is exactly the game.</h2>
+            <div class="onb__carte">
+              <p class="onb__kicker" data-i18n="onb.t6.debloquee">FIRST CARD UNLOCKED</p>
+              <div class="onb__embleme" id="onbT6Embleme" aria-hidden="true"></div>
+              <p class="onb__nom" id="onbT6Nom"></p>
+              <p class="onb__compte" id="onbT6Compte"></p>
+            </div>
+            <p class="lede" id="onbT6Suite"></p>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn btn--primary" id="btnOnbNext"></button>
+            <button class="btn btn--ghost" id="btnOnbSkip" data-i18n="onb.passer">SKIP</button>
+          </div>
+        </div>
+      </section>
+
       <section class="screen hidden" id="brief">
         <!-- Volontairement étroit et centré, à contre-courant des autres
              écrans : c'est une annonce, pas un tableau de bord. Le nom de la
