@@ -209,6 +209,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "nav.cartes": "CARTES",
+    "nav.training": "ENTRAÎNEMENT",
+    "nav.jouer": "JOUER",
+    "nav.daily": "DU JOUR",
+    "nav.multi": "MULTI",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
     "fiche.retour": "◂ LA COLLECTION",
     "compte.nom": "CHANGER DE NOM",
@@ -328,6 +333,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "nav.cartes": "CARDS",
+    "nav.training": "TRAINING",
+    "nav.jouer": "PLAY",
+    "nav.daily": "DAILY",
+    "nav.multi": "MULTI",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
     "fiche.retour": "◂ COLLECTION",
     "compte.nom": "CHANGE NAME",
@@ -416,6 +426,7 @@ type Dyn = {
   resisteNote: (runs: number, cases: number) => string;
   resisteBouton: string;
   filtreRien: string;
+  navAttend: string;
   /* --- la fiche --- */
   famInterdit: string;
   famDeformation: string;
@@ -740,6 +751,7 @@ const DYN: Record<Lang, Dyn> = {
       `${runs} run${runs > 1 ? "s" : ""} sous cette règle, et ${cases} case${cases > 1 ? "s" : ""} sur 6.`,
     resisteBouton: "TRAVAILLER CELLE-LÀ",
     filtreRien: "Rien dans cette catégorie pour l'instant.",
+    navAttend: "TA RÈGLE T'ATTEND",
     famInterdit: "INTERDIT",
     famDeformation: "DÉFORMATION",
     famContrainte: "CONTRAINTE",
@@ -1033,6 +1045,7 @@ const DYN: Record<Lang, Dyn> = {
       `${runs} run${runs === 1 ? "" : "s"} under this rule, and ${cases} of 6 boxes.`,
     resisteBouton: "WORK ON THAT ONE",
     filtreRien: "Nothing in this category yet.",
+    navAttend: "YOUR RULE IS WAITING",
     famInterdit: "FORBIDS",
     famDeformation: "DISTORTION",
     famContrainte: "CONSTRAINT",

@@ -303,6 +303,16 @@ function show(id: ScreenId): void {
   const bar = $("topbar");
   bar.classList.toggle("hidden", !barre);
   appEl.classList.toggle("has-topbar", barre);
+  /*
+   * LA BARRE DE NAVIGATION suit exactement les mêmes écrans que la barre
+   * haute — donc jamais l'écran de jeu.
+   *
+   * Elle vit en absolu dans `#app`, hors flux : elle ne peut pas prendre un
+   * pixel au terrain, et la taille du champ EST du gameplay. Le `hidden` est
+   * là pour le clavier et les lecteurs d'écran, pas pour la géométrie.
+   */
+  $("nav").classList.toggle("hidden", !barre);
+  if (barre) majNav();
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -1643,6 +1653,68 @@ function lanceRun(): void {
   // l'entonnoir social est illisible.
   track("run_start", { mode: pendingMode, rule: pendingRule.id, day, duel: !!challenge });
 }
+
+/* ------------------------------------------------------------------ *
+ * LA BARRE DE NAVIGATION — cinq destinations, JOUER au milieu
+ *
+ * JOUER est surélevée parce que c'est la réponse par défaut : elle ne doit pas
+ * se chercher. Les quatre autres sont des détours qu'on prend en connaissance
+ * de cause.
+ * ------------------------------------------------------------------ */
+
+/** Ce que la barre annonce, recalculé à chaque changement d'écran. */
+function majNav(): void {
+  const s = P.load();
+  const vue = vueDuJour(s, day);
+
+  // MULTI se grise plutôt que de disparaître : un trou dans une barre de
+  // cinq se lit comme une panne, un bouton éteint se lit comme un état.
+  $<HTMLButtonElement>("navMulti").disabled = !multi.available;
+
+  /*
+   * La pastille du run du jour : il reste quelque chose à y faire aujourd'hui.
+   *
+   * Elle s'éteint dès que le run est TERMINÉ ou les essais épuisés — c'est la
+   * même vue que la carte SOLO, donc les deux ne peuvent pas se contredire.
+   */
+  $("navDaily").classList.toggle("a-faire", !vue.acquis && !vue.verrouille);
+
+  // « TA RÈGLE T'ATTEND » n'a de sens que pour qui a déjà une règle au carnet :
+  // à zéro, il n'y a rien qui attende, et la phrase promettrait du vide.
+  const aUneRegle = ONE_RULES.some((r) => !!s.encountered[r.id]);
+  $("navAttend").textContent = aUneRegle ? t("navAttend") : "";
+}
+
+$("navCartes").addEventListener("click", () => {
+  sfx.ui();
+  renderCodex();
+});
+
+$("navTraining").addEventListener("click", () => {
+  sfx.ui();
+  openBrief("training");
+});
+
+$("navJouer").addEventListener("click", () => {
+  sfx.ui();
+  // La MÊME porte que JOUER sur l'accueil, première arrivée comprise : deux
+  // chemins vers la première partie finiraient par diverger.
+  if (estNouveau()) {
+    ouvreOnboarding();
+    return;
+  }
+  openBrief("training");
+});
+
+$("navDaily").addEventListener("click", () => {
+  sfx.ui();
+  openBrief("daily");
+});
+
+$("navMulti").addEventListener("click", () => {
+  sfx.ui();
+  $("btnMulti").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
 
 /* ------------------------------------------------------------------ *
  * LA FICHE D'UNE CARTE — rendre la maîtrise ACTIONNABLE

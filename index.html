@@ -901,6 +901,43 @@
            vide, et l'accueil se mettait a defiler. Dehors, le bandeau
            retombe a sa hauteur d'une rangee et la langue reste au meme
            endroit pour l'oeil. -->
+      <!-- LA BARRE DE NAVIGATION.
+           Cinq destinations, et JOUER surelevee au milieu : c'est la reponse
+           par defaut, elle ne doit pas se chercher.
+
+           ⚠️ EN ABSOLU DANS `#app`, donc HORS FLUX. Tout ce qui prend de la
+           hauteur ici, le terrain le perd — et la taille du champ EST du
+           gameplay (decision n°10). Elle n'apparait que sur les ecrans de
+           menu, exactement comme la barre haute, et `fieldRect()` est mesure
+           avant/apres a chaque fois.
+
+           Les icones sont des SVG PIXEL en `crispEdges`, pas une police
+           d'icones : la maquette generique proposait Phosphor, mais un jeu
+           dont l'identite est faite d'angles droits ne charge pas 300 Ko de
+           glyphes arrondis pour cinq formes de quatre rectangles. -->
+      <nav id="nav" class="nav hidden" aria-label="Navigation">
+          <button type="button" class="nav__item" id="navCartes">
+            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="8" height="11"/><rect x="13" y="7" width="8" height="11" opacity=".55"/></svg>
+            <span class="nav__lab" data-i18n="nav.cartes">CARDS</span>
+          </button>
+          <button type="button" class="nav__item" id="navTraining">
+            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="14" width="4" height="6"/><rect x="10" y="9" width="4" height="11"/><rect x="17" y="4" width="4" height="16"/></svg>
+            <span class="nav__lab" data-i18n="nav.training">TRAINING</span>
+          </button>
+          <div class="nav__centre">
+            <button type="button" class="nav__jouer" id="navJouer" data-i18n="nav.jouer">PLAY</button>
+            <span class="nav__attend" id="navAttend"></span>
+          </div>
+          <button type="button" class="nav__item" id="navDaily">
+            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="5" width="18" height="15" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="5" width="18" height="4"/></svg>
+            <span class="nav__lab" data-i18n="nav.daily">DAILY</span>
+          </button>
+          <button type="button" class="nav__item" id="navMulti">
+            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="2" y="8" width="7" height="7"/><rect x="10" y="5" width="7" height="7" opacity=".55"/><rect x="15" y="12" width="7" height="7"/></svg>
+            <span class="nav__lab" data-i18n="nav.multi">MULTI</span>
+          </button>
+      </nav>
+
       <header id="topbar" class="topbar hidden">
         <!-- TROIS ZONES, ET L'ENSEIGNE AU MILIEU.
              Reglages a gauche, compte a droite, signe au centre. La grille
