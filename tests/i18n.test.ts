@@ -26,19 +26,30 @@ beforeAll(() => {
 });
 
 describe("sélecteur de langue", () => {
-  it("vit dans la barre haute, avec les autres réglages", () => {
+  it("vit DANS les réglages, et nulle part ailleurs", () => {
     /*
-     * Il était sur l'accueil, où il concurrençait la seule action de l'écran.
-     * La langue est un réglage : sa place est auprès de COMPTE et RÉGLAGES.
+     * Troisième et dernière adresse. Il a été sur l'accueil — où il
+     * concurrençait la seule action de l'écran — puis dans la barre haute, où
+     * il restait un widget permanent à deux boutons. La langue est un
+     * RÉGLAGE : elle vit avec les autres, dans sa propre section.
+     *
+     * Ce qui rend le déplacement supportable : depuis que la langue suit le
+     * navigateur à la première visite, un anglophone n'atterrit plus en
+     * français. Le sélecteur n'est plus un dépannage, c'est une préférence.
+     *
+     * ⚠️ Et il n'y en a QU'UN. Deux commandes pour un seul réglage, c'est la
+     * faute du « filtre PLUS la grille » : deux façons de répondre à la même
+     * question.
      */
-    const topbar = document.getElementById("topbar");
+    const reglages = document.getElementById("reglages");
     const lang = document.getElementById("lang");
-    expect(topbar, "#topbar absent").not.toBeNull();
+    expect(reglages, "#reglages absent").not.toBeNull();
     expect(lang, "#lang absent").not.toBeNull();
-    expect(topbar!.contains(lang!)).toBe(true);
+    expect(reglages!.contains(lang!)).toBe(true);
     expect(document.getElementById("home")!.contains(lang!)).toBe(false);
-    expect(document.getElementById("btnLangFr")?.textContent).toBe("FR");
-    expect(document.getElementById("btnLangEn")?.textContent).toBe("EN");
+    expect(document.getElementById("topbar")!.contains(lang!)).toBe(false);
+    expect(document.getElementById("btnLangFr")?.textContent).toBe("FRANÇAIS");
+    expect(document.getElementById("btnLangEn")?.textContent).toBe("ENGLISH");
   });
 
   it("les deux boutons sont de vrais boutons, donc le clavier marche", () => {

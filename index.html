@@ -1044,10 +1044,6 @@
             <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">ACCOUNT</button>
           </div>
         </div>
-        <div class="lang" id="lang" role="group" aria-label="Language">
-          <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FR</button>
-          <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">EN</button>
-        </div>
       </header>
 
       <!-- RÉGLAGES
@@ -1057,16 +1053,83 @@
       <section class="screen hidden" id="reglages">
         <div class="screen__scroll">
           <p class="eyebrow" data-i18n="reglages.titre">SETTINGS</p>
-          <h2 class="rulename" data-i18n="reglages.sous">WHAT YOU PREFER</h2>
-          <div class="prefs prefs--screen" aria-label="Settings">
-            <button class="btn btn--ghost btn--pref" id="btnMusic">MUSIC : ON</button>
-            <button class="btn btn--ghost btn--pref" id="btnSound">SOUND : ON</button>
-            <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on
-                 ne demande à personne de se déclarer daltonien pour trouver
-                 un réglage qui rend simplement les pièces plus lisibles. -->
-            <button class="btn btn--ghost btn--pref" id="btnMotifs">PATTERNS : OFF</button>
-            <button class="btn btn--ghost btn--pref" id="btnMetrics">METRICS : ON</button>
+          <h2 class="rulename" data-i18n="reglages.sous">HOW YOU LIKE IT</h2>
+
+          <!-- ⚠️ UNE LIGNE, PAS UN BOUTON.
+               « MUSIQUE : ON » dit dans quel état on est, jamais ce que ça
+               change. Chaque réglage porte donc son nom, la CONSÉQUENCE écrite
+               en une phrase, et un interrupteur à deux faces où l'on voit les
+               deux états à la fois. Le seul qui gagne un aperçu est MOTIFS :
+               c'est le seul dont personne ne peut deviner l'effet. -->
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.son">SOUND</p>
+          <div class="rgl__bloc">
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.musique">MUSIC</p>
+                <p class="rgl__quoi" data-i18n="rgl.musiqueQuoi">The tempo rises with the difficulty.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnMusic" role="switch" aria-checked="true">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.effets">EFFECTS</p>
+                <p class="rgl__quoi" data-i18n="rgl.effetsQuoi">Alert on the last quarter of the window.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnSound" role="switch" aria-checked="true">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
           </div>
+
+          <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on ne
+               demande à personne de se déclarer daltonien pour trouver un
+               réglage qui rend simplement les pièces plus lisibles. -->
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.lisibilite">READABILITY</p>
+          <div class="rgl__bloc rgl__bloc--vedette">
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.motifs">PATTERNS ON PIECES</p>
+                <p class="rgl__quoi" data-i18n="rgl.motifsQuoi">Every colour also carries a texture.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnMotifs" role="switch" aria-checked="false">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
+            <!-- L'APERÇU montre les quatre trames réelles du jeu. Il est
+                 décoratif : ce qu'il dit, la phrase au-dessus le dit aussi. -->
+            <div class="rgl__apercu" aria-hidden="true">
+              <span class="rgl__ech rgl__ech--garance"></span>
+              <span class="rgl__ech rgl__ech--azur"></span>
+              <span class="rgl__ech rgl__ech--jade"></span>
+              <span class="rgl__ech rgl__ech--ambre"></span>
+            </div>
+          </div>
+
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
+          <div class="opts" id="rglAllure"></div>
+          <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
+
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
+          <div class="lang" id="lang" role="group" aria-label="Language">
+            <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FRANÇAIS</button>
+            <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">ENGLISH</button>
+          </div>
+
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.mesure">METRICS</p>
+          <div class="rgl__bloc">
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.compter">COUNT MY GAMES</p>
+                <p class="rgl__quoi" data-i18n="rgl.compterQuoi">A random local id. No account, no cookie, nothing sold.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnMetrics" role="switch" aria-checked="true">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
+          </div>
+
           <p class="fineprint" id="reglagesFineprint">MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU</p>
           <div class="btnrow">
             <button class="btn btn--ghost" id="btnReglagesBack" data-i18n="commun.retour">BACK</button>

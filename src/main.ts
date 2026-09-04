@@ -554,10 +554,66 @@ function renderSolo(): void {
  */
 function renderReglages(): void {
   const s = P.load();
-  $("btnSound").textContent = `${t("prefSon")} : ${s.sound ? t("on") : t("off")}`;
-  $("btnMusic").textContent = `${t("prefMusique")} : ${s.music ? t("on") : t("off")}`;
+  poseInter("btnSound", s.sound);
+  poseInter("btnMusic", s.music);
   appliqueMotifs(s.daltonien);
   refreshMetricsButton();
+  renderAllureDefaut();
+}
+
+/*
+ * ⚠️ UN INTERRUPTEUR NE S'ÉCRIT PAS EN `textContent`.
+ *
+ * Il porte deux `<i>` — la face ON et la face OFF, toutes deux visibles — et
+ * une écriture les détruirait. C'est exactement le piège des cartes de
+ * l'accueil (`tests/cartes.test.ts`), payé une fois de plus au même endroit :
+ * un élément à enfants ne se met à jour que par sa CLASSE.
+ *
+ * Et il annonce son état aux lecteurs d'écran par `aria-checked`, que la
+ * couleur ne dit pas.
+ */
+function poseInter(id: string, on: boolean): void {
+  const b = $(id);
+  b.classList.toggle("is-on", on);
+  b.setAttribute("aria-checked", String(on));
+}
+
+/**
+ * L'allure par défaut de l'entraînement, réglée ICI.
+ *
+ * Elle n'existait que dans le brief, donc introuvable : un joueur qui trouve
+ * le jeu trop rapide n'a aucune raison d'aller la chercher au moment précis
+ * où il vient de choisir une règle. Le défaut du joueur est 2 (DÉBUT), et
+ * c'est le chiffre que ce réglage sert à défaire.
+ */
+function renderAllureDefaut(): void {
+  const current = P.load().trainingPace;
+  const hote = $("rglAllure");
+  // De la plus LENTE à la plus rapide : une jauge qui descend de gauche à
+  // droite se lit à l'envers. `PACE_CHOICES` les donne dans l'autre sens.
+  const lentesDabord = [...PACE_CHOICES].sort((a, b) => b - a);
+  fillOptions(
+    hote,
+    lentesDabord.map((v, i) => ({
+      value: String(v),
+      label: nomAllure(v, PACE_LABELS[v] ?? String(v)),
+      hint: `${Math.round(windowMs(10) * v)} MS`,
+      level: i + 1,
+      steps: lentesDabord.length,
+      icon: "bars" as const,
+      selected: v === current,
+      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(windowMs(10) * v)} ms`,
+    })),
+  );
+  for (const btn of Array.from(hote.children)) {
+    btn.addEventListener("click", () => {
+      sfx.ui();
+      P.mutate((st) => {
+        st.trainingPace = Number((btn as HTMLElement).dataset.value);
+      });
+      renderAllureDefaut();
+    });
+  }
 }
 
 /**
@@ -576,7 +632,7 @@ function renderReglages(): void {
 function appliqueMotifs(on: boolean): void {
   scene.daltonien = on;
   appEl.classList.toggle("is-motifs", on);
-  $("btnMotifs").textContent = `${t("prefMotifs")} : ${on ? t("on") : t("off")}`;
+  poseInter("btnMotifs", on);
 }
 
 /**
@@ -3426,7 +3482,7 @@ $("btnSound").addEventListener("click", () => {
   });
   setEnabled(s.sound);
   $("btnRanked").classList.toggle("hidden", !rankedAvailable());
-  $("btnSound").textContent = `${t("prefSon")} : ${s.sound ? t("on") : t("off")}`;
+  poseInter("btnSound", s.sound);
   sfx.ui();
 });
 
@@ -3435,7 +3491,7 @@ $("btnMusic").addEventListener("click", () => {
     st.music = !st.music;
   });
   setMusicEnabled(s.music);
-  $("btnMusic").textContent = `${t("prefMusique")} : ${s.music ? t("on") : t("off")}`;
+  poseInter("btnMusic", s.music);
   sfx.ui();
 });
 
@@ -3751,7 +3807,7 @@ function setupAnalytics(): void {
 }
 
 function refreshMetricsButton(): void {
-  $("btnMetrics").textContent = `${t("prefMesure")} : ${P.load().metrics.on ? t("on") : t("off")}`;
+  poseInter("btnMetrics", P.load().metrics.on);
 }
 
 function decideMetrics(on: boolean): void {

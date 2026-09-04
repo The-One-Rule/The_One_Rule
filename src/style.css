@@ -9782,3 +9782,203 @@ button.chip:active:not(:disabled) {
 #cptJauge {
   margin-top: 0;
 }
+
+/* ==================================================================
+   LES REGLAGES — DES INTERRUPTEURS, PAS UNE LISTE
+
+   Symptome : quatre boutons « MUSIQUE : ON ». Un tel bouton dit dans quel
+   ETAT on est, jamais ce que ca CHANGE, et il faut cliquer pour decouvrir
+   l'autre etat. Chaque reglage porte donc son nom, la consequence ecrite en
+   une phrase, et un interrupteur ou les deux faces sont visibles a la fois.
+   ================================================================== */
+
+.rgl__groupe {
+  margin: 18px 0 0;
+  text-align: left;
+}
+
+.rgl__bloc {
+  margin-top: 10px;
+  border: var(--bd-hair) solid var(--line);
+  text-align: left;
+}
+
+/*
+ * MOTIFS est le seul reglage MIS EN AVANT, et pour une raison : c'est le seul
+ * dont personne ne peut deviner l'effet. Les trois autres se comprennent a
+ * leur nom.
+ */
+.rgl__bloc--vedette {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 7%, transparent);
+  padding: 12px;
+}
+
+.rgl__bloc--vedette .rgl__ligne {
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+.rgl__ligne {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--ink-2);
+}
+
+.rgl__ligne + .rgl__ligne {
+  border-top: var(--bd-hair) solid var(--line);
+}
+
+.rgl__txt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rgl__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--paper);
+}
+
+.rgl__quoi {
+  margin: 3px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.45;
+  color: var(--paper-dim);
+}
+
+/*
+ * L'INTERRUPTEUR A DEUX FACES.
+ *
+ * ⚠️ Il porte deux enfants, donc il ne se met JAMAIS a jour en `textContent` :
+ * l'ecriture les detruirait. C'est le piege des cartes de l'accueil, et le
+ * remede est le meme — une classe.
+ */
+.rgl__inter {
+  flex: none;
+  display: flex;
+  padding: 0;
+  border: var(--bd-hair) solid var(--line);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.rgl__inter i {
+  display: grid;
+  place-items: center;
+  /* 44 px de haut : c'est une cible tactile, pas une pastille. */
+  width: 40px;
+  min-height: var(--tap);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  font-style: normal;
+  color: var(--paper-dim);
+}
+
+/* La face ALLUMEE est celle de l'etat courant : ON quand c'est on, OFF
+   quand c'est off. Une seule des deux porte le fond, donc l'oeil lit l'etat
+   sans lire le mot. */
+.rgl__inter.is-on i:first-child {
+  background: var(--signal);
+  color: var(--ink);
+}
+
+.rgl__inter:not(.is-on) i:last-child {
+  background: var(--paper-dim);
+  color: var(--ink);
+}
+
+.rgl__inter:hover,
+.rgl__inter:focus-visible {
+  border-color: var(--signal);
+}
+
+/* L'APERCU des trames : les quatre vraies, dans les quatre vraies couleurs.
+   Un aper�u qui mentirait sur ce que le reglage fait serait pire que rien. */
+.rgl__apercu {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rgl__ech {
+  flex: 1;
+  height: 38px;
+}
+
+.rgl__ech--garance {
+  background: #f74058;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.45) 0 3px,
+    transparent 3px 8px
+  );
+}
+
+.rgl__ech--azur {
+  background: #237ef6;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.5) 0 3px,
+    transparent 3px 9px
+  );
+}
+
+.rgl__ech--jade {
+  background: #40f7c0;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.5) 1.5px, transparent 1.5px);
+  background-size: 8px 8px;
+}
+
+.rgl__ech--ambre {
+  background: var(--ambre);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.4) 0 3px,
+    transparent 3px 8px
+  );
+}
+
+.rgl__note {
+  margin: 9px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.5;
+  color: var(--paper-dim);
+  text-align: left;
+}
+
+/*
+ * La LANGUE a quitte la barre du haut pour devenir une section des reglages.
+ * Elle prend donc la largeur, comme les autres barres segmentees de l'ecran.
+ */
+#reglages .lang {
+  display: flex;
+  align-self: stretch;
+  margin: 10px 0 0;
+  width: 100%;
+}
+
+#reglages .lang__btn {
+  flex: 1 1 0;
+  min-width: max-content;
+}
+
+#reglages .screen__scroll {
+  text-align: left;
+}
+
+#reglages .eyebrow,
+#reglages .rulename,
+#reglages .fineprint {
+  text-align: left;
+}
