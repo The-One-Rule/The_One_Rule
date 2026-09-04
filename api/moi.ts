@@ -33,6 +33,23 @@ import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton";
 import { GLYPH_COUNT } from "../src/net/glyph";
 import { cleanEnv } from "../src/env";
 
+/**
+ * Nettoie `parAllure` : des clés d'allure connues, des entiers bornés.
+ *
+ * On ne fait pas confiance au client, donc on RECONSTRUIT plutôt que de
+ * recopier — et une clé inventée ne doit pas pouvoir gonfler l'objet stocké.
+ */
+function allures(v: unknown): Record<string, number> {
+  const out: Record<string, number> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const [cle, brut] of Object.entries(v as Record<string, unknown>)) {
+    if (!/^\d+(\.\d+)?$/.test(cle)) continue;
+    const n = entier(brut, MAX_VALEUR);
+    if (n > 0) out[cle] = n;
+  }
+  return out;
+}
+
 export const config = { runtime: "edge" };
 
 /* ------------------------------------------------------------------ *
@@ -88,6 +105,19 @@ export function litAgregats(brut: unknown): Agregats {
         // change d'appareil et retrouve un compteur à zéro.
         pieges: entier(e.pieges, MAX_VALEUR),
       };
+      /*
+       * Les trois champs de l'échelle de maîtrise. Sans eux, un joueur qui
+       * change d'appareil retrouve ses cases à zéro — et rien ne l'avertit.
+       *
+       * Posés seulement s'ils portent quelque chose : « absent vaut zéro » est
+       * la doctrine du carnet, et un objet vide sur chaque entrée ne dirait
+       * rien de plus que son absence.
+       */
+      const pa = allures(e.parAllure);
+      if (Object.keys(pa).length) a.carnet[id]!.parAllure = pa;
+      const se = entier(e.serie, MAX_VALEUR);
+      if (se) a.carnet[id]!.serie = se;
+      if (e.sansFaute === true) a.carnet[id]!.sansFaute = true;
     }
   }
 

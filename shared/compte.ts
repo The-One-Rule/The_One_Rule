@@ -123,6 +123,50 @@ export interface CarnetEntree {
    * continuer à fonctionner. Absent vaut zéro — la même doctrine que partout.
    */
   pieges?: number;
+  /**
+   * Meilleur score sous cette règle, ALLURE PAR ALLURE.
+   *
+   * L'échelle de maîtrise demande de tenir le palier à trois allures, et un
+   * record global ne dit pas à laquelle il a été obtenu. Optionnel, comme tout
+   * ce qui est arrivé après : absent vaut « rien à cette allure ».
+   */
+  parAllure?: Record<string, number>;
+  /** Plus longue série de manches consécutives sans faute. */
+  serie?: number;
+  /** Un run tenu jusqu'au palier sans une seule faute d'échauffement. */
+  sansFaute?: boolean;
+}
+
+/**
+ * N'émet les trois champs de l'échelle QUE s'ils portent quelque chose.
+ *
+ * « Absent vaut zéro » est la doctrine du carnet, et elle doit rester vraie de
+ * bout en bout : les poser à `{}`, `0` et `false` sur chaque entrée gonflerait
+ * chaque agrégat stocké et chaque octet qui transite, pour ne rien dire de plus
+ * que leur absence.
+ */
+function maigre(
+  parAllure: Record<string, number>,
+  serie: number,
+  sansFaute: boolean,
+): Partial<CarnetEntree> {
+  return {
+    ...(Object.keys(parAllure).length ? { parAllure } : {}),
+    ...(serie ? { serie } : {}),
+    ...(sansFaute ? { sansFaute } : {}),
+  };
+}
+
+/** Union clé par clé, au maximum. Idempotente, commutative, monotone. */
+function unionAllures(
+  x: Record<string, number> | undefined,
+  y: Record<string, number> | undefined,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const cle of new Set([...Object.keys(x ?? {}), ...Object.keys(y ?? {})])) {
+    out[cle] = Math.max(x?.[cle] ?? 0, y?.[cle] ?? 0);
+  }
+  return out;
 }
 
 export interface Serie {
@@ -186,6 +230,19 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
        * qui rétrécit est le seul défaut vraiment grave ici — il est silencieux.
        */
       pieges: Math.max(x?.pieges ?? 0, y?.pieges ?? 0),
+      /*
+       * Les trois champs de l'échelle suivent la MÊME loi : union et maximum.
+       *
+       * `parAllure` s'unit clé par clé — deux appareils peuvent avoir travaillé
+       * des allures différentes, et perdre celle qui manque ferait reculer une
+       * case déjà franchie. `serie` prend le maximum, `sansFaute` le OU : une
+       * case franchie ne se déverrouille jamais.
+       */
+      ...maigre(
+        unionAllures(x?.parAllure, y?.parAllure),
+        Math.max(x?.serie ?? 0, y?.serie ?? 0),
+        (x?.sansFaute ?? false) || (y?.sansFaute ?? false),
+      ),
     };
   }
 

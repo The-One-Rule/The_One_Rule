@@ -27,6 +27,22 @@ export interface RuleRecord {
    * ⚠️ Absent des sauvegardes d'avant : lire avec `?? 0`, jamais directement.
    */
   pieges?: number;
+  /**
+   * Le meilleur score de CETTE règle, allure par allure.
+   *
+   * L'échelle de maîtrise demande de tenir le palier à trois allures : un
+   * record global ne dit pas à laquelle il a été obtenu, et 40 manches faites à
+   * DÉBUT ne prouvent rien sur RAPIDE.
+   *
+   * ⚠️ Absent vaut « rien à cette allure ». Les sauvegardes écrites avant ce
+   * champ gardent leur `best` — il reste affiché comme un fait, il ne remplit
+   * aucune case.
+   */
+  parAllure?: Record<string, number>;
+  /** La plus longue série de manches consécutives sans faute, sur cette règle. */
+  serie?: number;
+  /** Un run tenu jusqu'au palier sans une seule faute d'échauffement. */
+  sansFaute?: boolean;
 }
 
 export interface Save {
@@ -301,17 +317,50 @@ export function majCarnet(
   score: number,
   cleared: boolean,
   pieges: number,
+  run?: { allure: number; serie: number; sansFaute: boolean },
 ): RuleRecord {
+  /*
+   * ⚠️ UNION ET MAXIMUM, JAMAIS UNE AFFECTATION — la même loi que la fusion des
+   * comptes, et pour la même raison : un second run raté ne doit rien effacer.
+   *
+   * `pieges` est la seule SOMME, parce qu'il compte des occurrences et non un
+   * niveau atteint. Il ne se fusionne PAS entre appareils (voir `shared/compte`)
+   * : sommer deux appareils doublerait le compteur à chaque synchro.
+   */
+  const parAllure = { ...(prev?.parAllure ?? {}) };
+  if (run) {
+    const cle = String(run.allure);
+    parAllure[cle] = Math.max(parAllure[cle] ?? 0, score);
+  }
+  const serie = Math.max(prev?.serie ?? 0, run?.serie ?? 0);
+  const sansFaute = (prev?.sansFaute ?? false) || (run?.sansFaute ?? false);
+  /*
+   * ⚠️ ON N'ECRIT QUE CE QUI PORTE QUELQUE CHOSE.
+   *
+   * Ces trois champs sont arrives apres, et « absent vaut zero » est la
+   * doctrine du carnet. Les poser a `{}`, `0` et `false` sur chaque entree
+   * gonflerait toutes les sauvegardes — et surtout la charge que `api/moi.ts`
+   * fait transiter — pour ne rien dire de plus que leur absence.
+   */
   return {
     best: Math.max(prev?.best ?? 0, score),
     cleared: (prev?.cleared ?? false) || cleared,
     pieges: (prev?.pieges ?? 0) + pieges,
+    ...(Object.keys(parAllure).length ? { parAllure } : {}),
+    ...(serie ? { serie } : {}),
+    ...(sansFaute ? { sansFaute } : {}),
   };
 }
 
-export function recordRun(ruleId: string, score: number, cleared: boolean, pieges = 0): Save {
+export function recordRun(
+  ruleId: string,
+  score: number,
+  cleared: boolean,
+  pieges = 0,
+  run?: { allure: number; serie: number; sansFaute: boolean },
+): Save {
   return mutate((s) => {
-    s.encountered[ruleId] = majCarnet(s.encountered[ruleId], score, cleared, pieges);
+    s.encountered[ruleId] = majCarnet(s.encountered[ruleId], score, cleared, pieges, run);
     s.recent = [...s.recent, score].slice(-5);
   });
 }

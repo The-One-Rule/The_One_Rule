@@ -400,6 +400,9 @@ export const CHAINES = STATIQUE;
 type Dyn = {
   compteSupprimer: string;
   compteNom: string;
+  /* --- les cartes --- */
+  carteCases: (n: number) => string;
+  carteParfaite: string;
   /* --- l'écran de jeu --- */
   hudGeste: string;
   hudGestes: (n: number) => string;
@@ -689,6 +692,8 @@ const DYN: Record<Lang, Dyn> = {
   fr: {
     compteSupprimer: "SUPPRIMER LE COMPTE",
     compteNom: "CHANGER DE NOM",
+    carteCases: (n) => `${n} / 6 · MAÎTRISE`,
+    carteParfaite: "PARFAITE",
     hudGeste: "1 GESTE",
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
@@ -947,6 +952,8 @@ const DYN: Record<Lang, Dyn> = {
   en: {
     compteSupprimer: "DELETE ACCOUNT",
     compteNom: "CHANGE NAME",
+    carteCases: (n) => `${n} / 6 · MASTERY`,
+    carteParfaite: "PERFECT",
     hudGeste: "1 MOVE",
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",

@@ -43,6 +43,7 @@ import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
+import { echelleMaitrise, estParfaite, franchies, lisRun } from "./game/echelle";
 import { cleEntrainement } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
@@ -698,14 +699,33 @@ function renderCodex(): void {
    */
   for (const r of ONE_RULES) {
     const rec = s.encountered[r.id];
+    const cases = echelleMaitrise(r, rec);
+    const n = franchies(cases);
+    const parfaite = estParfaite(r, rec);
     const etat = etatCarte(rec, estMaitrisee(r, rec));
     const carte = document.createElement("article");
-    carte.className = `carte is-${etat}`;
+    carte.className = `carte is-${etat}${parfaite ? " is-parfaite" : ""}`;
+    /*
+     * L'ILLUSTRATION EST UNE IMAGE, et la carte VERROUILLÉE n'en charge aucune.
+     *
+     * La censure REMPLACE la scène, elle ne la couvre pas : un emblème caché
+     * sous un voile se lirait en ouvrant l'inspecteur, et tout le catalogue
+     * avec — la décision n°7 tenue jusque dans le HTML, et maintenant jusque
+     * dans les requêtes réseau.
+     */
+    const vue = etat === "verrouillee"
+      ? `<div class="carte__censure" aria-hidden="true"></div>`
+      : `<img class="carte__img" src="/cartes/${r.id}.png" width="64" height="64" alt="" loading="lazy" decoding="async" />`;
     carte.innerHTML =
-      `<div class="carte__vue">${emblemeSvg(emblemeDe(r), { verrouille: etat === "verrouillee" })}</div>` +
+      `<div class="carte__vue">${vue}</div>` +
       `<div class="carte__corps">` +
       `<h3 class="carte__nom"></h3>` +
       `<p class="carte__brief"></p>` +
+      `</div>` +
+      // La jauge : six pastilles, une par case. Jamais un pourcentage — 72 %
+      // ne se joue pas, « il te manque 4 manches » se joue.
+      `<div class="carte__jauge" role="img" aria-label="${n} / 6">` +
+      cases.map((c) => `<i class="${c.faite ? "is-on" : ""}"></i>`).join("") +
       `</div>` +
       `<p class="carte__etat"></p>`;
     carte.querySelector<HTMLElement>(".carte__nom")!.textContent =
@@ -722,9 +742,9 @@ function renderCodex(): void {
     carte.querySelector<HTMLElement>(".carte__etat")!.textContent =
       etat === "verrouillee"
         ? t("carnetJamais")
-        : etat === "maitrisee"
-          ? t("pickMaitrisee")
-          : t("carnetMeilleur")(rec?.best ?? 0);
+        : parfaite
+          ? t("carteParfaite")
+          : t("carteCases")(n);
     list.appendChild(carte);
   }
   show("codex");
@@ -1817,11 +1837,20 @@ function finishRun(): void {
     // La MÊME formule que `recordRun`, et une seule fois écrite : les deux
     // copies avaient chacune leur `pieges` à tenir à jour, et seule celle-ci
     // tourne vraiment.
+    /*
+     * Ce que ce run apprend sur la règle, pour l'échelle de maîtrise.
+     *
+     * Tout se lit dans les MARQUES que le moteur produisait déjà — 🟩 propre,
+     * 🟦 piège déjoué, 🟨 faute d'échauffement, 🟥 la mort. Rien n'a été ajouté
+     * au moteur : une progression qui demande d'instrumenter le chemin chaud
+     * est une progression qu'on paie à chaque manche.
+     */
     st.encountered[rule.id] = P.majCarnet(
       st.encountered[rule.id],
       end.score,
       end.cleared,
       end.trapsSurvived,
+      { allure: pace, ...lisRun(end.marks) },
     );
     st.recent = [...st.recent, end.score].slice(-5);
 

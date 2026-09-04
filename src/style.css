@@ -8253,3 +8253,83 @@ button.chip:active:not(:disabled) {
     animation: none;
   }
 }
+
+/* ==================================================================
+   LA CARTE — l'illustration devient une IMAGE
+
+   Les emblemes etaient ENGENDRES depuis les primitives du jeu. Les seize
+   illustrations pixel art de la maquette les remplacent : 64x64 dessinees au
+   pixel, 132 Ko pour tout le catalogue.
+
+   ⚠️ Ce que ca coute, et qui doit rester ecrit : une 17e regle demandera
+   desormais une commande graphique, la ou elle demandait quatre lignes de
+   donnees. Le point d'accroche `Apparence.carte` ne bouge pas.
+   ================================================================== */
+
+.carte__img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  /* Du pixel art se rend AU PIXEL : lisse, il devient une bouillie a 96 px. */
+  image-rendering: pixelated;
+}
+
+/* ⚠️ La censure REMPLACE la scene, elle ne la couvre pas — et maintenant elle
+   evite aussi la REQUETE. Un emblEme cache sous un voile se lirait dans
+   l'inspecteur ; une image chargee se lirait dans l'onglet reseau. */
+.carte__censure {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in srgb, var(--signal) 55%, transparent) 0 3px,
+    transparent 3px 8px
+  );
+}
+
+/* ------------------------------------------------------------------
+   LA JAUGE — six pastilles, jamais un pourcentage
+
+   « 72 % » ne se joue pas ; « il te manque 4 manches pour la case suivante »
+   se joue. Un pourcentage est un thermometre, six cases sont une liste de
+   courses.
+   ------------------------------------------------------------------ */
+
+.carte__jauge {
+  display: flex;
+  gap: 3px;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+.carte__jauge i {
+  flex: 1 1 0;
+  height: 4px;
+  background: var(--line);
+}
+
+.carte__jauge i.is-on {
+  background: var(--signal);
+}
+
+/* Une carte verrouillee ne montre AUCUNE case : le nombre d'etapes deja
+   franchies sur une regle jamais rencontree serait toujours zero, et six
+   segments eteints se lisent comme une fonctionnalite cassee. */
+.carte.is-verrouillee .carte__jauge {
+  visibility: hidden;
+}
+
+/* PARFAITE — les six cases. Le seul etat qui gagne un cadre d'accent plein :
+   il doit se voir de loin dans une grille de seize. */
+.carte.is-parfaite {
+  border-color: var(--signal);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--signal) 40%, transparent);
+}
+
+.carte.is-parfaite .carte__etat {
+  color: var(--signal-pale);
+}
+
+.carte.is-parfaite .carte__jauge i {
+  background: var(--signal);
+}
