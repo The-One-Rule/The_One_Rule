@@ -1633,10 +1633,63 @@ juste, mais elle contredit le « GAUCHER 72 % » demandé par Pierre — six cas
 nommées valent mieux qu'un pourcentage, parce qu'une case se joue et pas un
 thermomètre.
 
-**Reste à trancher, et pas décidé seul** : remplacer les emblèmes ENGENDRÉS par
-les 16 PNG pixel art (plus beaux et plus collectionnables, mais une 17ᵉ règle
-demandera une commande, et ils introduisent un personnage dans un jeu qui n'en a
-aucun), et passer le bouton primaire du plein au contour.
+**Tranché par Pierre : on applique la maquette, sans discuter l'identité.**
+Les 16 PNG remplacent les emblèmes engendrés — le coût reste écrit : une 17ᵉ
+règle demandera une commande graphique là où elle demandait quatre lignes de
+données, et elles introduisent un personnage dans un jeu qui n'en avait aucun.
+
+#### L'écran de jeu, et l'échelle à six cases
+
+**Les VIES montent dans le bandeau**, contre la règle : les deux décident
+ensemble d'une manche, et le pied ne garde que ce qu'on consulte ENTRE deux
+manches. Elles se posent dans la troisième piste de la grille `auto 1fr auto`,
+qui portait déjà `band__meta` — le bandeau ne grandit pas d'un pixel.
+
+**La consigne dit combien de GESTES elle demande.** `windowForSteps` ajoutait
+déjà 280 ms par geste supplémentaire, mais rien ne le DISAIT : sous LE JUMEAU on
+découvrait qu'il en fallait deux en ratant le premier.
+
+⚠️ **Mesure qui a changé l'implémentation** : un bloc à part sous `#sub` coûtait
+`#head` 99 → 120 et le terrain **616 → 595 px**. La ligne est donc FUSIONNÉE
+avec `#sub` (« N'IMPORTE OÙ · 2 GESTES »), ce que fait d'ailleurs la maquette.
+Remesuré à 616 et buffer 746×1232, identiques à la référence.
+
+⚠️ **Le bouton PRIMAIRE garde son aplat** — j'avais mal lu la maquette et
+annoncé le contraire. Il gagne une ombre décalée d'un module sans flou ; c'est
+la variante **LANCEMENT** qui prend le cadre d'accent (fond 12 %, bordure 4 px).
+Le `.btn` de base était déjà exactement le SECONDAIRE de la maquette.
+
+**L'échelle de maîtrise** (`src/game/echelle.ts`) : rencontrée · éprouvée · 15
+manches à chacune des trois allures · un run sans faute. Six cases nommées et
+**jamais un pourcentage** — Pierre demandait « 72 % », sa maquette dit l'inverse
+et elle a raison : un pourcentage est un thermomètre, une case est une liste de
+courses.
+
+⚠️ **La case ÉPROUVÉE est REMPLACÉE, jamais offerte.** Sept règles sur seize ne
+piègent pas (neuf le font — la maquette annonce onze, c'est faux). Leur donner
+la case rendrait leur carte maîtrisée à meilleur compte ; elles doivent donc une
+série de dix manches consécutives sans faute. La maquette voulait mieux — une
+condition sur mesure par règle — et ça demande une instrumentation par règle
+dans le moteur, donc une mesure avant.
+
+⚠️ **Rien n'a été ajouté au moteur** : tout se lit dans les marques qu'il
+produisait déjà (🟩 🟦 🟨 🟥). Une progression qui instrumente le chemin chaud se
+paie à chaque manche.
+
+⚠️ **`estMaitrisee` ne change PAS de sens** : elle décide de ce que le carnet
+compte et de ce que l'entraînement ciblé déverrouille. La durcir de trois
+allures d'un coup ferait reculer tous les compteurs de tous les joueurs le jour
+du déploiement, sur un seuil déjà non mesuré.
+
+⚠️ **Trois champs neufs sur `RuleRecord`** — `parAllure`, `serie`, `sansFaute` —
+branchés aux TROIS bouts : `majCarnet`, `fusionne`, et le nettoyage de
+`api/moi.ts` qui RECONSTRUIT chaque entrée. Ils ne s'écrivent que s'ils portent
+quelque chose : « absent vaut zéro » est la doctrine du carnet, et c'est un test
+existant qui l'a rappelé.
+
+⚠️ **Une carte verrouillée ne charge AUCUNE image.** Mesuré : trois requêtes
+pour trois règles débloquées, zéro pour les treize autres. La décision n°7
+tenait dans le DOM ; elle tient maintenant dans le trafic.
 
 ### Backlog
 
