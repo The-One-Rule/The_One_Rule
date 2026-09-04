@@ -8333,3 +8333,193 @@ button.chip:active:not(:disabled) {
 .carte.is-parfaite .carte__jauge i {
   background: var(--signal);
 }
+
+/* ==================================================================
+   LA FICHE D'UNE CARTE
+
+   Elle existe pour rendre la maitrise ACTIONNABLE. « 3 / 6 » dit ou l'on en
+   est ; « il te manque 4 manches a l'allure normale » dit quoi faire, et le
+   bouton l'ouvre. C'est toute la difference entre un thermometre et une liste
+   de courses.
+   ================================================================== */
+
+#fiche.hidden {
+  display: none;
+}
+
+.fiche {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.fiche__tete {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.fiche__vue {
+  flex: none;
+  width: 96px;
+  height: 96px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: grid;
+  place-items: center;
+}
+
+.fiche__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.fiche__ident {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fiche__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+/*
+ * Trois faits, pas trois jugements.
+ *
+ * ⚠️ Libelles COURTS et repli autorise. Mesure : avec « MEILLEURE SERIE » et
+ * « PIEGES DEJOUES », les trois cellules reclamaient 396 px pour 325
+ * disponibles a 375 px — la troisieme sortait de 74 px. C'est la meme lecon que
+ * le sommaire de l'entrainement, et le meme remede que la barre des allures :
+ * base nulle pour la part egale, plancher `max-content` pour ne jamais ecraser
+ * un mot, et `wrap` pour se replier plutot que deborder.
+ */
+.fiche__chiffres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.fiche__cel {
+  flex: 1 1 0;
+  min-width: max-content;
+  padding: 10px 12px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fiche__val {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 21px;
+  line-height: 1;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.fiche__lab {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/* ------------------------------------------------------------------
+   LES SIX CASES
+
+   Une case FAITE porte une pastille pleine, la PROCHAINE porte l'accent, les
+   suivantes un cercle vide. Trois etats qui se lisent sans lire un mot — et
+   l'accent ne sert qu'a UNE ligne, celle qu'on peut faire maintenant.
+   ------------------------------------------------------------------ */
+
+.fiche__cases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: var(--bd-hair) solid var(--line);
+}
+
+.cas {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border-bottom: var(--bd-hair) solid var(--line);
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  color: var(--paper-dim);
+}
+
+.cas:last-child {
+  border-bottom: 0;
+}
+
+.cas__puce {
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--line);
+}
+
+.cas.is-faite {
+  color: var(--paper);
+}
+
+.cas.is-faite .cas__puce {
+  background: var(--signal);
+  border-color: var(--signal);
+}
+
+.cas.is-encours {
+  background: color-mix(in srgb, var(--signal) 9%, transparent);
+  color: var(--paper);
+}
+
+.cas.is-encours .cas__puce {
+  border-color: var(--signal);
+  border-width: 2px;
+}
+
+/* Ce qu'il reste, en chiffre, a droite : « 4 » se lit plus vite que
+   « il te manque 4 manches ». La phrase est en dessous, une seule fois. */
+.cas__reste {
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  color: var(--signal-pale);
+  font-variant-numeric: tabular-nums;
+}
+
+/* UNE SEULE phrase, jamais la liste de tout ce qui manque : six choses a
+   faire ne se retiennent pas, une seule se fait. */
+.fiche__manque {
+  margin: 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.5;
+  color: var(--signal-pale);
+}
+
+/* La carte devient un objet qu'on OUVRE. */
+.carte.is-ouvrable {
+  cursor: pointer;
+}
+
+.carte.is-ouvrable:hover,
+.carte.is-ouvrable:focus-visible {
+  border-color: var(--signal);
+}

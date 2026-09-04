@@ -44,6 +44,10 @@ import { vueDuJour } from "./render/jour";
 import { vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, estParfaite, franchies, lisRun } from "./game/echelle";
+import { SERIE_EPREUVE } from "./game/echelle";
+import type { CaseMaitrise } from "./game/echelle";
+import { MANCHES_MAITRISE } from "./game/maitrise";
+import { familleDe, tauxPiege } from "./game/famille";
 import { cleEntrainement } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
@@ -196,6 +200,7 @@ function syncField(): void {
 const SCREENS = [
   "home",
   "onb",
+  "fiche",
   "solo",
   "brief",
   "over",
@@ -247,6 +252,7 @@ let day = dayIndex();
 const AVEC_BARRE: ReadonlySet<string> = new Set([
   "home",
   "solo",
+  "fiche",
   "brief",
   "over",
   "codex",
@@ -745,6 +751,26 @@ function renderCodex(): void {
         : parfaite
           ? t("carteParfaite")
           : t("carteCases")(n);
+    /*
+     * Une carte RENCONTRÉE s'ouvre ; une verrouillée ne bouge pas.
+     *
+     * Un bouton qui ne fait rien se lit comme un bug, et une fiche vide
+     * brûlerait la surprise (décision n°7). On ne rend donc cliquable que ce
+     * qui a quelque chose à raconter.
+     */
+    if (etat !== "verrouillee") {
+      carte.classList.add("is-ouvrable");
+      carte.setAttribute("role", "button");
+      carte.setAttribute("tabindex", "0");
+      carte.addEventListener("click", () => ouvreFiche(r));
+      carte.addEventListener("keydown", (ev) => {
+        const e = ev as KeyboardEvent;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          ouvreFiche(r);
+        }
+      });
+    }
     list.appendChild(carte);
   }
   show("codex");
@@ -1528,6 +1554,159 @@ function lanceRun(): void {
   // l'entonnoir social est illisible.
   track("run_start", { mode: pendingMode, rule: pendingRule.id, day, duel: !!challenge });
 }
+
+/* ------------------------------------------------------------------ *
+ * LA FICHE D'UNE CARTE — rendre la maîtrise ACTIONNABLE
+ *
+ * « 3 / 6 » dit où l'on en est ; « il te manque 4 manches à l'allure normale »
+ * dit quoi faire. C'est toute la différence entre un thermomètre et une liste
+ * de courses, et c'est pourquoi la jauge n'est pas un pourcentage.
+ * ------------------------------------------------------------------ */
+
+/** La règle dont la fiche est ouverte — pour que RETOUR sache d'où l'on vient. */
+let ficheRegle: OneRule | null = null;
+
+const NOM_FAMILLE = {
+  interdit: () => t("famInterdit"),
+  deformation: () => t("famDeformation"),
+  contrainte: () => t("famContrainte"),
+} as const;
+
+/** Le libellé d'une case, composé de son identifiant. */
+function libelleCase(c: CaseMaitrise): string {
+  switch (c.id) {
+    case "rencontree":
+      return t("casRencontree");
+    case "piege":
+      return t("casPiege");
+    case "serie":
+      return t("casSerie")(SERIE_EPREUVE);
+    case "allure15":
+      return t("casAllure")(nomAllure(1.5, PACE_LABELS[1.5] ?? ""), MANCHES_MAITRISE);
+    case "allure10":
+      return t("casAllure")(nomAllure(PACE_DEFAULT, PACE_LABELS[PACE_DEFAULT] ?? ""), MANCHES_MAITRISE);
+    case "allure08":
+      return t("casAllure")(nomAllure(0.8, PACE_LABELS[0.8] ?? ""), MANCHES_MAITRISE);
+    case "sansFaute":
+      return t("casSansFaute")(MANCHES_MAITRISE);
+  }
+}
+
+/**
+ * La PREMIÈRE case non franchie, et ce qu'elle demande.
+ *
+ * Une seule phrase, jamais la liste de tout ce qui manque : six choses à faire
+ * ne se retiennent pas, une seule se fait. C'est aussi elle qui décide de
+ * l'allure que propose le bouton.
+ */
+function prochaineCase(cases: CaseMaitrise[]): { c: CaseMaitrise; allure: number } | null {
+  const c = cases.find((x) => !x.faite);
+  if (!c) return null;
+  const allure =
+    c.id === "allure15" ? 1.5 : c.id === "allure08" ? 0.8 : PACE_DEFAULT;
+  return { c, allure };
+}
+
+function ouvreFiche(r: OneRule): void {
+  const s = P.load();
+  const rec = s.encountered[r.id];
+  // Une règle jamais rencontrée n'a pas de fiche : elle n'a rien à raconter,
+  // et tout ce qu'elle dirait brûlerait la surprise (décision n°7).
+  if (!rec) return;
+  ficheRegle = r;
+  sfx.ui();
+
+  const cases = echelleMaitrise(r, rec);
+  const n = franchies(cases);
+
+  $("ficheVue").innerHTML =
+    `<img class="fiche__img" src="/cartes/${r.id}.png" width="64" height="64" alt="" />`;
+  const taux = tauxPiege(r);
+  $("ficheFamille").textContent =
+    NOM_FAMILLE[familleDe(r)]() + (taux !== null ? `  ·  ${t("ficheTaux")(`${taux.toFixed(1)} %`)}` : "");
+  $("ficheNom").textContent = nomDeRegle(r.id, r.name);
+  $("ficheBrief").textContent = briefDeRegle(r.id, r.brief);
+  $("ficheMaitrise").textContent = t("ficheMaitrise")(n);
+
+  // Trois chiffres, et aucun n'est un jugement : ce sont des faits sur ce que
+  // le joueur a déjà fait sous cette règle.
+  const chiffres = $("ficheChiffres");
+  chiffres.innerHTML = "";
+  for (const [label, valeur] of [
+    [t("ficheMeilleur"), String(rec.best)],
+    [t("ficheSerie"), String(rec.serie ?? 0)],
+    [t("fichePieges"), String(rec.pieges ?? 0)],
+  ] as const) {
+    const cel = document.createElement("div");
+    cel.className = "fiche__cel";
+    cel.innerHTML = `<b class="fiche__val"></b><span class="fiche__lab"></span>`;
+    cel.querySelector<HTMLElement>(".fiche__val")!.textContent = valeur;
+    cel.querySelector<HTMLElement>(".fiche__lab")!.textContent = label;
+    chiffres.appendChild(cel);
+  }
+
+  const liste = $("ficheCases");
+  liste.innerHTML = "";
+  const suivante = prochaineCase(cases);
+  for (const c of cases) {
+    const li = document.createElement("li");
+    const encours = !c.faite && suivante?.c.id === c.id;
+    li.className = `cas${c.faite ? " is-faite" : ""}${encours ? " is-encours" : ""}`;
+    li.innerHTML = `<span class="cas__puce" aria-hidden="true"></span><span class="cas__texte"></span><span class="cas__reste"></span>`;
+    li.querySelector<HTMLElement>(".cas__texte")!.textContent = libelleCase(c);
+    li.querySelector<HTMLElement>(".cas__reste")!.textContent =
+      c.faite || c.reste === null ? "" : String(c.reste);
+    liste.appendChild(li);
+  }
+
+  $("ficheManque").textContent = !suivante
+    ? t("ficheRienNeManque")
+    : suivante.c.id === "piege"
+      ? t("ficheManquePiege")
+      : suivante.c.id === "serie"
+        ? t("ficheManqueSerie")(suivante.c.reste ?? 0)
+        : suivante.c.id === "sansFaute"
+          ? t("ficheManqueSansFaute")(MANCHES_MAITRISE)
+          : t("ficheManqueManches")(
+              suivante.c.reste ?? 0,
+              nomAllure(suivante.allure, String(suivante.allure)),
+            );
+
+  /*
+   * LE BOUTON PORTE L'ALLURE DE LA PROCHAINE CASE.
+   *
+   * C'est le raccord de toute la boucle : on rencontre une règle en jouant,
+   * elle entre au carnet, sa fiche dit ce qui manque, et le bouton ouvre
+   * exactement l'exercice qui le comble. Sans ça, la fiche serait un tableau
+   * de bord — quelque chose qu'on consulte au lieu de quelque chose qu'on
+   * utilise.
+   */
+  const btn = $<HTMLButtonElement>("btnFicheTrain");
+  const allure = suivante?.allure ?? PACE_DEFAULT;
+  btn.textContent = t("ficheEntraine")(nomAllure(allure, String(allure)));
+  btn.dataset.allure = String(allure);
+
+  show("fiche");
+}
+
+$("btnFicheTrain").addEventListener("click", () => {
+  if (!ficheRegle) return;
+  sfx.ui();
+  const allure = Number($("btnFicheTrain").dataset.allure ?? PACE_DEFAULT);
+  const id = ficheRegle.id;
+  P.mutate((st) => {
+    // On pose l'allure ET la règle : l'exercice doit être celui que la fiche
+    // vient d'annoncer, sinon le bouton ment.
+    st.trainingPace = allure;
+    st.trainingRegle = id;
+  });
+  openBrief("training");
+});
+
+$("btnFicheBack").addEventListener("click", () => {
+  sfx.ui();
+  renderCodex();
+});
 
 /* ------------------------------------------------------------------ *
  * LA PREMIÈRE ARRIVÉE — six temps, et le piège est la leçon

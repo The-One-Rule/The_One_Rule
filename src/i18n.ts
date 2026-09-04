@@ -209,6 +209,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "fiche.retour": "◂ LA COLLECTION",
     "compte.nom": "CHANGER DE NOM",
     "compte.deconnexion": "SE DÉCONNECTER",
     "compte.supprimer": "SUPPRIMER LE COMPTE",
@@ -326,6 +327,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "fiche.retour": "◂ COLLECTION",
     "compte.nom": "CHANGE NAME",
     "compte.deconnexion": "SIGN OUT",
     "compte.supprimer": "DELETE ACCOUNT",
@@ -403,6 +405,26 @@ type Dyn = {
   /* --- les cartes --- */
   carteCases: (n: number) => string;
   carteParfaite: string;
+  /* --- la fiche --- */
+  famInterdit: string;
+  famDeformation: string;
+  famContrainte: string;
+  ficheTaux: (t: string) => string;
+  ficheMaitrise: (n: number) => string;
+  ficheMeilleur: string;
+  ficheSerie: string;
+  fichePieges: string;
+  casRencontree: string;
+  casPiege: string;
+  casSerie: (n: number) => string;
+  casAllure: (nom: string, n: number) => string;
+  casSansFaute: (n: number) => string;
+  ficheManqueManches: (n: number, allure: string) => string;
+  ficheManquePiege: string;
+  ficheManqueSerie: (n: number) => string;
+  ficheManqueSansFaute: (n: number) => string;
+  ficheRienNeManque: string;
+  ficheEntraine: (allure: string) => string;
   /* --- l'écran de jeu --- */
   hudGeste: string;
   hudGestes: (n: number) => string;
@@ -694,6 +716,26 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGER DE NOM",
     carteCases: (n) => `${n} / 6 · MAÎTRISE`,
     carteParfaite: "PARFAITE",
+    famInterdit: "INTERDIT",
+    famDeformation: "DÉFORMATION",
+    famContrainte: "CONTRAINTE",
+    ficheTaux: (t) => `PIÈGE ${t} DES MANCHES`,
+    ficheMaitrise: (n) => `MAÎTRISE · ${n} / 6`,
+    ficheMeilleur: "MEILLEUR",
+    ficheSerie: "SÉRIE",
+    fichePieges: "PIÈGES",
+    casRencontree: "Rencontrée en partie",
+    casPiege: "Un piège déjoué au moins une fois",
+    casSerie: (n) => `${n} manches d'affilée sans faute`,
+    casAllure: (nom, n) => `${n} manches à l'allure ${nom}`,
+    casSansFaute: (n) => `Un run de ${n} manches sans une seule faute`,
+    ficheManqueManches: (n, allure) =>
+      `Il te manque ${n} manche${n > 1 ? "s" : ""} à l'allure ${allure}.`,
+    ficheManquePiege: "Il te reste à déjouer un piège sous cette règle.",
+    ficheManqueSerie: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""} d'affilée sans faute.`,
+    ficheManqueSansFaute: (n) => `Il te reste un run de ${n} manches sans aucune faute.`,
+    ficheRienNeManque: "Rien ne manque. Cette règle est parfaite.",
+    ficheEntraine: (allure) => `S'ENTRAÎNER · ${allure}`,
     hudGeste: "1 GESTE",
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
@@ -954,6 +996,26 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGE NAME",
     carteCases: (n) => `${n} / 6 · MASTERY`,
     carteParfaite: "PERFECT",
+    famInterdit: "FORBIDS",
+    famDeformation: "DISTORTION",
+    famContrainte: "CONSTRAINT",
+    ficheTaux: (t) => `TRAPS ${t} OF ROUNDS`,
+    ficheMaitrise: (n) => `MASTERY · ${n} / 6`,
+    ficheMeilleur: "BEST",
+    ficheSerie: "STREAK",
+    fichePieges: "TRAPS",
+    casRencontree: "Met in a run",
+    casPiege: "One trap defused at least once",
+    casSerie: (n) => `${n} clean rounds in a row`,
+    casAllure: (nom, n) => `${n} rounds at ${nom} pace`,
+    casSansFaute: (n) => `A ${n}-round run without a single slip`,
+    ficheManqueManches: (n, allure) =>
+      `${n} more round${n === 1 ? "" : "s"} at ${allure} pace.`,
+    ficheManquePiege: "You still have a trap to defuse under this rule.",
+    ficheManqueSerie: (n) => `${n} more clean round${n === 1 ? "" : "s"} in a row.`,
+    ficheManqueSansFaute: (n) => `A ${n}-round run without a single slip.`,
+    ficheRienNeManque: "Nothing left. This rule is perfect.",
+    ficheEntraine: (allure) => `TRAIN · ${allure}`,
     hudGeste: "1 MOVE",
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",

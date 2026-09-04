@@ -566,6 +566,35 @@
         </div>
       </section>
 
+      <!-- LA FICHE D'UNE CARTE.
+           Elle existe pour une seule raison : rendre la maitrise ACTIONNABLE.
+           « 3 / 6 » dit ou l'on en est ; « il te manque 4 manches a l'allure
+           normale » dit quoi faire, et le bouton l'ouvre. -->
+      <section class="screen hidden" id="fiche">
+        <div class="screen__scroll fiche">
+          <div class="fiche__tete">
+            <div class="fiche__vue" id="ficheVue"></div>
+            <div class="fiche__ident">
+              <p class="eyebrow" id="ficheFamille"></p>
+              <h2 class="fiche__nom" id="ficheNom"></h2>
+              <p class="lede" id="ficheBrief"></p>
+            </div>
+          </div>
+
+          <div class="fiche__chiffres" id="ficheChiffres"></div>
+
+          <p class="eyebrow" id="ficheMaitrise"></p>
+          <ol class="fiche__cases" id="ficheCases"></ol>
+
+          <p class="fiche__manque" id="ficheManque"></p>
+
+          <div class="btnrow">
+            <button class="btn btn--primary" id="btnFicheTrain"></button>
+            <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">◂ COLLECTION</button>
+          </div>
+        </div>
+      </section>
+
       <section class="screen hidden" id="brief">
         <!-- Volontairement étroit et centré, à contre-courant des autres
              écrans : c'est une annonce, pas un tableau de bord. Le nom de la
