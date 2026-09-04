@@ -8086,6 +8086,37 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * ⚠️ LE MODE, TOUJOURS SOUS LE CHIFFRE.
+ *
+ * Le run du jour et l'entrainement ne sont pas la meme epreuve : meme graine et
+ * meme regle pour tout le monde d'un cote, regle choisie et allure reglable de
+ * l'autre. C'est ce que la cle de comparabilite separe cote serveur, et l'ecran
+ * ne doit pas defaire ce que le stockage protege.
+ */
+.but__mode {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--signal-pale);
+}
+
+/* Son propre chiffre A COTE de la cible, jamais a la place : c'est ce qui rend
+   la cible comparable au lieu de l'opposer. */
+.but__sien {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.but__sien:empty {
+  display: none;
+}
+
 .but__pousse {
   margin: 0;
   font-size: var(--t-petit);

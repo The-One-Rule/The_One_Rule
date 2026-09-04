@@ -209,6 +209,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "CE QUE TU PRÉFÈRES",
     "compte.eyebrow": "COMPTE",
+    "but.aBattre": "LE RECORD À BATTRE",
     "nav.cartes": "CARTES",
     "nav.training": "ENTRAÎNEMENT",
     "nav.jouer": "JOUER",
@@ -333,6 +334,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "reglages.titre": "SETTINGS",
     "reglages.sous": "WHAT YOU PREFER",
     "compte.eyebrow": "ACCOUNT",
+    "but.aBattre": "THE RECORD TO BEAT",
     "nav.cartes": "CARDS",
     "nav.training": "TRAINING",
     "nav.jouer": "PLAY",
@@ -452,11 +454,12 @@ type Dyn = {
   hudGestes: (n: number) => string;
   hudDerniereVie: string;
   /* --- l'objectif de l'accueil --- */
-  butTien: string;
   butManches: (n: number) => string;
   butMieux: string;
-  butHorizon: (score: number, mode: string) => string;
-  butEntrainement: string;
+  butDejaBattu: string;
+  butSien: (n: number) => string;
+  butModeJour: string;
+  butModeEntrainement: string;
   /* --- première arrivée --- */
   onbEtape: (n: number, total: number) => string;
   onbSuivant: string;
@@ -775,11 +778,12 @@ const DYN: Record<Lang, Dyn> = {
     hudGeste: "1 GESTE",
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
-    butTien: "TON RECORD",
     butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     butMieux: "Tu peux faire mieux ?",
-    butHorizon: (score, mode) => `MEILLEUR CONNU · ${score} EN ${mode}`,
-    butEntrainement: "ENTRAÎNEMENT",
+    butDejaBattu: "Tu fais mieux que ça.",
+    butSien: (n) => `TON RECORD · ${n}`,
+    butModeJour: "RUN DU JOUR",
+    butModeEntrainement: "ENTRAÎNEMENT",
     onbEtape: (n, total) => `ÉTAPE ${n} SUR ${total}`,
     onbSuivant: "D'ACCORD",
     onbEssayer: "ESSAYER",
@@ -1069,11 +1073,12 @@ const DYN: Record<Lang, Dyn> = {
     hudGeste: "1 MOVE",
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",
-    butTien: "YOUR BEST",
     butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     butMieux: "Think you can do better?",
-    butHorizon: (score, mode) => `BEST KNOWN · ${score} IN ${mode}`,
-    butEntrainement: "TRAINING",
+    butDejaBattu: "You are already past that.",
+    butSien: (n) => `YOUR BEST · ${n}`,
+    butModeJour: "DAILY RUN",
+    butModeEntrainement: "TRAINING",
     onbEtape: (n, total) => `STEP ${n} OF ${total}`,
     onbSuivant: "GOT IT",
     onbEssayer: "TRY IT",

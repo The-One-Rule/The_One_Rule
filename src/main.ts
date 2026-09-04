@@ -399,37 +399,31 @@ function renderHome(): void {
    * l'accent y va.
    */
   /*
-   * L'OBJECTIF — une raison de lancer, donnée avant le bouton.
+   * L'OBJECTIF — le record à battre, donné avant le bouton.
    *
-   * Deux états, jamais un seul : montrer 201 à quelqu'un dont le premier run
-   * fait 4 manches en médiane, ce n'est pas un défi, c'est un mur. Le record du
-   * monde n'apparaît qu'à côté d'un score personnel, jamais à la place.
-   *
-   * Et il porte SON MODE : le 201 a été fait en entraînement, et le poser nu à
-   * côté du run du jour comparerait deux épreuves différentes.
+   * ⚠️ IL PREND LA PLACE DU CHAPO, il ne s'y ajoute pas. Mesuré : sur 375×812,
+   * la faille finissait déjà à y=818 pour 812 de haut — six pixels, c'est-à-dire
+   * pile à la limite. Un bloc AJOUTÉ coûtait 135 px et repoussait le bas de
+   * MULTI à 142 px sous la ligne de flottaison. Même famille de faute que le
+   * bandeau de mesure, qui a coûté 76 % d'entrées.
    */
-  const but = vueBut(P.recordDeSonAllure(s));
+  peintBut(P.recordDeSonAllure(s), recordDuJour);
   /*
-   * ⚠️ L'OBJECTIF PREND LA PLACE DU CHAPO, il ne s'y ajoute pas.
+   * Le record du JOUR se charge après coup, et ne bloque rien.
    *
-   * Mesuré : sur 375×812, la faille finissait déjà à y=818 pour 812 de haut —
-   * six pixels de dépassement, c'est-à-dire pile à la limite. Le bloc ajouté
-   * coûtait 135 px et repoussait le bas de MULTI à 142 px sous la ligne de
-   * flottaison. Même famille de faute que le bandeau de mesure, qui a coûté
-   * 76 % d'entrées.
-   *
-   * L'échange est aussi le bon geste : un nouveau venu a besoin qu'on lui dise
-   * ce QU'EST le jeu, un habitué a besoin de son chiffre. Les deux ne servent
-   * jamais au même moment, donc ils n'ont pas besoin de deux créneaux.
+   * Il vient du classement, donc du réseau : l'accueil doit s'afficher sans
+   * l'attendre. On peint d'abord avec ce qu'on a, on repeint quand il arrive —
+   * et s'il ne répond jamais (comptes non configurés, réseau coupé, personne
+   * n'a encore joué aujourd'hui), le repli d'entraînement reste à l'écran.
    */
-  $("ledeHome").classList.toggle("hidden", but !== null);
-  $("but").classList.toggle("hidden", but === null);
-  if (but) {
-    $("butQuoi").textContent = t("butTien");
-    $("butChiffre").textContent = t("butManches")(but.valeur);
-    $("butPousse").textContent = but.horizon
-      ? `${t("butMieux")}  ·  ${t("butHorizon")(but.horizon.score, t("butEntrainement"))}`
-      : t("butMieux");
+  if (recordDuJour === null && !recordDuJourDemande) {
+    recordDuJourDemande = true;
+    void classementDuJour(day).then((c) => {
+      const top = c?.top?.[0]?.valeur ?? null;
+      if (top === null || top <= 0) return;
+      recordDuJour = top;
+      if (screen === "home") peintBut(P.recordDeSonAllure(P.load()), recordDuJour);
+    });
   }
 
   const vjm = vueDuJour(s, day);
@@ -1723,6 +1717,41 @@ $("navMulti").addEventListener("click", () => {
  * dit quoi faire. C'est toute la différence entre un thermomètre et une liste
  * de courses, et c'est pourquoi la jauge n'est pas un pourcentage.
  * ------------------------------------------------------------------ */
+
+/**
+ * LE RECORD DU RUN DU JOUR, tenu une fois pour la session.
+ *
+ * Il vient du classement — donc vérifié par le serveur, qui a rejoué le
+ * journal — et il change chaque jour. C'est la meilleure cible qu'on puisse
+ * donner : vivante, opposable, et bien plus atteignable qu'un record de tous
+ * les temps.
+ */
+let recordDuJour: number | null = null;
+let recordDuJourDemande = false;
+
+/**
+ * Peint l'objectif de l'accueil.
+ *
+ * ⚠️ LE MODE EST TOUJOURS AFFICHÉ. Le run du jour et l'entraînement ne sont pas
+ * la même épreuve — même graine et même règle pour tout le monde d'un côté,
+ * règle choisie et allure réglable de l'autre. C'est ce que la clé de
+ * comparabilité sépare côté serveur, et l'écran ne doit pas défaire ce que le
+ * stockage protège.
+ */
+function peintBut(record: number, duJour: number | null): void {
+  const but = vueBut(record, duJour);
+  // L'objectif occupe le CRÉNEAU du chapo : les deux ne paraissent jamais
+  // ensemble, et l'accueil est à la limite au pixel près.
+  $("ledeHome").classList.add("hidden");
+  $("but").classList.remove("hidden");
+  $("butChiffre").textContent = t("butManches")(but.cible.score);
+  $("butMode").textContent =
+    but.cible.source === "jour" ? t("butModeJour") : t("butModeEntrainement");
+  $("butPousse").textContent = but.depasse ? t("butDejaBattu") : t("butMieux");
+  // Son propre chiffre à CÔTÉ, jamais à la place : c'est ce qui rend la cible
+  // comparable au lieu de l'opposer.
+  $("butSien").textContent = but.sien === null ? "" : t("butSien")(but.sien);
+}
 
 /** La règle dont la fiche est ouverte — pour que RETOUR sache d'où l'on vient. */
 let ficheRegle: OneRule | null = null;

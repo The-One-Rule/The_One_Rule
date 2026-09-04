@@ -2,68 +2,76 @@
  * L'OBJECTIF DE L'ACCUEIL — ce qu'on donne à battre, avant de jouer.
  *
  * Demandé par Pierre : « le record doit devenir une motivation naturelle à
- * lancer une partie ».
+ * lancer une partie », et « uniquement des données réelles ».
  *
- * ⚠️ **MONTRER 201 À UN DÉBUTANT NE MOTIVE PAS, ÇA ÉCRASE.** La médiane du
- * PREMIER run d'un joueur est de **4 manches**. Face à un record de 201, c'est
- * un facteur cinquante : ça ne dit pas « essaie de me battre », ça dit « tu ne
- * seras jamais bon à ce jeu ». Le record est le bon moteur pour quelqu'un qui
- * fait déjà quarante ; c'est un mur pour quelqu'un qui fait quatre.
+ * ⚠️ **UN SCORE SANS SON MODE EST UN CHIFFRE FAUX**, et c'est la contrainte qui
+ * façonne tout ce module. Le run du jour et l'entraînement ne sont pas la même
+ * épreuve : même graine et même règle pour tout le monde d'un côté, règle
+ * choisie et allure réglable de l'autre. C'est exactement ce que la clé de
+ * comparabilité sépare côté serveur, et l'écran ne doit pas défaire ce que le
+ * stockage protège. Le mode est donc TOUJOURS affiché à côté du chiffre.
  *
- * D'où la règle : **rien tant que le joueur n'a pas un chiffre à lui.** Le
- * meilleur connu n'apparaît qu'à CÔTÉ du sien, jamais à la place — un horizon,
- * pas un mur. Avant ça, l'accueil garde son chapo, qui dit ce qu'EST le jeu :
- * c'est ce dont un nouveau venu a besoin, et il n'a pas encore de relation avec
- * un score.
+ * ⚠️ **DEUX SOURCES, ET ELLES N'ONT PAS LA MÊME VALEUR.**
  *
- * ⚠️ **UN SCORE SANS SON MODE EST UN CHIFFRE FAUX.** Le 201 a été fait en
- * ENTRAÎNEMENT, à une allure donnée. Le poser nu à côté du bouton du run du
- * jour comparerait deux épreuves différentes — c'est exactement ce que la clé
- * de comparabilité empêche côté serveur, et l'écran ne doit pas défaire ce que
- * le stockage protège.
+ * Le record du RUN DU JOUR vient du classement : il est vérifié par le serveur
+ * (`verifyRun` a rejoué le journal), il est VIVANT — il change chaque jour — et
+ * il est bien plus atteignable qu'un record de tous les temps. C'est la bonne
+ * source, et c'est celle qu'on préfère quand elle répond.
  *
- * Comme `plate.ts`, `seat.ts` et `jour.ts`, ce module est PUR et rend une
- * donnée, jamais une phrase : son test dit quelle branche a gagné, pas à quoi
- * ressemblait le français.
+ * Le meilleur connu en ENTRAÎNEMENT est une mesure GELÉE, relevée à la main sur
+ * un export d'analytique. Il reste vrai — un joueur a réellement fait ce score,
+ * ce jour-là, dans ce mode — mais il ne bougera pas tout seul le jour où
+ * quelqu'un le battra. Il sert de repli quand le classement se tait : sans
+ * comptes configurés, réseau coupé, ou personne qui n'a encore joué aujourd'hui.
  */
 
 /**
- * Le meilleur score connu, et d'où il vient.
+ * Le meilleur score connu en ENTRAÎNEMENT.
  *
- * ⚠️ **C'est une mesure GELÉE, et c'est une dette assumée.** Aucune route ne
- * sert ce chiffre : il a été relevé à la main sur un export d'analytique. La
- * table `performance` ne contient que des runs du JOUR vérifiés, donc son
- * maximum n'est pas celui-ci et ne le sera jamais.
- *
- * Il reste vrai — un joueur a réellement fait ce score, ce jour-là, dans ce
- * mode — mais il ne bougera pas tout seul le jour où quelqu'un le battra.
- * Quand une route saura le servir, c'est cette constante qui disparaît.
+ * ⚠️ Ce n'est PAS un record de run du jour, et il ne doit jamais être étiqueté
+ * comme tel : il a été fait à une allure d'entraînement, sur une règle choisie.
+ * La table `performance` ne contient que des runs du jour vérifiés, donc son
+ * maximum n'est pas celui-ci et ne le sera jamais. Quand une route saura servir
+ * les records d'entraînement, c'est cette constante qui disparaît.
  */
-export const MEILLEUR_CONNU = { score: 201, mode: "entrainement", jour: 245 } as const;
+export const MEILLEUR_CONNU = { score: 201, jour: 245 } as const;
+
+/** D'où vient le chiffre affiché. L'écran en fait une étiquette, jamais l'inverse. */
+export type SourceRecord = "jour" | "entrainement";
 
 export interface VueBut {
-  /** Le chiffre du joueur, mis en avant. */
-  valeur: number;
+  /** Le record à battre, et de quelle épreuve il vient. */
+  cible: { score: number; source: SourceRecord };
+  /** Le chiffre du joueur, quand il en a un. */
+  sien: number | null;
   /**
-   * L'horizon montré À CÔTÉ du sien. `null` quand le joueur a DÉPASSÉ le
-   * meilleur connu : lui opposer un record qu'il bat serait absurde, et lui
-   * mentir sur son propre exploit le serait davantage.
+   * Le joueur a-t-il DÉPASSÉ la cible ? Lui opposer un record qu'il bat serait
+   * absurde, et lui mentir sur son propre exploit le serait davantage.
    */
-  horizon: { score: number; mode: string } | null;
+  depasse: boolean;
 }
 
 /**
- * Ce que l'accueil annonce, ou `null` s'il n'a rien à annoncer.
- *
  * @param record le meilleur du joueur À SON ALLURE (voir `recordDeSonAllure`)
+ * @param recordDuJour le premier du classement du jour, `null` s'il se tait
  */
-export function vueBut(record: number): VueBut | null {
-  if (record <= 0) return null;
+export function vueBut(record: number, recordDuJour: number | null): VueBut {
+  /*
+   * Le run du jour l'emporte dès qu'il existe.
+   *
+   * Il est vérifié, vivant, et bien plus atteignable qu'un record de tous les
+   * temps : la médiane du PREMIER run d'un joueur est de 4 manches, et lui
+   * opposer 201 ne dit pas « essaie de me battre », ça dit « tu ne seras jamais
+   * bon à ce jeu ». Le score du jour, lui, est à sa portée.
+   */
+  const cible =
+    recordDuJour !== null && recordDuJour > 0
+      ? { score: recordDuJour, source: "jour" as const }
+      : { score: MEILLEUR_CONNU.score, source: "entrainement" as const };
+
   return {
-    valeur: record,
-    horizon:
-      record >= MEILLEUR_CONNU.score
-        ? null
-        : { score: MEILLEUR_CONNU.score, mode: MEILLEUR_CONNU.mode },
+    cible,
+    sien: record > 0 ? record : null,
+    depasse: record > 0 && record >= cible.score,
   };
 }
