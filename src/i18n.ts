@@ -285,6 +285,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.copierCode": "COPIER LE CODE",
     "salon.copierLien": "COPIER LE LIEN",
     "salon.dicteCode": "DICTE-LE À VOIX HAUTE, OU ENVOIE LE LIEN",
+    "coupure.titre": "ON TE REMET EN JEU",
+    "coupure.quoi": "Ta place est gardée 25 secondes et tu ne joues aucune manche pendant ce temps. Une coupure n'est pas une défaite.",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
     "salon.rotation": "ROTATION",
@@ -437,6 +439,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.copierCode": "COPY THE CODE",
     "salon.copierLien": "COPY THE LINK",
     "salon.dicteCode": "SAY IT OUT LOUD, OR SEND THE LINK",
+    "coupure.titre": "PUTTING YOU BACK IN",
+    "coupure.quoi": "Your seat is held for 25 seconds and you play no round during that time. A cut is not a defeat.",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
     "salon.rotation": "ROTATION",
@@ -751,6 +755,11 @@ type Dyn = {
   aRegarde: string;
   /* --- ce que le serveur de salons refuse --- */
   errDeconnecte: string;
+  sortieRetaper: string;
+  reconnexion: string;
+  coupureEtat: (essai: number, sur: number, s: number) => string;
+  sortieOuvrir: string;
+  sortieRecharger: string;
   errSalonInconnu: string;
   errSalonComplet: (max: number) => string;
   errPasHote: string;
@@ -1106,8 +1115,23 @@ const DYN: Record<Lang, Dyn> = {
     manchesN: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     aRegarde: "A REGARDÉ",
     errDeconnecte: "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE",
-    errSalonInconnu: "AUCUN SALON À CE CODE — VÉRIFIE LES 4 CARACTÈRES, OU CRÉE LE TIEN",
-    errSalonComplet: (max) => `SALON COMPLET (${max} JOUEURS) — CRÉE-EN UN AUTRE`,
+    sortieRetaper: "RETAPER",
+    reconnexion: "RECONNEXION…",
+    coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
+    sortieOuvrir: "OUVRIR LE MIEN",
+    sortieRecharger: "RECHARGER",
+    /*
+     * ⚠️ LE MESSAGE DIT LA CAUSE, les boutons disent le geste.
+     *
+     * Il disait « VÉRIFIE LES 4 CARACTÈRES, OU CRÉE LE TIEN » — exactement ce
+     * que RETAPER et OUVRIR LE MIEN portent désormais, donc lu deux fois. Ce
+     * qu'aucun bouton ne peut dire, c'est POURQUOI : le 2 et le Z sont tous
+     * deux dans `CODE_ALPHABET` et se confondent quand on dicte, et un salon
+     * ne survit pas au redémarrage du serveur.
+     */
+    errSalonInconnu:
+      "CE SALON N'EXISTE PLUS — SOIT LE CODE EST MAL RECOPIÉ (LE 2 ET LE Z SE RESSEMBLENT), SOIT L'HÔTE A FERMÉ",
+    errSalonComplet: (max) => `SALON COMPLET · ${max} JOUEURS`,
     errPasHote: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI",
     errEnMatch: "MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE",
     errVersion: "VERSION INCOMPATIBLE — RECHARGE LA PAGE",
@@ -1432,8 +1456,14 @@ const DYN: Record<Lang, Dyn> = {
     manchesN: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     aRegarde: "WATCHED",
     errDeconnecte: "DISCONNECTED — REJOIN TO TAKE YOUR SEAT BACK",
-    errSalonInconnu: "NO ROOM WITH THAT CODE — CHECK THE 4 CHARACTERS, OR CREATE YOUR OWN",
-    errSalonComplet: (max) => `ROOM FULL (${max} PLAYERS) — CREATE ANOTHER ONE`,
+    sortieRetaper: "TYPE IT AGAIN",
+    reconnexion: "RECONNECTING…",
+    coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
+    sortieOuvrir: "OPEN MY OWN",
+    sortieRecharger: "RELOAD",
+    errSalonInconnu:
+      "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
+    errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
     errPasHote: "ONLY WHOEVER CREATED THE ROOM CAN START — ASK THEM",
     errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
     errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",

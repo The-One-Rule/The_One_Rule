@@ -11,6 +11,7 @@ import {
   EMOTE_COOLDOWN_MS,
   LIVES_CHOICES,
   MAX_PLAYERS,
+  RECONNECT_GRACE_MS,
   ROTATION_CHOICES,
   SPEED_CHOICES,
 } from "../shared/protocol";
@@ -252,15 +253,55 @@ function myGlyph(): Glyph {
   return signeAffiche(P.load());
 }
 
-function setJoinErr(msg: string | null): void {
+/**
+ * Une SORTIE : un mot, et le geste qu'il déclenche.
+ *
+ * Une erreur qui ne propose rien laisse le joueur devant un mur rouge. Chaque
+ * message nomme donc ses issues — et seulement celles qui répondent VRAIMENT à
+ * lui : « SALON COMPLET » ne se répare pas en retapant le code.
+ */
+interface Sortie {
+  readonly quoi: string;
+  readonly fait: () => void;
+}
+
+function setJoinErr(msg: string | null, sorties: readonly Sortie[] = []): void {
   const el = $("multiJoinErr");
+  const actes = $("multiJoinSorties");
+  actes.innerHTML = "";
   if (!msg) {
     el.textContent = "";
     el.classList.add("hidden");
+    actes.classList.add("hidden");
     return;
   }
   el.textContent = msg;
   el.classList.remove("hidden");
+  for (const s of sorties) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "btn btn--ghost btn--sortie";
+    b.textContent = s.quoi;
+    b.addEventListener("click", () => {
+      sfx.ui();
+      s.fait();
+    });
+    actes.appendChild(b);
+  }
+  actes.classList.toggle("hidden", sorties.length === 0);
+}
+
+/** RETAPER : on vide le champ et on y remet le curseur. Le geste, pas le mot. */
+function sortieRetaper(): Sortie {
+  return {
+    quoi: tr("sortieRetaper"),
+    fait: () => {
+      const champ = $<HTMLInputElement>("multiCode");
+      champ.value = "";
+      champ.focus();
+      setJoinErr(null);
+    },
+  };
 }
 
 /* Quatre segments dans une demi-colonne : le « × » ne survit pas, et il ne
@@ -280,6 +321,16 @@ const ROTATION_LABEL: Record<number, string> = { 4: "4", 8: "8", 16: "16" };
  * et c'est un score que la plupart des salons atteignent.
  */
 const MANCHE_TEMOIN = 20;
+
+/*
+ * Combien de fois on retente avant de rendre la main.
+ *
+ * Hissé en constante parce que le panneau de coupure l'ANNONCE (« ESSAI 2 SUR
+ * 3 ») : un chiffre écrit deux fois — une dans la boucle, une dans le texte —
+ * finit par diverger, et le symptôme serait un compteur qui ment au moment le
+ * plus inquiétant de la partie.
+ */
+const ESSAIS_REPRISE = 3;
 
 function playerGlyph(p: PlayerPublic) {
   return p.glyph ?? glyphFor(p.id);
@@ -2042,7 +2093,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           void attemptRejoin();
           return;
         }
-        setJoinErr(coupe ? tr("errDeconnecte") : tr("errSalonInconnu"));
+        /*
+         * ⚠️ CHAQUE ERREUR NOMME SES ISSUES, et seulement celles qui répondent
+         * vraiment à elle. Un code inconnu se répare en le retapant — c'est le
+         * 2 confondu avec le Z — ou en ouvrant le sien. Un salon complet, lui,
+         * ne se répare pas en retapant : lui proposer serait un mensonge.
+         */
+        setJoinErr(
+          coupe ? tr("errDeconnecte") : tr("errSalonInconnu"),
+          coupe ? [] : [sortieRetaper(), sortieOuvrir()],
+        );
         if (roomCode) {
           roomCode = "";
           endScreenOpen = false;
@@ -2052,7 +2112,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           show("multi-join");
         }
       } else if (msg.code === "room_full") {
-        setJoinErr(tr("errSalonComplet")(MAX_PLAYERS));
+        setJoinErr(tr("errSalonComplet")(MAX_PLAYERS), [sortieOuvrir()]);
       } else if (msg.code === "not_host") {
         setJoinErr(tr("errPasHote"));
       } else if (msg.code === "in_match") {
@@ -2060,9 +2120,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       } else if (msg.code === "bad_version") {
         // Cas typique d'un onglet resté ouvert sur l'ancien bundle après un
         // déploiement. Le geste qui répare est le rechargement : le dire.
-        setJoinErr(tr("errVersion"));
+        setJoinErr(tr("errVersion"), [
+          { quoi: tr("sortieRecharger"), fait: () => location.reload() },
+        ]);
       } else if (msg.code === "kicked") {
-        setJoinErr(tr("errExclu"));
+        setJoinErr(tr("errExclu"), [sortieOuvrir()]);
         // Départ subi mais définitif : surtout ne pas revenir tout seul.
         lastRoomCode = "";
         roomCode = "";
@@ -2175,13 +2237,55 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * de marteler, et une boucle sans fin sur un serveur éteint serait pire que
    * le problème d'origine.
    */
+  /**
+   * LE PANNEAU DE COUPURE — décision n°4, rendue visible.
+   *
+   * « Une coupure n'est pas une défaite » était vrai dans le serveur et
+   * invisible à l'écran : le joueur lisait « RECONNEXION… » en petit dans le
+   * bandeau, la scène figée derrière. C'est exactement la sensation
+   * d'expulsion que `attemptRejoin` existe pour supprimer.
+   *
+   * ⚠️ LE REBOURS EST DÉCORATIF, et c'est ce qui le rend honnête.
+   *
+   * Le sursis appartient au SERVEUR (`RECONNECT_GRACE_MS`), qui décide seul
+   * quand la place est perdue. Ce compteur ne fait que MONTRER ce que le
+   * serveur promet, il ne le décide pas — et il s'efface au message suivant,
+   * jamais sur sa propre fin, exactement comme les états de manche (n°9).
+   */
+  let coupureDepuis = 0;
+  let coupureTic: ReturnType<typeof setInterval> | null = null;
+
+  function montreCoupure(essai: number): void {
+    coupureDepuis = Date.now();
+    $("coupure").classList.remove("hidden");
+    peintCoupure(essai);
+    if (coupureTic) clearInterval(coupureTic);
+    coupureTic = setInterval(() => peintCoupure(essai), 250);
+  }
+
+  function peintCoupure(essai: number): void {
+    const passe = Date.now() - coupureDepuis;
+    const reste = Math.max(0, RECONNECT_GRACE_MS - passe);
+    const part = Math.max(0, Math.min(1, reste / RECONNECT_GRACE_MS));
+    $("coupureJauge").style.transform = `scaleX(${part.toFixed(3)})`;
+    $("coupureEtat").textContent = tr("coupureEtat")(essai, ESSAIS_REPRISE, Math.ceil(reste / 1000));
+  }
+
+  function cacheCoupure(): void {
+    if (coupureTic) clearInterval(coupureTic);
+    coupureTic = null;
+    $("coupure").classList.add("hidden");
+  }
+
   async function attemptRejoin(): Promise<void> {
     if (!lastRoomCode || rejoining) return;
     rejoining = true;
     setJoinErr(null);
-    hud.setMeta("RECONNEXION…");
+    hud.setMeta(tr("reconnexion"));
+    montreCoupure(1);
     try {
-      for (let essai = 0; essai < 3; essai++) {
+      for (let essai = 0; essai < ESSAIS_REPRISE; essai++) {
+        peintCoupure(essai + 1);
         const client = await ensureConnected();
         if (client) {
           client.joinRoom(lastRoomCode);
@@ -2192,7 +2296,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
       $<HTMLInputElement>("multiCode").value = lastRoomCode;
       syncJoinAccent();
-      setJoinErr(tr("errConnexionPerdue"));
+      setJoinErr(tr("errConnexionPerdue"), [sortieOuvrir()]);
       setPlatesVisible(false);
       clearPlateCols();
       clearMatch();
@@ -2200,6 +2304,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     } finally {
       rejoining = false;
       hud.setMeta("");
+      cacheCoupure();
     }
   }
 
@@ -2665,6 +2770,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * nous qui venons d'ouvrir. L'hote peut encore le changer dans le salon —
    * ouvrir en DUO est un depart, pas un verrou.
    */
+  /** OUVRIR LE MIEN — la seule issue qui ne dépend de personne d'autre. */
+  const sortieOuvrir = (): Sortie => ({
+    quoi: tr("sortieOuvrir"),
+    fait: () => void ouvreSalon(false),
+  });
+
   async function ouvreSalon(duo: boolean): Promise<void> {
     sfx.ui();
     setJoinErr(null);

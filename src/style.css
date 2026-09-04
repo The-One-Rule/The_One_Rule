@@ -10035,3 +10035,106 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-intitule);
   font-weight: 400;
 }
+
+/*
+ * LES SORTIES D'UNE ERREUR.
+ *
+ * Une erreur qui ne propose rien laisse le joueur devant un mur rouge. Elles
+ * sont FANTOMES et non pleines : elles reparent, elles ne sont pas l'action
+ * principale de l'ecran — REJOINDRE le reste.
+ */
+.sorties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.sorties.hidden {
+  display: none;
+}
+
+.btn--sortie {
+  flex: 1 1 auto;
+  min-width: max-content;
+}
+
+/* ==================================================================
+   LA COUPURE — decision n°4, rendue visible
+
+   « Une coupure n'est pas une defaite » etait vrai dans le serveur et
+   invisible a l'ecran : le joueur lisait « RECONNEXION… » en petit dans le
+   bandeau, la scene figee derriere. Le panneau dit les trois choses que le
+   serveur GARANTIT et que personne ne peut deviner : la place est gardee,
+   aucune manche ne se joue, il reste tant de secondes.
+
+   ⚠️ HORS FLUX, comme l'aide du tutoriel et le piege dejoue : il ne prend pas
+   un pixel au terrain, et la taille du champ EST du gameplay (n°10).
+   ================================================================== */
+
+.coupure {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+  z-index: 4;
+}
+
+.coupure.hidden {
+  display: none;
+}
+
+.coupure__panel {
+  max-width: 46ch;
+  padding: 20px;
+  border: 2px solid var(--ambre);
+  background: var(--ink-2);
+  text-align: center;
+}
+
+.coupure__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.coupure__quoi {
+  margin: 10px 0 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.55;
+  color: var(--paper-dim);
+}
+
+/*
+ * ⚠️ La jauge est DECORATIVE, et c'est ce qui la rend honnete : le sursis
+ * appartient au serveur, qui decide seul quand la place est perdue. Elle
+ * montre ce qu'il promet, elle ne le decide pas. `transform` seul est anime —
+ * la meme regle que `--heat`.
+ */
+.coupure__jauge {
+  margin-top: 16px;
+  height: 6px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.coupure__jauge i {
+  display: block;
+  height: 100%;
+  background: var(--ambre);
+  transform-origin: left center;
+}
+
+.coupure__etat {
+  margin: 10px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ambre);
+}

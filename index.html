@@ -188,6 +188,27 @@
           <p class="piege__carte" id="piegeCarte"></p>
         </div>
 
+
+        <!-- LA COUPURE, ET CE QU'ELLE NE COÛTE PAS.
+             Décision n°4 : une coupure n'est pas une défaite. Elle ne se
+             voyait nulle part — le joueur lisait « RECONNEXION… » en petit
+             dans le bandeau pendant que la scène restait figée, ce qui
+             ressemble exactement à une expulsion. Le panneau dit les trois
+             choses que le serveur GARANTIT et que personne ne peut deviner :
+             la place est gardée, aucune manche ne se joue pendant ce temps,
+             et il reste tant de secondes.
+
+             Hors flux comme l'aide du tutoriel et le piège déjoué : il ne
+             prend pas un pixel au terrain. -->
+        <div id="coupure" class="coupure hidden" aria-live="assertive">
+          <div class="coupure__panel">
+            <p class="coupure__titre" data-i18n="coupure.titre">PUTTING YOU BACK IN</p>
+            <p class="coupure__quoi" data-i18n="coupure.quoi">Your seat is held for 25 seconds and you play no round during that time. A cut is not a defeat.</p>
+            <div class="coupure__jauge" aria-hidden="true"><i id="coupureJauge"></i></div>
+            <p class="coupure__etat" id="coupureEtat"></p>
+          </div>
+        </div>
+
         <div id="tuto" class="tuto hidden" aria-live="polite">
           <p class="tuto__aide" id="tutoAide"></p>
           <p class="tuto__note" id="tutoNote"></p>
@@ -1287,6 +1308,13 @@
               />
             </div>
             <p class="warn hidden" id="multiJoinErr"></p>
+            <!-- ⚠️ UNE ERREUR PROPOSE UNE SORTIE.
+                 « AUCUN SALON À CE CODE » laissait le joueur devant un mur
+                 rouge : il faut retaper (le 2 se confond avec le Z quand on
+                 dicte) ou ouvrir le sien, et rien ne le disait. Chaque message
+                 nomme ses issues — et seulement celles qui répondent vraiment
+                 à lui. -->
+            <div class="sorties hidden" id="multiJoinSorties"></div>
             <div class="btnrow">
               <button class="btn btn--primary" id="btnMultiJoin" data-i18n="multi.rejoindre">JOIN</button>
             </div>
