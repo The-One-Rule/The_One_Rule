@@ -28,6 +28,16 @@
   --signal: #9184d9;
   --signal-pale: #cfc9f2;
 
+  /*
+   * L'ambre JOUABLE, promue en jeton.
+   *
+   * Elle vivait dans le renderer du canvas et nulle part dans la feuille. La
+   * collection en a besoin : c'est la couleur de l'etat PARFAITE et de la
+   * pastille du run du jour. Meme valeur que la piece — un joueur qui a vu
+   * l'ambre sur le terrain la reconnait sur une carte.
+   */
+  --ambre: #f5b214;
+
   /* Rouge d'urgence du HUD. Aligné sur les hachures du cadre de temps, et
      volontairement distinct de la garance jouable #F74058. */
   --rouge: #b01732;
@@ -8915,7 +8925,7 @@ button.chip:active:not(:disabled) {
   right: 22%;
   width: 6px;
   height: 6px;
-  background: var(--ambre, #f5b214);
+  background: var(--ambre);
 }
 
 /*
@@ -9113,4 +9123,321 @@ button.chip:active:not(:disabled) {
 .avance .btn {
   align-self: flex-start;
   margin-top: 2px;
+}
+
+/* ==================================================================
+   LA CARTE — trois zones, et le cadre prend la couleur de l'etat
+
+   Bandeau FAMILLE · N/6 · scene sur trame de points · pied NOM + ETAT. Une
+   grille de seize se lit alors de loin, sans lire un seul mot : c'est la
+   couleur du cadre qui dit ou l'on en est.
+   ================================================================== */
+
+.carte {
+  border-width: 3px;
+  background: var(--ink);
+}
+
+.carte__tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 7px;
+  background: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.carte__cases {
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* La trame de points du terrain, derriere l'illustration : la carte et le
+   champ sont le meme monde. */
+.carte__vue {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  background: var(--ink);
+  background-image: radial-gradient(var(--line) 1px, transparent 1px);
+  background-size: 14px 14px;
+  border-bottom: 0;
+}
+
+.carte__img {
+  position: absolute;
+  inset: 0;
+}
+
+.carte__pied {
+  padding: 7px;
+  background: var(--ink-2);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.carte__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--paper);
+}
+
+.carte__etat {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+
+/* Le point d'interrogation d'une carte verrouillee : la censure dit qu'il y a
+   quelque chose la, sans dire quoi. */
+.carte__censure {
+  display: grid;
+  place-items: center;
+}
+
+.carte__interro {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  color: color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+/* ---- les cinq etats, du plus avance au plus pauvre ---- */
+
+.carte.is-parfaite {
+  border-color: var(--ambre);
+  box-shadow: none;
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__pied {
+  background: #231b0d;
+  border-color: var(--ambre);
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__etat {
+  color: var(--ambre);
+}
+
+.carte.is-maitrisee {
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__pied {
+  background: #1a1d3a;
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__etat {
+  color: var(--signal-pale);
+}
+
+/* La lueur interieure ne touche QUE les etats acquis : elle recompense, elle
+   ne decore pas. */
+.carte.is-parfaite .carte__vue::after,
+.carte.is-maitrisee .carte__vue::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 22px color-mix(in srgb, var(--signal) 50%, transparent);
+}
+
+.carte.is-parfaite .carte__vue::after {
+  box-shadow: inset 0 0 22px color-mix(in srgb, var(--ambre) 45%, transparent);
+}
+
+.carte.is-encours {
+  border-color: var(--line);
+}
+
+.carte.is-decouverte {
+  border-color: var(--line);
+}
+
+.carte.is-verrouillee {
+  border-style: dashed;
+  border-color: var(--line);
+}
+
+/* NOUVELLE est un badge TRANSITOIRE — la regle vient d'etre decouverte. */
+.carte.is-neuve .carte__etat {
+  color: var(--ambre);
+}
+
+/* ==================================================================
+   LA BARRE LATERALE DE LA COLLECTION — en large seulement
+
+   Sur telephone, les filtres restent au-dessus de la grille : une colonne de
+   230 px y prendrait les deux tiers de l'ecran. En large elle libere toute la
+   largeur pour les cartes, qui sont le sujet.
+   ================================================================== */
+
+/*
+ * ⚠️ SUR TELEPHONE, LA BARRE S'EFFACE MAIS PAS SON CONTENU.
+ *
+ * `display: contents` retire la boite du rendu et laisse ses enfants se poser
+ * comme s'ils etaient des enfants directs de l'ecran — donc les filtres et la
+ * regle qui resiste restent la, empiles au-dessus de la grille.
+ *
+ * `display: none` les aurait emportes avec elle : mesure, les filtres passaient
+ * a une largeur de zero et disparaissaient de l'ecran.
+ */
+.codexbar {
+  display: contents;
+}
+
+/* Le grand chiffre et la jauge ne servent qu'en large : sur telephone, la
+   ligne « 7 / 16 RENCONTREES » du haut dit deja la meme chose. */
+.codexbar > div:first-child {
+  display: none;
+}
+
+.codexbar__jauge {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+}
+
+.codexbar__jauge i {
+  flex: 1;
+  height: 8px;
+  background: #1b2130;
+}
+
+.codexbar__jauge i.est-decouverte {
+  background: var(--paper-dim);
+}
+
+.codexbar__jauge i.est-maitrisee {
+  background: var(--signal);
+}
+
+.codexbar__jauge i.est-parfaite {
+  background: var(--ambre);
+}
+
+@media (min-width: 900px) {
+  /* La collection passe en DEUX bandes : filtres a gauche, grille a droite. */
+  #codex .screen__scroll {
+    max-width: 1100px;
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    align-items: start;
+    gap: 0 26px;
+    text-align: left;
+  }
+
+  #codex .screen__scroll > *:not(.codexbar) {
+    grid-column: 2;
+  }
+
+  /* Le compteur textuel fait doublon avec le grand chiffre de la barre. */
+  #codex .codexprogress {
+    display: none;
+  }
+
+  .codexbar > div:first-child {
+    display: block;
+  }
+
+  .codexbar {
+    /* En large elle redevient une BOITE : sur telephone elle vaut
+       display:contents pour laisser passer ses enfants, et ce mode-la
+       supprimerait son cadre et son fond. */
+    display: flex;
+    grid-column: 1;
+    /* ⚠️ `span 99` et non `1 / -1` : sans rangees EXPLICITES, `-1` designe la
+       derniere ligne explicite — c'est-a-dire la premiere — et la barre ne
+       couvrait qu'une rangee tout en poussant la grille sous elle. */
+    grid-row: 1 / span 99;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px 18px;
+    background: #0b0f18;
+    border: var(--bd-hair) solid var(--line);
+    position: sticky;
+    top: 0;
+  }
+
+  .codexbar__total {
+    margin: 8px 0 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 34px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--paper);
+  }
+
+  .codexbar__total span {
+    font-size: 18px;
+    color: var(--paper-dim);
+  }
+
+  /*
+   * EN LARGE, LES FILTRES VIVENT DANS LA BARRE.
+   *
+   * Ils repondent a la question qu'on vient poser — « laquelle travailler ? » —
+   * et la barre est l'endroit ou l'on regarde avant la grille. Les laisser
+   * au-dessus des cartes repoussait la premiere rangee a y=579 sur 860.
+   */
+  #codex .filtres {
+    flex-direction: column;
+    gap: 14px;
+    margin: 0;
+  }
+
+  .filtres__groupe {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* Le second groupe repond a une AUTRE question — « ou j'en suis ? » — donc
+     un filet l'en separe. */
+  .filtres__groupe + .filtres__groupe {
+    padding-top: 14px;
+    border-top: var(--bd-hair) solid var(--line);
+  }
+
+  #codex .filtre {
+    flex: none;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-left: 2px solid transparent;
+    min-height: 34px;
+    padding: 7px 10px;
+  }
+
+  #codex .filtre.is-on {
+    background: none;
+    color: var(--paper);
+    border-left-color: var(--signal);
+  }
+
+  /* La grille prend toute la place restante : cinq cartes par rangee. */
+  /* Cinq par rangee : mesure, la colonne de droite fait 796 px et cinq cartes
+     de 150 plus quatre gouttieres y tiennent (790). */
+  #codex .codexlist {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
 }

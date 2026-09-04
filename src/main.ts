@@ -18,6 +18,7 @@ import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./ga
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
 import { emblemeDe, emblemeSvg, etatCarte } from "./render/carte";
+import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
@@ -43,11 +44,11 @@ import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
-import { echelleMaitrise, estParfaite, franchies, lisRun } from "./game/echelle";
+import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
 import type { CaseMaitrise } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
-import { familleDe, tauxPiege } from "./game/famille";
+import { familleDe, parFamille, tauxPiege } from "./game/famille";
 import { cleEntrainement } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
@@ -746,39 +747,56 @@ function renderCodex(): void {
    * trois boutons pour trier un élément se lisent comme une fonctionnalité qui
    * ne sert à rien.
    */
+  /*
+   * DEUX GROUPES DE FILTRES, et ils répondent à deux questions différentes :
+   * « quel genre de règle ? » (la famille) et « où j'en suis ? » (l'avancement).
+   *
+   * Un seul filtre actif à la fois, quel que soit le groupe : deux filtres qui
+   * se composent demanderaient au joueur de tenir un état en tête, sur un écran
+   * qui existe justement pour lui éviter ça.
+   */
+  const fam = parFamille();
+  const verrouillees = ONE_RULES.length - rencontrees.length;
   const hote = $("filtres");
   hote.classList.toggle("hidden", rencontrees.length < 2);
   hote.innerHTML = "";
-  for (const [id, libelle] of [
-    ["amater", t("filtreAMater")(aMater.length)],
-    ["maitrisees", t("filtreMaitrisees")(maitrisees)],
-    ["toutes", t("filtreToutes")(ONE_RULES.length)],
-  ] as const) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.className = `filtre${filtre === id ? " is-on" : ""}`;
-    b.textContent = libelle;
-    b.setAttribute("aria-pressed", String(filtre === id));
-    b.addEventListener("click", () => {
-      filtre = id as Filtre;
-      sfx.ui();
-      renderCodex();
-    });
-    hote.appendChild(b);
+  const groupes: ReadonlyArray<ReadonlyArray<readonly [Filtre, string]>> = [
+    [
+      ["toutes", t("filtreToutes")(ONE_RULES.length)],
+      ["interdit", t("filtreInterdits")(fam.interdit.length)],
+      ["deformation", t("filtreDeformations")(fam.deformation.length)],
+      ["contrainte", t("filtreContraintes")(fam.contrainte.length)],
+    ],
+    [
+      ["amater", t("filtreAMater")(aMater.length)],
+      ["maitrisees", t("filtreMaitrisees")(maitrisees)],
+      ["verrouillees", t("filtreVerrouillees")(verrouillees)],
+    ],
+  ];
+  for (const groupe of groupes) {
+    const g = document.createElement("div");
+    g.className = "filtres__groupe";
+    for (const [id, libelle] of groupe) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `filtre${filtre === id ? " is-on" : ""}`;
+      b.textContent = libelle;
+      b.setAttribute("aria-pressed", String(filtre === id));
+      b.addEventListener("click", () => {
+        filtre = id;
+        sfx.ui();
+        renderCodex();
+      });
+      g.appendChild(b);
+    }
+    hote.appendChild(g);
   }
 
   // Ce que le joueur n'a pas encore vu — et qui ne s'obtient qu'en jouant.
   $("codexJamais").textContent = t("salleJamaisVues")(ONE_RULES.length - vues);
   $("codexJamais").classList.toggle("hidden", vues === 0);
 
-  const visibles = ONE_RULES.filter((r) => {
-    if (filtre === "toutes") return true;
-    const rec = s.encountered[r.id];
-    if (!rec) return false;
-    return filtre === "maitrisees"
-      ? estMaitrisee(r, rec)
-      : !estMaitrisee(r, rec);
-  });
+  const visibles = ONE_RULES.filter((r) => passeFiltre(r, s, filtre));
   $("codexRien").textContent = t("filtreRien");
   $("codexRien").classList.toggle("hidden", visibles.length > 0 || filtre === "toutes");
 
@@ -793,6 +811,26 @@ function renderCodex(): void {
    * Le compteur compte désormais les MAÎTRISÉES et non les « tenues » : c'est
    * le même objectif que l'entraînement ciblé, donc le même nombre partout.
    */
+  /*
+   * LA BARRE LATÉRALE : le compte, et une case par règle.
+   *
+   * Seize cases colorées par leur état donnent l'avancement de toute la
+   * collection d'un coup d'œil — c'est ce que le compteur textuel ne peut pas
+   * faire. Elle n'apparaît qu'en large ; le CSS s'en charge, pas le JS.
+   */
+  $("codexbarTotal").innerHTML = "";
+  const tot = document.createElement("span");
+  $("codexbarTotal").append(String(vues), tot);
+  tot.textContent = ` / ${ONE_RULES.length}`;
+  const jauge = $("codexbarJauge");
+  jauge.innerHTML = "";
+  for (const r of ONE_RULES) {
+    const i = document.createElement("i");
+    const e = etatCarte(franchies(echelleMaitrise(r, s.encountered[r.id])));
+    if (e !== "verrouillee") i.className = `est-${e === "parfaite" ? "parfaite" : e === "maitrisee" ? "maitrisee" : "decouverte"}`;
+    jauge.appendChild(i);
+  }
+
   // Le mur de cartes verrouillées devient une invitation quand il est TOTAL.
   $("codexVide").textContent = t("codexVide");
   $("codexVide").classList.toggle("hidden", vues > 0);
@@ -801,10 +839,13 @@ function renderCodex(): void {
     const rec = s.encountered[r.id];
     const cases = echelleMaitrise(r, rec);
     const n = franchies(cases);
-    const parfaite = estParfaite(r, rec);
-    const etat = etatCarte(rec, estMaitrisee(r, rec));
+    const etat = etatCarte(n);
     const carte = document.createElement("article");
-    carte.className = `carte is-${etat}${parfaite ? " is-parfaite" : ""}`;
+    // « NOUVELLE » est un badge TRANSITOIRE : la règle a été découverte au
+    // dernier run. Il tombe dès qu'on rejoue, et c'est voulu — c'est un
+    // événement, pas un état.
+    const neuve = r.id === derniereDecouverte;
+    carte.className = `carte is-${etat}${neuve ? " is-neuve" : ""}`;
     /*
      * L'ILLUSTRATION EST UNE IMAGE, et la carte VERROUILLÉE n'en charge aucune.
      *
@@ -813,38 +854,38 @@ function renderCodex(): void {
      * avec — la décision n°7 tenue jusque dans le HTML, et maintenant jusque
      * dans les requêtes réseau.
      */
-    const vue = etat === "verrouillee"
-      ? `<div class="carte__censure" aria-hidden="true"></div>`
+    const verrou = etat === "verrouillee";
+    const vue = verrou
+      ? `<div class="carte__censure" aria-hidden="true"><span class="carte__interro">?</span></div>`
       : `<img class="carte__img" src="/cartes/${r.id}.png" width="64" height="64" alt="" loading="lazy" decoding="async" />`;
-    carte.innerHTML =
-      `<div class="carte__vue">${vue}</div>` +
-      `<div class="carte__corps">` +
-      `<h3 class="carte__nom"></h3>` +
-      `<p class="carte__brief"></p>` +
-      `</div>` +
-      // La jauge : six pastilles, une par case. Jamais un pourcentage — 72 %
-      // ne se joue pas, « il te manque 4 manches » se joue.
-      `<div class="carte__jauge" role="img" aria-label="${n} / 6">` +
-      cases.map((c) => `<i class="${c.faite ? "is-on" : ""}"></i>`).join("") +
-      `</div>` +
-      `<p class="carte__etat"></p>`;
-    carte.querySelector<HTMLElement>(".carte__nom")!.textContent =
-      etat === "verrouillee" ? t("pickVerrouille") : nomDeRegle(r.id, r.name);
     /*
-     * L'explication n'apparaît QUE pour une règle déjà rencontrée.
-     *
-     * Le carnet sert à réviser ce qu'on a affronté — pas à lire d'avance ce
-     * qui nous attend. La surprise du run du jour est le seul contenu neuf du
-     * jeu, et la brûler ici la brûlerait partout.
+     * TROIS ZONES, comme la maquette : la FAMILLE et l'avancement en bandeau,
+     * la scène au milieu, le NOM et l'ÉTAT en pied. Le cadre entier prend la
+     * couleur de l'état, donc une grille de seize se lit de loin sans lire un
+     * seul mot.
      */
-    carte.querySelector<HTMLElement>(".carte__brief")!.textContent =
-      etat === "verrouillee" ? "" : briefDeRegle(r.id, r.brief);
-    carte.querySelector<HTMLElement>(".carte__etat")!.textContent =
-      etat === "verrouillee"
-        ? t("carnetJamais")
-        : parfaite
-          ? t("carteParfaite")
-          : t("carteCases")(n);
+    carte.innerHTML =
+      `<div class="carte__tete">` +
+      `<span class="carte__famille"></span>` +
+      `<span class="carte__cases"></span>` +
+      `</div>` +
+      `<div class="carte__vue">${vue}</div>` +
+      `<div class="carte__pied">` +
+      `<h3 class="carte__nom"></h3>` +
+      `<p class="carte__etat"></p>` +
+      `</div>`;
+    carte.querySelector<HTMLElement>(".carte__famille")!.textContent = verrou
+      ? "? ? ?"
+      : NOM_FAMILLE[familleDe(r)]();
+    carte.querySelector<HTMLElement>(".carte__cases")!.textContent = verrou ? "—" : `${n}/6`;
+    carte.querySelector<HTMLElement>(".carte__nom")!.textContent = verrou
+      ? t("pickVerrouille")
+      : nomDeRegle(r.id, r.name);
+    carte.querySelector<HTMLElement>(".carte__etat")!.textContent = verrou
+      ? t("carteVerrouillee")
+      : neuve
+        ? t("carteNouvelle")
+        : ETIQUETTE_ETAT[etat]();
     /*
      * Une carte RENCONTRÉE s'ouvre ; une verrouillée ne bouge pas.
      *
@@ -1766,8 +1807,60 @@ let ficheRegle: OneRule | null = null;
  * finissent par se contredire. Les filtres se posent donc SUR la grille
  * existante : c'est le même objet qu'on regarde autrement.
  */
-type Filtre = "amater" | "maitrisees" | "toutes";
+type Filtre =
+  /** Par FAMILLE — ce que la règle fait. */
+  | "toutes"
+  | "interdit"
+  | "deformation"
+  | "contrainte"
+  /** Par AVANCEMENT — où j'en suis. */
+  | "amater"
+  | "maitrisees"
+  | "verrouillees";
 let filtre: Filtre = "toutes";
+
+/** Une règle passe-t-elle le filtre courant ? */
+function passeFiltre(r: OneRule, s: P.Save, f: Filtre): boolean {
+  const rec = s.encountered[r.id];
+  switch (f) {
+    case "toutes":
+      return true;
+    case "interdit":
+    case "deformation":
+    case "contrainte":
+      return familleDe(r) === f;
+    case "verrouillees":
+      return !rec;
+    case "maitrisees":
+      return !!rec && estMaitrisee(r, rec);
+    case "amater":
+      return !!rec && !estMaitrisee(r, rec);
+  }
+}
+
+/**
+ * L'étiquette de chaque état de carte.
+ *
+ * Une TABLE et non des ternaires : cinq états qui se lisent en cascade se
+ * comportent faux tôt ou tard, et `Record<EtatCarte, …>` refuse de compiler le
+ * jour où un état s'ajoute sans son libellé.
+ */
+const ETIQUETTE_ETAT: Record<EtatCarte, () => string> = {
+  verrouillee: () => t("carteVerrouillee"),
+  decouverte: () => t("carteDecouverte"),
+  encours: () => t("carteEnCours"),
+  maitrisee: () => t("carteMaitrisee"),
+  parfaite: () => t("carteParfaite"),
+};
+
+/**
+ * La règle découverte au DERNIER run — pour le badge « NOUVELLE ».
+ *
+ * Transitoire par construction : elle vit en mémoire, pas dans la sauvegarde.
+ * Un badge « nouvelle » qui survivrait à une session cesserait de dire
+ * « regarde ça » pour dire « c'est son nom ».
+ */
+let derniereDecouverte: string | null = null;
 
 const NOM_FAMILLE = {
   interdit: () => t("famInterdit"),
@@ -2571,6 +2664,7 @@ function peintAvance(
    * séparément, pas comme un progrès parmi d'autres.
    */
   const neuve = !avant && !!rec;
+  derniereDecouverte = neuve ? regle.id : derniereDecouverte;
   const vues = ONE_RULES.filter((r) => !!apres.encountered[r.id]).length;
   $("decouverte").classList.toggle("hidden", !neuve);
   if (neuve) {

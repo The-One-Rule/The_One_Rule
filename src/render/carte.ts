@@ -30,24 +30,36 @@
  */
 import type { ColorId, ShapeId } from "../engine/types";
 import type { OneRule } from "../engine/types";
-import type { RuleRecord } from "../game/progress";
 
 /* ------------------------------------------------------------------ *
  * L'ÉTAT D'UNE CARTE — la priorité
  * ------------------------------------------------------------------ */
 
-export type EtatCarte = "verrouillee" | "decouverte" | "maitrisee";
+export type EtatCarte =
+  | "verrouillee"
+  | "decouverte"
+  | "encours"
+  | "maitrisee"
+  | "parfaite";
 
 /**
- * Trois états, et l'ordre compte.
+ * L'état d'une carte se lit de son AVANCEMENT, pas d'un drapeau.
  *
- * `maitrisee` vient d'`estMaitrisee`, qui compte les PIÈGES DÉJOUÉS et pas les
- * manches tenues — c'est le point de conception de tout l'entraînement ciblé,
- * et la carte ne fait que l'afficher.
+ * Cinq états, dérivés du nombre de cases franchies sur les six de l'échelle :
+ * verrouillée (aucune) · découverte (une) · en cours (deux à quatre) ·
+ * maîtrisée (cinq) · parfaite (les six).
+ *
+ * ⚠️ Ce N'EST PAS `estMaitrisee`, et les deux ne doivent pas être confondus.
+ * `estMaitrisee` décide de ce que l'entraînement ciblé déverrouille et de ce
+ * que le compteur du carnet additionne ; la durcir ferait reculer tous les
+ * compteurs de tous les joueurs. L'état de carte, lui, ne décide de rien : il
+ * ne fait que dire où l'on en est, et c'est pour ça qu'il peut être plus fin.
  */
-export function etatCarte(rec: RuleRecord | undefined, maitrisee: boolean): EtatCarte {
-  if (!rec) return "verrouillee";
-  return maitrisee ? "maitrisee" : "decouverte";
+export function etatCarte(cases: number): EtatCarte {
+  if (cases <= 0) return "verrouillee";
+  if (cases >= 6) return "parfaite";
+  if (cases >= 5) return "maitrisee";
+  return cases >= 2 ? "encours" : "decouverte";
 }
 
 /* ------------------------------------------------------------------ *

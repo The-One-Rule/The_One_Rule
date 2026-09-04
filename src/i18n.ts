@@ -427,11 +427,20 @@ type Dyn = {
   /* --- les cartes --- */
   carteCases: (n: number) => string;
   carteParfaite: string;
+  carteVerrouillee: string;
+  carteDecouverte: string;
+  carteEnCours: string;
+  carteMaitrisee: string;
+  carteNouvelle: string;
   codexVide: string;
   /* --- la salle de travail --- */
   filtreAMater: (n: number) => string;
   filtreMaitrisees: (n: number) => string;
   filtreToutes: (n: number) => string;
+  filtreInterdits: (n: number) => string;
+  filtreDeformations: (n: number) => string;
+  filtreContraintes: (n: number) => string;
+  filtreVerrouillees: (n: number) => string;
   salleJamaisVues: (n: number) => string;
   resisteNote: (runs: number, cases: number) => string;
   resisteBouton: string;
@@ -758,11 +767,20 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGER DE NOM",
     carteCases: (n) => `${n} / 6 · MAÎTRISE`,
     carteParfaite: "PARFAITE",
+    carteVerrouillee: "VERROUILLÉE",
+    carteDecouverte: "DÉCOUVERTE",
+    carteEnCours: "EN COURS",
+    carteMaitrisee: "MAÎTRISÉE",
+    carteNouvelle: "NOUVELLE",
     codexVide:
       "Aucune règle rencontrée pour l'instant. Lance une partie : une carte se débloque en JOUANT, jamais en lisant.",
     filtreAMater: (n) => `À MATER · ${n}`,
     filtreMaitrisees: (n) => `MAÎTRISÉES · ${n}`,
     filtreToutes: (n) => `TOUTES · ${n}`,
+    filtreInterdits: (n) => `INTERDITS · ${n}`,
+    filtreDeformations: (n) => `DÉFORMATIONS · ${n}`,
+    filtreContraintes: (n) => `CONTRAINTES · ${n}`,
+    filtreVerrouillees: (n) => `VERROUILLÉES · ${n}`,
     salleJamaisVues: (n) =>
       n === 0
         ? "Tu as rencontré les seize règles."
@@ -1065,11 +1083,20 @@ const DYN: Record<Lang, Dyn> = {
     compteNom: "CHANGE NAME",
     carteCases: (n) => `${n} / 6 · MASTERY`,
     carteParfaite: "PERFECT",
+    carteVerrouillee: "LOCKED",
+    carteDecouverte: "DISCOVERED",
+    carteEnCours: "IN PROGRESS",
+    carteMaitrisee: "MASTERED",
+    carteNouvelle: "NEW",
     codexVide:
       "No rule met yet. Start a run: a card unlocks by PLAYING, never by reading.",
     filtreAMater: (n) => `TO MASTER · ${n}`,
     filtreMaitrisees: (n) => `MASTERED · ${n}`,
     filtreToutes: (n) => `ALL · ${n}`,
+    filtreInterdits: (n) => `FORBIDS · ${n}`,
+    filtreDeformations: (n) => `DISTORTIONS · ${n}`,
+    filtreContraintes: (n) => `CONSTRAINTS · ${n}`,
+    filtreVerrouillees: (n) => `LOCKED · ${n}`,
     salleJamaisVues: (n) =>
       n === 0
         ? "You have met all sixteen rules."

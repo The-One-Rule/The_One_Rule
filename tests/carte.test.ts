@@ -16,24 +16,44 @@
 import { describe, expect, it } from "vitest";
 import { ONE_RULES } from "../src/engine/rules";
 import { EMBLEMES_REGLES, emblemeDe, emblemeSvg, etatCarte } from "../src/render/carte";
-import type { RuleRecord } from "../src/game/progress";
 
-const rec = (o: Partial<RuleRecord> = {}): RuleRecord => ({ best: 0, cleared: false, ...o });
 
 describe("l'état d'une carte", () => {
-  it("jamais rencontrée : verrouillée, quoi qu'on prétende par ailleurs", () => {
-    // Le second argument vient d'`estMaitrisee`, qui renvoie déjà `false` sans
-    // carnet. La carte ne doit pas dépendre de cette coïncidence.
-    expect(etatCarte(undefined, false)).toBe("verrouillee");
-    expect(etatCarte(undefined, true)).toBe("verrouillee");
+  /*
+   * Cinq états, dérivés du nombre de cases franchies sur les six de l'échelle.
+   *
+   * ⚠️ Ce n'est PAS `estMaitrisee`, et les deux ne doivent pas se confondre :
+   * `estMaitrisee` décide de ce que l'entraînement ciblé déverrouille et de ce
+   * que le compteur du carnet additionne, donc la durcir ferait reculer tous
+   * les compteurs de tous les joueurs. L'état de carte ne décide de RIEN — il
+   * ne fait que dire où l'on en est, et c'est pour ça qu'il peut être plus fin.
+   */
+  it("aucune case : verrouillée", () => {
+    expect(etatCarte(0)).toBe("verrouillee");
+    expect(etatCarte(-1), "une valeur impossible ne doit pas ouvrir la carte").toBe(
+      "verrouillee",
+    );
   });
 
-  it("rencontrée sans maîtrise : découverte", () => {
-    expect(etatCarte(rec({ best: 3 }), false)).toBe("decouverte");
+  it("une seule case : découverte", () => {
+    expect(etatCarte(1)).toBe("decouverte");
   });
 
-  it("maîtrisée : maîtrisée", () => {
-    expect(etatCarte(rec({ best: 40, pieges: 2 }), true)).toBe("maitrisee");
+  it("de deux à quatre : en cours", () => {
+    for (const n of [2, 3, 4]) expect(etatCarte(n), `${n} cases`).toBe("encours");
+  });
+
+  it("cinq : maîtrisée · six : parfaite", () => {
+    expect(etatCarte(5)).toBe("maitrisee");
+    expect(etatCarte(6)).toBe("parfaite");
+  });
+
+  it("l'échelle entière tombe dans un état, et un seul", () => {
+    // Aucun trou : le jour où l'échelle passerait à sept cases, ce test dirait
+    // que le dernier cran n'a pas d'état.
+    const vus = [0, 1, 2, 3, 4, 5, 6].map(etatCarte);
+    expect(new Set(vus).size).toBe(5);
+    expect(vus[6]).toBe("parfaite");
   });
 });
 
