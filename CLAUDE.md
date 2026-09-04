@@ -1525,6 +1525,119 @@ mais il ne paraît que sur l'écran de FIN après un run du jour — donc les tr
 joueurs sur quatre qui ne jouent jamais ne le voient jamais. Le porter sur SOLO
 est le levier ; c'est une direction, elle appartient à Pierre.
 
+### La bascule produit — comprendre avant d'agrandir
+
+Pierre a fixé un ordre après le déploiement : comprendre les joueurs engagés,
+réparer l'entrée, donner une raison de jouer, puis Training + Cards + Mastery,
+puis mesurer D1 — et **seulement ensuite** ranked, saisons, économie, skins. Sa
+règle : « quel problème joueur cette feature résout-elle ? Si la réponse est
+"ça serait cool" → ne pas la développer maintenant. »
+
+Trois phases livrées. Ce qui suit est ce qui ne se déduit pas du code.
+
+#### La mesure d'abord, parce qu'un « avant » ne se rattrape pas
+
+`scripts/report.mjs` gagne l'ENTONNOIR D'ENTRÉE et la DISTRIBUTION PAR PALIERS.
+Le chiffre qui commande tout — 106 joueurs sur 139 qui n'ont jamais lancé une
+partie — n'était calculé nulle part : il avait été obtenu à la main sur un
+export, donc impossible de dire si un correctif l'avait déplacé.
+
+⚠️ **Deux crans, deux réparations différentes.** « N'a jamais cliqué sur JOUER »
+est un problème de page d'accueil ; « a lancé une fois et jamais deux » est un
+problème d'onboarding. Les confondre ferait travailler sur le mauvais.
+
+On compte les runs **lancés** (`run_start`) et non terminés : `run_end` rate
+celui qui ferme l'onglet en pleine partie, or c'est justement la population
+qu'on cherche. Aucun événement nouveau — `first_open` et `run_start` existaient
+déjà, le rapport lit autrement ce qui était écrit.
+
+#### La première arrivée — le PIÈGE est la colonne vertébrale
+
+Rapporté par Pierre : ses camarades ont adoré sans comprendre, et il était à
+côté pour expliquer. Six temps (`src/game/onboarding.ts`), aucun chrono avant le
+cinquième.
+
+⚠️ **Ce qu'il faut enseigner en premier n'est pas ce qu'on croit.** Lire, viser,
+cliquer : n'importe quel joueur le devine. Ce qui ne se devine pas, c'est qu'il
+faut parfois DÉSOBÉIR — et la densité de manches piégeuses du catalogue est de
+**5,4 %**, donc un nouveau venu peut faire vingt manches sans jamais rencontrer
+ce qui distingue TOR. D'où : le temps 2 pose les deux cas, le temps 5 EST un
+piège, le temps 6 dit « c'est exactement ça, le jeu ».
+
+⚠️ **Le tutoriel ne passe pas par `Session`**, mais construit de vraies `Round`
+et se joue sur le VRAI terrain (`show(null)`, vrai canvas, vrai `scene.hit()`).
+Un tutoriel qui simule le jeu enseigne un jeu qui n'existe pas. L'aide est un
+calque HORS FLUX dans `#stage` — vérifié : `#stage` à 246 et buffer 481×246,
+identiques entre tutoriel et partie.
+
+⚠️ **Il n'est PAS déclenché à l'arrivée sur le site**, mais par les portes de
+jeu. Le joueur doit avoir choisi de jouer : un tutoriel imposé avant qu'on ait
+vu de quoi il s'agit reproduirait la faute du bandeau de mesure. L'accueil
+vend, la première partie enseigne.
+
+⚠️ **Deux conditions pour « nouveau », pas une.** `onboarded` est absent des
+sauvegardes écrites, donc faux pour tout le monde ; sans la seconde condition
+(carnet vide), le déploiement renverrait tous les habitués au tutoriel. Même
+piège que `essais`.
+
+**Rien ne tue, et l'erreur est NOMMÉE** : cliquer le rouge rend « TA RÈGLE
+INTERDIT LE ROUGE », pas « raté ». Survivre au piège écrit `sang` au carnet —
+on ne LIT pas sa première carte, on la GAGNE.
+
+#### L'objectif de l'accueil — atteignable, et étiqueté
+
+⚠️ **Montrer 201 à un débutant ne motive pas, ça écrase.** La médiane du premier
+run est de 4 manches : facteur cinquante. Donc RIEN tant que le joueur n'a pas
+un chiffre à lui, le meilleur connu seulement À CÔTÉ du sien, et il disparaît
+pour qui l'a dépassé.
+
+⚠️ **Un score sans son mode est un chiffre faux.** Le 201 a été fait en
+ENTRAÎNEMENT ; le poser nu près du run du jour comparerait deux épreuves. Voir
+`src/render/but.ts`, quatrième module de priorité pure après `plate`, `seat` et
+`jour`.
+
+⚠️ **LA MESURE A CHANGÉ L'IMPLÉMENTATION.** Premier essai, un bloc ajouté :
+relevé à 375×812, la faille finissait déjà à **818 pour 812 de haut** — six
+pixels — et le bloc la poussait à **954**, soit la moitié basse de MULTI sous la
+ligne de flottaison. L'accueil est à la limite au pixel près : **toute addition
+le casse**. L'objectif PREND donc la place du chapo, et la faille revient à
+**815**, mieux qu'avant. L'échange est aussi le bon geste : un nouveau venu a
+besoin qu'on lui dise ce qu'EST le jeu, un habitué a besoin de son chiffre.
+
+⚠️ **`inscritRecord` n'était appelée de NULLE PART** — `s.records` n'était rempli
+que par une fusion de compte. Sans conséquence jusqu'à ce que DÉBUT devienne
+l'allure par défaut : `bestTraining` ne s'écrit qu'à l'allure de référence, donc
+un débutant n'avait aucun record nulle part. Chaque allure inscrit désormais le
+sien, et `recordDeSonAllure` lit celle du joueur. Deuxième code mort de la
+semaine qui ressemblait à une fonctionnalité livrée, après `changeIdentite`.
+
+`MEILLEUR_CONNU` est une **mesure gelée**, relevée à la main : aucune route ne
+la sert, et la table `performance` ne contient que des runs du jour. Elle
+disparaîtra le jour où une route saura la servir.
+
+#### Ce que le redesign apporte, et ce qu'il faut en écarter
+
+Pierre a fourni une maquette travaillée avec un UX designer : 27 écrans, les
+notes citent le code, la palette relevée est celle du dépôt au hexadécimal près.
+
+⚠️ **Le zip contient DEUX systèmes qui se contredisent.** `_ds/nocturne-.../`
+est du boilerplate d'outil — rayons de 8 px, icônes Phosphor, photographies,
+Inter pour les deux rôles. L'écran SYSTÈME de la maquette dit l'inverse et c'est
+lui qui a raison : `border-radius` n'y apparaît que **7 fois, toutes en 50 %**
+pour des cercles. **Ne jamais lier `_ds/styles.css`** — il casserait la décision
+n°8 en une ligne.
+
+Deux corrections à la maquette : elle annonce « onze règles sur seize ne piègent
+pas » — ce sont **sept** (9 portent `traps`) ; et son échelle de maîtrise est
+juste, mais elle contredit le « GAUCHER 72 % » demandé par Pierre — six cases
+nommées valent mieux qu'un pourcentage, parce qu'une case se joue et pas un
+thermomètre.
+
+**Reste à trancher, et pas décidé seul** : remplacer les emblèmes ENGENDRÉS par
+les 16 PNG pixel art (plus beaux et plus collectionnables, mais une 17ᵉ règle
+demandera une commande, et ils introduisent un personnage dans un jeu qui n'en a
+aucun), et passer le bouton primaire du plein au contour.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De
