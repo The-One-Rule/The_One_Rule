@@ -400,6 +400,12 @@ export const CHAINES = STATIQUE;
 type Dyn = {
   compteSupprimer: string;
   compteNom: string;
+  /* --- l'objectif de l'accueil --- */
+  butTien: string;
+  butManches: (n: number) => string;
+  butMieux: string;
+  butHorizon: (score: number, mode: string) => string;
+  butEntrainement: string;
   /* --- première arrivée --- */
   onbEtape: (n: number, total: number) => string;
   onbSuivant: string;
@@ -679,6 +685,11 @@ const DYN: Record<Lang, Dyn> = {
   fr: {
     compteSupprimer: "SUPPRIMER LE COMPTE",
     compteNom: "CHANGER DE NOM",
+    butTien: "TON RECORD",
+    butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
+    butMieux: "Tu peux faire mieux ?",
+    butHorizon: (score, mode) => `MEILLEUR CONNU · ${score} EN ${mode}`,
+    butEntrainement: "ENTRAÎNEMENT",
     onbEtape: (n, total) => `ÉTAPE ${n} SUR ${total}`,
     onbSuivant: "D'ACCORD",
     onbEssayer: "ESSAYER",
@@ -929,6 +940,11 @@ const DYN: Record<Lang, Dyn> = {
   en: {
     compteSupprimer: "DELETE ACCOUNT",
     compteNom: "CHANGE NAME",
+    butTien: "YOUR BEST",
+    butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
+    butMieux: "Think you can do better?",
+    butHorizon: (score, mode) => `BEST KNOWN · ${score} IN ${mode}`,
+    butEntrainement: "TRAINING",
     onbEtape: (n, total) => `STEP ${n} OF ${total}`,
     onbSuivant: "GOT IT",
     onbEssayer: "TRY IT",

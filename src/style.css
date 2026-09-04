@@ -8000,3 +8000,66 @@ button.chip:active:not(:disabled) {
   background: var(--ink);
   padding: 3px 8px;
 }
+
+/* ==================================================================
+   L'OBJECTIF DE L'ACCUEIL
+
+   Demande par Pierre : « le record doit devenir une motivation naturelle a
+   lancer une partie ».
+
+   ⚠️ COMPACT PAR OBLIGATION. Tout ce qu'on pose ici s'intercale entre le
+   visiteur et les portes, et un objet trop gros a deja coute 76 % d'entrees :
+   le bandeau de mesure faisait 223 px sur un ecran de 375x812 — 27 % — et
+   `elementFromPoint` au centre de la faille rendait le BANDEAU. Une ligne, un
+   chiffre, une question, et rien de plus.
+
+   Pas de cadre, pas de fond : un encadre dirait « composant », et il y en a
+   deja deux juste en dessous (le bouton et la faille). Ici on veut une
+   ANNONCE, donc du texte pose sur le fond.
+   ================================================================== */
+
+.but {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+/* Il occupe le CRENEAU du chapo : les deux ne paraissent jamais ensemble. */
+.but.hidden,
+#ledeHome.hidden {
+  display: none;
+}
+
+.but__quoi {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/* Le chiffre est le sujet : c'est lui qu'on regarde, pas son etiquette. */
+.but__chiffre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.but__pousse {
+  margin: 0;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  line-height: 1.4;
+  color: var(--signal-pale);
+  /* La ligne porte deux informations separees par un point median — elle doit
+     pouvoir se casser proprement sur un telephone plutot que deborder. */
+  max-width: 34ch;
+  text-wrap: balance;
+}

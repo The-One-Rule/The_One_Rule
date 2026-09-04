@@ -417,3 +417,26 @@ export function appliqueAgregats(s: Save, a: Agregats): void {
 export function inscritRecord(s: Save, cle: string, valeur: number): void {
   if (valeur > (s.records[cle] ?? 0)) s.records[cle] = valeur;
 }
+
+/**
+ * LE RECORD DU JOUEUR À L'ALLURE OÙ IL JOUE.
+ *
+ * ⚠️ `bestTraining` ne convient PAS pour ça, et c'est devenu vrai récemment.
+ * Il n'est écrit qu'à `PACE_DEFAULT` — délibérément, un chiffre qui mélange les
+ * allures ne veut plus rien dire. Mais l'allure par défaut d'un joueur neuf est
+ * maintenant DÉBUT : son `bestTraining` reste donc à zéro tant qu'il n'a pas
+ * changé de vitesse, c'est-à-dire précisément tant qu'il est débutant.
+ *
+ * Lui montrer « TON RECORD · 0 » sur l'accueil serait le contraire d'une
+ * motivation. On lit donc le record de SON allure, et l'écran la nomme — deux
+ * chiffres sous deux étiquettes différentes restent comparables ; un seul
+ * chiffre qui change de sens ne l'est pas.
+ */
+export function recordDeSonAllure(s: Save): number {
+  return Math.max(
+    s.records[cleEntrainement(s.trainingPace)] ?? 0,
+    // À l'allure de référence, `bestTraining` est la source historique : les
+    // sauvegardes d'avant l'écriture par allure ne portent que lui.
+    s.trainingPace === PACE_DEFAULT ? s.bestTraining : 0,
+  );
+}

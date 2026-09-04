@@ -41,7 +41,9 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
+import { vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
+import { cleEntrainement } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -379,6 +381,40 @@ function renderHome(): void {
    * irréversible du jeu. Tant qu'il reste quelque chose à faire en solo,
    * l'accent y va.
    */
+  /*
+   * L'OBJECTIF — une raison de lancer, donnée avant le bouton.
+   *
+   * Deux états, jamais un seul : montrer 201 à quelqu'un dont le premier run
+   * fait 4 manches en médiane, ce n'est pas un défi, c'est un mur. Le record du
+   * monde n'apparaît qu'à côté d'un score personnel, jamais à la place.
+   *
+   * Et il porte SON MODE : le 201 a été fait en entraînement, et le poser nu à
+   * côté du run du jour comparerait deux épreuves différentes.
+   */
+  const but = vueBut(P.recordDeSonAllure(s));
+  /*
+   * ⚠️ L'OBJECTIF PREND LA PLACE DU CHAPO, il ne s'y ajoute pas.
+   *
+   * Mesuré : sur 375×812, la faille finissait déjà à y=818 pour 812 de haut —
+   * six pixels de dépassement, c'est-à-dire pile à la limite. Le bloc ajouté
+   * coûtait 135 px et repoussait le bas de MULTI à 142 px sous la ligne de
+   * flottaison. Même famille de faute que le bandeau de mesure, qui a coûté
+   * 76 % d'entrées.
+   *
+   * L'échange est aussi le bon geste : un nouveau venu a besoin qu'on lui dise
+   * ce QU'EST le jeu, un habitué a besoin de son chiffre. Les deux ne servent
+   * jamais au même moment, donc ils n'ont pas besoin de deux créneaux.
+   */
+  $("ledeHome").classList.toggle("hidden", but !== null);
+  $("but").classList.toggle("hidden", but === null);
+  if (but) {
+    $("butQuoi").textContent = t("butTien");
+    $("butChiffre").textContent = t("butManches")(but.valeur);
+    $("butPousse").textContent = but.horizon
+      ? `${t("butMieux")}  ·  ${t("butHorizon")(but.horizon.score, t("butEntrainement"))}`
+      : t("butMieux");
+  }
+
   const vjm = vueDuJour(s, day);
   const versMulti = (vjm.acquis || vjm.verrouille) && multi.available;
   $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
@@ -1813,11 +1849,28 @@ function finishRun(): void {
       // Idempotent par jour : `touchStreak` sort sans rien faire quand
       // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
       P.touchStreak(st, day);
-    } else if (pace === PACE_DEFAULT) {
-      // Un record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu en
-      // RAPIDE. Un chiffre qui mélange les allures ne veut plus rien dire, donc
-      // seule l'allure de référence l'inscrit.
-      st.bestTraining = Math.max(st.bestTraining, end.score);
+    } else {
+      /*
+       * ⚠️ CHAQUE ALLURE INSCRIT SON RECORD, sous SA clé.
+       *
+       * `inscritRecord` existait — avec sa clé de comparabilité, sa loi du
+       * maximum et sa passerelle vers le compte — et n'était appelée de NULLE
+       * PART. `s.records` n'était donc rempli que par une fusion de compte,
+       * jamais en jouant. Du code mort qui ressemblait à une fonctionnalité
+       * livrée, la même famille que `changeIdentite`.
+       *
+       * Ça n'a commencé à mordre qu'hier : l'allure par défaut d'un joueur neuf
+       * est passée à DÉBUT, donc son `bestTraining` — qui ne s'écrit qu'à
+       * l'allure de référence — ne bougeait plus jamais. Il n'avait aucun
+       * record, sur aucun écran.
+       */
+      P.inscritRecord(st, cleEntrainement(pace), end.score);
+      if (pace === PACE_DEFAULT) {
+        // Un record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu
+        // en RAPIDE. `bestTraining` reste l'allure de référence et rien
+        // d'autre : trois écrans et la passerelle du compte en dépendent.
+        st.bestTraining = Math.max(st.bestTraining, end.score);
+      }
     }
   });
 
