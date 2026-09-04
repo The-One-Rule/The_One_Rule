@@ -1313,14 +1313,34 @@ let finEchauffementDite = false;
  */
 let lecture: { jusqua: number; maintien: boolean; libelle: string } | null = null;
 
-function startRun(): void {
+/**
+ * @param avecLecture Faux pour une REVANCHE de duel, qui repart de l'écran de
+ * fin sans repasser par le brief : y faire courir un rebours poserait le
+ * décompte sur un bouton invisible, donc une pause de plusieurs secondes où
+ * l'écran ne dit rien. Le joueur vient de jouer cette règle exacte — il n'a
+ * rien de neuf à lire.
+ */
+function startRun(avecLecture = true): void {
   if (!pendingRule) return;
+  /*
+   * ⚠️ Un second appel pendant le battement le RELANCERAIT.
+   *
+   * ESPACE et ENTRÉE lancent aussi depuis le brief, et rien n'empêche d'appuyer
+   * pendant le rebours. Le second appel relirait `bouton.textContent` pour
+   * mémoriser le libellé — sauf qu'il vaut alors « 3 ». Le bouton COMMENCER
+   * serait remplacé par un chiffre, et le resterait.
+   */
+  if (lecture) return;
   if (pendingRule.watchRelease === " " && !spaceDown) {
     $("briefWarn").textContent = t("briefEspace");
     $("briefWarn").classList.remove("hidden");
     return;
   }
   unlock();
+  if (!avecLecture) {
+    lanceRun();
+    return;
+  }
   const s = P.load();
   const bouton = $<HTMLButtonElement>("btnGo");
   bouton.disabled = true;
@@ -2107,7 +2127,10 @@ function replay(): void {
     return;
   }
   if (challenge) {
-    startRun(); // revanche : même graine, même règle, sinon on ne compare plus rien
+    // Revanche : même graine, même règle, sinon on ne compare plus rien. Et
+    // SANS battement de lecture — on repart de l'écran de fin, où le bouton qui
+    // porte le rebours n'est pas affiché.
+    startRun(false);
     return;
   }
   if (pendingMode === "daily") return;
