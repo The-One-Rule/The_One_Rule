@@ -254,28 +254,6 @@
            clignotement de plaque, qu'on rate en regardant la scène. -->
       <div id="feed" class="feed" aria-live="polite" aria-label="Eliminations" data-i18n-aria="aria.chutes"></div>
 
-      <!-- LE PIEGE DEJOUE — le seul retour de manche qui PARLE.
-           Une reussite ordinaire ne dit rien et n'arrete rien ; une mort revele
-           le piege APRES (decision n°5). Entre les deux, le piege DEJOUE est le
-           geste que le jeu existe pour apprendre.
-
-           ⚠️ IL A QUITTE `#stage`, ET C'EST LE CORRECTIF.
-           Il y etait `inset: 0`, donc centre PAR-DESSUS LE TERRAIN, en 46 px,
-           pendant 1500 ms — soit plus longtemps que la fenetre d'une manche
-           tardive (760 ms). Il recouvrait donc la manche SUIVANTE, celle qu'il
-           faut lire et jouer. Rapporte en soiree : « ca obstrue la vue ».
-           Ancre en bas et hors du champ, il dit la meme chose sans rien cacher
-           de ce qui se joue. Toujours hors flux : la taille du champ est du
-           gameplay (n°10). -->
-      <div id="piege" class="piegefx hidden" aria-live="polite">
-        <p class="piegefx__tete">
-          <span class="piegefx__quoi" data-i18n="piege.rien">YOU DID NOTHING</span>
-          <span class="piegefx__titre" data-i18n="piege.dejoue">TRAP DEFUSED</span>
-          <span class="piegefx__carte" id="piegeCarte"></span>
-        </p>
-        <p class="piegefx__pourquoi" id="piegePourquoi"></p>
-      </div>
-
       <!-- Le pied est un TABLEAU DE BORD, pas une phrase : trois grandeurs
            qu'on consulte d'un coup d'œil sans quitter la scène. La valeur
            domine, l'intitulé la nomme en dessous. -->

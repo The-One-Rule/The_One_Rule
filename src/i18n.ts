@@ -239,8 +239,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
-    "piege.rien": "TU N'AS RIEN FAIT",
-    "piege.dejoue": "PIÈGE DÉJOUÉ",
     "but.aBattre": "LE RECORD DU JOUR",
     "nav.classement": "CLASSEMENT",
     "etat.collection": "TA COLLECTION",
@@ -411,8 +409,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
-    "piege.rien": "YOU DID NOTHING",
-    "piege.dejoue": "TRAP DEFUSED",
     "but.aBattre": "TODAY'S RECORD",
     "nav.classement": "RANKING",
     "etat.collection": "YOUR COLLECTION",
@@ -572,8 +568,6 @@ type Dyn = {
   butDejaBattu: string;
   butSien: (n: number) => string;
   butModeJour: string;
-  piegePourquoi: (consigne: string, regle: string) => string;
-  piegeCarte: (regle: string, pieges: number, cases: number) => string;
   avanceRegle: (regle: string, cases: number) => string;
   avancePieges: (n: number) => string;
   avanceManches: (n: number, allure: string) => string;
@@ -868,6 +862,8 @@ type Dyn = {
    * entre le front et les salons est la seule cause connue.
    */
   multiRegleInconnue: string;
+  /** « 2 pièges déjoués » — la ligne du bandeau, pendant la partie. */
+  hudPieges: (n: number) => string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -983,10 +979,6 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "Tu fais mieux que ça.",
     butSien: (n) => `TON SCORE DU JOUR · ${n}`,
     butModeJour: "RUN DU JOUR",
-    piegePourquoi: (consigne, regle) =>
-      `La consigne demandait « ${consigne} ». ${regle} l'interdit.`,
-    piegeCarte: (regle, pieges, cases) =>
-      `${regle} · ${pieges} PIÈGE${pieges > 1 ? "S" : ""} DÉJOUÉ${pieges > 1 ? "S" : ""} · MAÎTRISE ${cases}/6`,
     avanceRegle: (regle, cases) => `${regle} · MAÎTRISE ${cases} / 6`,
     avancePieges: (n) => `+${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}.`,
     avanceManches: (n, allure) => `Meilleur à l'allure ${allure} : ${n} manches.`,
@@ -1290,6 +1282,7 @@ const DYN: Record<Lang, Dyn> = {
     finRompu: "ROMPU",
     finElimine: "ÉLIMINÉ",
     multiRegleInconnue: "MANCHE ILLISIBLE — RECHARGE LA PAGE",
+    hudPieges: (n) => `${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}`,
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1387,10 +1380,6 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "You are already past that.",
     butSien: (n) => `YOUR SCORE TODAY · ${n}`,
     butModeJour: "DAILY RUN",
-    piegePourquoi: (consigne, regle) =>
-      `The order asked for « ${consigne} ». ${regle} forbids it.`,
-    piegeCarte: (regle, pieges, cases) =>
-      `${regle} · ${pieges} TRAP${pieges === 1 ? "" : "S"} DEFUSED · MASTERY ${cases}/6`,
     avanceRegle: (regle, cases) => `${regle} · MASTERY ${cases} / 6`,
     avancePieges: (n) => `+${n} trap${n === 1 ? "" : "s"} defused.`,
     avanceManches: (n, allure) => `Best at ${allure} pace: ${n} rounds.`,
@@ -1657,6 +1646,7 @@ const DYN: Record<Lang, Dyn> = {
     finRompu: "BROKEN",
     finElimine: "OUT",
     multiRegleInconnue: "ROUND UNREADABLE — RELOAD THE PAGE",
+    hudPieges: (n) => `${n} trap${n === 1 ? "" : "s"} defused`,
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,
@@ -2204,6 +2194,83 @@ export function briefDeRegle(ruleId: string, secours: string): string {
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
 export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncee",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every move twice",
+    acceleration: "30% faster",
+    mainGauche: "Hold SPACE down",
+  },
+};
+
+/**
+ * Le brief COURT d'une regle, pour le bandeau de jeu.
+ *
+ * Retombe sur le brief long quand la regle n'est pas dans la table — une pile
+ * d'escalade a un identifiant compose (« pointe+sang ») qui n'y figure pas, et
+ * un bandeau muet serait pire qu'un bandeau trop long.
+ */
+export function briefCourtDeRegle(ruleId: string, secours: string): string {
+  return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_COURTS_REGLES = BRIEFS_COURTS;
 
 /* ------------------------------------------------------------------ *
  * L'ALLURE

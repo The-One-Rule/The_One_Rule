@@ -52,6 +52,37 @@ export const windowForSteps = (level: number, steps: number): number =>
   windowMs(level) + Math.max(0, steps - 1) * STEP_MS;
 
 /**
+ * LE PLANCHER PAR GESTE — le dernier filet, appliqué APRÈS les règles.
+ *
+ * `windowForSteps` donne une fenêtre juste, puis une règle la déforme, et c'est
+ * là que le compte peut cesser d'être tenable. Le cas mesuré est
+ * L'ACCÉLÉRATION : elle multiplie la fenêtre ENTIÈRE par 0,7, supplément par
+ * geste compris. Or ces 280 ms ne sont pas du confort — c'est le coût
+ * irréductible d'un clic de plus. Les raboter de 30 % donne, sur une séquence
+ * de deux :
+ *
+ *     niveau 25 → 811 ms pour 2 gestes → 406 ms par geste
+ *     niveau 40 → 728 ms pour 2 gestes → 364 ms par geste
+ *
+ * contre 520 ms pour toutes les autres règles au même niveau. Rapporté après
+ * essai : « la consigne avec deux gestes semble buguer selon les règles, le
+ * temps ne suffit pas ». Il ne s'agissait pas d'un bug d'affichage.
+ *
+ * 420 ms est le seuil, et il n'est pas choisi au doigt : le titre GÂCHETTE du
+ * multijoueur mesure une réaction médiane à 412 ms. En dessous, on ne demande
+ * plus un réflexe, on demande d'avoir deviné.
+ *
+ * ⚠️ Il s'applique à la fin, jamais dans une règle : c'est ce qui le rend vrai
+ * pour TOUTES les combinaisons, y compris les piles de l'escalade, qui
+ * empilent deux déformations dont aucune ne connaît l'autre.
+ */
+export const MS_MIN_PAR_GESTE = 420;
+
+/** La durée d'une manche ne descend jamais sous le seuil de réflexe par geste. */
+export const plancherParGeste = (durationMs: number, steps: number): number =>
+  Math.max(durationMs, steps * MS_MIN_PAR_GESTE);
+
+/**
  * Allures de l'ENTRAÎNEMENT — et de lui seul.
  *
  * La courbe ci-dessus suppose un joueur qui a AUTOMATISÉ la vérification de sa

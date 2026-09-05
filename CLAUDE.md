@@ -1805,12 +1805,26 @@ de refaire.**
 
 #### Les retours de manche, et la fin de run
 
-**Le piège déjoué est le seul retour qui PARLE.** Une réussite ordinaire ne dit
+**Le piège déjoué NE PARLE PLUS — il se sent.** Une réussite ordinaire ne dit
 rien et n'arrête rien ; une mort révèle le piège APRÈS (n°5). Entre les deux, le
-piège déjoué est le geste que le jeu existe pour apprendre — et il ne rendait
-qu'un son et une gerbe. Il annonce désormais la consigne qui piégeait, et il
-fait **avancer une carte à l'écran** : « LE SANG · 4 PIÈGES DÉJOUÉS · MAÎTRISE
-2/6 », à l'instant où le joueur la gagne.
+piège déjoué est le geste que le jeu existe pour apprendre, et il a eu droit
+pendant un temps à une annonce écrite : la consigne qui piégeait, et l'avancement
+de la carte.
+
+⚠️ **Cette annonce a été retirée, et c'est une leçon d'usage, pas de code.**
+Elle était posée `inset: 0` dans `#stage`, donc en 46 px AU CENTRE DU TERRAIN,
+pendant 1500 ms — plus longtemps qu'une fenêtre tardive (760 ms). Elle
+recouvrait donc la manche suivante. Déplacée hors du champ, elle restait de
+trop : *« juste un petit retour haptique suffit »*. Le joueur qui vient de NE
+RIEN FAIRE sait déjà pourquoi ; lui expliquer son propre geste pendant que la
+manche suivante s'ouvre, c'est occuper les deux secondes où il doit lire autre
+chose.
+
+Restent trois canaux, tous instantanés et hors du chemin de lecture : le son
+`trapAvoided`, le flash violet et la secousse du canvas, et
+`navigator.vibrate`. Le compteur, lui, a trouvé sa place ailleurs — sur la
+ligne du bandeau (« JAMAIS DE ROUGE · 2 pièges déjoués »), où il se consulte au
+lieu de s'imposer.
 
 ⚠️ **UN BUG QUE SEUL LE JEU RÉEL MONTRE.** Première version à l'écran : « la
 consigne demandait NE FAIS RIEN » — absurde. Cause : **`survive()` ouvre la
@@ -1854,7 +1868,8 @@ règle, ne fais rien » du brief et du salon, et le calque plein écran du PIÈG
 DÉJOUÉ. La seconde posait `position: absolute; inset: 0` et gagnait la cascade
 — ces deux lignes de TEXTE étaient donc absolument positionnées par-dessus tout
 leur écran, sans leur cadre à arête gauche. Elles avaient l'air placées par
-chance, et elles l'étaient. Le calque s'appelle `piegefx`.
+chance, et elles l'étaient. Le calque, renommé `piegefx`, a depuis été supprimé
+— voir ci-dessus — mais la leçon vaut pour toute la feuille.
 
 ⚠️ Trouvé **en ajoutant**, pas en relisant, et **le relevé de boîtes ne le
 voyait pas** : trois cellules à 360-419 px et un texte qui se peint dessus sans

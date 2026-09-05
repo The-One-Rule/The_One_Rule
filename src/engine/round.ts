@@ -1,6 +1,6 @@
 import { pickInstruction } from "./instructions";
 import { place } from "./scene";
-import { FORCED_TRAP_ROUNDS, windowForSteps } from "./difficulty";
+import { FORCED_TRAP_ROUNDS, plancherParGeste, windowForSteps } from "./difficulty";
 import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
@@ -95,5 +95,10 @@ export function buildRound(
   };
 
   if (rule.transform) round = rule.transform(round, rng, level);
-  return round;
+  /*
+   * APRES la regle, jamais avant : c'est la deformation qui peut rendre le
+   * compte intenable, et une regle ne connait pas les autres. Voir
+   * `plancherParGeste`.
+   */
+  return { ...round, durationMs: plancherParGeste(round.durationMs, round.steps.length) };
 }

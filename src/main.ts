@@ -278,7 +278,6 @@ function show(id: ScreenId): void {
    * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
    */
   if (lecture && id !== null) annuleLecture();
-  cachePiege();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   /*
@@ -3495,74 +3494,40 @@ $("btnAvanceTrain").addEventListener("click", () => {
 });
 
 /**
- * LE PIÈGE DÉJOUÉ — le seul retour de manche qui PARLE.
+ * LE PIÈGE DÉJOUÉ — DU SON ET UNE VIBRATION, PLUS UN PANNEAU.
  *
- * Une réussite ordinaire ne dit rien et n'arrête rien ; une mort révèle le
- * piège APRÈS, jamais pendant (décision n°5). Entre les deux, le piège déjoué
- * est le geste que le jeu existe pour apprendre — et la mesure dit pourquoi il
- * faut s'y arrêter : ouvrir le catalogue d'entraînement a fait tomber les morts
- * sur le piège de 42,9 % à 4,1 %, donc un joueur peut désormais en croiser très
- * peu. Chacun compte.
+ * Il y avait ici une annonce écrite : « TU N'AS RIEN FAIT · PIÈGE DÉJOUÉ », la
+ * consigne qui piégeait, et l'avancement de la carte. Elle a d'abord été
+ * déplacée hors du terrain parce qu'elle le recouvrait, puis retirée : demandé
+ * après essai, « juste un petit retour haptique suffit ».
  *
- * ⚠️ IL N'ARRÊTE RIEN. Le calque est hors flux et `pointer-events: none` : la
- * manche suivante s'ouvre normalement derrière, et il s'efface tout seul. Une
- * pause ici casserait le rythme au moment précis où le joueur vient de réussir.
+ * C'est le bon arbitrage, et il tient en une phrase : le joueur qui vient de
+ * NE RIEN FAIRE sait déjà pourquoi. Lui expliquer son propre geste au moment où
+ * la manche suivante s'ouvre, c'est occuper les deux secondes pendant
+ * lesquelles il doit lire autre chose. Le retour doit se sentir, pas se lire.
  *
- * ⚠️ IL FAIT AVANCER UNE CARTE À L'ÉCRAN. C'est le raccord entre le geste et la
- * collection : le compteur de pièges et la case de maîtrise bougent sous les
- * yeux du joueur, à l'instant où il les gagne.
+ * Restent trois canaux, tous instantanés et tous hors du chemin de lecture :
+ * `sfx.trapAvoided()` (le seul son de félicitation du jeu), le flash violet et
+ * la secousse du canvas, et cette vibration.
  */
-let piegeTimer: ReturnType<typeof setTimeout> | null = null;
 
-function montrePiegeDejoue(round: Round): void {
-  if (!session) return;
-  const r = session.rule;
-  /*
-   * La consigne d'ORIGINE, celle qui piégeait — composée dans la langue du
-   * joueur comme elle l'était à l'écran. C'est elle qu'il faut lui remettre
-   * sous les yeux : c'est ce qu'il vient de refuser d'exécuter.
-   */
-  $("piegePourquoi").textContent = t("piegePourquoi")(
-    composePhrase(round.phrase, round.text),
-    nomDeRegle(r.id, r.name),
-  );
-
-  /*
-   * Le compteur du CARNET plus ceux de ce run : le carnet n'est écrit qu'à la
-   * fin, donc l'afficher seul montrerait un chiffre en retard d'un run entier.
-   */
-  const rec = P.load().encountered[r.id];
-  const total = (rec?.pieges ?? 0) + session.trapsSurvived;
-  const projete = { ...(rec ?? { best: 0, cleared: false }), pieges: total };
-  $("piegeCarte").textContent = t("piegeCarte")(
-    nomDeRegle(r.id, r.name),
-    total,
-    franchies(echelleMaitrise(r, projete)),
-  );
-
-  const el = $("piege");
-  el.classList.remove("hidden");
-  // On relance l'animation d'entrée : deux pièges d'affilée doivent produire
-  // deux annonces, pas une seule qui reste.
-  el.classList.remove("is-vu");
-  void el.offsetWidth;
-  el.classList.add("is-vu");
-  if (piegeTimer) clearTimeout(piegeTimer);
-  /*
-   * 1100 ms et non 1500 : l'annonce ne doit pas survivre a la manche qu'elle
-   * commente. Une fenetre tardive fait 760 ms, donc a 1500 elle debordait
-   * TOUJOURS sur la suivante — et comme elle etait alors posee au centre du
-   * terrain, elle la rendait illisible. Elle est desormais sous le champ, mais
-   * une annonce qui traine reste une annonce de trop.
-   */
-  piegeTimer = setTimeout(() => el.classList.add("hidden"), 1100);
-}
-
-/** Efface l'annonce — tout changement d'écran passe par là. */
-function cachePiege(): void {
-  if (piegeTimer) clearTimeout(piegeTimer);
-  piegeTimer = null;
-  $("piege").classList.add("hidden");
+/**
+ * Vibration courte, si l'appareil sait le faire.
+ *
+ * ⚠️ Silencieuse en cas d'échec, et jamais conditionnée à autre chose que la
+ * présence de l'API : `navigator.vibrate` n'existe pas sur iOS et lève sur
+ * certains navigateurs de bureau quand la page n'a pas encore reçu de geste.
+ * Un retour d'agrément ne doit jamais pouvoir interrompre une manche.
+ *
+ * Deux impulsions brèves séparées d'une pause, comme les deux notes montantes
+ * du son : c'est le même événement, dit deux fois au même rythme.
+ */
+function vibrePiegeDejoue(): void {
+  try {
+    navigator.vibrate?.([18, 40, 26]);
+  } catch {
+    /* appareil sans vibreur, ou geste utilisateur pas encore reçu */
+  }
 }
 
 function react(outcome: Outcome, comboBefore: number, manche: Round): void {
@@ -3589,7 +3554,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
-      montrePiegeDejoue(manche);
+      vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
       scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
@@ -4348,6 +4313,12 @@ function loop(now: number): void {
         urgentDone = false;
         sfx.roundStart();
         majGouttieres();
+        /*
+         * Le compteur du bandeau, une fois par MANCHE et pas par image.
+         * `setPieges` ignore une valeur inchangee, donc rien n'est reecrit
+         * tant qu'aucun piege n'est tombe.
+         */
+        hud.setPieges(session.trapsSurvived);
         /*
          * L'EXERCICE EST VALIDÉ, et il se dit à l'instant où il tombe.
          *
