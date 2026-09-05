@@ -412,7 +412,7 @@ function renderHome(): void {
    * MULTI à 142 px sous la ligne de flottaison. Même famille de faute que le
    * bandeau de mesure, qui a coûté 76 % d'entrées.
    */
-  peintBut(P.recordDeSonAllure(s), recordDuJour);
+  peintBut(monScoreDuJour(s), recordDuJour);
   /*
    * Le record du JOUR se charge après coup, et ne bloque rien.
    *
@@ -427,7 +427,7 @@ function renderHome(): void {
       const top = c?.top?.[0]?.valeur ?? null;
       if (top === null || top <= 0) return;
       recordDuJour = top;
-      if (screen === "home") peintBut(P.recordDeSonAllure(P.load()), recordDuJour);
+      if (screen === "home") peintBut(monScoreDuJour(P.load()), recordDuJour);
     });
   }
 
@@ -2100,27 +2100,52 @@ let recordDuJour: number | null = null;
 let recordDuJourDemande = false;
 
 /**
- * Peint l'objectif de l'accueil.
+ * LA CARTE DE RECORD DE L'ACCUEIL — le RUN DU JOUR, et rien d'autre.
  *
- * ⚠️ LE MODE EST TOUJOURS AFFICHÉ. Le run du jour et l'entraînement ne sont pas
- * la même épreuve — même graine et même règle pour tout le monde d'un côté,
- * règle choisie et allure réglable de l'autre. C'est ce que la clé de
- * comparabilité sépare côté serveur, et l'écran ne doit pas défaire ce que le
- * stockage protège.
+ * ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MÊME ÉPREUVE, et c'est la contrainte qui
+ * façonne la fonction. La cible est le meilleur du jour ; « le tien » est TON
+ * score du jour, jamais ton record d'entraînement — celui-ci se fait à une
+ * allure choisie, sur une règle choisie, et le poser à côté d'un score du jour
+ * mettrait deux épreuves sous un même cadre. C'est exactement le chiffre faux
+ * que `render/but.ts` existe pour interdire.
+ *
+ * ⚠️ AUCUN REPLI D'ENTRAÎNEMENT ICI (`repli: "aucun"`). Le mur des records, lui,
+ * garde le sien : il l'étiquette, et un mur sans record n'est plus un mur.
+ *
+ * Quand le classement se tait, la carte devient une INVITATION plutôt qu'un
+ * trou. Et ce n'est pas un cas rare : tant que le déploiement n'a ni Supabase
+ * ni fournisseur OAuth, `classementDuJour` rend `null` pour tout le monde, tous
+ * les jours — c'est donc l'état que la plupart des visiteurs verront.
  */
-function peintBut(record: number, duJour: number | null): void {
-  const but = vueBut(record, duJour);
+function peintBut(sien: number | null, duJour: number | null): void {
+  const but = vueBut(sien ?? 0, duJour, "aucun");
   // L'objectif occupe le CRÉNEAU du chapo : les deux ne paraissent jamais
   // ensemble, et l'accueil est à la limite au pixel près.
   $("ledeHome").classList.add("hidden");
   $("but").classList.remove("hidden");
+  $("butPlein").classList.toggle("hidden", but.cible === null);
+  $("butVide").classList.toggle("hidden", but.cible !== null);
+  if (!but.cible) return;
+
   $("butChiffre").textContent = t("butManches")(but.cible.score);
-  $("butMode").textContent =
-    but.cible.source === "jour" ? t("butModeJour") : t("butModeEntrainement");
+  $("butMode").textContent = t("butModeJour");
   $("butPousse").textContent = but.depasse ? t("butDejaBattu") : t("butMieux");
   // Son propre chiffre à CÔTÉ, jamais à la place : c'est ce qui rend la cible
   // comparable au lieu de l'opposer.
   $("butSien").textContent = but.sien === null ? "" : t("butSien")(but.sien);
+}
+
+/**
+ * Ce que le joueur a fait AU RUN DU JOUR aujourd'hui, ou `null`.
+ *
+ * `s.daily.score` porte le meilleur des trois essais — c'est un MAXIMUM depuis
+ * qu'un second essai raté effaçait un bon premier. Il ne vaut que pour la
+ * journée en cours : au changement de jour, `s.daily.day` ne correspond plus et
+ * le chiffre d'hier n'a plus rien à comparer.
+ */
+function monScoreDuJour(s: P.Save): number | null {
+  if (s.daily.day !== day) return null;
+  return s.daily.score > 0 ? s.daily.score : null;
 }
 
 /** La règle dont la fiche est ouverte — pour que RETOUR sache d'où l'on vient. */
@@ -3553,6 +3578,12 @@ $("btnSolo").addEventListener("click", () => {
   renderSolo();
   show("solo");
 });
+$("btnButJour").addEventListener("click", () => {
+  sfx.ui();
+  // La carte parle du run du jour : elle y mène, jamais ailleurs.
+  openBrief("daily");
+});
+
 $("btnResteTravailler").addEventListener("click", () => {
   // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
   ouvreFiche(ruleOfDay(day));

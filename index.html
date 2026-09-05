@@ -342,26 +342,34 @@
                  l'entrainement font ce travail mieux qu'elle. -->
             <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
 
-            <!-- L'OBJECTIF — il PREND LA PLACE du chapo, il ne s'y ajoute pas.
-                 Mesure qui a impose ca : sur 375x812 la faille finissait deja
-                 a y=818 pour 812 de haut, soit 6 px de depassement. Le bloc
-                 ajoute coutait 135 px et repoussait le bas de MULTI a 142 px
-                 sous la ligne de flottaison — la meme famille de faute que le
-                 bandeau de mesure, qui a coute 76 % d'entrees.
+            <!-- LA CARTE DE RECORD — celle du RUN DU JOUR, et de rien d'autre.
+                 Elle PREND LA PLACE du chapo, elle ne s'y ajoute pas : mesure
+                 qui a impose ca, sur 375x812 la faille finissait deja a y=818
+                 pour 812 de haut, et le bloc ajoute repoussait le bas de MULTI
+                 a 142 px sous la ligne de flottaison.
 
-                 L'echange est aussi le bon geste : un nouveau venu a besoin
-                 qu'on lui dise ce QU'EST le jeu, un habitue a besoin de son
-                 chiffre. Les deux ne servent jamais en meme temps. -->
+                 ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MEME EPREUVE. La cible est
+                 le meilleur du jour, le tien est TON score du jour — jamais ton
+                 record d'entrainement, qui se fait a une allure choisie sur une
+                 regle choisie. Deux epreuves sous un meme cadre, c'est un
+                 chiffre faux. -->
             <div class="but hidden" id="but">
-              <p class="but__quoi" data-i18n="but.aBattre">THE RECORD TO BEAT</p>
-              <p class="but__chiffre" id="butChiffre"></p>
-              <!-- ⚠️ LE MODE, TOUJOURS. Le run du jour et l'entrainement ne
-                   sont pas la meme epreuve : meme graine et meme regle pour
-                   tout le monde d'un cote, regle choisie et allure reglable de
-                   l'autre. Un score sans son mode est un chiffre faux. -->
-              <p class="but__mode" id="butMode"></p>
-              <p class="but__pousse" id="butPousse"></p>
-              <p class="but__sien" id="butSien"></p>
+              <!-- Etat 1 : le classement repond. -->
+              <div class="but__plein" id="butPlein">
+                <p class="but__quoi" data-i18n="but.aBattre">TODAY'S RECORD</p>
+                <p class="but__chiffre" id="butChiffre"></p>
+                <p class="but__mode" id="butMode"></p>
+                <p class="but__pousse" id="butPousse"></p>
+                <p class="but__sien" id="butSien"></p>
+              </div>
+              <!-- Etat 2 : il se tait — et c'est l'etat PERMANENT tant que le
+                   deploiement n'a pas ses comptes. Une invitation, pas un trou :
+                   il n'y a rien a battre, donc il y a une place a prendre. -->
+              <div class="but__vide hidden" id="butVide">
+                <p class="but__quoi" data-i18n="but.personne">NOBODY HAS PLAYED YET</p>
+                <p class="but__premier" data-i18n="but.premier">Be the first.</p>
+                <button class="btn btn--primary" type="button" id="btnButJour" data-i18n="but.tenter">TRY THE DAILY RUN</button>
+              </div>
             </div>
           </div>
 

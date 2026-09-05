@@ -8076,6 +8076,45 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
+/*
+ * LES DEUX ETATS DE LA CARTE, et un seul a la fois.
+ *
+ * ⚠️ Chaque composant declare son propre masquage : il n'y a PAS de `.hidden`
+ * generique dans cette feuille, et c'est delibere — une regle unique perdrait
+ * la cascade contre les `display: flex` des composants.
+ */
+.but__plein,
+.but__vide {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.but__plein.hidden,
+.but__vide.hidden {
+  display: none;
+}
+
+/*
+ * L'ETAT VIDE est une INVITATION, pas un trou.
+ *
+ * Il n'y a rien a battre aujourd'hui, donc il y a une place a prendre : le
+ * bouton est la seule chose accentuee de la carte.
+ */
+.but__premier {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.but__vide .btn {
+  margin-top: 12px;
+}
+
 .but__quoi {
   margin: 0;
   font-family: var(--mono);

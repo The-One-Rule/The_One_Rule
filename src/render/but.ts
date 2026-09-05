@@ -36,26 +36,76 @@
  */
 export const MEILLEUR_CONNU = { score: 201, jour: 245 } as const;
 
-/** D'où vient le chiffre affiché. L'écran en fait une étiquette, jamais l'inverse. */
+/**
+ * D'où vient le chiffre affiché. L'écran en fait une étiquette, jamais l'inverse.
+ */
 export type SourceRecord = "jour" | "entrainement";
 
+/**
+ * Ce qu'un écran fait quand le classement du jour se tait.
+ *
+ * Les deux écrans qui montrent une cible n'ont pas le même besoin, et c'est
+ * pour ça que le repli est un PARAMÈTRE plutôt qu'une règle du module :
+ *
+ * · `"entrainement"` — LE MUR DES RECORDS. Un mur qui n'affiche aucun record
+ *   n'est plus un mur. Le meilleur connu en entraînement y est légitime parce
+ *   que l'écran l'étiquette comme tel, et qu'il n'y prétend jamais être un run
+ *   du jour.
+ *
+ * · `"aucun"` — L'ACCUEIL. La carte y parle du RUN DU JOUR et de rien d'autre.
+ *   Y glisser un record d'entraînement mettrait deux épreuves sous le même
+ *   chiffre, ce que tout ce module existe pour interdire. Sans cible, l'écran
+ *   dit qu'il n'y en a pas encore — et c'est une invitation, pas un trou.
+ */
+export type Repli = "entrainement" | "aucun";
+
 export interface VueBut {
-  /** Le record à battre, et de quelle épreuve il vient. */
-  cible: { score: number; source: SourceRecord };
+  /**
+   * Le record à battre, et de quelle épreuve il vient.
+   *
+   * `null` veut dire : personne n'a encore posé de chiffre aujourd'hui, et
+   * l'écran a choisi de ne pas en emprunter un ailleurs.
+   */
+  cible: { score: number; source: SourceRecord } | null;
   /** Le chiffre du joueur, quand il en a un. */
   sien: number | null;
   /**
    * Le joueur a-t-il DÉPASSÉ la cible ? Lui opposer un record qu'il bat serait
    * absurde, et lui mentir sur son propre exploit le serait davantage.
+   *
+   * Toujours `false` sans cible : on ne dépasse pas ce qui n'existe pas.
    */
   depasse: boolean;
 }
 
 /**
- * @param record le meilleur du joueur À SON ALLURE (voir `recordDeSonAllure`)
- * @param recordDuJour le premier du classement du jour, `null` s'il se tait
+ * Une vue dont la cible est GARANTIE — celle du repli « entrainement ».
+ *
+ * Le type dit ce que le code sait : avec ce repli, `MEILLEUR_CONNU` prend
+ * toujours le relais, donc la cible ne peut pas manquer. Sans ces surcharges,
+ * le mur des records devrait écrire une garde `if (!cible) return` qui ne
+ * s'exécuterait jamais — du code mort qui ressemble à une fonctionnalité, et
+ * ce dépôt en a déjà payé deux cette semaine.
  */
-export function vueBut(record: number, recordDuJour: number | null): VueBut {
+export type VueButSure = VueBut & { cible: NonNullable<VueBut["cible"]> };
+
+export function vueBut(record: number, recordDuJour: number | null): VueButSure;
+export function vueBut(
+  record: number,
+  recordDuJour: number | null,
+  repli: "entrainement",
+): VueButSure;
+export function vueBut(record: number, recordDuJour: number | null, repli: "aucun"): VueBut;
+/**
+ * @param record le chiffre du joueur, DANS LA MÊME ÉPREUVE que la cible
+ * @param recordDuJour le premier du classement du jour, `null` s'il se tait
+ * @param repli ce que l'écran fait quand le classement se tait
+ */
+export function vueBut(
+  record: number,
+  recordDuJour: number | null,
+  repli: Repli = "entrainement",
+): VueBut {
   /*
    * Le run du jour l'emporte dès qu'il existe.
    *
@@ -67,11 +117,13 @@ export function vueBut(record: number, recordDuJour: number | null): VueBut {
   const cible =
     recordDuJour !== null && recordDuJour > 0
       ? { score: recordDuJour, source: "jour" as const }
-      : { score: MEILLEUR_CONNU.score, source: "entrainement" as const };
+      : repli === "entrainement"
+        ? { score: MEILLEUR_CONNU.score, source: "entrainement" as const }
+        : null;
 
   return {
     cible,
     sien: record > 0 ? record : null,
-    depasse: record > 0 && record >= cible.score,
+    depasse: cible !== null && record > 0 && record >= cible.score,
   };
 }

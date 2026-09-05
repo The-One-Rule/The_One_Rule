@@ -33,14 +33,40 @@ describe("la cible à battre", () => {
     expect(v.cible.source).toBe("jour");
   });
 
-  it("se rabat sur l'ENTRAÎNEMENT quand le classement se tait", () => {
-    // Comptes non configurés, réseau coupé, ou personne n'a encore joué
-    // aujourd'hui : l'écran garde une cible plutôt que de n'en montrer aucune.
+  it("se rabat sur l'ENTRAÎNEMENT quand le classement se tait — SUR LE MUR", () => {
+    // Le mur des records l'étiquette, et un mur sans record n'est plus un mur.
     for (const muet of [null, 0]) {
-      const v = vueBut(0, muet);
-      expect(v.cible.score).toBe(MEILLEUR_CONNU.score);
-      expect(v.cible.source).toBe("entrainement");
+      const v = vueBut(0, muet, "entrainement");
+      expect(v.cible!.score).toBe(MEILLEUR_CONNU.score);
+      expect(v.cible!.source).toBe("entrainement");
     }
+  });
+
+  it("⚠️ n'emprunte AUCUNE cible sur l'accueil quand le classement se tait", () => {
+    /*
+     * LA CARTE DE L'ACCUEIL PARLE DU RUN DU JOUR, ET DE RIEN D'AUTRE.
+     *
+     * Y glisser le meilleur connu en entraînement mettrait deux épreuves sous
+     * un même cadre — une graine et une règle communes à tous d'un côté, une
+     * allure choisie sur une règle choisie de l'autre. C'est le chiffre faux
+     * que tout ce module existe pour interdire.
+     *
+     * ⚠️ Et ce n'est pas un cas rare : tant que le déploiement n'a ni Supabase
+     * ni fournisseur OAuth, `classementDuJour` rend `null` pour tout le monde,
+     * tous les jours. C'est l'état que la plupart des visiteurs voient.
+     */
+    for (const muet of [null, 0]) {
+      expect(vueBut(0, muet, "aucun").cible).toBeNull();
+      expect(vueBut(37, muet, "aucun").cible).toBeNull();
+    }
+  });
+
+  it("⚠️ sans cible, on ne DÉPASSE rien", () => {
+    // Un joueur à 37 face à personne n'a battu personne : « tu fais mieux que
+    // ça » n'aurait aucun antécédent.
+    expect(vueBut(37, null, "aucun").depasse).toBe(false);
+    // Mais son chiffre reste affichable — il a bien joué.
+    expect(vueBut(37, null, "aucun").sien).toBe(37);
   });
 
   it("⚠️ le 201 n'est JAMAIS étiqueté run du jour", () => {
