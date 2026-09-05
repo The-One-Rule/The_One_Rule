@@ -37,6 +37,37 @@ export class Hud {
   private announceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * L'HORLOGE DE LECTURE — depuis quand cette manche est SOUS LES YEUX.
+   *
+   * ⚠️ Ce n'est PAS le temps de jeu, et c'est tout l'objet de ce champ.
+   *
+   * Deux effets de règle se règlent sur une durée d'affichage : L'ÉCLAIR cache
+   * la consigne à `hideTextAtMs`, LE MENTEUR la corrige à `revealAtMs`. Les
+   * deux lisaient `elapsedMs`, c'est-à-dire le temps de la MANCHE, qui n'est
+   * pas le temps où le texte a été lisible :
+   *
+   *   · en multi, `elapsedMs = clock.now() − startAt` court depuis l'instant
+   *     SERVEUR. Le temps de vol du message est donc déjà consommé quand la
+   *     première image s'affiche. Avec `hideTextAtMs` à 320 ms dans les
+   *     manches tardives, un joueur à 300 ms de latence ne voit RIEN — c'est le
+   *     « L'ÉCLAIR ne fait littéralement pas apparaître les consignes »
+   *     rapporté au playtest, et il frappe d'autant plus fort que la connexion
+   *     est mauvaise, donc sur téléphone ;
+   *   · en kill-cam, `syncFrame` passe `camRound.durationMs` comme temps
+   *     écoulé — soit une valeur toujours supérieure à `hideTextAtMs`. La
+   *     consigne du mort n'y était donc JAMAIS montrée, alors que la kill-cam
+   *     n'existe que pour montrer ce qui vient de se passer.
+   *
+   * Le temps de lecture est LOCAL par nature, et il n'a pas à être synchronisé :
+   * il ne décide de rien qui soit jugé — la décision n°3 (client et serveur
+   * jugent la même action) porte sur `resolveAction`, qui garde `elapsedMs` et
+   * n'est pas touché ici. Ce qui se joue ici est ce que l'œil a eu le temps de
+   * prendre.
+   */
+  private lectureRound: Round | null = null;
+  private lectureDebut = 0;
+
+  /**
    * Pose la règle unique — et l'ANNONCE quand elle change.
    *
    * Une règle qui change en silence est une règle qu'on découvre en mourant :
@@ -155,6 +186,8 @@ export class Hud {
     this.fill.classList.remove("is-urgent");
     this.urgentShown = false;
     this.lastText = "";
+    this.lectureRound = null;
+    this.lectureDebut = 0;
   }
 
   /**
@@ -176,11 +209,26 @@ export class Hud {
      * reste donc en francais — a corriger quand on traduira le mensonge, et
      * c'est le seul reste connu de l'ecran de jeu.
      */
+    /*
+     * L'horloge de LECTURE repart à chaque manche nouvelle — voir le champ.
+     *
+     * La manche est identifiée par sa RÉFÉRENCE et non par son contenu : le
+     * multi reconstruit un objet neuf à chaque `rebuildViewRound`, le solo à
+     * chaque `nextRound`, et deux manches successives peuvent parfaitement
+     * porter le même texte. Comparer les textes ferait repartir l'horloge une
+     * fois sur deux, ce qui est pire qu'un bug franc.
+     */
+    if (round !== this.lectureRound) {
+      this.lectureRound = round;
+      this.lectureDebut = performance.now();
+    }
+    const msLus = performance.now() - this.lectureDebut;
+
     let text = composePhrase(round.phrase, round.text);
-    if (round.falseText && round.revealAtMs !== undefined && elapsedMs < round.revealAtMs) {
+    if (round.falseText && round.revealAtMs !== undefined && msLus < round.revealAtMs) {
       text = round.falseText;
     }
-    const hidden = round.hideTextAtMs !== undefined && elapsedMs > round.hideTextAtMs;
+    const hidden = round.hideTextAtMs !== undefined && msLus > round.hideTextAtMs;
 
     const shown = hidden ? "" : (round.glyph ?? text);
     if (shown !== this.lastText) {

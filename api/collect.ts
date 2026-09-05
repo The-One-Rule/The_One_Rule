@@ -52,6 +52,14 @@ export const ALLOWED = new Set([
   "compte_invite",
   "compte_start",
   "compte_lie",
+  // Le multijoueur, qui n'était pas mesuré du tout — voir `EVENT_NAMES`.
+  "salon_cree",
+  "salon_rejoint",
+  "match_debut",
+  "match_fin",
+  "multi_manche_illisible",
+  // Où le visiteur s'arrête sur l'accueil.
+  "accueil_premier_clic",
 ]);
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */

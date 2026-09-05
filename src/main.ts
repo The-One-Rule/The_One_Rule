@@ -1833,6 +1833,29 @@ function openBrief(mode: Mode): void {
   $("btnGo").classList.toggle("btn--primary", !neuf);
   btnTry.classList.toggle("btn--primary", neuf);
 
+  /*
+   * LA JOURNÉE CLOSE VERROUILLE AUSSI LE BRIEF.
+   *
+   * `vueDuJour().verrouille` était appliqué sur `#btnDaily` (l'écran SOLO) et
+   * sur `#btnAgain` (l'écran de fin), mais PAS ici — or `navDaily` ouvre ce
+   * brief directement, sans passer par l'un ni l'autre. Le quatrième essai
+   * partait donc par la barre du bas, avec « 0 / 3 ESSAIS » affiché juste
+   * au-dessus d'un COMMENCER parfaitement actif.
+   *
+   * Mesuré en jouant les trois essais : le brief s'ouvrait, le bouton lançait,
+   * la manche démarrait.
+   *
+   * C'est la même faute que le REJOUER muet, à l'envers : là un bouton
+   * promettait ce que la fonction refusait, ici il autorise ce que la règle
+   * interdit. Le garde-fou appartient au point de passage COMMUN — le brief —
+   * et non à chacune des portes qui y mènent, dont la prochaine oubliera de le
+   * poser.
+   */
+  const closeJour = mode === "daily" && !challenge && vueDuJour(s, day).verrouille;
+  const go = $<HTMLButtonElement>("btnGo");
+  go.disabled = closeJour;
+  if (closeJour) go.textContent = t("goReviensDemain");
+
   renderPace();
   show("brief");
 }
@@ -2150,11 +2173,6 @@ $("navClassement").addEventListener("click", () => {
   sfx.ui();
   renderClassement();
   show("classement");
-});
-
-$("navTraining").addEventListener("click", () => {
-  sfx.ui();
-  openBrief("training");
 });
 
 $("navJouer").addEventListener("click", () => {
@@ -3583,7 +3601,12 @@ window.addEventListener("keydown", (e) => {
   unlock();
 
   if (screen === "brief") {
-    if (e.key === " " || e.key === "Enter") startRun();
+    // Le clavier respecte l'état du bouton, comme R le fait pour `btnAgain` :
+    // sans cette garde, ESPACE relançait un run du jour dont les trois essais
+    // étaient consommés, en contournant le verrou posé sur COMMENCER.
+    if ((e.key === " " || e.key === "Enter") && !$<HTMLButtonElement>("btnGo").disabled) {
+      startRun();
+    }
     if (e.key === "Escape") backHome();
     return;
   }
@@ -3769,8 +3792,28 @@ function replay(): void {
     startRun(false);
     return;
   }
-  if (pendingMode === "daily") return;
-  openBrief("training");
+  /*
+   * LE RUN DU JOUR SE REJOUE TANT QU'IL RESTE UN ESSAI.
+   *
+   * Rapporté du playtest : « le bouton pour rejouer qui bug en silence, par
+   * exemple sur la run du jour en solo ». C'était exact, et la faute était
+   * ici : cette ligne sortait sans rien faire.
+   *
+   * La cause est un ajout fait à moitié. Les trois essais quotidiens
+   * (`DAILY_ESSAIS`) ont rendu le bouton ACTIF tant qu'un essai demeure — il
+   * n'est désactivé qu'à zéro, et il affiche « REJOUER » — mais `replay()` a
+   * gardé le garde-fou de l'époque où le run du jour ne se jouait qu'une fois.
+   * Les deux moitiés se contredisaient : le bouton promettait, la fonction
+   * refusait, et rien ne le disait. Le pire des trois états — un refus muet se
+   * lit comme un jeu cassé, pas comme une règle.
+   *
+   * On repasse par l'annonce, comme l'entraînement et pour la même raison :
+   * enchaîner sans revoir sa règle unique était déjà un bug corrigé.
+   * `essaisDuJour` reste seul juge du droit à rejouer, et il est déjà appliqué
+   * sur le bouton — inutile de le redire ici, ce serait une seconde moitié de
+   * plus à tenir d'accord avec la première.
+   */
+  openBrief(pendingMode === "daily" ? "daily" : "training");
 }
 
 $("btnDaily").addEventListener("click", () => {
@@ -3814,6 +3857,47 @@ $("btnHome").addEventListener("click", () => backHome());
  *
  * L'accueil vend, la première partie enseigne.
  */
+
+/*
+ * ------------------------------------------------------------------
+ * OÙ LE VISITEUR S'ARRÊTE — le premier geste, et lui seul.
+ * ------------------------------------------------------------------
+ *
+ * Le chiffre qui domine toute la mesure : 74 % des nouveaux (118 sur 159)
+ * repartent sans lancer une seule partie, médiane 6 secondes, la moitié en
+ * moins de 5. On savait QUAND ils partaient, jamais D'OÙ — et « il n'a rien
+ * trouvé à cliquer » se répare à l'opposé de « il a cliqué et s'est ravisé ».
+ *
+ * ⚠️ UN SEUL événement par visite, le PREMIER. Un accueil qui rapporte chaque
+ * clic produit surtout du bruit de navigation, et la question posée ici tient
+ * en un geste : celui qui suit l'arrivée. Croisé avec `visit_end`, il dit si
+ * l'écran a échoué à proposer, ou à convaincre.
+ *
+ * Posé en CAPTURE sur `#home` : les boutons de l'accueil arrêtent leur clic
+ * (`stopPropagation` dans la faille), et une écoute en bouillonnement en
+ * manquerait une partie — c'est-à-dire précisément les portes du jeu.
+ */
+let premierClicFait = false;
+$("home").addEventListener(
+  "click",
+  (e) => {
+    if (premierClicFait) return;
+    premierClicFait = true;
+    const el = e.target as HTMLElement | null;
+    const cible = el?.closest<HTMLElement>("button,a,[role=button]");
+    track("accueil_premier_clic", {
+      // L'identifiant quand il existe, la classe sinon : un clic dans le vide
+      // est une information, pas une absence de donnée.
+      quoi: cible?.id || cible?.className.split(" ")[0] || "(vide)",
+      neuf: Object.keys(P.load().encountered).length === 0,
+      // Depuis combien de temps la page est ouverte : une hésitation de dix
+      // secondes et un clic immédiat ne se lisent pas pareil.
+      ms: Math.round(performance.now()),
+    });
+  },
+  true,
+);
+
 $("btnPlay").addEventListener("click", () => {
   sfx.ui();
   if (estNouveau()) {

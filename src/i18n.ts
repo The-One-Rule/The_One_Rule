@@ -254,7 +254,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "but.premier": "Sois le premier.",
     "but.tenter": "TENTER LA RUN DU JOUR",
     "nav.cartes": "CARTES",
-    "nav.training": "ENTRAÎNEMENT",
     "nav.jouer": "JOUER",
     "nav.daily": "DU JOUR",
     "nav.multi": "MULTI",
@@ -427,7 +426,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "but.premier": "Be the first.",
     "but.tenter": "TRY THE DAILY RUN",
     "nav.cartes": "CARDS",
-    "nav.training": "TRAINING",
     "nav.jouer": "PLAY",
     "nav.daily": "DAILY",
     "nav.multi": "MULTI",
@@ -862,6 +860,14 @@ type Dyn = {
   finRegleEnfreinte: string;
   finRompu: string;
   finElimine: string;
+  /**
+   * Manche que ce bundle ne sait pas reconstruire (voir `syncFrame`).
+   *
+   * Elle ne s'excuse pas et ne nomme pas la cause : elle DIT quoi faire.
+   * L'écran gelait sans un mot, et recharger suffit — le décalage de versions
+   * entre le front et les salons est la seule cause connue.
+   */
+  multiRegleInconnue: string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -1282,6 +1288,7 @@ const DYN: Record<Lang, Dyn> = {
     finRegleEnfreinte: "RÈGLE UNIQUE ENFREINTE",
     finRompu: "ROMPU",
     finElimine: "ÉLIMINÉ",
+    multiRegleInconnue: "MANCHE ILLISIBLE — RECHARGE LA PAGE",
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1647,6 +1654,7 @@ const DYN: Record<Lang, Dyn> = {
     finRegleEnfreinte: "ONE RULE BROKEN",
     finRompu: "BROKEN",
     finElimine: "OUT",
+    multiRegleInconnue: "ROUND UNREADABLE — RELOAD THE PAGE",
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,

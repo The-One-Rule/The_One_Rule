@@ -11010,17 +11010,9 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* CLASSEMENT n'existe QUE sur large : une sixieme case dans une barre de cinq
-   a 375 px donnerait des cibles sous les 44 px tactiles. */
-.nav__item--large {
-  display: none;
-}
-
-@media (min-width: 900px) {
-  #app.barre-haute .nav__item--large {
-    display: flex;
-  }
-}
+/* `nav__item--large` n'a plus d'usage : CLASSEMENT a pris la case
+   d'ENTRAINEMENT, qui menait au meme ecran que JOUER. La barre garde ses cinq
+   cases et ses cibles au-dessus de 44 px — c'est un echange, pas un ajout. */
 
 /* ==================================================================
    L'ACCUEIL EN LARGE — VALEURS RELEVEES SUR LA SOURCE DE LA MAQUETTE

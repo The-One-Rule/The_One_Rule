@@ -33,7 +33,22 @@ const norm = (p: string): string => normalize(p).replace(/\\/g, "/");
 /** Les chemins SOURCE des instructions `COPY` du Dockerfile. */
 function cheminsCopies(): string[] {
   const out: string[] = [];
-  for (const ligne of lit("Dockerfile").split("\n")) {
+  /*
+   * ⚠️ DÉCOUPER SUR `\r?\n`, ET PAS SUR `\n`.
+   *
+   * `core.autocrlf` est à `true` sur la machine de développement : le
+   * Dockerfile est stocké en LF (`git ls-files --eol` dit `i/lf`) mais posé en
+   * CRLF dans la copie de travail (`w/crlf`). Un découpage sur `\n` laisse donc
+   * un `\r` en fin de ligne — et en JavaScript `.` ne matche AUCUN terminateur
+   * de ligne, `\r` compris, tandis que `$` sans le drapeau `m` exige la fin
+   * absolue de la chaîne. La regex ci-dessous ne matchait alors plus une seule
+   * ligne, `COPIES` sortait VIDE, et les deux tests de ce fichier tombaient.
+   *
+   * Le test passait donc sur une machine en LF et échouait sur tout checkout
+   * Windows standard — c'est-à-dire qu'il ne disait rien sur ce qu'il prétend
+   * garder, et beaucoup sur les fins de ligne de qui le lance.
+   */
+  for (const ligne of lit("Dockerfile").split(/\r?\n/)) {
     const m = /^\s*COPY\s+(.+)$/.exec(ligne);
     if (!m) continue;
     const args = m[1]!.trim().split(/\s+/);

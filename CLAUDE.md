@@ -612,6 +612,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Dette | Quand ça mord |
 |---|---|
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
+| **Front et salons déployés séparément** | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
 | `api/ranked.ts` en `MemoryStore` | mode classé masqué en production. **Ne pas rebrancher `a=top` tel quel** : il accepte `body.id` sans aucune vérification, donc n'importe qui peut soumettre sous n'importe quelle identité. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
@@ -1970,6 +1971,54 @@ oublis :**
   intitulés par un élément pleine largeur dans la grille du choix, et le dépôt
   a déjà payé deux fois un enfant de grille qui réordonne ses frères. Le gain
   est cosmétique, le risque ne l'est pas.
+
+### Playtest du jour 247 — trois pannes MUETTES, et le trou qui les cachait
+
+Rapportées de vive voix : « L'ÉCLAIR ne faisait littéralement pas apparaître
+les consignes », « freeze multiple en multi », « le bouton REJOUER bug en
+silence sur la run du jour ». Aucune des trois ne produisait d'erreur, de test
+rouge ou de ligne de journal. **C'est la famille de pannes que ce dépôt attrape
+le plus mal : elles n'échouent pas, elles annulent.**
+
+- **L'ÉCLAIR** réglait son masquage sur `elapsedMs`, le temps de la MANCHE, qui
+  n'est pas le temps où le texte a été LISIBLE. En multi, `elapsedMs` court
+  depuis l'instant serveur, donc le temps de vol du message est déjà consommé à
+  la première image : à 320 ms de fenêtre et 300 ms de latence, il ne reste
+  rien — et ça frappe d'abord les téléphones. En kill-cam, `syncFrame` passe
+  `camRound.durationMs`, toujours supérieur au seuil : la consigne du mort n'y
+  paraissait JAMAIS. Le HUD porte désormais une **horloge de lecture**, locale
+  et repartie à chaque manche, identifiée par la RÉFÉRENCE de l'objet (deux
+  manches d'affilée peuvent porter le même texte). `resolveAction` garde
+  `elapsedMs` : ce qui est jugé n'a pas bougé, décision n°3 intacte.
+- **Le freeze** : `rebuildViewRound` pose délibérément `match.round = null`
+  quand la règle ne se résout pas, et `syncFrame` écrivait `match.round!`. Un
+  `!` affirme au compilateur ce que le code d'à côté vient d'infirmer — `tsc`
+  ne peut pas le voir. TypeError à chaque image, et la panne est SILENCIEUSE
+  parce que la boucle replanifie son `rAF` **avant** son corps : elle ne meurt
+  pas, elle tourne à vide. Déclencheur : le passage à 16 règles, et un client
+  resté sur le bundle de la veille.
+- **REJOUER** : les trois essais quotidiens n'avaient été câblés qu'à moitié —
+  bouton actif, fonction qui refuse. Un refus muet se lit comme un jeu cassé,
+  jamais comme une règle. En le vérifiant, on a trouvé le même désaccord à
+  l'envers : `navDaily` ouvrait le brief du jour à zéro essai avec un
+  COMMENCER actif. **Le garde-fou appartient au point de passage commun, pas à
+  chaque porte** — la prochaine porte oubliera de le poser.
+
+**Le multijoueur n'était pas mesuré du tout**, et c'est ce qui a rendu ces bugs
+introuvables : douze joueurs et quinze runs solo au rapport, pas une trace de
+la soirée en salon. Cinq événements entrent (`salon_cree`, `salon_rejoint`,
+`match_debut`, `match_fin`, `multi_manche_illisible`), plus
+`accueil_premier_clic`. ⚠️ `api/collect.ts` porte une liste blanche qui rejette
+**en silence** tout nom absent : `tests/collect.test.ts` tient les deux listes
+d'accord, et il est tombé au premier essai.
+
+**LE CHIFFRE QUI DOMINE TOUT, et qui n'est toujours pas réparé** : sur 10 jours,
+**118 nouveaux visiteurs sur 159 (74 %) repartent sans lancer une seule
+partie**, médiane 6 secondes, la moitié en moins de 5. Ce n'est pas la
+difficulté — ils ne jouent jamais. L'onboarding ne peut rien y faire : il ne
+s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
+franchissent pas. `accueil_premier_clic` existe pour dire enfin D'OÙ ils
+partent ; **ne rien redessiner sur l'accueil avant de l'avoir lu.**
 
 ### Backlog
 
