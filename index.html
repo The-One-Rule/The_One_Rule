@@ -559,6 +559,27 @@
           <div class="col home__state">
             <div class="strip" id="homeStreak"></div>
             <div id="homeQuests" class="quests"></div>
+            <!-- CE QUI RESTE À FAIRE AUJOURD'HUI.
+                 Vue 21/27 : « rien à faire aujourd'hui » est l'état pauvre le
+                 plus facile à rater. Un joueur qui a fini son run du jour
+                 lisait « FAIT » et rien d'autre — donc un cul-de-sac, sur
+                 l'écran même qui existe pour donner envie de rejouer.
+
+                 ⚠️ IL NE REPÈTE PAS LES CARTES. L'escalade et l'entraînement
+                 sont juste au-dessus, à trois centimètres : les relister
+                 serait deux façons de répondre à la même question, exactement
+                 la faute du « filtre PLUS la grille ». Il ne porte que ce
+                 qu'aucune carte ne dit — QUELLE règle travailler, et ce qui
+                 vient demain. -->
+            <div class="reste hidden" id="soloReste">
+              <p class="eyebrow" data-i18n="solo.reste">WHAT IS LEFT TODAY</p>
+              <p class="reste__fait" id="soloResteFait"></p>
+              <button class="btn btn--ghost reste__act hidden" type="button" id="btnResteTravailler"></button>
+              <p class="reste__demain">
+                <span class="reste__kicker" data-i18n="solo.demain">TOMORROW</span>
+                <b id="soloDemain"></b>
+              </p>
+            </div>
             <div class="btnrow btnrow--tight">
               <button class="btn btn--ghost" id="btnCodex" data-i18n="carnet.titre">RULE BOOK</button>
             </div>

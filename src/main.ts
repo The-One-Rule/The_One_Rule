@@ -519,6 +519,50 @@ function renderSolo(): void {
         : vue.etat === "vierge"
           ? t("dailyUnEssai")
           : t("dailyEssaisRestants")(vue.restants);
+
+  /*
+   * CE QUI RESTE À FAIRE AUJOURD'HUI.
+   *
+   * Un joueur qui a bouclé son run du jour lisait « FAIT » et rien d'autre :
+   * un cul-de-sac, sur l'écran même qui existe pour donner envie de rejouer.
+   *
+   * ⚠️ Le bloc ne PARAÎT que quand la journée est close — sinon il dirait ce
+   * qu'il reste à faire à quelqu'un qui n'a rien fait, ce qui est le contraire
+   * d'un accomplissement.
+   *
+   * ⚠️ Et il ne répète PAS les cartes : escalade et entraînement sont trois
+   * centimètres plus haut. Il ne porte que ce qu'aucune carte ne dit — QUELLE
+   * règle travailler, et ce qui vient demain.
+   */
+  const journeeClose = vue.acquis || vue.verrouille;
+  $("soloReste").classList.toggle("hidden", !journeeClose);
+  if (journeeClose) {
+    $("soloResteFait").textContent = vue.acquis
+      ? t("resteFait")(s.daily.score, DAILY_LENGTH)
+      : t("resteEpuise")(s.daily.score);
+
+    /*
+     * TRAVAILLER LA RÈGLE DU JOUR — la seule ligne de l'écran qui DÉSIGNE un
+     * exercice. Elle ouvre la FICHE et non l'exercice : la fiche dit ce qui
+     * manque, et c'est elle qui lance. Même geste que « celle qui te résiste ».
+     *
+     * ⚠️ Elle se tait si la règle n'est pas au carnet : `ouvreFiche` refuse une
+     * règle jamais rencontrée (décision n°7), donc un bouton mort. Le cas est
+     * réel — on peut épuiser ses essais sans jamais finir une manche.
+     */
+    const auCarnet = !!s.encountered[rule.id];
+    const b = $("btnResteTravailler");
+    b.classList.toggle("hidden", !auCarnet);
+    if (auCarnet) {
+      const cases = franchies(echelleMaitrise(rule, s.encountered[rule.id]));
+      b.textContent = t("resteTravailler")(nomDeRegle(rule.id, rule.name), cases);
+    }
+
+    // DEMAIN : le même geste que l'écran de fin, qui l'annonce déjà.
+    const demain = tomorrowRule(day);
+    $("soloDemain").textContent = nomDeRegle(demain.id, demain.name);
+  }
+
   $("cardEscaladeState").textContent = t("escaladeEtat");
   $("cardTrainingState").textContent = neuf
     ? t("trainingNeuf")
@@ -3372,6 +3416,11 @@ $("btnSolo").addEventListener("click", () => {
   renderSolo();
   show("solo");
 });
+$("btnResteTravailler").addEventListener("click", () => {
+  // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
+  ouvreFiche(ruleOfDay(day));
+});
+
 $("btnCodex").addEventListener("click", () => renderCodex());
 $("btnCodexBack").addEventListener("click", () => {
   // Le carnet s'ouvre depuis SOLO : RETOUR doit y ramener, pas remonter d'un

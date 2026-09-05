@@ -206,6 +206,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.titres": "TITRES DU MATCH",
     "fin.rejouerMulti": "REJOUER",
     "fin.quitter": "QUITTER",
+    "solo.reste": "CE QUI RESTE À FAIRE AUJOURD'HUI",
+    "solo.demain": "DEMAIN",
     "reglages.titre": "RÉGLAGES",
     "reglages.sous": "COMME TU VEUX",
     "commun.on": "ON",
@@ -360,6 +362,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.titres": "MATCH TITLES",
     "fin.rejouerMulti": "PLAY AGAIN",
     "fin.quitter": "LEAVE",
+    "solo.reste": "WHAT IS LEFT TODAY",
+    "solo.demain": "TOMORROW",
     "reglages.titre": "SETTINGS",
     "reglages.sous": "HOW YOU LIKE IT",
     "commun.on": "ON",
@@ -758,6 +762,9 @@ type Dyn = {
   sortieRetaper: string;
   reconnexion: string;
   piedDepasse: string;
+  resteFait: (score: number, sur: number) => string;
+  resteEpuise: (score: number) => string;
+  resteTravailler: (regle: string, cases: number) => string;
   coupureEtat: (essai: number, sur: number, s: number) => string;
   sortieOuvrir: string;
   sortieRecharger: string;
@@ -1119,6 +1126,9 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
     piedDepasse: "SUR TON MIEUX",
+    resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
+    resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
+    resteTravailler: (regle, cases) => `TRAVAILLER ${regle} · ${cases}/6`,
     coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
     sortieOuvrir: "OUVRIR LE MIEN",
     sortieRecharger: "RECHARGER",
@@ -1461,6 +1471,9 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
     piedDepasse: "OVER YOUR BEST",
+    resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
+    resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
+    resteTravailler: (regle, cases) => `WORK ON ${regle} · ${cases}/6`,
     coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
     sortieOuvrir: "OPEN MY OWN",
     sortieRecharger: "RELOAD",

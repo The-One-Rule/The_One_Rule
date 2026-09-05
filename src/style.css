@@ -10149,3 +10149,62 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-intitule);
   color: var(--ambre);
 }
+
+/* ==================================================================
+   CE QUI RESTE A FAIRE AUJOURD'HUI
+
+   Un joueur qui a boucle son run du jour lisait « FAIT » et rien d'autre :
+   un cul-de-sac, sur l'ecran meme qui existe pour donner envie de rejouer.
+   Le bloc ne parait que quand la journee est close.
+   ================================================================== */
+
+.reste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px 15px;
+  border: var(--bd-hair) solid var(--line);
+  border-left: 3px solid var(--jade, #40f7c0);
+  background: var(--ink-2);
+  text-align: left;
+}
+
+.reste.hidden {
+  display: none;
+}
+
+.reste__fait {
+  margin: 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.5;
+  color: var(--paper);
+}
+
+.reste__act.hidden {
+  display: none;
+}
+
+.reste__demain {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding-top: 8px;
+  border-top: var(--bd-hair) solid var(--line);
+}
+
+.reste__kicker {
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ambre);
+}
+
+.reste__demain b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--paper);
+}
