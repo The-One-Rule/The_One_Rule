@@ -98,8 +98,35 @@
   --ls-lire: 0.02em;
 
   /** Intitulés en capitales — le seul endroit où l'écartement informe. */
-  --t-intitule: 11px;
+  --t-intitule: 9.5px;
   --ls-intitule: 0.18em;
+
+  /* ----------------------------------------------------------------
+     ⚠️ L'ECHELLE DE LA MAQUETTE, RELEVEE SUR SA SOURCE
+
+     Sur les 2 500 lignes des vues mobiles de `TOR Redesign.dc.html`, les
+     tailles les plus employees sont 10 px (130 fois), 9,5 (101) et 9 (95) —
+     bien sous le plancher de 11 que ce depot s'etait donne. Cette densite
+     n'est pas un detail de style : c'est ce qui fait tenir quatre blocs dans
+     une colonne de 464, et c'est la difference la plus visible entre le rendu
+     et le dessin.
+
+     Elle ne s'applique QU'AUX INTITULES EN CAPITALES, jamais aux phrases.
+     Un mot de six lettres espace de 0,16em se lit a 9,5 px ; un paragraphe
+     non. Les jetons de LECTURE (`--t-base`, `--t-lire`) ne bougent pas.
+     ---------------------------------------------------------------- */
+
+  /** Etiquette d'un bloc : « TA COLLECTION », « RUN DU JOUR ». */
+  --t-etiquette: 9.5px;
+  --ls-etiquette: 0.18em;
+
+  /** Libelle court : « UNE SEULE REGLE », « A MATER ». */
+  --t-lab: 10px;
+  --ls-lab: 0.16em;
+
+  /** Destination, bouton de barre, valeur d'option. */
+  --t-nav: 11px;
+  --ls-nav: 0.14em;
 
   /* ----------------------------------------------------------------
      Rythme et matière
@@ -11499,5 +11526,97 @@ button.chip:active:not(:disabled) {
 
   #app.barre-haute #home {
     padding-bottom: 0;
+  }
+}
+
+/* ==================================================================
+   LE VOCABULAIRE DE LA MAQUETTE, APPLIQUE AUX COMPOSANTS PARTAGES
+
+   Releve sur les 2 500 lignes de vues mobiles de la source, par frequence :
+   font-size 10 px (130 fois), 9,5 (101), 9 (95), 14 (64), 10,5 (54) ;
+   letter-spacing .14em (114), .1em (95), .16em (92), .2em (52), .18em (43) ;
+   padding « 11px 12px » (21), « 6px 8px » (21), « 16px 18px » (15) ;
+   couleurs #8494a8 (373), #efeae0 (261), #cfc9f2 (169), #f5b214 (51).
+
+   La PALETTE etait deja identique au jeton pres — c'est l'ECHELLE qui
+   divergeait. Ce bloc la remet, et il vient en fin de feuille pour gagner la
+   cascade a specificite egale.
+   ================================================================== */
+
+/*
+ * L'INTITULE DE BLOC. Il descend de 11 a 9,5 px et prend la couleur pale
+ * quand il nomme un bloc — c'est le cas le plus frequent de la source.
+ */
+.eyebrow {
+  font-size: var(--t-etiquette);
+  letter-spacing: var(--ls-etiquette);
+  color: var(--signal-pale);
+}
+
+/* Les intitules SECONDAIRES restent en gris : ils accompagnent, ils
+   n'annoncent pas. */
+.fineprint,
+.settings__hint,
+.card__state {
+  font-size: var(--t-lab);
+  letter-spacing: var(--ls-lab);
+}
+
+/*
+ * LES BOUTONS DE BARRE ET LES PUCES : 10 px, .14em, cadre fin, retrait 5/8.
+ * C'est la puce « SERIE 3 » et « PIERRE » de la barre mobile de la source.
+ */
+.btn--top,
+.chip {
+  font-size: var(--t-nav);
+  letter-spacing: var(--ls-nav);
+}
+
+/*
+ * LE RETRAIT D'ECRAN. La source donne `22px 16px 0` sur telephone — le
+ * depot en mettait davantage, ce qui reduisait d'autant la largeur utile de
+ * chaque bloc et faisait paraitre les ecrans plus vides.
+ */
+@media (max-width: 899px) {
+  /*
+   * ⚠️ LE RETRAIT VA SUR `.col`, PAS SUR LE DEFILEMENT.
+   *
+   * Pose sur `.screen__scroll`, il rentrait la FAILLE de 16 px de chaque cote
+   * — mesure : 17,305 341 de large au lieu de 1,312 373. Or la vitrine est
+   * « un objet pleine largeur du #app », a 98,8 % mesure, et c'est ce qui la
+   * distingue de deux zones posees au milieu. `.col` est deja le porteur du
+   * retrait dans ce depot ; il passe de 24 a 16, la valeur de la source.
+   */
+  .col,
+  #home .home__brand,
+  #home .home__foot {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/*
+ * ⚠️ LE LOGO SE COUPE SUR TELEPHONE, PAS SUR LARGE.
+ *
+ * La source ecrit « THE / ONE RULE » en 44 px a 375, et « THE ONE RULE » d'un
+ * seul trait en 86 px a 1280. Un `<br>` masque ne coupe pas : c'est le seul
+ * moyen d'avoir les deux formes sans dupliquer le titre.
+ */
+.logo__saut {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .logo__saut {
+    display: block;
+  }
+
+  .logo {
+    font-size: 44px;
+    padding-left: 15px;
+  }
+
+  .logo::before {
+    width: 6px;
   }
 }
