@@ -720,8 +720,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 519 tests (44 fichiers) ·
-e2e 79 assertions (~2 min 30) · `vite build`.
+**Branche** `master`. **Vérification** : `tsc` · 618 tests ·
+e2e 78 assertions (~2 min 30) · `vite build`.
 
 ### Le bandeau de mesure a quitté l'accueil
 
@@ -1831,6 +1831,113 @@ remplace l'entrée, elle ne la complète pas.
 une progression nulle transforme un run ordinaire en échec. Et une règle NEUVE a
 sa propre annonce, donc le bloc de progression se tait pour ne pas dire deux fois
 la même chose.
+
+#### La nuit des écrans — dix lots, jamais vus par un joueur
+
+Pierre a livré seize captures de la maquette et « je te laisse les faire ».
+Ce qui suit est ce qui ne se déduit pas du code.
+
+⚠️ **`VERSION_CONTENU` n'a PAS bougé** — aucune règle, aucune pondération,
+aucune constante de difficulté n'est touchée. Les records et le classement
+survivent au déploiement.
+
+⚠️ **DEUX ÉCRANS EXISTAIENT DÉJÀ, et j'ai failli les refaire.** Les cinq crans
+de vitesse du salon (`SPEED_CHOICES`, de 1,7 à 0,65) et **trois des quatre
+titres de match** — réflexe, flair, série. C'est le piège du §2 : *les
+documents mentent*, et la maquette aussi. Mesurer avant de refaire.
+
+**Le bug le plus instructif : une COLLISION DE CLASSE, invisible depuis des
+semaines.** `.piege` était déclaré deux fois dans la feuille, à 1400 lignes
+d'écart, pour deux objets sans rapport : la ligne « si une consigne enfreint ta
+règle, ne fais rien » du brief et du salon, et le calque plein écran du PIÈGE
+DÉJOUÉ. La seconde posait `position: absolute; inset: 0` et gagnait la cascade
+— ces deux lignes de TEXTE étaient donc absolument positionnées par-dessus tout
+leur écran, sans leur cadre à arête gauche. Elles avaient l'air placées par
+chance, et elles l'étaient. Le calque s'appelle `piegefx`.
+
+⚠️ Trouvé **en ajoutant**, pas en relisant, et **le relevé de boîtes ne le
+voyait pas** : trois cellules à 360-419 px et un texte qui se peint dessus sans
+qu'aucun rectangle ne se chevauche. Même leçon que « TA RÈGLE T'ATTEND ».
+Balayage complet de la feuille après coup : aucune autre collision de cette
+forme — les autres redéclarations (`.lifedots`, `.carte__img`, les émetteurs de
+la fissure) sont des raffinements voulus, adjacents et complémentaires.
+
+**Deuxième panne muette, même famille :** `#multiLobbyCodeHint` portait « SAY IT
+OUT LOUD, OR SEND THE LINK » en dur, sans `data-i18n`, et aucun code ne le
+réécrivait avant qu'on copie le code — la ligne restait anglaise pour tout le
+monde, pour toujours, sur l'écran où l'on dicte son code. Le filet à accents ne
+pouvait pas la voir : elle est en ASCII pur. **Le filet manquant est écrit** :
+`tests/i18n.test.ts` refuse tout texte du document sans `data-i18n` dont
+l'identifiant n'apparaît nulle part dans les sources. Éprouvé, il tombe.
+
+**Ce qui a été livré, et pourquoi :**
+
+- **Le compte devient une FICHE** — signe et nom en tête, quatre chiffres, la
+  collection avec sa jauge, et le run du jour séparé par un badge OPPOSABLE.
+  C'est la décision n°14 rendue visible : le badge ne paraît qu'après un
+  aller-retour réussi vers `classementDuJour`. Le fournisseur n'est PAS affiché
+  et c'est un manque assumé — `EtatCompte` ne le porte pas, l'ajouter
+  demanderait une revendication de plus dans le jeton donc de toucher le
+  serveur de salons. Deviner serait pire que se taire.
+- **Les réglages deviennent des lignes à conséquence écrite.** Un bouton
+  « MUSIQUE : ON » dit l'état, jamais ce que ça change. ⚠️ **Un interrupteur ne
+  s'écrit pas en `textContent`** — il porte deux `<i>`, l'écriture les
+  détruirait : le piège des cartes de l'accueil, payé une fois de plus.
+  L'ALLURE PAR DÉFAUT y entre (elle n'existait que dans le brief, introuvable),
+  et **LA LANGUE DÉMÉNAGE UNE TROISIÈME FOIS** — accueil, puis barre haute,
+  puis section des réglages. Effet de bord mesuré et bon : la barre haute perd
+  46 px, et **l'accueil tient enfin large** (fissure à 666, pied à 752, sur
+  812).
+- **Une erreur propose une SORTIE.** ⚠️ Chaque message nomme les siennes, et
+  seulement celles qui répondent vraiment à lui : un code inconnu offre RETAPER
+  et OUVRIR LE MIEN, un salon COMPLET n'offre qu'OUVRIR LE MIEN. Un jeu
+  d'issues identique partout aurait menti trois fois sur quatre.
+- **La coupure se voit** — décision n°4, rendue visible. Le joueur lisait
+  « RECONNEXION… » en petit pendant que la scène restait figée, ce qui
+  ressemble à une expulsion. ⚠️ **Le rebours est DÉCORATIF** : le sursis
+  appartient au serveur, le panneau montre ce qu'il promet et ne le décide pas.
+  ⚠️ Hors flux, vérifié : canvas identique panneau affiché et caché.
+- **Le pied annonce le record DÉPASSÉ en direct.** Il affichait « TON RECORD ·
+  23 » pendant qu'on venait de faire 24. Même case, même hauteur, zéro pixel
+  ajouté. ⚠️ Le record de référence est PHOTOGRAPHIÉ au lancement, et l'annonce
+  se tait sur le run du jour (sa case dit « SUR 40 ») et sans record du tout.
+- **Le mur des records** (`#classement`) — le podium quittait l'écran de fin,
+  où 76 % des joueurs ne le voient jamais. Trois sources, toutes existantes :
+  `vueBut`, `recordDeSonAllure`, `classementDuJour`. Le rendu du podium est
+  désormais **paramétré** (`peintPodium(quoi, ecran)`) et non dupliqué.
+- **La journée close n'est plus un cul-de-sac** sur SOLO. ⚠️ Le bloc ne répète
+  PAS les cartes qui sont trois centimètres plus haut ; il ne porte que quelle
+  règle travailler et ce qui vient demain. Il se tait si la règle du jour n'est
+  pas au carnet — `ouvreFiche` la refuserait (n°7), et le cas est réel.
+- **L'exercice ciblé annonce son objectif** dans la case META du bandeau, qui
+  ne servait qu'à l'échauffement. Zéro pixel ajouté. ⚠️ Égalité stricte pour
+  « EXERCICE VALIDÉ » : avec `>=` l'annonce reviendrait à chaque manche.
+- **Deux titres de match de plus.** TÊTE BRÛLÉE célèbre la seule faute que le
+  jeu existe pour produire ; SURVIVANT ne paraît que si le vainqueur est
+  débutant. ⚠️ Le compte des morts-sur-sa-règle vit dans le **serveur** :
+  deux clients aux fenêtres d'observation différentes décerneraient des titres
+  différents sur le même écran. `PROTOCOL_VERSION` ne bouge pas — doctrine de
+  `tok`.
+- **Trois chiffres sur le brief du jour**, dont ÉCHAUFFEMENT : 76 morts à la
+  manche 3 sur 572 runs, et rien ne prévenait avant. Ils REMPLACENT la ligne
+  « 40 manches ».
+
+**Ce qui n'a PAS été fait, et pourquoi — ce sont des DIRECTIONS, pas des
+oublis :**
+
+- ⚠️ **La règle du jour reste RÉVÉLÉE dans le brief.** La maquette la censure
+  et la dévoile au lancement. Ça déplacerait tout le temps de lecture dans le
+  battement de 3 s, donc **ça change la difficulté du seul mode dont les
+  résultats se comparent**. À trancher par Pierre.
+- Le mode CLASSÉ **annoncé vide** sur SOLO : un emplacement mort en permanence,
+  qui contredit « le podium se tait plutôt que de montrer un cadre vide ».
+- L'écran de **chargement** : le jeu ne charge aucun fichier, il mentirait. La
+  seule attente réelle est celle du salon, et elle a son panneau.
+- **GÂCHETTE** (réaction médiane) existe déjà sous le nom RÉFLEXE DU MATCH ; les
+  renommages de la maquette n'ont pas été appliqués — un nom est choisi pour ce
+  que la chose FAIT.
+- Le **code de salon en quatre cases** sur l'écran REJOINDRE (il l'est déjà
+  dans le salon, via `setRoomCode`).
 
 ### Backlog
 
