@@ -582,6 +582,7 @@
             </div>
             <div class="btnrow btnrow--tight">
               <button class="btn btn--ghost" id="btnCodex" data-i18n="carnet.titre">RULE BOOK</button>
+              <button class="btn btn--ghost" id="btnMur" data-i18n="mur.eyebrow">LEADERBOARD</button>
             </div>
           </div>
         </div>
@@ -1175,6 +1176,56 @@
           <p class="fineprint" id="reglagesFineprint">MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU</p>
           <div class="btnrow">
             <button class="btn btn--ghost" id="btnReglagesBack" data-i18n="commun.retour">BACK</button>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- LE MUR DES RECORDS
+           Vue 17/27. Le podium existait, mais il ne paraissait que sur l'ecran
+           de FIN, apres un run du jour : les trois joueurs sur quatre qui ne
+           lancent jamais une partie ne l'ont jamais vu. C'est le levier nomme
+           dans la memoire du depot — le porter la ou on decide de jouer.
+
+           ⚠️ Aucune infrastructure de classement inventee. Ce qui est ici
+           existe : `MEILLEUR_CONNU` (mesure gelee, etiquetee ENTRAINEMENT),
+           `recordDeSonAllure`, et `classementDuJour` — la meme route que
+           l'ecran de fin. Rien d'autre n'est affiche, parce que rien d'autre
+           n'est vrai. -->
+      <section class="screen hidden" id="classement">
+        <div class="screen__scroll">
+          <p class="eyebrow" data-i18n="mur.eyebrow">LEADERBOARD</p>
+          <h2 class="rulename" data-i18n="mur.titre">THE WALL OF RECORDS</h2>
+
+          <!-- LE RECORD A BATTRE, et son epreuve. Un score sans son mode est
+               un chiffre faux : `render/but.ts` porte cette priorite. -->
+          <div class="mur__cible">
+            <p class="mur__kicker" id="murCibleQuoi"></p>
+            <p class="mur__gros" id="murCibleVal">—</p>
+            <p class="mur__note" id="murCibleNote"></p>
+          </div>
+
+          <!-- TON MIEUX, et la distance. La jauge est DECORATIVE : la phrase
+               dit le meme fait en chiffres, donc rien ne se perd si le
+               mouvement est coupe. -->
+          <div class="mur__moi">
+            <p class="mur__kicker" data-i18n="mur.tonMieux">YOUR BEST</p>
+            <p class="mur__mien" id="murMien">—</p>
+            <div class="mur__jauge" aria-hidden="true"><i id="murJauge"></i></div>
+            <p class="mur__ecart" id="murEcart"></p>
+          </div>
+
+          <!-- LE PODIUM DU JOUR — meme rendu que l'ecran de fin, meme route.
+               Il SE TAIT plutot que de montrer un cadre vide. -->
+          <div class="podium hidden" id="murPodium">
+            <p class="eyebrow" data-i18n="podium.titre">TODAY'S BEST</p>
+            <ol class="podium__liste" id="murPodiumListe"></ol>
+            <p class="podium__moi" id="murPodiumMoi"></p>
+          </div>
+
+          <div class="btnrow">
+            <button class="btn btn--primary" id="btnMurJouer" data-i18n="mur.tenter">GO FOR IT</button>
+            <button class="btn btn--ghost" id="btnMurBack" data-i18n="commun.retour">BACK</button>
           </div>
         </div>
       </section>

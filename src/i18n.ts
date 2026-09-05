@@ -206,6 +206,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.titres": "TITRES DU MATCH",
     "fin.rejouerMulti": "REJOUER",
     "fin.quitter": "QUITTER",
+    "mur.eyebrow": "CLASSEMENT",
+    "mur.titre": "LE MUR DES RECORDS",
+    "mur.tonMieux": "TON MIEUX",
+    "mur.tenter": "TENTER LE RECORD",
     "solo.reste": "CE QUI RESTE À FAIRE AUJOURD'HUI",
     "solo.demain": "DEMAIN",
     "reglages.titre": "RÉGLAGES",
@@ -362,6 +366,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.titres": "MATCH TITLES",
     "fin.rejouerMulti": "PLAY AGAIN",
     "fin.quitter": "LEAVE",
+    "mur.eyebrow": "LEADERBOARD",
+    "mur.titre": "THE WALL OF RECORDS",
+    "mur.tonMieux": "YOUR BEST",
+    "mur.tenter": "GO FOR IT",
     "solo.reste": "WHAT IS LEFT TODAY",
     "solo.demain": "TOMORROW",
     "reglages.titre": "SETTINGS",
@@ -762,6 +770,14 @@ type Dyn = {
   sortieRetaper: string;
   reconnexion: string;
   piedDepasse: string;
+  murDuJour: string;
+  murDuJourNote: string;
+  murEntrainement: string;
+  murEntrainementNote: string;
+  murRien: string;
+  murPremier: string;
+  murDevant: string;
+  murManque: (n: number) => string;
   resteFait: (score: number, sur: number) => string;
   resteEpuise: (score: number) => string;
   resteTravailler: (regle: string, cases: number) => string;
@@ -1126,6 +1142,14 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
     piedDepasse: "SUR TON MIEUX",
+    murDuJour: "LE MEILLEUR DU JOUR",
+    murDuJourNote: "Vérifié par rejeu. Il change chaque jour.",
+    murEntrainement: "LE MEILLEUR CONNU · ENTRAÎNEMENT",
+    murEntrainementNote: "Relevé à la main, à une allure d'entraînement. Ce n'est pas un run du jour.",
+    murRien: "—",
+    murPremier: "Ton premier run posera ton chiffre ici.",
+    murDevant: "Tu fais mieux que ça.",
+    murManque: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""}.`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
     resteTravailler: (regle, cases) => `TRAVAILLER ${regle} · ${cases}/6`,
@@ -1471,6 +1495,14 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
     piedDepasse: "OVER YOUR BEST",
+    murDuJour: "TODAY'S BEST",
+    murDuJourNote: "Replayed and checked by the server. It changes every day.",
+    murEntrainement: "BEST KNOWN · TRAINING",
+    murEntrainementNote: "Read by hand, at a training pace. It is not a daily run.",
+    murRien: "—",
+    murPremier: "Your first run puts your number here.",
+    murDevant: "You do better than that.",
+    murManque: (n) => `You are ${n} round${n === 1 ? "" : "s"} short.`,
     resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
     resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
     resteTravailler: (regle, cases) => `WORK ON ${regle} · ${cases}/6`,

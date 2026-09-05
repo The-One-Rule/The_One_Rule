@@ -207,6 +207,7 @@ const SCREENS = [
   "over",
   "codex",
   "compte",
+  "classement",
   "reglages",
   "multi-id",
   "multi-join",
@@ -258,6 +259,7 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "over",
   "codex",
   "compte",
+  "classement",
   "reglages",
 ]);
 
@@ -1322,18 +1324,37 @@ function proposeMesure(): boolean {
  * écran que le joueur veut voir vite — celui qui dit REJOUER.
  */
 function renderPodium(mode: Mode): void {
-  const boite = $("podium");
+  if (mode !== "daily") {
+    $("podium").classList.add("hidden");
+    return;
+  }
+  peintPodium("podium", "over");
+}
+
+/**
+ * Le podium, dans le conteneur demandé.
+ *
+ * Deux écrans l'affichent — la fin d'un run du jour, et le mur des records —
+ * et un rendu écrit deux fois finit par diverger. Le conteneur porte donc son
+ * identifiant en préfixe (`podiumListe`, `murPodiumListe`), et l'écran attendu
+ * garde la garde contre une réponse qui arrive après un changement d'écran.
+ *
+ * @param quoi l'identifiant du bloc, aussi préfixe de ses enfants
+ * @param ecran l'écran sur lequel la réponse a encore un sens
+ */
+function peintPodium(quoi: string, ecran: ScreenId): void {
+  const boite = $(quoi);
   boite.classList.add("hidden");
-  if (mode !== "daily") return;
+  const enfant = (n: string): string => (quoi === "podium" ? `podium${n}` : `${quoi}${n}`);
 
   const jourDemande = day;
   void classementDuJour(jourDemande).then((c) => {
     // L'écran a pu changer, ou le joueur relancer, pendant l'appel : on ne
-    // peint que si l'on est encore sur la fin du run qu'on a demandé.
-    if (!c || screen !== "over" || jourDemande !== day) return;
+    // peint que si l'on est encore là où on a demandé.
+    if (!c || screen !== ecran || jourDemande !== day) return;
     if (!c.top.length) return;
 
-    const liste = $("podiumListe");
+    const liste = $(enfant("Liste"));
     liste.innerHTML = "";
     for (const e of c.top) {
       const li = document.createElement("li");
@@ -1359,7 +1380,7 @@ function renderPodium(mode: Mode): void {
      * podium on lit son rang, sans compte on lit comment y entrer, et sur le
      * podium on ne lit rien de plus — la ligne accentuée l'a déjà dit.
      */
-    const moi = $("podiumMoi");
+    const moi = $(enfant("Moi"));
     moi.textContent = c.moi
       ? t("podiumRang")(c.moi.rang, c.moi.valeur)
       : estConnecte()
@@ -1367,6 +1388,56 @@ function renderPodium(mode: Mode): void {
         : t("podiumAbsent");
     boite.classList.remove("hidden");
   });
+}
+
+
+/**
+ * LE MUR DES RECORDS.
+ *
+ * Le podium existait, mais il ne paraissait que sur l'écran de FIN, après un
+ * run du jour. Or 106 joueurs sur 139 n'ont jamais lancé une partie : ils ne
+ * l'ont donc jamais vu, et c'est justement à eux qu'il servirait. Le porter
+ * là où l'on décide de jouer est le levier nommé dans la mémoire du dépôt.
+ *
+ * ⚠️ AUCUNE INFRASTRUCTURE INVENTÉE. Trois sources, toutes existantes :
+ * `vueBut` pour le record à battre et son épreuve, `recordDeSonAllure` pour
+ * celui du joueur, et `classementDuJour` pour le podium — la même route que
+ * l'écran de fin. Rien d'autre n'est affiché, parce que rien d'autre n'est
+ * vrai.
+ */
+function renderClassement(): void {
+  const s = P.load();
+  const mien = P.recordDeSonAllure(s);
+  const vue = vueBut(mien, recordDuJour);
+
+  $("murCibleQuoi").textContent =
+    vue.cible.source === "jour" ? t("murDuJour") : t("murEntrainement");
+  $("murCibleVal").textContent = String(vue.cible.score);
+  $("murCibleNote").textContent =
+    vue.cible.source === "jour" ? t("murDuJourNote") : t("murEntrainementNote");
+
+  $("murMien").textContent = mien > 0 ? String(mien) : t("murRien");
+  /*
+   * La JAUGE est décorative, et la phrase dit le même fait en chiffres : rien
+   * ne se perd si le mouvement est coupé. Elle est bornée à 1 — un joueur qui
+   * dépasse la cible ne doit pas voir une barre qui sort de son cadre.
+   */
+  const part = vue.cible.score > 0 ? Math.min(1, mien / vue.cible.score) : 0;
+  $("murJauge").style.transform = `scaleX(${part.toFixed(3)})`;
+  /*
+   * ⚠️ LE JEU NE DIT JAMAIS À QUELQU'UN QU'IL EST MOINS BON QUE CE QU'IL FAIT.
+   * Au-dessus de la cible, la phrase le constate ; en dessous, elle chiffre ce
+   * qui manque, ce qui est une consigne et pas un jugement ; et sans record du
+   * tout, elle n'oppose rien — comparer un joueur neuf à 201 est un mur.
+   */
+  $("murEcart").textContent =
+    mien <= 0
+      ? t("murPremier")
+      : vue.depasse
+        ? t("murDevant")
+        : t("murManque")(vue.cible.score - mien);
+
+  peintPodium("murPodium", "classement");
 }
 
 /**
@@ -3422,6 +3493,31 @@ $("btnResteTravailler").addEventListener("click", () => {
 });
 
 $("btnCodex").addEventListener("click", () => renderCodex());
+
+/*
+ * LE MUR s'ouvre depuis SOLO — c'est-a-dire la ou l'on decide de jouer.
+ *
+ * Le podium ne paraissait que sur l'ecran de FIN, apres un run du jour : 106
+ * joueurs sur 139 n'ont jamais lance une partie, donc ne l'ont jamais vu. Ce
+ * sont eux qu'un record a battre concerne.
+ */
+$("btnMur").addEventListener("click", () => {
+  sfx.ui();
+  renderClassement();
+  show("classement");
+});
+$("btnMurBack").addEventListener("click", () => {
+  sfx.ui();
+  renderSolo();
+  show("solo");
+});
+$("btnMurJouer").addEventListener("click", () => {
+  sfx.ui();
+  // Le RUN DU JOUR : c'est l'epreuve du podium juste au-dessus. Envoyer vers
+  // l'entrainement proposerait de battre un chiffre dans un autre mode, ce que
+  // tout ce module existe pour interdire.
+  openBrief("daily");
+});
 $("btnCodexBack").addEventListener("click", () => {
   // Le carnet s'ouvre depuis SOLO : RETOUR doit y ramener, pas remonter d'un
   // cran de plus que celui qu'on a descendu.

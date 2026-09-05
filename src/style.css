@@ -10208,3 +10208,103 @@ button.chip:active:not(:disabled) {
   font-size: 15px;
   color: var(--paper);
 }
+
+/* ==================================================================
+   LE MUR DES RECORDS
+
+   ⚠️ Rien d'invente : le record a battre vient de `vueBut`, le chiffre du
+   joueur de `recordDeSonAllure`, le podium de la meme route que l'ecran de
+   fin. L'ecran ne montre que ce qui existe, et se tait pour le reste.
+   ================================================================== */
+
+#classement .screen__scroll {
+  text-align: left;
+}
+
+#classement .eyebrow,
+#classement .rulename {
+  text-align: left;
+}
+
+.mur__cible {
+  margin-top: 14px;
+  padding: 16px;
+  border: 2px solid var(--ambre);
+  background: color-mix(in srgb, var(--ambre) 8%, var(--ink-2));
+}
+
+.mur__kicker {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ambre);
+}
+
+.mur__gros {
+  margin: 6px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.mur__note {
+  margin: 8px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.5;
+  color: var(--paper-dim);
+}
+
+.mur__moi {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+}
+
+.mur__moi .mur__kicker {
+  color: var(--paper-dim);
+}
+
+.mur__mien {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--signal);
+  font-variant-numeric: tabular-nums;
+}
+
+/* La jauge est DECORATIVE : la phrase dit le meme fait en chiffres, donc rien
+   ne se perd quand le mouvement est coupe. Seul `transform` est anime. */
+.mur__jauge {
+  margin-top: 10px;
+  height: 6px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.mur__jauge i {
+  display: block;
+  height: 100%;
+  background: var(--signal);
+  transform-origin: left center;
+}
+
+.mur__ecart {
+  margin: 8px 0 0;
+  font-size: var(--t-base);
+  letter-spacing: var(--ls-base);
+  line-height: 1.5;
+  color: var(--paper);
+}
+
+#murPodium {
+  margin-top: 14px;
+}
