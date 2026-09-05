@@ -372,6 +372,15 @@ function seatState(p: PlayerPublic, inMatch: boolean, myId: string) {
   };
 }
 
+/**
+ * Les identifiants vus au dernier rendu du salon, pour reperer les ARRIVEES.
+ *
+ * `null` tant qu'on n'a rien vu : le premier rendu ne marque personne, sinon
+ * entrer dans un salon de six annoncerait six arrivees. Remis a `null` en
+ * quittant, pour que le salon suivant reparte de zero.
+ */
+let connusDuSalon: Set<string> | null = null;
+
 function renderLobby(
   code: string,
   players: PlayerPublic[],
@@ -397,10 +406,27 @@ function renderLobby(
    * tuile ne porte que ce qui distingue : le signe, le nom, et la seule
    * mention qui s'applique.
    */
+  /*
+   * QUI VIENT D'ARRIVER.
+   *
+   * On attend quelqu'un, et rien ne disait qu'il etait la : la liste se
+   * repeignait, un nom de plus, sans que l'oeil sache lequel. C'est le seul
+   * evenement du salon avant le lancement, et c'est celui qu'on guette.
+   *
+   * ⚠️ La marque est TRANSITOIRE et ne survit pas au repeint suivant : c'est
+   * un evenement, pas un etat. Et le premier rendu n'en pose aucune — sinon
+   * entrer dans un salon de six annoncerait six arrivees d'un coup.
+   */
+  const ici = new Set(players.map((p) => p.id));
+  const neufs = connusDuSalon === null
+    ? new Set<string>()
+    : new Set([...ici].filter((id) => !connusDuSalon!.has(id)));
+  connusDuSalon = ici;
+
   for (const p of players) {
     const etat = seatState(p, inMatch, myId);
     const seat = document.createElement("div");
-    seat.className = seatClasses(etat).join(" ");
+    seat.className = seatClasses(etat).join(" ") + (neufs.has(p.id) ? " is-entre" : "");
     seat.innerHTML =
       `<span class="seat__glyph"></span>` +
       `<span class="seat__id">` +
@@ -2553,6 +2579,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     lastRoomCode = "";
     roomCode = "";
     lastPlayers = [];
+    // Le salon suivant repart de zero : sans ca, entrer ailleurs marquerait
+    // tout le monde comme « vient d'arriver ».
+    connusDuSalon = null;
     muted.clear();
     clearEmoteTimers();
     clearChat();

@@ -1129,7 +1129,22 @@ const DYN: Record<Lang, Dyn> = {
     ariaReactiver: (qui) => `Réactiver ${qui}`,
     ariaExclure: (qui) => `Exclure ${qui}`,
     dicteLeCode: "DICTE-LE : IL EST JUSTE AU-DESSUS",
-    siegeHorsLigne: "HORS LIGNE",
+    /*
+     * ⚠️ « RECONNEXION… » ET PAS « HORS LIGNE ».
+     *
+     * C'est la decision n°4 vue depuis le SALON : une coupure n'est pas une
+     * defaite, et les autres doivent le savoir. « HORS LIGNE » se lit « il est
+     * parti », donc on l'exclut ou on relance sans lui ; « RECONNEXION… » se
+     * lit « il revient, sa place est gardee » — ce que le serveur fait
+     * reellement pendant `RECONNECT_GRACE_MS`.
+     *
+     * ⚠️ PAS DE REBOURS ICI, et c'est deliberé. La maquette affiche « 18 S ».
+     * Le client ne connait pas l'instant ou le serveur a vu la coupure : il ne
+     * peut horodater que le moment ou LUI l'a apprise, donc deux ecrans du
+     * meme salon afficheraient deux chiffres differents pour le meme siege.
+     * Le mot est vrai sans horloge ; les secondes seraient une supposition.
+     */
+    siegeHorsLigne: "RECONNEXION…",
     siegeHote: "HÔTE",
     siegeDebutant: "1RE PARTIE · +1 VIE",
     siegePret: "PRÊT",
@@ -1495,7 +1510,7 @@ const DYN: Record<Lang, Dyn> = {
     ariaReactiver: (qui) => `Unmute ${qui}`,
     ariaExclure: (qui) => `Kick ${qui}`,
     dicteLeCode: "SAY IT OUT LOUD: IT IS RIGHT ABOVE",
-    siegeHorsLigne: "OFFLINE",
+    siegeHorsLigne: "RECONNECTING…",
     siegeHote: "HOST",
     siegeDebutant: "FIRST GAME · +1 LIFE",
     siegePret: "READY",

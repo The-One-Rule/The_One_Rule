@@ -10062,6 +10062,39 @@ button.chip:active:not(:disabled) {
 }
 
 /*
+ * QUI VIENT D'ARRIVER dans le salon.
+ *
+ * C'est le seul evenement avant le lancement, et c'est celui qu'on guette.
+ * La marque est TRANSITOIRE — elle ne survit pas au repeint suivant, parce
+ * que c'est un evenement et pas un etat.
+ *
+ * `prefers-reduced-motion` : le liseré reste, seul le mouvement part. Rien ne
+ * se perd, c'est la condition posee au §7.
+ */
+.seat.is-entre {
+  border-color: var(--jade, #40f7c0);
+  animation: seatEntre 1200ms ease-out 1;
+}
+
+@keyframes seatEntre {
+  from {
+    transform: translateY(6px);
+    opacity: 0.35;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seat.is-entre {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/*
  * LE PIED QUAND LE RECORD TOMBE.
  *
  * La seule cellule du jeu qui change de COULEUR en pleine partie, et elle ne
