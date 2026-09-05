@@ -3061,9 +3061,30 @@ function peintAvance(
   // Une règle NEUVE a déjà son annonce : répéter « une case de plus » sous
   // elle dirait deux fois la même chose.
   const montre = morceaux.length > 0 && !neuve;
-  $("avance").classList.toggle("hidden", !montre);
+  const bloc = $("avance");
+  bloc.classList.toggle("hidden", !montre);
+  /*
+   * ⚠️ LA CARTE A CHANGÉ D'ÉTAT — l'aboutissement de la boucle longue.
+   *
+   * Franchir une case est un progrès parmi d'autres. Passer de EN COURS à
+   * MAÎTRISÉE, ou de MAÎTRISÉE à PARFAITE, est autre chose : c'est le moment
+   * où « je me suis fait avoir par cette règle » devient « je la tiens ». Le
+   * bloc le dit alors AVANT le reste, et prend l'accent.
+   *
+   * Le même bloc, pas un second : deux annonces empilées sur l'écran de fin
+   * diraient deux fois qu'on a progressé, et la seconde volerait la première.
+   */
+  const etatAvant = etatCarte(casesAvant);
+  const etatApres = etatCarte(casesApres);
+  const franchi =
+    etatApres !== etatAvant && (etatApres === "maitrisee" || etatApres === "parfaite");
+  bloc.classList.toggle("is-franchi", montre && franchi);
   if (!montre) return;
-  $("avanceRegle").textContent = t("avanceRegle")(nomDeRegle(regle.id, regle.name), casesApres);
+  $("avanceRegle").textContent = franchi
+    ? t(etatApres === "parfaite" ? "avanceParfaite" : "avanceMaitrisee")(
+        nomDeRegle(regle.id, regle.name),
+      )
+    : t("avanceRegle")(nomDeRegle(regle.id, regle.name), casesApres);
   $("avanceQuoi").textContent = morceaux.join(" ");
   const btn = $("btnAvanceTrain");
   btn.textContent = t("avanceTravailler")(nomDeRegle(regle.id, regle.name));

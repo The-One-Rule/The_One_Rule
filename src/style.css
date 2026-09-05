@@ -10037,6 +10037,18 @@ button.chip:active:not(:disabled) {
 }
 
 /*
+ * LA CARTE A CHANGE D'ETAT — l'aboutissement de la boucle longue.
+ *
+ * Le meme bloc que « ce que ce run a fait avancer », pas un second : deux
+ * annonces empilees sur l'ecran de fin diraient deux fois qu'on a progresse,
+ * et la seconde volerait la premiere. Seul l'accent change.
+ */
+.avance.is-franchi {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 10%, transparent);
+}
+
+/*
  * LE PIED QUAND LE RECORD TOMBE.
  *
  * La seule cellule du jeu qui change de COULEUR en pleine partie, et elle ne

@@ -775,6 +775,8 @@ type Dyn = {
   piedDepasse: string;
   objectifReste: (n: number) => string;
   exerciceValide: string;
+  avanceMaitrisee: (regle: string) => string;
+  avanceParfaite: (regle: string) => string;
   murDuJour: string;
   murDuJourNote: string;
   murEntrainement: string;
@@ -1152,6 +1154,8 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "SUR TON MIEUX",
     objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
     exerciceValide: "EXERCICE VALIDÉ",
+    avanceMaitrisee: (regle) => `${regle} · MAÎTRISÉE`,
+    avanceParfaite: (regle) => `${regle} · PARFAITE · 6 / 6`,
     murDuJour: "LE MEILLEUR DU JOUR",
     murDuJourNote: "Vérifié par rejeu. Il change chaque jour.",
     murEntrainement: "LE MEILLEUR CONNU · ENTRAÎNEMENT",
@@ -1510,6 +1514,8 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "OVER YOUR BEST",
     objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
     exerciceValide: "EXERCISE CLEARED",
+    avanceMaitrisee: (regle) => `${regle} · MASTERED`,
+    avanceParfaite: (regle) => `${regle} · PERFECT · 6 / 6`,
     murDuJour: "TODAY'S BEST",
     murDuJourNote: "Replayed and checked by the server. It changes every day.",
     murEntrainement: "BEST KNOWN · TRAINING",
