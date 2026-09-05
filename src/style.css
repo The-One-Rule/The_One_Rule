@@ -8980,9 +8980,22 @@ button.chip:active:not(:disabled) {
    ⚠️ HORS FLUX et `pointer-events: none` : il ne prend pas un pixel au
    terrain, et la manche suivante s'ouvre normalement derriere. Une pause ici
    casserait le rythme au moment precis ou le joueur vient de reussir.
+
+   ⚠️ IL S'APPELLE `piegefx` ET PAS `piege`, ET CE N'EST PAS UN GOUT.
+
+   `.piege` etait DEJA pris par la ligne « si une consigne enfreint ta regle,
+   ne fais rien » du brief et du salon. Deux declarations du meme selecteur,
+   700 lignes d'ecart, l'une posant `position: absolute; inset: 0` : la
+   seconde gagnait la cascade, donc ces deux lignes de texte etaient
+   absolument positionnees par-dessus tout leur ecran. Elles avaient l'air
+   placees par chance, et elles l'etaient.
+
+   Trouve en AJOUTANT trois cellules au brief : le texte s'est peint par
+   -dessus. Le releve de boites, lui, ne signalait aucun chevauchement —
+   c'est la lecon deja payee sur « TA REGLE T'ATTEND ».
    ================================================================== */
 
-.piege {
+.piegefx {
   position: absolute;
   inset: 0;
   z-index: 6;
@@ -8996,11 +9009,11 @@ button.chip:active:not(:disabled) {
   text-align: center;
 }
 
-.piege.hidden {
+.piegefx.hidden {
   display: none;
 }
 
-.piege__quoi {
+.piegefx__quoi {
   margin: 0;
   font-family: var(--mono);
   font-size: var(--t-intitule);
@@ -9008,7 +9021,7 @@ button.chip:active:not(:disabled) {
   color: var(--paper-dim);
 }
 
-.piege__titre {
+.piegefx__titre {
   margin: 0;
   font-family: var(--display);
   font-weight: 600;
@@ -9018,7 +9031,7 @@ button.chip:active:not(:disabled) {
   color: var(--signal-pale);
 }
 
-.piege__pourquoi {
+.piegefx__pourquoi {
   margin: 0;
   max-width: 34ch;
   font-size: var(--t-base);
@@ -9029,7 +9042,7 @@ button.chip:active:not(:disabled) {
 }
 
 /* La carte qui AVANCE, sous les yeux du joueur, a l'instant ou il la gagne. */
-.piege__carte {
+.piegefx__carte {
   margin: 4px 0 0;
   padding: 5px 12px;
   font-family: var(--mono);
@@ -9041,7 +9054,7 @@ button.chip:active:not(:disabled) {
 }
 
 /* Seuls `transform` et `opacity` s'animent — la meme regle que --heat. */
-.piege.is-vu {
+.piegefx.is-vu {
   animation: piegeEntre 1.5s ease-out forwards;
 }
 
@@ -9067,7 +9080,7 @@ button.chip:active:not(:disabled) {
 @media (prefers-reduced-motion: reduce) {
   /* ⚠️ Neutraliser l'animation SANS remettre l'opacite laisserait l'element
      invisible — le piege deja paye avec `animation-fill-mode: backwards`. */
-  .piege.is-vu {
+  .piegefx.is-vu {
     animation: none;
     opacity: 1;
   }
@@ -10319,4 +10332,52 @@ button.chip:active:not(:disabled) {
 
 #murPodium {
   margin-top: 14px;
+}
+
+/*
+ * LES TROIS CHIFFRES DU RUN DU JOUR, sur le brief.
+ *
+ * Ils REMPLACENT la ligne « 40 manches » plutot que de s'y ajouter : le brief
+ * est une annonce, pas un tableau de bord. Base nulle plus plancher
+ * `max-content` — la meme recette que toutes les barres segmentees du site,
+ * trois essais mesures avant d'y arriver.
+ */
+.briefstats {
+  display: flex;
+  gap: 2px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.briefstats.hidden {
+  display: none;
+}
+
+.briefstats__cel {
+  flex: 1 1 0;
+  min-width: max-content;
+  padding: 10px 12px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+.briefstats__val {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.briefstats__lab {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  white-space: nowrap;
 }

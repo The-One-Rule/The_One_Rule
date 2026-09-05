@@ -2,6 +2,7 @@ import "./style.css";
 
 import {
   DAILY_ESSAIS,
+  GRACE_ROUNDS,
   DAILY_LENGTH,
   PACE_CHOICES,
   PACE_DEFAULT,
@@ -1765,10 +1766,40 @@ function openBrief(mode: Mode): void {
   if (mode === "training") renderPick();
   else $("briefPick").classList.add("hidden");
 
+  /*
+   * LES TROIS CHIFFRES DU RUN DU JOUR.
+   *
+   * Ils REMPLACENT la ligne « 40 manches » plutot que de s'y ajouter : le
+   * brief est une annonce, pas un tableau de bord.
+   *
+   * ⚠️ ECHAUFFEMENT est celui qui manquait. Mesure : 76 morts a la manche 3
+   * sur 572 runs, plus du double de n'importe quelle autre manche — pendant
+   * trois manches on APPREND au joueur que se tromper ne coute rien, puis le
+   * message disparait en silence et la manche suivante tue. Le dire avant vaut
+   * mieux que le decouvrir en mourant.
+   */
+  const stats = $("briefStats");
+  stats.classList.toggle("hidden", mode !== "daily");
+  if (mode === "daily") {
+    stats.innerHTML = "";
+    const vj = vueDuJour(s, day);
+    for (const [val, lab] of [
+      [String(DAILY_LENGTH), t("briefLongueur")],
+      [`${vj.restants} / ${DAILY_ESSAIS}`, t("briefEssais")],
+      [String(GRACE_ROUNDS), t("briefEchauffement")],
+    ] as const) {
+      const cel = document.createElement("div");
+      cel.className = "briefstats__cel";
+      cel.innerHTML = `<b class="briefstats__val"></b><span class="briefstats__lab"></span>`;
+      cel.querySelector<HTMLElement>(".briefstats__val")!.textContent = val;
+      cel.querySelector<HTMLElement>(".briefstats__lab")!.textContent = lab;
+      stats.appendChild(cel);
+    }
+  }
+
   const warn = $("briefWarn");
   const hold = mode !== "escalade" && pendingRule.watchRelease === " ";
   const lines: string[] = [];
-  if (mode === "daily") lines.push(t("briefDailyLignes")(DAILY_LENGTH));
   if (mode === "escalade") lines.push(t("briefEscaladeLignes")(PALIER_MAX));
   if (hold) lines.push(t("briefTiens"));
   warn.textContent = lines.join(" · ");

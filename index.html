@@ -181,11 +181,11 @@
              Hors flux et `pointer-events: none` comme l'aide du tutoriel : il
              ne prend pas un pixel au terrain, et il n'arrete pas la manche
              suivante. -->
-        <div id="piege" class="piege hidden" aria-live="polite">
-          <p class="piege__quoi" data-i18n="piege.rien">YOU DID NOTHING</p>
-          <p class="piege__titre" data-i18n="piege.dejoue">TRAP DEFUSED</p>
-          <p class="piege__pourquoi" id="piegePourquoi"></p>
-          <p class="piege__carte" id="piegeCarte"></p>
+        <div id="piege" class="piegefx hidden" aria-live="polite">
+          <p class="piegefx__quoi" data-i18n="piege.rien">YOU DID NOTHING</p>
+          <p class="piegefx__titre" data-i18n="piege.dejoue">TRAP DEFUSED</p>
+          <p class="piegefx__pourquoi" id="piegePourquoi"></p>
+          <p class="piegefx__carte" id="piegeCarte"></p>
         </div>
 
 
@@ -696,6 +696,19 @@
           <h2 class="rulename rulename--hero" id="briefName"></h2>
           <p class="lede" id="briefText"></p>
           <p class="warn hidden" id="briefWarn"></p>
+
+          <!-- LES TROIS CHIFFRES DU RUN DU JOUR.
+               Vue « daily run » de la maquette. Ils remplacent la ligne
+               « 40 manches » plutot que de s'y ajouter : le brief est une
+               ANNONCE, pas un tableau de bord, et la seule chose que le joueur
+               doit emporter en partie est le nom de sa regle.
+
+               ⚠️ ECHAUFFEMENT est le chiffre qui manquait vraiment. Mesure :
+               76 morts a la manche 3 sur 572 runs, plus du double de n'importe
+               quelle autre — pendant trois manches on APPREND au joueur que se
+               tromper ne coute rien, puis le message disparait en silence. Le
+               dire AVANT vaut mieux que le decouvrir en mourant. -->
+          <div class="briefstats hidden" id="briefStats"></div>
 
           <!-- LA RÈGLE DU JEU, EN UNE PHRASE.
                Mesuré : 78 % des premiers runs ne rencontrent aucun piège, et
