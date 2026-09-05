@@ -78,7 +78,7 @@ type Textes = {
 
 export const TEXTES: Record<Lang, Textes> = {
   fr: {
-    ledeHtml: "Une <b>règle unique</b>. Parfois, obéir est la faute.",
+    ledeHtml: "Une règle unique. Les consignes changent.<br><span>Parfois, obéir est la faute.</span>",
     failleLabel: "Modes de jeu",
     soloDesc: "Run du jour, escalade, entraînement.",
     multiDesc: "Ton code, tes potes, une règle chacun.",
@@ -98,7 +98,7 @@ export const TEXTES: Record<Lang, Textes> = {
     titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
-    ledeHtml: "One <b>unique rule</b>. Sometimes, obeying is the mistake.",
+    ledeHtml: "One rule. The orders keep changing.<br><span>Sometimes, obeying is the mistake.</span>",
     failleLabel: "Game modes",
     soloDesc: "Daily run, climb, training.",
     multiDesc: "Your code, your friends, one rule each.",
@@ -249,6 +249,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "etat.serie": "SÉRIE",
     "etat.quetes": "QUÊTES DU JOUR",
     "aria.etat": "Ton état",
+    "but.tonScore": "TON SCORE",
     "but.personne": "PERSONNE N'A ENCORE JOUÉ",
     "but.premier": "Sois le premier.",
     "but.tenter": "TENTER LA RUN DU JOUR",
@@ -421,6 +422,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "etat.serie": "STREAK",
     "etat.quetes": "TODAY'S QUESTS",
     "aria.etat": "Your state",
+    "but.tonScore": "YOUR SCORE",
     "but.personne": "NOBODY HAS PLAYED YET",
     "but.premier": "Be the first.",
     "but.tenter": "TRY THE DAILY RUN",
@@ -567,6 +569,7 @@ type Dyn = {
   hudDerniereVie: string;
   /* --- l'objectif de l'accueil --- */
   butManches: (n: number) => string;
+  butUnite: string;
   butMieux: string;
   butDejaBattu: string;
   butSien: (n: number) => string;
@@ -968,6 +971,7 @@ const DYN: Record<Lang, Dyn> = {
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
     butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
+    butUnite: "MANCHES",
     butMieux: "Tu peux faire mieux ?",
     butDejaBattu: "Tu fais mieux que ça.",
     butSien: (n) => `TON SCORE DU JOUR · ${n}`,
@@ -1369,6 +1373,7 @@ const DYN: Record<Lang, Dyn> = {
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",
     butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
+    butUnite: "ROUNDS",
     butMieux: "Think you can do better?",
     butDejaBattu: "You are already past that.",
     butSien: (n) => `YOUR SCORE TODAY · ${n}`,

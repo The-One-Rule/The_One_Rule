@@ -10702,7 +10702,9 @@ button.chip:active:not(:disabled) {
      * qu'elle remplace. Les pixels qui lui manquaient viennent des blocs
      * d'etat, pas d'une troncature de plus.
      */
-    height: clamp(200px, 25vh, 260px);
+    /* 216 px et 26 de marge haute : les valeurs de la source. */
+    height: 216px;
+    margin-top: 26px;
   }
 
   /*
@@ -10990,5 +10992,512 @@ button.chip:active:not(:disabled) {
 @media (min-width: 900px) {
   #app.barre-haute .nav__item--large {
     display: flex;
+  }
+}
+
+/* ==================================================================
+   L'ACCUEIL EN LARGE — VALEURS RELEVEES SUR LA SOURCE DE LA MAQUETTE
+
+   Ce bloc ne contient aucun chiffre choisi : tout vient des styles en ligne
+   de `TOR Redesign.dc.html`, vue `dhome`, a 1280 de large. Il vient APRES le
+   bloc precedent pour gagner la cascade a specificite egale.
+   ================================================================== */
+
+@media (min-width: 900px) {
+  /* --- La grille : 1,55 / 1, gouttiere 40, retrait 28 ------------------ */
+  #home .home {
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: 0 40px;
+    padding: 34px 28px 0;
+  }
+
+  /*
+   * ⚠️ LE RETRAIT DE 24 PX VIENT DE `.col`, ET IL DECALE TOUT.
+   *
+   * Mesure : la colonne de grille commence a x=29 et fait 718 — exactement la
+   * valeur de la source (719,7) — mais le contenu commencait a 53. Les 24 px
+   * sont le padding lateral de `.col`, utile sur telephone ou il ecarte du
+   * bord de l'ecran, inutile ici ou la grille porte deja son retrait de 28.
+   * Resultat : le logo et la bande de record etaient decales de 24 px vers la
+   * droite et amputes d'autant, contre un bord droit que rien ne tenait.
+   */
+  #home .home__brand {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0;
+  }
+
+  #home .etat {
+    gap: 11px;
+    min-width: 0;
+  }
+
+  /* --- Le logo : 86 px, UNE SEULE LIGNE -------------------------------- */
+  #home .logo {
+    font-size: 86px;
+    line-height: 0.86;
+    letter-spacing: -0.05em;
+    padding-left: 20px;
+    margin: 0;
+    /* Le filet hachure fait 8 px et court sur 4 a 96 % de la hauteur. */
+    text-shadow: 0 0 56px rgba(145, 132, 217, 0.3);
+  }
+
+  #home .logo::before {
+    top: 4%;
+    bottom: 4%;
+    width: 8px;
+  }
+
+  /* --- Le chapo : 26 px, deux lignes, la seconde en accent ------------- */
+  #home .lede--court {
+    margin: 20px 0 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    color: var(--paper);
+    max-width: 26ch;
+    text-align: left;
+  }
+
+  #home .lede--court span {
+    color: var(--signal);
+  }
+
+  /* --- La bande de record : HORIZONTALE -------------------------------- */
+  #home .but {
+    display: block;
+    margin-top: 22px;
+    padding: 0;
+    background: none;
+    border: 0;
+    max-width: none;
+    width: auto;
+  }
+
+  #home .but__plein,
+  #home .but__vide {
+    flex-direction: row;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 18px;
+    border: var(--bd-hair) solid var(--line);
+    border-left: 4px solid var(--ambre);
+    background: var(--ink-2);
+  }
+
+  #home .but__gros {
+    flex: none;
+    text-align: center;
+  }
+
+  #home .but__chiffre {
+    margin: 0;
+    font-size: 44px;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    color: var(--ambre);
+  }
+
+  #home .but__unite {
+    margin: 4px 0 0;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--paper-dim);
+  }
+
+  #home .but__filet {
+    width: 1px;
+    align-self: stretch;
+    background: var(--line);
+  }
+
+  #home .but__milieu {
+    flex: 1 1 auto;
+    min-width: 0;
+    text-align: left;
+  }
+
+  #home .but__quoi {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--paper-dim);
+  }
+
+  #home .but__pousse {
+    margin: 7px 0 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 20px;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  #home .but__droite {
+    flex: none;
+    text-align: right;
+  }
+
+  #home .but__droite.hidden {
+    display: none;
+  }
+
+  #home .but__sien {
+    margin: 5px 0 0;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--paper);
+  }
+
+  #home .but__premier {
+    margin: 7px 0 0;
+    font-size: 20px;
+  }
+
+  #home .but__vide .btn {
+    flex: none;
+    align-self: center;
+    margin-top: 0;
+  }
+}
+
+/* ==================================================================
+   LA BARRE DU HAUT — VALEURS RELEVEES SUR LA SOURCE
+
+   `padding:14px 28px`, `gap:22px`, chaque destination `padding:12px 13px`
+   avec `min-height:44px`, `font-size:11px`, `letter-spacing:.14em`.
+
+   ⚠️ ELLE N'EST PAS CENTREE. La source pose un `flex:1 1 auto` VIDE juste
+   apres l'enseigne : tout le reste — destinations, filet, compte, JOUER —
+   est pousse a DROITE. Centrer la navigation, comme je l'avais fait, donne
+   une composition differente : l'enseigne se retrouve seule a gauche d'un
+   grand vide symetrique, la ou la maquette fait un seul bloc a droite.
+   ================================================================== */
+
+@media (min-width: 900px) {
+  #app.barre-haute .topbar {
+    padding: 0;
+  }
+
+  #app.barre-haute .topbar__row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 14px 28px;
+    min-height: 0;
+    border-bottom: var(--bd-hair) solid var(--line-faible, var(--line));
+  }
+
+  /* L'enseigne : le glyphe a 30, puis le nom en 14. Deux roles, pas un. */
+  #app.barre-haute .topbar__brand {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+
+  #app.barre-haute .topbar__mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  /* Le NOM du jeu, a cote du glyphe — il n'existait pas dans la barre. */
+  #app.barre-haute .topbar__nom {
+    display: block;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+    white-space: nowrap;
+  }
+
+  /* Le VIDE qui pousse tout le reste a droite. */
+  #app.barre-haute .nav {
+    margin-left: auto;
+    gap: 4px;
+  }
+
+  #app.barre-haute .nav__item {
+    padding: 12px 13px;
+    min-height: 44px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    color: var(--paper-dim);
+  }
+
+  #app.barre-haute .nav__item.is-on,
+  #app.barre-haute .nav__item:hover {
+    color: var(--paper);
+  }
+
+  /* Le compteur de cartes et la pastille du jour, dans la destination
+     elle-meme : c'est ce que fait la source (`CARTES 7/16`, `DAILY •`). */
+  #app.barre-haute .nav__compte {
+    display: inline;
+    margin-left: 6px;
+    color: var(--signal-pale);
+    font-weight: 600;
+  }
+
+  #app.barre-haute .topbar__right {
+    flex: none;
+    gap: 22px;
+  }
+
+  /* LE FILET VERTICAL, 1 x 26, entre les destinations et l'identite. */
+  #app.barre-haute .topbar__filet {
+    display: block;
+    width: 1px;
+    height: 26px;
+    background: var(--line);
+  }
+
+  #app.barre-haute .topbar__right .btn--top {
+    padding: 12px 13px;
+    min-height: 44px;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  /* JOUER : aplat creme, ombre decalee de 4, 15 px. */
+  #app.barre-haute .nav__jouer {
+    width: auto;
+    height: auto;
+    padding: 12px 26px;
+    min-height: 44px;
+    border-width: 1px;
+    box-shadow: 4px 4px 0 color-mix(in srgb, var(--signal) 45%, transparent);
+    font-size: 15px;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Le nom et le filet n'existent que dans la barre large. */
+.topbar__nom,
+.topbar__filet {
+  display: none;
+}
+
+/* Le compteur et la pastille n'existent que dans la barre large : dans une
+   case de barre basse, un second mot ne tient pas. */
+.nav__compte {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  #app.barre-haute .nav__compte--point {
+    color: var(--ambre);
+  }
+}
+
+/* ==================================================================
+   LA COLONNE D'ETAT — VALEURS RELEVEES SUR LA SOURCE
+   ================================================================== */
+
+@media (min-width: 900px) {
+  #home .etat__bloc {
+    gap: 0;
+    padding: 14px 15px;
+  }
+
+  #home .etat__tete {
+    align-items: baseline;
+  }
+
+  #home .etat .eyebrow {
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    color: var(--signal-pale);
+  }
+
+  #home .etat__compte {
+    font-size: 15px;
+  }
+
+  /*
+   * ⚠️ LA JAUGE FAIT 26 PX DE HAUT, pas un filet. C'est l'ecart le plus
+   * visible de la colonne : la barre du carnet est fine parce qu'elle y
+   * accompagne un compteur, ici elle EST le sujet du bloc.
+   */
+  #home #etatCollJauge {
+    display: flex;
+    gap: 4px;
+    margin-top: 11px;
+    height: auto;
+  }
+
+  #home #etatCollJauge i {
+    flex: 1;
+    height: 26px;
+    border-radius: 0;
+  }
+
+  #home .etat__note {
+    margin-top: 10px;
+    font-family: var(--display);
+    font-size: 12.5px;
+    letter-spacing: 0;
+    line-height: 1.45;
+  }
+
+  /* A MATER : l'illustration dans un cadre d'accent de 66 px. */
+  #home .etat__bloc--vedette {
+    padding: 14px 15px;
+    gap: 13px;
+    flex-direction: row;
+    align-items: flex-start;
+    background: color-mix(in srgb, var(--signal) 8%, var(--ink-2));
+  }
+
+  #home .etat__mater {
+    display: contents;
+  }
+
+  #home .etat__img {
+    flex: none;
+    width: 66px;
+    height: 66px;
+    padding: 5px;
+    border: 2px solid var(--signal);
+    background: #0b111c;
+    object-fit: contain;
+  }
+
+  #home .etat__materTxt {
+    gap: 0;
+  }
+
+  #home .etat__bloc--vedette .eyebrow {
+    letter-spacing: 0.16em;
+  }
+
+  #home .etat__materNom {
+    margin-top: 5px;
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  #home .etat__materTxt .etat__note {
+    margin-top: 6px;
+  }
+
+  /* La paire JOUR / SERIE : 10 px de gouttiere, valeur en 16. */
+  #home .etat__paire {
+    gap: 10px;
+  }
+
+  #home .etat__paire .etat__bloc {
+    padding: 13px 14px;
+  }
+
+  /* L'intitule du RUN DU JOUR est en AMBRE dans la source : c'est la seule
+     chose de la colonne qui ait une echeance. */
+  #home .etat__paire .etat__bloc:first-child .eyebrow {
+    color: var(--ambre);
+  }
+
+  #home .etat__paire .etat__bloc:last-child .eyebrow {
+    color: var(--paper-dim);
+  }
+
+  #home .etat__gros {
+    margin-top: 7px;
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  #home .etat__paire .etat__note {
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+  }
+
+  /*
+   * LES QUETES DE LA COLONNE : trois LIGNES, pas trois rangees.
+   *
+   * Mesure : le bloc faisait 176 px contre 103 dans la source, et l'ecart
+   * venait des rangees de quete — 39 px chacune, avec leur case, leur libelle
+   * et leur compteur « 20/40 · +10 ». La source n'affiche qu'une coche et le
+   * libelle, sur une ligne de 11,5 px.
+   *
+   * ⚠️ PORTEE A CET ECRAN SEUL. `renderQuests` sert aussi SOLO et la fin de
+   * run, ou le compteur est l'information qu'on vient chercher. Ici c'est un
+   * coup d'oeil, et le detail est a un clic.
+   */
+  #home #etatQuetes {
+    margin-top: 9px;
+    display: block;
+  }
+
+  #home #etatQuetes .quest {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 0;
+    margin-top: 6px;
+    border: 0;
+    background: none;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--paper-dim);
+    min-height: 0;
+  }
+
+  #home #etatQuetes .quest:first-child {
+    margin-top: 0;
+  }
+
+  #home #etatQuetes .quest.is-done {
+    color: var(--signal-pale);
+  }
+
+  /* La case devient la coche de la source : ✓ quand c'est fait, ○ sinon. */
+  #home #etatQuetes .quest__box {
+    width: auto;
+    height: auto;
+    min-width: 0;
+    border: 0;
+    background: none;
+  }
+
+  #home #etatQuetes .quest__box::before {
+    content: "○";
+    color: inherit;
+  }
+
+  #home #etatQuetes .quest.is-done .quest__box::before {
+    content: "✓";
+  }
+
+  /* Le compteur reste sur SOLO, ou on vient le chercher. */
+  #home #etatQuetes .quest__val {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  /*
+   * ⚠️ LES 92 PX DU BAS RESERVAIENT LA BARRE BASSE, qui a demenage en haut.
+   * Mesure : `padding-bottom: 92px` sur le defilement de l'accueil, soit
+   * 92 px de vide sous la vitrine pour une barre qui n'y est plus.
+   */
+  #app.barre-haute #home .screen__scroll {
+    padding-bottom: 0;
+  }
+
+  #app.barre-haute #home {
+    padding-bottom: 0;
   }
 }

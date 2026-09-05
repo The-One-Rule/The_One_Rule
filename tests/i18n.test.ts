@@ -76,7 +76,14 @@ describe("appliqueLangue", () => {
     const soloAvant = document.getElementById("btnSolo")!.querySelectorAll("span").length;
     appliqueLangue(document, "en");
     expect(document.documentElement.lang).toBe("en");
-    expect(document.getElementById("ledeHome")!.innerHTML).toContain("unique rule");
+    /*
+     * L'accroche a pris la forme de la maquette : deux propositions, un saut
+     * de ligne, et la derniere en accent. Ce que le test garde, c'est ce qui
+     * compte — elle passe bien a l'anglais, et elle porte toujours sa SECONDE
+     * ligne en `<span>`, qui est le seul morceau que le style colore.
+     */
+    expect(document.getElementById("ledeHome")!.innerHTML).toBe(TEXTES.en.ledeHtml);
+    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(1);
     expect(document.getElementById("failleSoloDesc")!.textContent).toBe(TEXTES.en.soloDesc);
     expect(document.getElementById("failleMultiDesc")!.textContent).toBe(TEXTES.en.multiDesc);
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("SETTINGS");

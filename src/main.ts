@@ -2125,6 +2125,15 @@ function majNav(): void {
    * même vue que la carte SOLO, donc les deux ne peuvent pas se contredire.
    */
   $("navDaily").classList.toggle("a-faire", !vue.acquis && !vue.verrouille);
+  /*
+   * Le COMPTEUR de cartes et la PASTILLE du jour vivent dans la destination
+   * elle-meme (`CARTES 7/16`, `DAILY •`), comme dans la source de la maquette.
+   * Ils ne paraissent qu'en large : dans la barre basse, une case n'a pas la
+   * place d'un second mot.
+   */
+  const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+  $("navCartesCompte").textContent = `${vues}/${ONE_RULES.length}`;
+  $("navDailyPoint").textContent = !vue.acquis && !vue.verrouille ? "•" : "";
 
   // « TA RÈGLE T'ATTEND » n'a de sens que pour qui a déjà une règle au carnet :
   // à zéro, il n'y a rien qui attende, et la phrase promettrait du vide.
@@ -2338,12 +2347,16 @@ function peintBut(sien: number | null, duJour: number | null): void {
   $("butVide").classList.toggle("hidden", but.cible !== null);
   if (!but.cible) return;
 
-  $("butChiffre").textContent = t("butManches")(but.cible.score);
-  $("butMode").textContent = t("butModeJour");
+  // Le chiffre NU et son unite dessous : c'est la composition de la maquette,
+  // et elle rend le nombre lisible d'un coup d'oeil plutot qu'au milieu d'un mot.
+  $("butChiffre").textContent = String(but.cible.score);
+  $("butUnite").textContent = t("butUnite");
   $("butPousse").textContent = but.depasse ? t("butDejaBattu") : t("butMieux");
   // Son propre chiffre à CÔTÉ, jamais à la place : c'est ce qui rend la cible
-  // comparable au lieu de l'opposer.
-  $("butSien").textContent = but.sien === null ? "" : t("butSien")(but.sien);
+  // comparable au lieu de l'opposer. La colonne entiere disparait quand il n'a
+  // pas encore joue — un intitule au-dessus du vide se lit comme une panne.
+  $("butDroite").classList.toggle("hidden", but.sien === null);
+  $("butSien").textContent = but.sien === null ? "" : String(but.sien);
 }
 
 /**

@@ -335,7 +335,7 @@
       <section class="screen" id="home">
         <div class="screen__scroll home">
           <div class="home__brand">
-            <h1 class="logo">THE<br />ONE <em>RULE</em></h1>
+            <h1 class="logo">THE ONE <em>RULE</em></h1>
             <!-- Une ligne, pas un paragraphe. L'ancienne faisait 39 mots et
                  262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
                  sur un ecran qu'on revoit vingt fois. Le brief et
@@ -354,20 +354,33 @@
                  regle choisie. Deux epreuves sous un meme cadre, c'est un
                  chiffre faux. -->
             <div class="but hidden" id="but">
-              <!-- Etat 1 : le classement repond. -->
-              <div class="but__plein" id="butPlein">
-                <p class="but__quoi" data-i18n="but.aBattre">TODAY'S RECORD</p>
-                <p class="but__chiffre" id="butChiffre"></p>
-                <p class="but__mode" id="butMode"></p>
-                <p class="but__pousse" id="butPousse"></p>
-                <p class="but__sien" id="butSien"></p>
+              <!-- Etat 1 : le classement repond.
+                   ⚠️ BANDE HORIZONTALE, releve sur la source de la maquette :
+                   le chiffre a gauche, un filet vertical, la phrase au milieu,
+                   le tien a droite. Empile en colonne, le bloc faisait deux
+                   fois la hauteur et ne ressemblait pas au dessin. -->
+              <div class="but__plein hidden" id="butPlein">
+                <div class="but__gros">
+                  <p class="but__chiffre" id="butChiffre"></p>
+                  <p class="but__unite" id="butUnite"></p>
+                </div>
+                <span class="but__filet" aria-hidden="true"></span>
+                <div class="but__milieu">
+                  <p class="but__quoi" data-i18n="but.aBattre">TODAY'S RECORD</p>
+                  <p class="but__pousse" id="butPousse"></p>
+                </div>
+                <div class="but__droite" id="butDroite">
+                  <p class="but__quoi" data-i18n="but.tonScore">YOUR SCORE</p>
+                  <p class="but__sien" id="butSien"></p>
+                </div>
               </div>
               <!-- Etat 2 : il se tait — et c'est l'etat PERMANENT tant que le
-                   deploiement n'a pas ses comptes. Une invitation, pas un trou :
-                   il n'y a rien a battre, donc il y a une place a prendre. -->
+                   deploiement n'a pas ses comptes. Une invitation, pas un trou. -->
               <div class="but__vide hidden" id="butVide">
-                <p class="but__quoi" data-i18n="but.personne">NOBODY HAS PLAYED YET</p>
-                <p class="but__premier" data-i18n="but.premier">Be the first.</p>
+                <div class="but__milieu">
+                  <p class="but__quoi" data-i18n="but.personne">NOBODY HAS PLAYED YET</p>
+                  <p class="but__premier" data-i18n="but.premier">Be the first.</p>
+                </div>
                 <button class="btn btn--primary" type="button" id="btnButJour" data-i18n="but.tenter">TRY THE DAILY RUN</button>
               </div>
             </div>
@@ -1135,7 +1148,7 @@
       <nav id="nav" class="nav hidden" aria-label="Navigation">
           <button type="button" class="nav__item" id="navCartes">
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="8" height="11"/><rect x="13" y="7" width="8" height="11" opacity=".55"/></svg>
-            <span class="nav__lab" data-i18n="nav.cartes">CARDS</span>
+            <span class="nav__lab" data-i18n="nav.cartes">CARDS</span><b class="nav__compte" id="navCartesCompte"></b>
           </button>
           <button type="button" class="nav__item" id="navTraining">
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="14" width="4" height="6"/><rect x="10" y="9" width="4" height="11"/><rect x="17" y="4" width="4" height="16"/></svg>
@@ -1147,7 +1160,7 @@
           </div>
           <button type="button" class="nav__item" id="navDaily">
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="5" width="18" height="15" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="5" width="18" height="4"/></svg>
-            <span class="nav__lab" data-i18n="nav.daily">DAILY</span>
+            <span class="nav__lab" data-i18n="nav.daily">DAILY</span><b class="nav__compte nav__compte--point" id="navDailyPoint"></b>
           </button>
           <button type="button" class="nav__item" id="navMulti">
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="2" y="8" width="7" height="7"/><rect x="10" y="5" width="7" height="7" opacity=".55"/><rect x="15" y="12" width="7" height="7"/></svg>
@@ -1177,8 +1190,16 @@
           </div>
           <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
             <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
+            <!-- ⚠️ LE NOM, a cote du glyphe. Deux roles distincts : celui-ci
+                 identifie la barre, le grand logo du hero est l'enseigne. Il ne
+                 parait qu'en large — sur telephone la barre n'a pas la place, et
+                 le hero porte deja le nom. -->
+            <span class="topbar__nom" aria-hidden="true">THE ONE RULE</span>
           </button>
           <div class="topbar__right">
+            <!-- Le filet vertical de la source, entre les destinations et
+                 l'identite : il separe ce qu'on visite de ce qu'on est. -->
+            <span class="topbar__filet" aria-hidden="true"></span>
             <button class="btn btn--ghost btn--top hidden" id="btnTopCompte">ACCOUNT</button>
           </div>
         </div>
