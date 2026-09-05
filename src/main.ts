@@ -317,7 +317,10 @@ function show(id: ScreenId): void {
    * là pour le clavier et les lecteurs d'écran, pas pour la géométrie.
    */
   $("nav").classList.toggle("hidden", !barre);
-  if (barre) majNav();
+  if (barre) {
+    poseBarre();
+    majNav();
+  }
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -413,6 +416,7 @@ function renderHome(): void {
    * bandeau de mesure, qui a coûté 76 % d'entrées.
    */
   peintBut(monScoreDuJour(s), recordDuJour);
+  peintEtat(s);
   /*
    * Le record du JOUR se charge après coup, et ne bloque rien.
    *
@@ -2027,6 +2031,85 @@ function lanceRun(): void {
  * ------------------------------------------------------------------ */
 
 /** Ce que la barre annonce, recalculé à chaque changement d'écran. */
+/*
+ * LA BARRE REMONTE SUR LARGE — et c'est un DÉPLACEMENT, pas un doublon.
+ *
+ * Sur téléphone, la navigation est une barre BASSE : hors flux dans `#app`,
+ * donc elle ne peut pas rogner le terrain, et elle reste sous le pouce. Sur
+ * écran large elle rejoint la barre du haut, à côté de l'enseigne — c'est la
+ * vue 22/27, et c'est aussi la seule place qui ne coûte rien à la hauteur, la
+ * ressource rare du bureau (mesuré : la faille finissait à 906 pour 860).
+ *
+ * ⚠️ UN SEUL JOUER, ET UN SEUL DE CHAQUE. On DÉPLACE les mêmes éléments, on
+ * n'en déclare pas une seconde série pour le bureau. Deux rendus du même
+ * bouton, ce sont deux gestionnaires à garder d'accord — et le jour où l'un
+ * change, l'autre ment. C'est la faute du « filtre PLUS la grille ».
+ *
+ * `.nav__centre` (JOUER et « ta règle t'attend ») sort du `#nav` pour se poser
+ * APRÈS le compte, à droite : c'est l'ordre de la maquette, et il ne
+ * s'obtiendrait pas par `order` puisque les deux vivent dans des parents
+ * différents.
+ *
+ * Idempotent : on ne touche au DOM que si le parent n'est pas déjà le bon.
+ * Même précaution que `show()`, qui reparente déjà `#topbar` à chaque écran.
+ */
+const LARGE = window.matchMedia?.("(min-width: 900px)") ?? null;
+
+function poseBarre(): void {
+  const large = LARGE?.matches ?? false;
+  const nav = $("nav");
+  const centre = document.querySelector<HTMLElement>(".nav__centre");
+  const rangee = document.querySelector<HTMLElement>(".topbar__row");
+  const gauche = document.querySelector<HTMLElement>(".topbar__left");
+  const droite = document.querySelector<HTMLElement>(".topbar__right");
+  if (!centre || !rangee || !gauche || !droite) return;
+
+  if (large) {
+    /*
+     * ⚠️ TROIS ENFANTS DANS LA RANGÉE, PAS QUATRE. Elle est une grille
+     * `auto 1fr auto` : un quatrième enfant se replie sur une seconde ligne et
+     * la barre passe de 56 à 110 px de haut — mesuré, avec le JOUER remonté
+     * au-dessus du cadre. `.topbar__left` déménage donc dans le groupe de
+     * droite plutôt que de rester un enfant de plus.
+     *
+     * Et c'est l'ORDRE DU DOCUMENT qui place — enseigne, destinations, le
+     * reste. Aucun `order` : le dépôt en a déjà payé deux.
+     */
+    if (nav.parentElement !== rangee || nav.nextElementSibling !== droite) {
+      rangee.insertBefore(nav, droite);
+    }
+    if (gauche.parentElement !== droite) droite.insertBefore(gauche, droite.firstChild);
+    if (centre.parentElement !== droite) droite.appendChild(centre);
+  } else {
+    if (nav.parentElement !== appEl) appEl.insertBefore(nav, appEl.firstChild);
+    if (gauche.parentElement !== rangee) rangee.insertBefore(gauche, rangee.firstChild);
+    if (centre.parentElement !== nav) {
+      // Au milieu des cinq : c'est la grille `1fr 1fr 82px 1fr 1fr` qui le
+      // place, donc il doit revenir à son rang exact.
+      nav.insertBefore(centre, nav.children[2] ?? null);
+    }
+  }
+  appEl.classList.toggle("barre-haute", large);
+}
+
+/*
+ * ⚠️ DEUX DECLENCHEURS, ET AUCUN N'EST DE TROP.
+ *
+ * `matchMedia` est le bon signal — il ne se declenche qu'au franchissement du
+ * seuil. Mais il ne suffit pas : mesure dans le volet, un changement de
+ * viewport peut ne PAS emettre l'evenement, et surtout `show()` — l'autre
+ * chemin — n'est pas appele quand on redimensionne une fenetre. Un joueur qui
+ * reduit son navigateur garderait la barre en haut, sans barre basse et sans
+ * JOUER sous le pouce.
+ *
+ * Le second declencheur est sans risque : `poseBarre` est idempotente, elle ne
+ * touche au DOM que si le parent n'est pas deja le bon. Et elle ne decide
+ * jamais sur une grandeur qu'elle modifie — le parent d'un noeud hors flux ne
+ * change pas la largeur de la fenetre, donc pas d'oscillation possible.
+ */
+LARGE?.addEventListener("change", () => poseBarre());
+window.addEventListener("resize", () => poseBarre());
+
 function majNav(): void {
   const s = P.load();
   const vue = vueDuJour(s, day);
@@ -2052,6 +2135,12 @@ function majNav(): void {
 $("navCartes").addEventListener("click", () => {
   sfx.ui();
   renderCodex();
+});
+
+$("navClassement").addEventListener("click", () => {
+  sfx.ui();
+  renderClassement();
+  show("classement");
 });
 
 $("navTraining").addEventListener("click", () => {
@@ -2100,6 +2189,117 @@ let recordDuJour: number | null = null;
 let recordDuJourDemande = false;
 
 /**
+ * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
+ *
+ * On départage sur le nombre de cases franchies — à runs égaux, celle dont on
+ * est le plus loin.
+ *
+ * ⚠️ Extraite parce que DEUX écrans la désignent maintenant : la collection et
+ * l'accueil. Une sélection écrite deux fois finit par diverger, et le symptôme
+ * serait une règle différente selon l'écran pour la même question.
+ *
+ * Elle ne rend rien au-dessous de deux runs : à un seul, « celle qui te
+ * résiste » désignerait une règle qu'on vient de croiser une fois.
+ */
+function regleQuiResiste(s: P.Save): { r: OneRule; rec: P.RuleRecord } | null {
+  const aMater = ONE_RULES.filter(
+    (r) => !!s.encountered[r.id] && !estMaitrisee(r, s.encountered[r.id]),
+  );
+  const r = [...aMater].sort((x, y) => {
+    const rx = s.encountered[x.id]?.runs ?? 0;
+    const ry = s.encountered[y.id]?.runs ?? 0;
+    if (rx !== ry) return ry - rx;
+    return (
+      franchies(echelleMaitrise(x, s.encountered[x.id])) -
+      franchies(echelleMaitrise(y, s.encountered[y.id]))
+    );
+  })[0];
+  const rec = r ? s.encountered[r.id] : undefined;
+  if (!r || !rec || (rec.runs ?? 0) < 2) return null;
+  return { r, rec };
+}
+
+/**
+ * LA COLONNE D'ÉTAT DE L'ACCUEIL — desktop seulement.
+ *
+ * ⚠️ ELLE N'INVENTE RIEN. Chaque bloc est un objet que le joueur a déjà vu
+ * ailleurs : la jauge du carnet, la règle qui résiste, les quêtes. L'accueil
+ * les RÉUNIT — c'est la seule chose qu'il ajoute, et c'est la seule qui vaille
+ * la largeur d'un écran de bureau.
+ *
+ * Elle est peinte même quand la colonne est masquée : le coût est nul (aucune
+ * requête, aucune image au-delà de celles déjà en cache) et un rendu
+ * conditionnel au seuil CSS ferait décider une largeur d'un contenu, ce qui
+ * est exactement l'oscillation que `render/layout.ts` existe pour éviter.
+ */
+function peintEtat(s: P.Save): void {
+  /* --- TA COLLECTION : la même jauge qu'ailleurs, et le même vocabulaire. --- */
+  const etats = ONE_RULES.map((r) =>
+    etatCarte(franchies(echelleMaitrise(r, s.encountered[r.id]))),
+  );
+  const vues = etats.filter((e) => e !== "verrouillee").length;
+  $("etatCollTotal").textContent = `${vues} / ${ONE_RULES.length}`;
+  const jauge = $("etatCollJauge");
+  jauge.innerHTML = "";
+  for (const e of etats) {
+    const i = document.createElement("i");
+    if (e !== "verrouillee") {
+      i.className = `est-${e === "parfaite" ? "parfaite" : e === "maitrisee" ? "maitrisee" : "decouverte"}`;
+    }
+    jauge.appendChild(i);
+  }
+  const reste = ONE_RULES.length - vues;
+  $("etatCollNote").textContent = reste > 0 ? t("etatCollReste")(reste) : t("etatCollTout");
+
+  /* --- À MATER : elle DÉSIGNE, elle ne propose pas seize choix. --- */
+  const qui = regleQuiResiste(s);
+  $("etatMater").classList.toggle("hidden", !qui);
+  if (qui) {
+    $<HTMLImageElement>("etatMaterImg").src = `/cartes/${qui.r.id}.png`;
+    const cases = franchies(echelleMaitrise(qui.r, qui.rec));
+    $("etatMaterNom").textContent = `${nomDeRegle(qui.r.id, qui.r.name)} · ${cases}/6`;
+    /*
+     * ⚠️ La maquette écrit « 4 morts sur tes 12 derniers runs ». Le carnet ne
+     * compte NI les morts NI une fenêtre glissante : `RuleRecord` porte `best`,
+     * `cleared`, `pieges`, `parAllure`, `serie`, `sansFaute` et `runs`. Écrire
+     * cette phrase demanderait d'instrumenter le chemin chaud du jeu pour une
+     * ligne décorative. On dit ce qu'on sait, et c'est déjà vrai.
+     */
+    $("etatMaterNote").textContent = t("resisteNote")(qui.rec.runs ?? 0, cases);
+    $("etatMater").dataset.regle = qui.r.id;
+  }
+
+  /* --- LE RUN DU JOUR : la priorité de `render/jour.ts`, pas un compte d'essais. --- */
+  const vj = vueDuJour(s, day);
+  $("etatJour").textContent =
+    vj.etat === "termine"
+      ? t("etatJourFait")(s.daily.score)
+      : vj.etat === "epuise"
+        ? t("etatJourEpuise")
+        : vj.etat === "vierge"
+          ? t("etatJourVierge")
+          : t("etatJourReste")(vj.restants);
+  $("etatJourNote").textContent = t("etatJourNote")(DAILY_ESSAIS, DAILY_LENGTH);
+
+  /* --- LA SÉRIE, et son jour de grâce — qui existe vraiment. --- */
+  $("etatSerie").textContent = t("cptEnJours")(s.streak.count);
+  /*
+   * `graceLeft` est remis à 1 au changement de SEMAINE (`graceWeek`), et
+   * consommé quand un trou d'un jour est comblé. Le dire au présent — « il
+   * t'en reste un » ou « déjà utilisé » — vaut mieux que d'énoncer la règle :
+   * ce qu'on veut savoir, c'est si on peut sauter demain.
+   */
+  const semaine = Math.floor(day / 7);
+  const graceDispo = s.streak.graceWeek !== semaine || s.streak.graceLeft > 0;
+  $("etatSerieNote").textContent = graceDispo ? t("etatGraceOui") : t("etatGraceNon");
+
+  /* --- LES QUÊTES : le même rendu que SOLO et que la fin de run. --- */
+  const q = viewQuests(s, day);
+  $("etatQuetesTotal").textContent = `${q.filter((x) => x.done).length} / ${q.length}`;
+  renderQuests("etatQuetes");
+}
+
+/**
  * LA CARTE DE RECORD DE L'ACCUEIL — le RUN DU JOUR, et rien d'autre.
  *
  * ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MÊME ÉPREUVE, et c'est la contrainte qui
@@ -2119,9 +2319,20 @@ let recordDuJourDemande = false;
  */
 function peintBut(sien: number | null, duJour: number | null): void {
   const but = vueBut(sien ?? 0, duJour, "aucun");
-  // L'objectif occupe le CRÉNEAU du chapo : les deux ne paraissent jamais
-  // ensemble, et l'accueil est à la limite au pixel près.
-  $("ledeHome").classList.add("hidden");
+  /*
+   * ⚠️ LE CHAPO CÈDE SA PLACE — SUR TÉLÉPHONE SEULEMENT.
+   *
+   * La mesure qui a impose l'exclusivite est une mesure de TELEPHONE : sur
+   * 375 x 812 la faille finissait deja a y=818 pour 812 de haut, et un bloc
+   * AJOUTE coutait 135 px, poussant le bas de MULTI a 142 px sous la ligne de
+   * flottaison. Ce budget-la n'existe pas en large : mesure a 1280 x 860, la
+   * colonne de gauche ne fait que 260 px pour 573 a droite — elle est VIDE.
+   *
+   * Et les deux disent des choses differentes : le chapo dit ce QU'EST le jeu
+   * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
+   * la place, il n'y a aucune raison de choisir.
+   */
+  $("ledeHome").classList.toggle("hidden", !(LARGE?.matches ?? false));
   $("but").classList.remove("hidden");
   $("butPlein").classList.toggle("hidden", but.cible === null);
   $("butVide").classList.toggle("hidden", but.cible !== null);
@@ -3394,11 +3605,40 @@ window.addEventListener("keyup", (e) => {
   else if (multi.isPlayingMulti()) sendOrMulti({ kind: "release", key: " " });
 });
 
+/*
+ * ⚠️ LE MEME OBSERVATEUR PLACE LA BARRE.
+ *
+ * `matchMedia` et l'evenement `resize` sont les bons signaux, mais aucun des
+ * deux n'est garanti : mesure dans le volet du navigateur, passer de 1280 a
+ * 375 n'en emettait AUCUN — la barre restait en haut, sans barre basse et sans
+ * JOUER sous le pouce. Un evenement dispatche a la main la remettait
+ * correctement, donc le code etait juste et c'est le signal qui manquait.
+ *
+ * `ResizeObserver` sur le canvas est le chemin auquel ce depot fait deja
+ * confiance pour les gouttieres, et il observe une boite qui suit la fenetre.
+ * `poseBarre` etant idempotente, l'y accrocher ne coute rien.
+ */
 if (typeof ResizeObserver !== "undefined") {
   new ResizeObserver(() => syncField()).observe(cv);
+  /*
+   * ⚠️ ON OBSERVE `#app`, PAS LE CANVAS.
+   *
+   * Le canvas est masqué sur les écrans de menu : sa boîte ne change donc pas
+   * quand la fenêtre change, et l'observateur ne se déclenche jamais là où la
+   * barre doit bouger. Mesuré — passer de 1280 à 375 sur l'accueil laissait la
+   * barre en haut, sans barre basse et sans JOUER sous le pouce.
+   *
+   * `#app` suit la fenêtre sur tous les écrans, y compris les menus. Et
+   * `poseBarre` étant idempotente, l'observer ne coûte rien : elle ne touche
+   * au DOM que si le parent n'est pas déjà le bon.
+   */
+  new ResizeObserver(() => poseBarre()).observe(appEl);
 }
 window.addEventListener("resize", () => syncField());
-window.visualViewport?.addEventListener("resize", () => syncField());
+window.visualViewport?.addEventListener("resize", () => {
+  syncField();
+  poseBarre();
+});
 syncField();
 window.addEventListener("blur", () => {
   spaceDown = false;
@@ -3578,6 +3818,12 @@ $("btnSolo").addEventListener("click", () => {
   renderSolo();
   show("solo");
 });
+$("etatMater").addEventListener("click", () => {
+  // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
+  const r = ONE_RULES.find((x) => x.id === $("etatMater").dataset.regle);
+  if (r) ouvreFiche(r);
+});
+
 $("btnButJour").addEventListener("click", () => {
   sfx.ui();
   // La carte parle du run du jour : elle y mène, jamais ailleurs.

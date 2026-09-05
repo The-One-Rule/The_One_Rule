@@ -242,6 +242,13 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "piege.rien": "TU N'AS RIEN FAIT",
     "piege.dejoue": "PIÈGE DÉJOUÉ",
     "but.aBattre": "LE RECORD DU JOUR",
+    "nav.classement": "CLASSEMENT",
+    "etat.collection": "TA COLLECTION",
+    "etat.mater": "À MATER",
+    "etat.jour": "RUN DU JOUR",
+    "etat.serie": "SÉRIE",
+    "etat.quetes": "QUÊTES DU JOUR",
+    "aria.etat": "Ton état",
     "but.personne": "PERSONNE N'A ENCORE JOUÉ",
     "but.premier": "Sois le premier.",
     "but.tenter": "TENTER LA RUN DU JOUR",
@@ -407,6 +414,13 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "piege.rien": "YOU DID NOTHING",
     "piege.dejoue": "TRAP DEFUSED",
     "but.aBattre": "TODAY'S RECORD",
+    "nav.classement": "RANKING",
+    "etat.collection": "YOUR COLLECTION",
+    "etat.mater": "TO MASTER",
+    "etat.jour": "DAILY RUN",
+    "etat.serie": "STREAK",
+    "etat.quetes": "TODAY'S QUESTS",
+    "aria.etat": "Your state",
     "but.personne": "NOBODY HAS PLAYED YET",
     "but.premier": "Be the first.",
     "but.tenter": "TRY THE DAILY RUN",
@@ -516,6 +530,15 @@ type Dyn = {
   salleJamaisVues: (n: number) => string;
   resisteNote: (runs: number, cases: number) => string;
   resisteBouton: string;
+  etatCollReste: (n: number) => string;
+  etatCollTout: string;
+  etatJourFait: (n: number) => string;
+  etatJourEpuise: string;
+  etatJourVierge: string;
+  etatJourReste: (n: number) => string;
+  etatJourNote: (essais: number, manches: number) => string;
+  etatGraceOui: string;
+  etatGraceNon: string;
   filtreRien: string;
   navAttend: string;
   /* --- la fiche --- */
@@ -909,6 +932,16 @@ const DYN: Record<Lang, Dyn> = {
     resisteNote: (runs, cases) =>
       `${runs} run${runs > 1 ? "s" : ""} sous cette règle, et ${cases} case${cases > 1 ? "s" : ""} sur 6.`,
     resisteBouton: "TRAVAILLER CELLE-LÀ",
+    etatCollReste: (n) =>
+      `${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
+    etatCollTout: "Tu les as toutes rencontrées.",
+    etatJourFait: (n) => `${n} MANCHES`,
+    etatJourEpuise: "TROIS ESSAIS JOUÉS",
+    etatJourVierge: "PAS ENCORE JOUÉ",
+    etatJourReste: (n) => `${n} ESSAI${n > 1 ? "S" : ""} RESTANT${n > 1 ? "S" : ""}`,
+    etatJourNote: (essais, manches) => `${essais} ESSAIS · ${manches} MANCHES`,
+    etatGraceOui: "1 JOUR DE GRÂCE DISPONIBLE",
+    etatGraceNon: "JOUR DE GRÂCE DÉJÀ UTILISÉ",
     filtreRien: "Rien dans cette catégorie pour l'instant.",
     navAttend: "TA RÈGLE T'ATTEND",
     famInterdit: "INTERDIT",
@@ -1300,6 +1333,16 @@ const DYN: Record<Lang, Dyn> = {
     resisteNote: (runs, cases) =>
       `${runs} run${runs === 1 ? "" : "s"} under this rule, and ${cases} of 6 boxes.`,
     resisteBouton: "WORK ON THAT ONE",
+    etatCollReste: (n) =>
+      `${n} rule${n === 1 ? "" : "s"} you have never seen. They only turn up by playing.`,
+    etatCollTout: "You have met them all.",
+    etatJourFait: (n) => `${n} ROUNDS`,
+    etatJourEpuise: "THREE TRIES PLAYED",
+    etatJourVierge: "NOT PLAYED YET",
+    etatJourReste: (n) => `${n} TR${n === 1 ? "Y" : "IES"} LEFT`,
+    etatJourNote: (essais, manches) => `${essais} TRIES · ${manches} ROUNDS`,
+    etatGraceOui: "1 GRACE DAY AVAILABLE",
+    etatGraceNon: "GRACE DAY ALREADY USED",
     filtreRien: "Nothing in this category yet.",
     navAttend: "YOUR RULE IS WAITING",
     famInterdit: "FORBIDS",

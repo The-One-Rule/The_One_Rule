@@ -8070,6 +8070,55 @@ button.chip:active:not(:disabled) {
   text-align: center;
 }
 
+/*
+ * SUR LARGE, LA CARTE EST UNE CARTE : un cadre, et le filet d'ambre a gauche.
+ *
+ * L'ambre parce que c'est la couleur du record dans tout le reste du jeu — la
+ * pastille du run du jour, l'etat PARFAITE d'une carte, le mur des records. Un
+ * joueur qui a vu l'ambre ailleurs la reconnait ici.
+ */
+@media (min-width: 900px) {
+  /*
+   * ⚠️ ELLE PREND LA PLACE DES TROIS CARTES, elle ne s'y glisse pas.
+   *
+   * Demande de Pierre sur la vue 22/27 : les trois cartes explicatives ne se
+   * font pas, et leur espace revient a la carte de record. Mesure a
+   * 1280 x 860 : sans elle, la colonne de gauche laissait 170 px de vide entre
+   * la carte et la vitrine. Un chiffre qui occupe la place d'un bloc doit en
+   * avoir la taille — sinon la colonne a l'air inachevee, pas aeree.
+   */
+  #home .but {
+    margin-top: 22px;
+    padding: 22px 26px;
+    gap: 4px;
+    background: var(--ink-2);
+    border: var(--bd-hair) solid var(--line);
+    border-left: 4px solid var(--ambre);
+    max-width: 620px;
+    width: 100%;
+  }
+
+  #home .but__chiffre {
+    font-size: 56px;
+    line-height: 1;
+  }
+
+  #home .but__premier {
+    font-size: 30px;
+  }
+
+  /* La ligne qui pousse et le chiffre du joueur se rangent sur une meme
+     rangee : le premier interpelle, le second situe. */
+  #home .but__pousse {
+    margin-top: 10px;
+    font-size: var(--t-lire);
+  }
+
+  #home .but__sien {
+    margin-top: 6px;
+  }
+}
+
 /* Il occupe le CRENEAU du chapo : les deux ne paraissent jamais ensemble. */
 .but.hidden,
 #ledeHome.hidden {
@@ -10549,4 +10598,397 @@ button.chip:active:not(:disabled) {
    deux lignes se lisaient comme une seule. */
 #idChoisis {
   margin-top: var(--sp-4);
+}
+
+/* ==================================================================
+   L'ACCUEIL EN LARGE — deux colonnes, et la barre qui remonte
+
+   Vue 22/27. Le bureau ne manque pas de LARGEUR, il manque de HAUTEUR :
+   mesure a 1280 x 860, la faille finissait a 906 pour 860. Tout ce qui
+   remonte dans la barre du haut est de la hauteur rendue au jeu.
+   ================================================================== */
+
+/*
+ * LA COLONNE D'ETAT n'existe QUE sur large, et ce n'est pas un choix de gout.
+ * Mesure a 375 x 812 : la faille finit a 666 et le pied a 752 — il reste
+ * 60 px. Quatre blocs de plus y pousseraient la moitie basse de MULTI sous la
+ * ligne de flottaison, la faute qui a deja coute 76 % d'entrees.
+ */
+.etat {
+  display: none;
+}
+
+.etat__bloc.hidden {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  /*
+   * ⚠️ DEUX COLONNES, ET DES RANGEES EXPLICITES.
+   *
+   * En placement automatique, le trait `.coupe` — qui est entre les deux dans
+   * le document et prend toute la largeur — s'intercale et renvoie la faille
+   * sur une troisieme rangee. Le depot a deja paye ca une fois.
+   */
+  #home .home {
+    /*
+     * La colonne d'etat RESPIRE plutot que d'etre fixe : a 900 px de large,
+     * 400 en dur ne laissaient que 450 a l'enseigne et a la carte, et la
+     * colonne touchait le bord de la fenetre (mesure : bord droit a 899 pour
+     * 900). Elle se serre a 320 avant de rendre la place.
+     */
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
+    align-content: start;
+    /* Les deux colonnes s'alignent sur l'enseigne de la barre du haut, a 25. */
+    padding-left: 25px;
+    padding-right: 25px;
+    /* 18 et non 26 : le budget vertical se joue a la trentaine de pixels
+       pres, et huit d'entre eux se prennent ici sans que rien ne se serre. */
+    gap: 18px 52px;
+  }
+
+  #home .home__brand {
+    grid-column: 1;
+    grid-row: 1;
+    text-align: left;
+    align-self: start;
+  }
+
+  #home .etat {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    grid-column: 2;
+    grid-row: 1;
+    text-align: left;
+  }
+
+  /* Le trait n'a plus de role : la colonne de droite separe deja les deux
+     mondes, et un trait pleine largeur casserait la grille. */
+  #home .coupe {
+    display: none;
+  }
+
+  /*
+   * ⚠️ LA FAILLE SE RESSERRE QUAND LA COLONNE D'ETAT PARAIT.
+   *
+   * Le budget est arithmetique, pas esthetique. A 1280 x 860 : la barre du
+   * haut prend 56, la colonne d'etat 573 — c'est elle la plus haute des deux,
+   * l'enseigne et la carte n'en font que 260. Il reste donc 205 px pour la
+   * vitrine, et `clamp(300px, 44vh, 440px)` en reclamait 378 : mesure, le bas
+   * de la faille tombait a 1025 pour 860 de fenetre.
+   *
+   * Une vitrine coupee ne montre rien — c'est ecrit dans la regle qu'elle
+   * remplace. On la resserre donc plutot que de la laisser deborder, et la
+   * fissure garde son amplitude puisque tout y est exprime en POURCENTAGES de
+   * cette boite : elle se lit pareil, en plus fin.
+   */
+  #home .faille {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    /*
+     * ⚠️ ELLE RESSORT DU RETRAIT. La vitrine est « un seul objet pleine
+     * largeur du #app » — c'est ce qui la distingue de deux zones posees au
+     * milieu, et c'est mesure a 98,8 % de la largeur. Le retrait des colonnes
+     * ne doit pas la rogner.
+     */
+    width: calc(100% + 50px);
+    margin-left: -25px;
+    min-height: 0;
+    /*
+     * ⚠️ 25 vh et pas moins : a 181 px le mot SOLO etait coupe par le cadre de
+     * sa propre face. La vitrine est ce qu'un inconnu regarde en premier —
+     * coupee, elle ne montre rien, et c'est la raison ecrite de la regle
+     * qu'elle remplace. Les pixels qui lui manquaient viennent des blocs
+     * d'etat, pas d'une troncature de plus.
+     */
+    height: clamp(200px, 25vh, 260px);
+  }
+
+  /*
+   * ⚠️ LES DEUX FACES SE RECALENT SUR LA FAILLE COURTE.
+   *
+   * Mesure a 1280 x 860, faille de 215 px : le ruban serpente entre 44 et
+   * 61 %, soit 95 a 131 px du haut. Le corps de SOLO commencait a 44 px et
+   * mesurait 119 — il traversait donc le ruban, et le mot SOLO se retrouvait
+   * coupe en deux par la cassure. Ce n'est pas l'effet voulu : la fissure doit
+   * passer ENTRE les deux mondes, pas au milieu d'un mot.
+   *
+   * Retrait a 16 px, titre a 40 : SOLO tient dans les 88 premiers pixels, et
+   * MULTI dans les 55 derniers — l'un au-dessus du ruban, l'autre en dessous.
+   */
+  #home .faille__corps {
+    gap: 4px;
+  }
+
+  #home .faille__zone--solo .faille__corps,
+  #home .faille__zone--multi .faille__corps {
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+  }
+
+  #home .faille__zone--solo .faille__corps {
+    left: 25px;
+    top: 16px;
+  }
+
+  #home .faille__zone--multi .faille__corps {
+    right: 25px;
+    bottom: 16px;
+  }
+
+  #home .faille__titre {
+    font-size: 40px;
+  }
+
+  /*
+   * L'ETAT quitte la vitrine — il n'est pas perdu, il a DEMENAGE.
+   *
+   * « RUN DU JOUR FAIT » est desormais dans la colonne de droite, dans le bloc
+   * RUN DU JOUR, qui existe pour ca. Le garder ici le dirait deux fois, et
+   * c'est exactement la ligne qui faisait deborder SOLO sur le ruban.
+   */
+  #home .faille__etat {
+    display: none;
+  }
+
+  /* L'enseigne s'aligne a gauche avec le reste de sa colonne. */
+  #home .logo,
+  #home .but,
+  #home .but__plein,
+  #home .but__vide {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  #home .but__vide .btn {
+    align-self: flex-start;
+  }
+
+  /* Le chapo revient sur large : la colonne a la place, et il dit ce que la
+     carte ne dit pas — ce QU'EST le jeu. */
+  #home .lede--court {
+    max-width: 26ch;
+    margin-left: 0;
+    margin-right: 0;
+    text-align: left;
+    font-size: 20px;
+    line-height: 1.35;
+  }
+}
+
+/* --- Les blocs de la colonne d'etat ------------------------------------ */
+
+.etat__bloc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /*
+   * ⚠️ 10 px et non 13 : le budget vertical du bureau se joue a la trentaine
+   * pres. Quatre blocs a 6 px de moins rendent 24 px, et ces 24 px vont a la
+   * VITRINE — a 181 px de haut, le mot SOLO etait coupe par son propre cadre.
+   */
+  padding: 10px 13px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+/* A MATER est un BOUTON : c'est la seule ligne de la colonne qui mene
+   quelque part, et elle prend l'accent pour le dire. Deux accents dans une
+   colonne ne designeraient plus rien. */
+.etat__bloc--vedette {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 8%, var(--ink-2));
+  cursor: pointer;
+}
+
+.etat__bloc--vedette:hover,
+.etat__bloc--vedette:focus-visible {
+  background: color-mix(in srgb, var(--signal) 14%, var(--ink-2));
+}
+
+.etat__tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+}
+
+.etat__compte {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.etat__note {
+  margin: 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  line-height: 1.45;
+  color: var(--paper-dim);
+}
+
+.etat__mater {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.etat__img {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+  /* Du pixel art se rend AU PIXEL : lisse, il devient une bouillie. */
+  image-rendering: pixelated;
+}
+
+.etat__materTxt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.etat__materNom {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.etat__paire {
+  display: flex;
+  gap: 10px;
+}
+
+.etat__paire .etat__bloc {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.etat__gros {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+/* --- LA BARRE HAUTE SUR LARGE ------------------------------------------ */
+
+@media (min-width: 900px) {
+  /*
+   * La rangee devient une ligne : enseigne, destinations, compte, JOUER.
+   * C'est l'ORDRE DU DOCUMENT qui place — aucun `order`, le depot en a deja
+   * paye deux (un `order` sur une partie des enfants renvoie les autres
+   * devant).
+   */
+  #app.barre-haute .topbar__row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  /* L'enseigne passe a GAUCHE : c'est la place d'une marque sur un ecran
+     large, et le centre revient aux destinations. */
+  #app.barre-haute .topbar__brand {
+    justify-self: start;
+  }
+
+  #app.barre-haute .topbar__left {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  /*
+   * ⚠️ ELLE DEFAIT LA BARRE BASSE, PIECE PAR PIECE.
+   *
+   * La barre basse etait centree sur 560 px par `left: 50%` + une translation,
+   * pour ne pas etaler cinq destinations sur 1280. Remontee dans la grille du
+   * haut, cette translation la posait a x = -203 — mesure. Une position
+   * statique ne suffit pas : `transform` s'applique quand meme.
+   */
+  #app.barre-haute .nav {
+    position: static;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0;
+    width: auto;
+    transform: none;
+    background: none;
+    border: 0;
+  }
+
+  /*
+   * Le JOUER surelevé est un geste de barre BASSE : il deborde vers le haut
+   * pour se donner sa place sous le pouce (`margin-top: -26px`). Dans une
+   * rangee de 56 px, il sortait du cadre — mesure a y = -16.
+   */
+  #app.barre-haute .nav__centre {
+    margin-top: 0;
+  }
+
+  #app.barre-haute .nav__jouer {
+    height: 40px;
+    border-width: 2px;
+    box-shadow: 3px 3px 0 color-mix(in srgb, var(--signal) 50%, transparent);
+    font-size: 15px;
+  }
+
+  #app.barre-haute .nav__item {
+    flex-direction: row;
+    gap: 7px;
+    min-height: var(--tap);
+    padding: 0 11px;
+  }
+
+  /* L'icone a fait son travail sur telephone, ou il n'y a pas la place
+     d'ecrire. Sur large, le mot suffit et se lit plus vite. */
+  #app.barre-haute .nav__ico {
+    display: none;
+  }
+
+  #app.barre-haute .topbar__right {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-2);
+  }
+
+  #app.barre-haute .nav__centre {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* « TA REGLE T'ATTEND » ne tient pas sur une ligne de barre : elle vit sur
+     telephone, sous le bouton, ou la colonne lui donne deux lignes. */
+  #app.barre-haute .nav__attend {
+    display: none;
+  }
+}
+
+/* CLASSEMENT n'existe QUE sur large : une sixieme case dans une barre de cinq
+   a 375 px donnerait des cibles sous les 44 px tactiles. */
+.nav__item--large {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  #app.barre-haute .nav__item--large {
+    display: flex;
+  }
 }
