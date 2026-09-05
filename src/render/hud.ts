@@ -112,6 +112,25 @@ export class Hud {
   }
 
   /**
+   * LE DÉPASSEMENT DE RECORD, EN DIRECT.
+   *
+   * La case du milieu affichait « TON RECORD · 23 » pendant qu'on venait de
+   * faire 24 : le seul instant du run qui vaut d'être vécu passait sans un
+   * mot, et on l'apprenait sur l'écran de fin, une fois mort.
+   *
+   * ⚠️ Elle ne prend pas un pixel de plus. Le pied garde ses trois cellules et
+   * ses hauteurs — la taille du champ EST du gameplay (n°10) — c'est la même
+   * case qui change de mot. Rien à mesurer parce que rien ne bouge.
+   */
+  setFooterRecord(score: number, avance: number, mode: string): void {
+    this.fScore.textContent = String(score);
+    this.fBest.className = "foot__value foot__value--record";
+    this.fBest.textContent = `+${avance}`;
+    this.fMidLabel.textContent = t("piedDepasse");
+    this.fMode.textContent = mode;
+  }
+
+  /**
    * Pied du multijoueur — les VIES sont MONTÉES dans le bandeau.
    *
    * Elles occupaient la case du milieu, c'est-à-dire l'endroit qu'on regarde

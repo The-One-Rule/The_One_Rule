@@ -1814,6 +1814,16 @@ function lanceRun(): void {
   lastRoundKey = "";
   ghostLead = false;
   /*
+   * LE RECORD D'AVANT, photographié au lancement.
+   *
+   * Le pied compare le score courant à ce chiffre pour annoncer le
+   * dépassement en direct. Le lire à chaque image donnerait le même résultat
+   * aujourd'hui — `majCarnet` n'écrit qu'à la fin du run — mais ferait
+   * dépendre l'annonce d'un détail d'ordonnancement qui peut changer. Une
+   * photo dit ce qu'on compare.
+   */
+  recordAvantRun = P.recordDeSonAllure(s);
+  /*
    * La pile de l'escalade est tirée d'un RNG À PART.
    *
    * Le même flux sert à bâtir les manches : y prendre quelques nombres
@@ -3556,6 +3566,8 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
+/** Le record du joueur AVANT le run en cours — voir `lanceRun`. */
+let recordAvantRun = 0;
 let urgentDone = false;
 
 /* ------------------------------------------------------------------ *
@@ -3670,12 +3682,29 @@ function loop(now: number): void {
       hud.updateRound(session.round, session.elapsed(now), session.ratio(now));
       musicApi.level(session.level);
       if (challenge) updateGhost(session.runTime(now), session.level);
-      hud.setFooter(
-        session.level,
-        session.mode === "daily" ? DAILY_LENGTH : P.load().bestTraining,
-        session.mode === "daily" ? t("piedDaily")(day) : t("modeTraining"),
-        session.mode === "daily" ? t("piedSur") : t("piedRecord"),
-      );
+      /*
+       * LE PIED DIT LE DEPASSEMENT DE RECORD, EN DIRECT.
+       *
+       * Il affichait « TON RECORD · 23 » pendant qu'on venait de faire 24 : le
+       * seul instant du run qui vaut d'etre vecu passait sans un mot, et on
+       * l'apprenait sur l'ecran de fin, une fois mort.
+       *
+       * ⚠️ Pas pour le RUN DU JOUR : sa case du milieu dit « SUR 40 », c'est
+       * la longueur de l'epreuve et non un record. Et pas non plus quand le
+       * record de reference est nul — « +1 SUR TON MIEUX » a un joueur qui
+       * n'a encore rien fait ne compare rien.
+       */
+      const recAv = recordAvantRun;
+      if (session.mode !== "daily" && recAv > 0 && session.level > recAv) {
+        hud.setFooterRecord(session.level, session.level - recAv, t("modeTraining"));
+      } else {
+        hud.setFooter(
+          session.level,
+          session.mode === "daily" ? DAILY_LENGTH : P.load().bestTraining,
+          session.mode === "daily" ? t("piedDaily")(day) : t("modeTraining"),
+          session.mode === "daily" ? t("piedSur") : t("piedRecord"),
+        );
+      }
       hud.setMeta(session.inGrace ? t("echauffement") : "");
     }
   } else if (multi.isPlayingMulti()) {

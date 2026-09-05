@@ -10037,6 +10037,17 @@ button.chip:active:not(:disabled) {
 }
 
 /*
+ * LE PIED QUAND LE RECORD TOMBE.
+ *
+ * La seule cellule du jeu qui change de COULEUR en pleine partie, et elle ne
+ * change pas de taille : le pied garde ses trois cases et sa hauteur, donc le
+ * champ ne bouge pas d'un pixel.
+ */
+.foot__value--record {
+  color: var(--jade, #40f7c0);
+}
+
+/*
  * LES SORTIES D'UNE ERREUR.
  *
  * Une erreur qui ne propose rien laisse le joueur devant un mur rouge. Elles

@@ -757,6 +757,7 @@ type Dyn = {
   errDeconnecte: string;
   sortieRetaper: string;
   reconnexion: string;
+  piedDepasse: string;
   coupureEtat: (essai: number, sur: number, s: number) => string;
   sortieOuvrir: string;
   sortieRecharger: string;
@@ -1117,6 +1118,7 @@ const DYN: Record<Lang, Dyn> = {
     errDeconnecte: "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE",
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
+    piedDepasse: "SUR TON MIEUX",
     coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
     sortieOuvrir: "OUVRIR LE MIEN",
     sortieRecharger: "RECHARGER",
@@ -1458,6 +1460,7 @@ const DYN: Record<Lang, Dyn> = {
     errDeconnecte: "DISCONNECTED — REJOIN TO TAKE YOUR SEAT BACK",
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
+    piedDepasse: "OVER YOUR BEST",
     coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
     sortieOuvrir: "OPEN MY OWN",
     sortieRecharger: "RELOAD",
