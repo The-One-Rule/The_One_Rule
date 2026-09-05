@@ -11620,3 +11620,719 @@ button.chip:active:not(:disabled) {
     width: 6px;
   }
 }
+
+/* ==================================================================
+   L'ECRAN DE JEU — VALEURS RELEVEES SUR LA SOURCE (vue `jeu`)
+
+   ⚠️ CE BLOC TOUCHE A LA TAILLE DU CHAMP, ce qu'aucun autre ne fait.
+   `#band`, `#head` et `#foot` sont dans le flux : chaque pixel qu'ils
+   prennent, `#stage` le perd, et la grille se balaie en 800 ms. Les trois
+   hauteurs sont donc mesurees avant et apres, et l'ecart est rapporte.
+
+   Source :
+     band  `padding:9px 14px 9px 0` · `min-height:48px` · `gap:0 14px`
+     regle `21px` lh 1 ls -.02em · intitule `9px` .24em · brief `10px` .08em
+     head  `padding:22px 16px 0` · consigne `36px` lh .96 ls -.03em
+     sub   `9px 0 0` · `10px` .2em · jauge de temps `7px`
+     pied  `padding:9px 14px` · valeur `22px` lh 1 · intitule `9px` .2em
+   ================================================================== */
+
+#band {
+  padding: 9px 14px 9px 0;
+  min-height: 48px;
+  gap: 0 14px;
+}
+
+#band .band__quoi,
+.band__eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  line-height: 1;
+}
+
+#bandRule {
+  margin: 2px 0 0;
+  font-size: 21px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+#bandBrief,
+.band__brief {
+  margin: 3px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.band__meta {
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+}
+
+#head {
+  padding: 22px 16px 0;
+}
+
+#instr {
+  font-size: 36px;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+}
+
+#sub {
+  margin: 9px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+#foot {
+  padding: 9px 14px;
+}
+
+.foot__value {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.foot__value--mode {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+.foot__label {
+  margin-top: 2px;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+/* Les vies : points de 10 px, gouttiere 4 — la source les compte a l'oeil,
+   pas a la lecture. */
+.lifedots i,
+.plate__lives i {
+  width: 10px;
+  height: 10px;
+}
+
+/* ==================================================================
+   LA FIN DE RUN — VALEURS RELEVEES SUR LA SOURCE (vue `over`)
+
+   verdict 32px lh 1 ls -.03em · motif 9px 0 0, 11px .14em
+   score 72px lh .9 ls -.05em · son intitule 4px 0 0, 9,5px .18em
+   frise 16px auto 0, padding 12px 10px, 15px lh 1,7 ls 2px
+   legende 9px .1em, gouttiere 11
+   « ce que ce run a fait avancer » 20px 0 0, 10px .2em
+   bloc d'avance gouttiere 11, padding 12 · vignette 48px, cadre 5
+   jauge de six : cases de 7px, gouttiere 3
+   pied 14px 16px 16px · primaire 15px .1em padding 16 · paire 1fr 1fr gap 8
+   ================================================================== */
+
+#over .verdict {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+#over .because {
+  margin: 9px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+#over .tally {
+  font-size: 72px;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+
+#over #tallyLabel {
+  margin: 4px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+
+#over .marks {
+  margin: 16px auto 0;
+  padding: 12px 10px;
+  font-size: 15px;
+  line-height: 1.7;
+  letter-spacing: 2px;
+}
+
+#over .avance,
+#over .decouverte {
+  gap: 11px;
+  padding: 12px;
+}
+
+#over .avance__regle,
+#over .decouverte__nom {
+  font-size: 14px;
+  line-height: 1.15;
+}
+
+#over .avance__quoi,
+#over .decouverte__note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+/* La jauge de six : des cases de 7 px, pas un filet. */
+#over .avance__jauge i,
+#over .carte__jauge i {
+  height: 7px;
+}
+
+/* ==================================================================
+   LA COLLECTION — VALEURS RELEVEES SUR LA SOURCE (vue `cards`)
+
+   intitule 10px .2em · compte 28px lh 1 ls -.03em · cotes 9,5px .12em
+   filtres gouttiere 6, 10px .1em, padding 11px 11px, hauteur 44
+   grille 1fr 1fr, gouttiere 10, retrait 14px 14px 0
+   tete de carte padding 5px 7px, famille 7,5px .16em, jauge 5px
+   badge 7,5px .14em padding 3px 5px · pied 7px 8px 8px, nom 13px lh 1
+   ================================================================== */
+
+#codex .codexbar__total {
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+#codex .codexbar__ligne,
+#codex .codexbar__note {
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+}
+
+.filtres__groupe {
+  gap: 6px;
+}
+
+.filtre {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  padding: 11px;
+  min-height: var(--tap);
+}
+
+.carte__tete {
+  padding: 5px 7px;
+}
+
+.carte__famille,
+.carte__cases {
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+}
+
+.carte__jauge i {
+  height: 5px;
+}
+
+.carte__pied {
+  padding: 7px 8px 8px;
+}
+
+.carte__nom {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.carte__etat {
+  font-size: 7.5px;
+  letter-spacing: 0.14em;
+}
+
+/* ==================================================================
+   LE COMPTE — VALEURS RELEVEES SUR LA SOURCE (vue `account`)
+
+   ecran 20px 16px · tete gouttiere 14 · signe 72px, glyphe 34
+   nom 28px lh 1 ls -.03em · fournisseur 7px 0 0, 9,5px .14em
+   grille 1fr 1fr gouttiere 1 · case 13px · valeur 26px lh 1
+   intitule de case 5px 0 0, 9px .16em · titre de section 20px 0 0, 10px .2em
+   jauge gouttiere 5, cases de 34px · repartition 9px .1em
+   bloc du jour 12px · valeur 15px · note 4px 0 0, 9,5px .12em
+   badge 9px .14em, 4px 7px · mention 14px 0 0, 9,5px .1em lh 1,6
+   ANONYME : titre 30px lh 1,05 · chapo 13,5px lh 1,6
+   grille 1fr 1fr 1fr gouttiere 1 · case 12px 8px · valeur 20px · lab 8,5px .14em
+   ================================================================== */
+
+#compte .screen__scroll {
+  padding: 20px 16px;
+}
+
+.cpt__tete {
+  gap: 14px;
+}
+
+.cpt__signe {
+  width: 72px;
+  height: 72px;
+  font-size: 34px;
+}
+
+.cpt__nom {
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.cpt__via {
+  margin: 7px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+}
+
+/* La grille de chiffres : gouttiere de UN pixel — les cases se touchent, et
+   c'est ce qui en fait un tableau plutot que quatre vignettes. */
+.cpt__grille {
+  gap: 1px;
+}
+
+.cpt__cel {
+  padding: 13px;
+}
+
+.cpt__val {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.cpt__lab {
+  margin-top: 5px;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.account__on > .eyebrow {
+  margin: 20px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+/* La jauge du compte est HAUTE — 34 px : c'est le sujet de sa section, pas
+   un filet d'accompagnement. */
+#cptJauge {
+  display: flex;
+  gap: 5px;
+  height: auto;
+}
+
+#cptJauge i {
+  flex: 1;
+  height: 34px;
+}
+
+.cpt__repartition {
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.cpt__jour {
+  padding: 12px;
+}
+
+.cpt__jourVal {
+  font-size: 15px;
+}
+
+.cpt__jourNote {
+  margin: 4px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+}
+
+.cpt__badge {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  padding: 4px 7px;
+}
+
+.cpt__fine {
+  margin: 14px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  line-height: 1.6;
+}
+
+#compteAnon #compteTitre {
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+#compteAnon #cptGrilleAnon .cpt__cel {
+  padding: 12px 8px;
+}
+
+#compteAnon #cptGrilleAnon .cpt__val {
+  font-size: 20px;
+}
+
+#compteAnon #cptGrilleAnon .cpt__lab {
+  margin-top: 4px;
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+}
+
+/* ==================================================================
+   LES REGLAGES — VALEURS RELEVEES SUR LA SOURCE (vue `settings`)
+
+   ecran 20px 16px · titre 10px .2em · groupe 18px 0 0, 9,5px .18em
+   ligne 12px · nom 14px · consequence 3px 0 0, 10px .06em
+   interrupteur : deux faces de 38 x 34 · apercu 38px, gouttiere 8
+   segments 10px .06em, 13px 2px, hauteur 44
+   ================================================================== */
+
+#reglages .screen__scroll {
+  padding: 20px 16px;
+}
+
+.rgl__groupe {
+  margin: 18px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+
+.rgl__ligne {
+  padding: 12px;
+}
+
+.rgl__nom {
+  font-size: 14px;
+}
+
+.rgl__quoi {
+  margin: 3px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.rgl__inter i {
+  width: 38px;
+  min-height: 34px;
+  font-size: 10px;
+}
+
+.rgl__apercu {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rgl__ech {
+  height: 38px;
+}
+
+.rgl__note {
+  margin: 9px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+/* ==================================================================
+   LE SALON — VALEURS RELEVEES SUR LA SOURCE (vue `mlobby`)
+
+   code : cases de 38px, chiffre 18px, gouttiere 10, retrait 10px 14px
+   COPIER 10px .1em, 11px 9px · corps 14px 14px 0
+   titre 22px lh 1 · effectif 10px .14em · sieges gouttiere 6
+   siege 9px 11px, gouttiere 10 · signe 26px · nom 14px · statut 8,5px .14em
+   reglages : intitule 16px 0 0, 9,5px .18em · bloc 11px
+   libelle 9px .16em · segment 9,5px .06em, 12px 2px, hauteur 44
+   phrase de vitesse 8px 0 0, 9px .08em
+   LANCER 15px .1em, 17px · chat 8px 10px, auteur 9px .14em, mot 12px
+   ================================================================== */
+
+.roomcode {
+  gap: 10px;
+}
+
+.roomcode i,
+.roomcode span {
+  height: 38px;
+  font-size: 18px;
+}
+
+#multiLobbyTitle {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.room__count {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.seats {
+  gap: 6px;
+}
+
+.seat {
+  gap: 10px;
+  padding: 9px 11px;
+}
+
+.seat__glyph {
+  width: 26px;
+  height: 26px;
+}
+
+.seat__name {
+  font-size: 14px;
+}
+
+.seat__status {
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+}
+
+.settings__who {
+  margin: 16px 0 0;
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+
+.settings__label {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.settings--seg .opt {
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  padding: 12px 2px;
+  min-height: var(--tap);
+}
+
+.settings__quoi {
+  margin: 8px 0 0;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.chat__ligne,
+.chat__msg {
+  font-size: 12px;
+}
+
+.chat__qui {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+/* ==================================================================
+   LE MUR DES RECORDS — VALEURS RELEVEES SUR LA SOURCE (vue `leader`)
+
+   intitule 10px .2em · titre 30px lh 1 ls -.03em
+   cadre du record 18px 16px · son intitule 9,5px .2em
+   chiffre 76px lh .9 ls -.05em · unite 10,5px .18em · phrase 14px lh 1,5
+   bloc du joueur gouttiere 14, 14px · chiffre 32px · intitule 8,5px .16em
+   jauge 10px
+   ================================================================== */
+
+#classement .rulename {
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.mur__cible {
+  padding: 18px 16px;
+}
+
+.mur__cible .mur__kicker {
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+}
+
+.mur__gros {
+  margin: 10px 0 0;
+  font-size: 76px;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+
+.mur__note {
+  margin: 14px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.mur__moi {
+  padding: 14px;
+}
+
+.mur__mien {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.mur__moi .mur__kicker {
+  margin: 3px 0 0;
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+}
+
+.mur__jauge {
+  height: 10px;
+}
+
+/* ==================================================================
+   LA PREMIERE ARRIVEE — VALEURS RELEVEES SUR LA SOURCE (vue `onb`)
+
+   jauge d'etape 5px · corps 0 22px · etape 10px .2em
+   titre 22px 0 0, 22px lh 1,3 ls -.01em · brief 12px 0 0, 13px lh 1,45
+   bandeau de regle : intitule 9px .22em, nom 32px lh 1 ls -.03em
+   cas : 14px, intitule 9,5px .18em, consigne 9px 0 0 19px, verdict 13px lh 1,45
+   bouton 14px .08em, 15px, hauteur 44 · pied 12px 0 0, 10px .12em
+   ================================================================== */
+
+#onb .screen__scroll {
+  padding-left: 22px;
+  padding-right: 22px;
+}
+
+#onb .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+.onb__titre {
+  margin: 22px 0 0;
+  font-size: 22px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.onb__kicker {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+}
+
+.onb__nom {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.onb__brief {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.onb__cas1,
+.onb__cas2 {
+  padding: 14px;
+}
+
+.onb__consigne {
+  margin: 9px 0 0;
+  font-size: 19px;
+  letter-spacing: -0.01em;
+}
+
+.onb__verdict {
+  margin: 9px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.onb__pied {
+  margin: 12px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+
+/* ==================================================================
+   LE BRIEF — VALEURS RELEVEES SUR LA SOURCE (vue `prep`)
+
+   corps 0 20px 10px · « PRET ? » 11px .24em
+   nom 10px 0 0, 40px lh 1 ls -.04em · brief 20px 0 0, 17px lh 1,4
+   ligne du piege 12px 0 0, 9px 12px, 11px .1em
+   deux cases 1fr 1fr gouttiere 1, 11px 12px · intitule 9px .16em · valeur 19px
+   JOUER 15px .1em, 17px, hauteur 44 · secondaire 11px .12em
+   ================================================================== */
+
+#brief .screen__scroll {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+#briefName {
+  margin: 10px 0 0;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+#briefText {
+  margin: 20px 0 0;
+  font-size: 17px;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+#briefPiege {
+  margin: 12px 0 0;
+  padding: 9px 12px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+/* Les chiffres du run du jour : gouttiere d'UN pixel, les cases se touchent. */
+.briefstats {
+  gap: 1px;
+}
+
+.briefstats__cel {
+  padding: 11px 12px;
+}
+
+.briefstats__val {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.briefstats__lab {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+#btnGo {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  padding: 17px;
+  min-height: var(--tap);
+}
+
+/* ==================================================================
+   LA FICHE DE CARTE, ET CREER / REJOINDRE
+   ================================================================== */
+
+.fiche__nom {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.fiche__case {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.panel__title {
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.panel__text {
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
