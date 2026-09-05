@@ -8892,7 +8892,28 @@ button.chip:active:not(:disabled) {
     grid-column: 1 / -1;
   }
 
-
+  /*
+   * ⚠️ PAS DE HAUTEUR FORCEE EN LARGE — la barre haute est deja passee par la.
+   *
+   * `min-height: 100%` vaut 100 % de `.screen`, mais le conteneur commence
+   * SOUS la barre : il valait donc toute la hauteur de l'ecran, posee 74 px
+   * plus bas. Mesure a 1676 x 972 : contenu 767 px, conteneur 972,
+   * `scrollHeight` 1046 pour un `clientHeight` de 972. Deux defauts d'un coup —
+   * 131 px de vide noir sous le pied, et 74 px de defilement qui ne menent
+   * nulle part, sur un ecran qui tient largement.
+   *
+   * On rend la hauteur au CONTENU, et c'est `margin: auto` qui place le bloc —
+   * le remede que la decision n°6 documente depuis longtemps : il centre quand
+   * il y a la place, et laisse le contenu commencer en haut quand il n'y en a
+   * pas. Rien n'est jamais rendu inatteignable.
+   *
+   * ⚠️ Le mobile n'est PAS touche : sous 900 px le contenu deborde deja, la
+   * hauteur y est reglee et mesuree, et c'est la que vit la faute des 76 %
+   * d'entrees. Cette regle ne descend pas sous 900.
+   */
+  #home .screen__scroll {
+    min-height: 0;
+  }
 }
 
 /* ==================================================================
