@@ -254,6 +254,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "compte.supprimer": "SUPPRIMER LE COMPTE",
     "multi.eyebrow": "MULTIJOUEUR",
     "multi.signe": "TON SIGNE",
+    "multi.max": "14 CARACTÈRES MAX",
+    "multi.signeVoyage": "LE SIGNE VOYAGE DANS TON JETON DE COMPTE : IL SURVIT À UN CHANGEMENT D'APPAREIL.",
     "multi.signe.lede":
       "Ton nom et ton signe te suivent dans tous les salons. C'est à ça que les autres te reconnaissent.",
     "multi.continuer": "CONTINUER",
@@ -414,6 +416,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "compte.supprimer": "DELETE ACCOUNT",
     "multi.eyebrow": "MULTIPLAYER",
     "multi.signe": "YOUR SIGN",
+    "multi.max": "14 CHARACTERS MAX",
+    "multi.signeVoyage": "YOUR SIGN TRAVELS IN YOUR ACCOUNT TOKEN: IT SURVIVES A CHANGE OF DEVICE.",
     "multi.signe.lede":
       "Your name and sign follow you into every room. That is how the others know you.",
     "multi.continuer": "CONTINUE",
@@ -770,6 +774,7 @@ type Dyn = {
   aRegarde: string;
   /* --- ce que le serveur de salons refuse --- */
   errDeconnecte: string;
+  signeChoisis: (n: number) => string;
   sortieRetaper: string;
   reconnexion: string;
   piedDepasse: string;
@@ -1152,6 +1157,7 @@ const DYN: Record<Lang, Dyn> = {
     manchesN: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     aRegarde: "A REGARDÉ",
     errDeconnecte: "DÉCONNECTÉ — REJOINS POUR REPRENDRE TA PLACE",
+    signeChoisis: (n) => `CHOISIS TON SIGNE · ${n} DISPONIBLES`,
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
     piedDepasse: "SUR TON MIEUX",
@@ -1515,6 +1521,7 @@ const DYN: Record<Lang, Dyn> = {
     manchesN: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     aRegarde: "WATCHED",
     errDeconnecte: "DISCONNECTED — REJOIN TO TAKE YOUR SEAT BACK",
+    signeChoisis: (n) => `PICK YOUR SIGN · ${n} AVAILABLE`,
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
     piedDepasse: "OVER YOUR BEST",

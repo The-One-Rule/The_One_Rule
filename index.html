@@ -1344,7 +1344,16 @@
               data-i18n-aria="aria.nom"
             />
           </div>
+          <p class="fineprint" id="idMax" data-i18n="multi.max">14 CHARACTERS MAX</p>
+          <!-- ⚠️ LE COMPTE EST CALCULE, pas ecrit : `glyphIndex` est une
+               bijection testee sur les 144, et un nombre en dur ici
+               divergerait au premier signe ajoute — en silence. -->
+          <p class="eyebrow" id="idChoisis"></p>
           <div class="glyphpick" id="idGlyphs" role="radiogroup" aria-label="Your sign" data-i18n-aria="aria.signe"></div>
+          <!-- Pourquoi le signe vaut la peine d'etre choisi : il ne meurt pas
+               avec l'appareil. C'est ce que la revendication a rendu vrai, et
+               personne ne pouvait le deviner. -->
+          <p class="fineprint" data-i18n="multi.signeVoyage">YOUR SIGN TRAVELS IN YOUR ACCOUNT TOKEN: IT SURVIVES A CHANGE OF DEVICE.</p>
           <p class="warn hidden" id="idErr"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnIdOk" data-i18n="multi.continuer">CONTINUE</button>
@@ -1378,14 +1387,37 @@
                  pour qu'un code se dicte). Un joueur à qui l'on annonce
                  quatre LETTRES et qui reçoit « 3PS8 » croit s'être trompé. -->
             <p class="panel__text" data-i18n="multi.code.aide">The four-character code you were given.</p>
-            <div class="fieldrow">
+            <!-- LE CODE EN QUATRE CASES.
+                 C'est l'objet le plus utilise du multijoueur : on le dicte a
+                 voix haute, caractere par caractere. Quatre cases disent
+                 « quatre caracteres » sans l'ecrire, et montrent ou l'on en
+                 est.
+
+                 ⚠️ IL N'Y A QU'UN SEUL CHAMP, et c'est deliberé. Quatre
+                 `<input>` demanderaient de gerer le focus, le collage, le
+                 retour arriere et les claviers mobiles a la main — quatre
+                 occasions de casser la seule entree obligatoire du jeu. Le
+                 vrai champ est transparent PAR-DESSUS les cases ; le collage,
+                 la selection et le clavier restent ceux du navigateur, et
+                 `#multiCode` garde son identifiant, donc tout ce qui le lit
+                 continue de marcher.
+
+                 Les cases sont `aria-hidden` : le champ porte deja son
+                 etiquette, et un lecteur d'ecran n'a que faire de quatre
+                 boites decoratives. -->
+            <div class="codein" id="codeIn">
+              <div class="codein__cases" id="codeInCases" aria-hidden="true">
+                <i></i><i></i><i></i><i></i>
+              </div>
               <input
-                class="field"
+                class="field codein__champ"
                 id="multiCode"
                 type="text"
                 maxlength="4"
                 spellcheck="false"
                 autocomplete="off"
+                autocapitalize="characters"
+                inputmode="text"
                 placeholder="CODE"
                 data-i18n-ph="ph.code"
                 aria-label="Room code"

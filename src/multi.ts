@@ -26,7 +26,7 @@ import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
 import { cleanEnv } from "./env";
 import { NetClient } from "./net/client";
-import { glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
+import { GLYPH_COUNT, glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
 import { fillOptions } from "./render/option";
@@ -2224,6 +2224,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let glyphChoisi = P.load().multi.glyph;
 
   function renderGlyphPicker(): void {
+    /*
+     * ⚠️ LE COMPTE EST CALCULE, jamais ecrit.
+     *
+     * `GLYPH_COUNT` vaut 3 formes x 8 couleurs x 6 motifs, et `glyphIndex` est
+     * une bijection testee sur les 144. Un nombre en dur ici divergerait au
+     * premier signe ajoute, en silence — et il annoncerait un catalogue qui
+     * n'existe pas.
+     *
+     * On annonce le CATALOGUE (144) et non les variantes offertes ici
+     * (`GLYPH_CHOICES`) : ce sont deux nombres differents, et c'est le premier
+     * qui dit ce que le signe vaut.
+     */
+    $("idChoisis").textContent = tr("signeChoisis")(GLYPH_COUNT);
     const hote = $("idGlyphs");
     hote.innerHTML = "";
     const anon = P.load().anonId;
@@ -2464,7 +2477,32 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * le code est complet, c'est REJOINDRE qu'on veut — l'écran cesse de
    * proposer d'ouvrir un salon à quelqu'un qui vient d'en taper un.
    */
+  /**
+   * Les quatre cases suivent le champ, qui reste la seule source.
+   *
+   * ⚠️ Elles ne sont qu'un REFLET : le champ transparent au-dessus porte la
+   * valeur, le collage et le clavier. Leur donner un état propre en ferait une
+   * seconde vérité, et la seconde vérité finit toujours par diverger.
+   *
+   * La case ACTIVE est celle qu'on va remplir — c'est le curseur, que le champ
+   * transparent ne montre pas. Elle ne s'allume que si le champ a le focus :
+   * un curseur qui clignote sur un écran qu'on ne remplit pas est un appel à
+   * ne rien faire.
+   */
+  function peintCases(): void {
+    const champ = $<HTMLInputElement>("multiCode");
+    const v = champ.value;
+    const actif = document.activeElement === champ;
+    const cases = Array.from($("codeInCases").children) as HTMLElement[];
+    cases.forEach((c, i) => {
+      c.textContent = v[i] ?? "";
+      c.classList.toggle("is-plein", i < v.length);
+      c.classList.toggle("is-actif", actif && i === Math.min(v.length, 3));
+    });
+  }
+
   function syncJoinAccent(): void {
+    peintCases();
     const pret = $<HTMLInputElement>("multiCode").value.trim().length === 4;
     $("btnMultiJoin").classList.toggle("btn--primary", pret);
     $("btnMultiCreate").classList.toggle("btn--primary", !pret);
@@ -2980,6 +3018,15 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       $("btnMultiJoin").click();
     }
   });
+
+  // Le curseur des cases suit le focus, pas seulement la frappe.
+  for (const quoi of ["focus", "blur", "click", "keyup"] as const) {
+    $<HTMLInputElement>("multiCode").addEventListener(quoi, () => peintCases());
+  }
+  // Cliquer sur les cases, c'est cliquer dans le champ : elles sont
+  // `pointer-events: none`, donc le clic tombe déjà sur lui — mais le
+  // conteneur, lui, peut être touché sur ses marges.
+  $("codeIn").addEventListener("click", () => $<HTMLInputElement>("multiCode").focus());
 
   return {
     available: true,
