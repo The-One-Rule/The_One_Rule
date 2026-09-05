@@ -1922,6 +1922,36 @@ l'identifiant n'apparaît nulle part dans les sources. Éprouvé, il tombe.
   manche 3 sur 572 runs, et rien ne prévenait avant. Ils REMPLACENT la ligne
   « 40 manches ».
 
+**Trois lots de plus, après import du projet Claude Design** — vérifié
+identique au zip : même liste de 33 fichiers, même `_ds` (`eff479c9-…`). Son
+`readme.md`, jamais lu jusque-là, **confirme mot pour mot** pourquoi on ne lie
+pas `_ds/styles.css` : « soft 8px radii », Inter pour les deux rôles, icônes
+Phosphor, photographies, `mix-blend-mode: lighten`. Et son `_ds_manifest.json`
+déclare `"components": []` — le design system ne porte AUCUN composant de TOR.
+Le contenu réel est `TOR Redesign.dc.html`, et lui seul.
+
+- **Le code de salon en quatre cases.** ⚠️ **Un seul `<input>`, transparent
+  PAR-DESSUS les cases** — jamais `display: none` ni `visibility: hidden`, qui
+  le rendraient infocusable et fermeraient le clavier mobile. Quatre `<input>`
+  demanderaient de gérer à la main le focus, le collage, le retour arrière et
+  les claviers mobiles : quatre occasions de casser la seule entrée obligatoire
+  du jeu. Les cases sont un REFLET, jamais un état. ⚠️ `width: 100%` **et**
+  `align-self: stretch` — le panneau est une colonne flex centrée, et sans les
+  deux les cases retombent à 8 px de large (mesuré).
+- **Le signe dit ce qu'il vaut** : le catalogue (`GLYPH_COUNT`, jamais un 144
+  en dur) et « il survit à un changement d'appareil » — ce que la revendication
+  a rendu vrai et que personne ne pouvait deviner.
+- **Qui vient d'arriver** dans le salon. ⚠️ Marque transitoire, et le PREMIER
+  rendu n'en pose aucune — sinon entrer dans un salon de six annoncerait six
+  arrivées. `connusDuSalon` part de `null`, pas d'un ensemble vide.
+- ⚠️ **« RECONNEXION… » et pas « HORS LIGNE »** — décision n°4 vue depuis le
+  salon. « Hors ligne » se lit « il est parti », donc on relance sans lui.
+  **Pas de rebours sur la plaque**, contrairement à la maquette : le client ne
+  connaît pas l'instant où le SERVEUR a vu la coupure, donc deux écrans du même
+  salon afficheraient deux chiffres différents. Le mot est vrai sans horloge.
+  Vérifié au passage : **hors match, un joueur qui part est RETIRÉ** du salon
+  plutôt que gardé hors ligne — le sursis est une mécanique de match.
+
 **Ce qui n'a PAS été fait, et pourquoi — ce sont des DIRECTIONS, pas des
 oublis :**
 
@@ -1936,8 +1966,10 @@ oublis :**
 - **GÂCHETTE** (réaction médiane) existe déjà sous le nom RÉFLEXE DU MATCH ; les
   renommages de la maquette n'ont pas été appliqués — un nom est choisi pour ce
   que la chose FAIT.
-- Le **code de salon en quatre cases** sur l'écran REJOINDRE (il l'est déjà
-  dans le salon, via `setRoomCode`).
+- Le séparateur « OU TU OUVRES » de la maquette : il remplacerait deux
+  intitulés par un élément pleine largeur dans la grille du choix, et le dépôt
+  a déjà payé deux fois un enfant de grille qui réordonne ses frères. Le gain
+  est cosmétique, le risque ne l'est pas.
 
 ### Backlog
 
