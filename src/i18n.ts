@@ -948,7 +948,8 @@ const DYN: Record<Lang, Dyn> = {
     etatJourEpuise: "TROIS ESSAIS JOUÉS",
     etatJourVierge: "PAS ENCORE JOUÉ",
     etatJourReste: (n) => `${n} ESSAI${n > 1 ? "S" : ""} RESTANT${n > 1 ? "S" : ""}`,
-    etatJourNote: (essais, manches) => `${essais} ESSAIS · ${manches} MANCHES`,
+    etatJourNote: (essais, manches) =>
+      `${essais} ESSAI${essais > 1 ? "S" : ""} · ${manches} MANCHES`,
     etatGraceOui: "1 JOUR DE GRÂCE DISPONIBLE",
     etatGraceNon: "JOUR DE GRÂCE DÉJÀ UTILISÉ",
     filtreRien: "Rien dans cette catégorie pour l'instant.",
@@ -1351,7 +1352,8 @@ const DYN: Record<Lang, Dyn> = {
     etatJourEpuise: "THREE TRIES PLAYED",
     etatJourVierge: "NOT PLAYED YET",
     etatJourReste: (n) => `${n} TR${n === 1 ? "Y" : "IES"} LEFT`,
-    etatJourNote: (essais, manches) => `${essais} TRIES · ${manches} ROUNDS`,
+    etatJourNote: (essais, manches) =>
+      `${essais} TR${essais > 1 ? "IES" : "Y"} · ${manches} ROUNDS`,
     etatGraceOui: "1 GRACE DAY AVAILABLE",
     etatGraceNon: "GRACE DAY ALREADY USED",
     filtreRien: "Nothing in this category yet.",

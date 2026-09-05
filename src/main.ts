@@ -425,14 +425,38 @@ function renderHome(): void {
    * et s'il ne répond jamais (comptes non configurés, réseau coupé, personne
    * n'a encore joué aujourd'hui), le repli d'entraînement reste à l'écran.
    */
+  /*
+   * ⚠️ LE DRAPEAU SE RELEVE — sinon le classement ne se recharge JAMAIS.
+   *
+   * `recordDuJourDemande` restait a `true` pour toute la session, quoi qu'il
+   * arrive. Deux consequences, et les deux ont ete rapportees comme « le
+   * classement ne se met pas a jour » :
+   *
+   *   · un appel qui echoue ou qui ne rend rien — comptes non configures,
+   *     reseau coupe, personne n'a encore joue aujourd'hui — n'etait JAMAIS
+   *     retente. Le repli d'entrainement restait a l'ecran jusqu'au
+   *     rechargement de la page, meme une fois le classement revenu ;
+   *   · un run du jour qui battait le record ne le faisait pas bouger, puisque
+   *     plus personne ne redemandait la valeur.
+   *
+   * On ne verrouille donc plus que l'appel EN COURS — c'est tout ce que le
+   * drapeau doit empecher, deux requetes simultanees — et `oublieRecordDuJour`
+   * l'invalide apres un run du jour.
+   */
   if (recordDuJour === null && !recordDuJourDemande) {
     recordDuJourDemande = true;
-    void classementDuJour(day).then((c) => {
-      const top = c?.top?.[0]?.valeur ?? null;
-      if (top === null || top <= 0) return;
-      recordDuJour = top;
-      if (screen === "home") peintBut(monScoreDuJour(P.load()), recordDuJour);
-    });
+    void classementDuJour(day)
+      .then((c) => {
+        const top = c?.top?.[0]?.valeur ?? null;
+        if (top === null || top <= 0) return;
+        recordDuJour = top;
+        if (screen === "home") peintBut(monScoreDuJour(P.load()), recordDuJour);
+      })
+      .finally(() => {
+        // Relever le drapeau ne relance rien tout seul : le prochain retour a
+        // l'accueil retentera, et lui seul.
+        recordDuJourDemande = false;
+      });
   }
 
   const vjm = vueDuJour(s, day);
@@ -2037,6 +2061,25 @@ function lanceRun(): void {
   );
   $("ghost").classList.toggle("hidden", !challenge);
   show(null);
+  /*
+   * LA CARTE EST POSEE AVANT LA PREMIERE MANCHE, PAS PENDANT.
+   *
+   * `majGouttieres()` ne tournait qu'au CHANGEMENT de manche (`key !==
+   * lastRoundKey`), et `lastRoundKey` vient d'etre remis a vide : la gouttiere
+   * apparaissait donc a la premiere manche, c'est-a-dire une fois la partie
+   * lancee et le chrono parti. Rapporte en soiree : « souvent la carte
+   * apparait APRES que la partie ait commence, ca change la dimension et c'est
+   * tres perturbant ».
+   *
+   * L'appeler ici la pose pendant que l'ecran s'ouvre, avant que la moindre
+   * consigne s'affiche. La geometrie du champ est donc etablie AVANT le premier
+   * geste — et c'est tout ce qui compte, puisque la taille du champ est du
+   * gameplay (n°10).
+   *
+   * Rien n'est calcule deux fois : la boucle ne rappellera `majGouttieres()`
+   * qu'au changement de manche, comme avant.
+   */
+  majGouttieres();
   sfx.runStart();
   musicApi.start();
   // `duel` distingue un défi relevé d'un entraînement ordinaire : les deux
@@ -2213,7 +2256,20 @@ $("navMulti").addEventListener("click", () => {
  * les temps.
  */
 let recordDuJour: number | null = null;
+/** Vrai TANT QUE l'appel est en vol — et rien de plus. Voir `renderHome`. */
 let recordDuJourDemande = false;
+
+/**
+ * Jette le record du jour en memoire pour qu'il soit redemande.
+ *
+ * Appele apres un run du jour : c'est le seul moment ou la valeur affichee peut
+ * etre devenue fausse, puisque le run qu'on vient de finir a pu prendre la tete.
+ * Le rechargement lui-meme n'a pas lieu ici — il se fera au prochain rendu de
+ * l'accueil, la ou il ne retarde rien.
+ */
+function oublieRecordDuJour(): void {
+  recordDuJour = null;
+}
 
 /**
  * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
@@ -2306,7 +2362,17 @@ function peintEtat(s: P.Save): void {
         : vj.etat === "vierge"
           ? t("etatJourVierge")
           : t("etatJourReste")(vj.restants);
-  $("etatJourNote").textContent = t("etatJourNote")(DAILY_ESSAIS, DAILY_LENGTH);
+  /*
+   * ⚠️ LA NOTE DIT CE QUI RESTE, PLUS LA CAPACITE DU MODE.
+   *
+   * Elle affichait `DAILY_ESSAIS` en dur, donc « 3 ESSAIS · 40 MANCHES » quoi
+   * qu'il arrive. Juste au-dessus, la ligne d'etat annonce « TROIS ESSAIS
+   * JOUES » : la colonne se contredisait a une ligne d'intervalle, et on y
+   * lisait qu'il restait trois essais au moment precis ou il n'en restait
+   * aucun. Rapporte en soiree comme « les 3 essais sont bugues » — l'etat
+   * etait juste, c'est le chiffre a cote qui mentait.
+   */
+  $("etatJourNote").textContent = t("etatJourNote")(vj.restants, DAILY_LENGTH);
 
   /* --- LA SÉRIE, et son jour de grâce — qui existe vraiment. --- */
   $("etatSerie").textContent = t("cptEnJours")(s.streak.count);
@@ -3013,6 +3079,13 @@ function finishRun(): void {
   if (mode === "daily" && !challenge) {
     enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
     void vide();
+    /*
+     * Le run qui vient de finir a pu prendre la tete du classement : la valeur
+     * en memoire n'est plus sure, on la jette. Sans cela, l'accueil continuait
+     * d'annoncer le record d'avant — y compris quand c'est le joueur lui-meme
+     * qui venait de le battre, ce qui est le pire moment pour se taire.
+     */
+    oublieRecordDuJour();
   }
 
   /*
@@ -3260,10 +3333,34 @@ function majGouttieres(): void {
     el.classList.add("hidden");
     return;
   }
-  el.classList.remove("hidden");
   const r = session.rule;
   const rec = P.load().encountered[r.id];
   const cases = echelleMaitrise(r, rec);
+
+  /*
+   * UNE CARTE PARFAITE N'A PLUS RIEN A DIRE — la gouttiere s'efface.
+   *
+   * Tout ce que porte cette colonne est une PROGRESSION : la jauge de
+   * maitrise, et la ligne « ce run fait avancer telle case ». Sur une carte
+   * parfaite les six cases sont franchies, `prochaineCase` ne rend rien, et la
+   * note tombe deja sur « rien a avancer » — on affichait donc une colonne
+   * entiere pour annoncer qu'elle ne sert a rien, a cote du terrain, pendant
+   * toute la partie.
+   *
+   * Demande en soiree, et c'est la bonne lecture : ce qui est acquis n'a plus
+   * besoin d'etre suivi. La carte reste consultable dans la collection, ou
+   * elle est justement montree comme parfaite.
+   *
+   * ⚠️ La colonne DROITE (les marques de ce run) disparait avec elle, et c'est
+   * assume : elle redit ce que le pied et l'ecran de fin portent deja, alors
+   * que la gauche etait la seule raison d'ouvrir cette bande.
+   */
+  if (etatCarte(franchies(cases)) === "parfaite") {
+    el.classList.add("hidden");
+    return;
+  }
+
+  el.classList.remove("hidden");
 
   $<HTMLImageElement>("goutImg").src = `/cartes/${r.id}.png`;
   $("goutNom").textContent = nomDeRegle(r.id, r.name);
@@ -3451,7 +3548,14 @@ function montrePiegeDejoue(round: Round): void {
   void el.offsetWidth;
   el.classList.add("is-vu");
   if (piegeTimer) clearTimeout(piegeTimer);
-  piegeTimer = setTimeout(() => el.classList.add("hidden"), 1500);
+  /*
+   * 1100 ms et non 1500 : l'annonce ne doit pas survivre a la manche qu'elle
+   * commente. Une fenetre tardive fait 760 ms, donc a 1500 elle debordait
+   * TOUJOURS sur la suivante — et comme elle etait alors posee au centre du
+   * terrain, elle la rendait illisible. Elle est desormais sous le champ, mais
+   * une annonce qui traine reste une annonce de trop.
+   */
+  piegeTimer = setTimeout(() => el.classList.add("hidden"), 1100);
 }
 
 /** Efface l'annonce — tout changement d'écran passe par là. */
@@ -3923,6 +4027,21 @@ $("etatMater").addEventListener("click", () => {
 
 $("btnButJour").addEventListener("click", () => {
   sfx.ui();
+  /*
+   * ⚠️ IL DOIT OUVRIR LE TUTORIEL COMME LES AUTRES PORTES.
+   *
+   * Sur large, JOUER a quitte la barre pour se poser sous cette plaque : ce
+   * bouton est donc devenu la porte principale de l'accueil, alors qu'il etait
+   * un raccourci parmi d'autres. Sans cette garde, un joueur qui n'a jamais vu
+   * une regle tombait droit dans le run du jour — le mode irreversible, a trois
+   * essais — sans avoir appris la mecanique. Les trois autres portes
+   * (`btnPlay`, `btnSolo`, `navJouer`) posent deja cette garde ; une quatrieme
+   * qui l'oublie annule le travail des trois.
+   */
+  if (estNouveau()) {
+    ouvreOnboarding();
+    return;
+  }
   // La carte parle du run du jour : elle y mène, jamais ailleurs.
   openBrief("daily");
 });

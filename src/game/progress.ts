@@ -1,7 +1,7 @@
 import { dayIndex } from "./daily";
 import { langueDuNavigateur } from "../i18n";
 import { cleEntrainement } from "./perfs";
-import { PACE_DEFAULT } from "../engine/difficulty";
+import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
 import type { Agregats } from "../../shared/compte";
 
@@ -422,7 +422,20 @@ export function majJour(
     played: true,
     score: Math.max(memeJour ? avant.score : 0, score),
     cleared: (memeJour && avant.cleared) || cleared,
-    essais: (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    /*
+     * PLAFONNE. Le compteur montait sans borne — releve a 6 sur une journee
+     * qui en autorise 3, en empruntant un chemin de lancement qui a depuis ete
+     * ferme. Un compteur qui depasse sa propre limite rend tout ce qui en
+     * derive faux : « essais restants » passe negatif avant d'etre borne
+     * ailleurs, et l'etat de la journee cesse de se deduire du chiffre.
+     *
+     * Le plafond ne remplace pas le verrou de lancement, il le double : l'un
+     * empeche de jouer, l'autre empeche d'ecrire un etat impossible.
+     */
+    essais: Math.min(
+      DAILY_ESSAIS,
+      (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    ),
   };
 }
 
