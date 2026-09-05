@@ -2942,6 +2942,20 @@ function marksToString(marks: string[]): string {
  * seconde ce qui change une fois toutes les deux secondes est du travail rendu
  * au ramasse-miettes sur le chemin le plus chaud du jeu.
  */
+/**
+ * Le but chiffré d'un entraînement CIBLÉ, ou `null` s'il n'y en a pas.
+ *
+ * Ciblé veut dire : le mode est l'entraînement, une règle a été choisie
+ * (par la fiche ou la salle de travail), et c'est bien celle qu'on joue. Un
+ * entraînement au hasard n'a pas de but — il sert à découvrir, pas à valider.
+ */
+function objectifExercice(): number | null {
+  if (!session || session.mode !== "training") return null;
+  const choisie = P.load().trainingRegle;
+  if (!choisie || session.rule.id !== choisie) return null;
+  return MANCHES_MAITRISE;
+}
+
 function majGouttieres(): void {
   const el = $("gout");
   if (!session) {
@@ -3789,6 +3803,24 @@ function loop(now: number): void {
         urgentDone = false;
         sfx.roundStart();
         majGouttieres();
+        /*
+         * L'EXERCICE EST VALIDÉ, et il se dit à l'instant où il tombe.
+         *
+         * On l'apprenait sur l'écran de fin, donc une fois mort — alors que
+         * c'est l'aboutissement de la boucle longue : on s'est fait avoir par
+         * une règle, on est venu la travailler, et voilà. L'annonce passe par
+         * le même canal que « règle ajoutée » : rien de neuf à l'écran, et
+         * elle s'efface toute seule.
+         *
+         * ⚠️ L'ÉGALITÉ STRICTE, pas `>=`. Le test tourne à chaque manche
+         * nouvelle : avec `>=`, l'annonce reviendrait à toutes les manches
+         * suivantes du run.
+         */
+        const but = objectifExercice();
+        if (but !== null && session.level === but) {
+          hud.announce(t("exerciceValide"));
+          sfx.win();
+        }
       }
       /*
        * Une règle qui s'ajoute doit se VOIR, et prime sur le palier de vitesse.
@@ -3850,7 +3882,28 @@ function loop(now: number): void {
           session.mode === "daily" ? t("piedSur") : t("piedRecord"),
         );
       }
-      hud.setMeta(session.inGrace ? t("echauffement") : "");
+      /*
+       * L'OBJECTIF DE L'EXERCICE, dans la case META du bandeau.
+       *
+       * Un entraînement CIBLÉ — la fiche a posé la règle et l'allure — a un
+       * but chiffré : `MANCHES_MAITRISE` manches à cette allure, c'est-à-dire
+       * une case de l'échelle. Rien ne le disait pendant le run, donc on ne
+       * savait pas qu'on y était presque.
+       *
+       * ⚠️ ZÉRO PIXEL AJOUTÉ, et c'est la condition. La case META existe déjà
+       * et ne sert que pendant l'échauffement, c'est-à-dire trois manches sur
+       * un run entier. Un bandeau qui grossit rogne la scène, et la taille du
+       * champ EST du gameplay (n°10). L'échauffement garde la priorité : lui
+       * dire qu'une erreur ne coûte rien prime sur lui dire où il en est.
+       */
+      const cible = objectifExercice();
+      hud.setMeta(
+        session.inGrace
+          ? t("echauffement")
+          : cible !== null && session.level < cible
+            ? t("objectifReste")(cible - session.level)
+            : "",
+      );
     }
   } else if (multi.isPlayingMulti()) {
     multiDraw = multi.syncFrame();

@@ -770,6 +770,8 @@ type Dyn = {
   sortieRetaper: string;
   reconnexion: string;
   piedDepasse: string;
+  objectifReste: (n: number) => string;
+  exerciceValide: string;
   murDuJour: string;
   murDuJourNote: string;
   murEntrainement: string;
@@ -1142,6 +1144,8 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
     piedDepasse: "SUR TON MIEUX",
+    objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
+    exerciceValide: "EXERCICE VALIDÉ",
     murDuJour: "LE MEILLEUR DU JOUR",
     murDuJourNote: "Vérifié par rejeu. Il change chaque jour.",
     murEntrainement: "LE MEILLEUR CONNU · ENTRAÎNEMENT",
@@ -1495,6 +1499,8 @@ const DYN: Record<Lang, Dyn> = {
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
     piedDepasse: "OVER YOUR BEST",
+    objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
+    exerciceValide: "EXERCISE CLEARED",
     murDuJour: "TODAY'S BEST",
     murDuJourNote: "Replayed and checked by the server. It changes every day.",
     murEntrainement: "BEST KNOWN · TRAINING",
