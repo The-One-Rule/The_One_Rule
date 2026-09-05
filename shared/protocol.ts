@@ -122,9 +122,24 @@ export interface PlayerStats {
   traps: number;
   streak: number;
   bestStreak: number;
+  /**
+   * Morts causees par SA PROPRE regle unique — la moitie non copiable du jeu.
+   *
+   * ⚠️ AJOUTER CE CHAMP N'INCREMENTE PAS `PROTOCOL_VERSION`, meme doctrine que
+   * `tok` : la version est comparee par egalite stricte et un increment
+   * deconnecterait au deploiement tous les onglets ouverts. Un client anterieur
+   * ignore simplement le champ, et `EMPTY_STATS` le pose a zero.
+   */
+  rulebreaks: number;
 }
 
-export const EMPTY_STATS: PlayerStats = { reaction: null, traps: 0, streak: 0, bestStreak: 0 };
+export const EMPTY_STATS: PlayerStats = {
+  reaction: null,
+  traps: 0,
+  streak: 0,
+  bestStreak: 0,
+  rulebreaks: 0,
+};
 
 /**
  * Réglages décidés par l'hôte, jamais par joueur.

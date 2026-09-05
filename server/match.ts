@@ -9,7 +9,7 @@
  */
 
 import { ONE_RULES } from "../src/engine/rules";
-import { MOTIFS } from "../src/engine/motifs";
+import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
@@ -77,6 +77,8 @@ export interface SeatStats {
   trapsAvoided: number;
   streak: number;
   bestStreak: number;
+  /** Morts sur SA PROPRE regle unique — voir `MOTIFS_REGLE`. */
+  rulebreaks: number;
 }
 
 /**
@@ -142,7 +144,7 @@ export interface PlayerRoundState {
 }
 
 function emptySeatStats(): SeatStats {
-  return { reactions: [], trapsAvoided: 0, streak: 0, bestStreak: 0 };
+  return { reactions: [], trapsAvoided: 0, streak: 0, bestStreak: 0, rulebreaks: 0 };
 }
 
 /** Médiane arrondie ; le tableau ne doit pas être vide. */
@@ -541,6 +543,14 @@ export class MatchLogic {
          */
         this.perdUneVie(s);
         s.stats.streak = 0;
+        /*
+         * Mourir sur SA PROPRE regle n'est pas la meme faute que rater une
+         * cible ou laisser filer le temps : c'est la moitie non copiable du
+         * jeu. On compte donc a part, ici et pas dans le client — deux
+         * clients qui observent des fenetres differentes decerneraient des
+         * titres differents sur le meme ecran.
+         */
+        if (MOTIFS_REGLE.includes(out.reason)) s.stats.rulebreaks++;
       }
       outcomes.set(s.id, out);
     }
@@ -595,6 +605,7 @@ export class MatchLogic {
     return {
       reaction: n < STATS_MIN_SAMPLES ? null : medianMs(s.stats.reactions),
       traps: s.stats.trapsAvoided,
+      rulebreaks: s.stats.rulebreaks,
       streak: s.stats.streak,
       bestStreak: s.stats.bestStreak,
     };

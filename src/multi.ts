@@ -1838,6 +1838,54 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       });
     }
 
+
+    /*
+     * TÊTE BRÛLÉE — celui qui est mort le plus souvent sur SA PROPRE règle.
+     *
+     * C'est le seul titre qui célèbre une défaite, et c'est voulu : mourir sur
+     * sa règle unique est la faute que le jeu existe pour produire. Elle se
+     * raconte, elle se charrie, et elle dit exactement ce qui distingue TOR
+     * d'un jeu de réflexes.
+     *
+     * ⚠️ Le compte vient du SERVEUR (`stats.rulebreaks`), pas du client. Deux
+     * clients qui observent des fenêtres différentes — quelqu'un arrivé en
+     * cours de match — décerneraient des titres différents sur le même écran.
+     */
+    let brulee: (typeof withStats)[number] | null = null;
+    for (const row of withStats) {
+      if (row.s.rulebreaks < 2) continue;
+      if (!brulee || row.s.rulebreaks > brulee.s.rulebreaks) brulee = row;
+    }
+    if (brulee) {
+      titles.push({
+        label: tr("titreBrulee"),
+        value: String(brulee.s.rulebreaks),
+        player: brulee.p,
+      });
+    }
+
+    /*
+     * SURVIVANTE — première partie, et elle gagne.
+     *
+     * Le titre le plus rare et le plus social du salon : un nouveau invité par
+     * un ami qui bat toute la table. Aucune donnée nouvelle — `rookie` est déjà
+     * sur la plaque, et le vainqueur est celui qui a encore des vies.
+     *
+     * ⚠️ Il ne parait QUE si le vainqueur est un débutant. Le décerner au
+     * meilleur débutant qui a perdu serait un lot de consolation, c'est-à-dire
+     * exactement ce qu'un titre ne doit pas être.
+     */
+    const vainqueur = [...players]
+      .filter((p) => !p.spectator && p.lives > 0)
+      .sort((a, b) => b.lives - a.lives || b.score - a.score)[0];
+    if (vainqueur?.rookie) {
+      titles.push({
+        label: tr("titreSurvivante"),
+        value: tr("titrePremiereFois"),
+        player: vainqueur,
+      });
+    }
+
     // Sans titre à décerner, le classement reprend toute la largeur : une
     // colonne vide en face de lui se lit comme un contenu qui n'a pas chargé.
     $("multi-end").classList.toggle("is-solo", titles.length === 0);

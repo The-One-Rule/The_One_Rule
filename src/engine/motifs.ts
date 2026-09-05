@@ -57,5 +57,35 @@ export const MOTIFS = {
 
 export type MotifId = keyof typeof MOTIFS;
 
+/**
+ * LES MOTIFS QUI DISENT « TU AS ENFREINT TA PROPRE RÈGLE ».
+ *
+ * C'est la moitié non copiable du jeu : mourir sur sa règle unique n'est pas
+ * la même faute que rater une cible ou laisser filer le temps. Le titre TÊTE
+ * BRÛLÉE du salon les compte, et `report.mjs` en fait déjà une colonne.
+ *
+ * ⚠️ Ce sont les PHRASES et non les identifiants : c'est la phrase française
+ * canonique qui voyage dans `verdict.reason`, et le serveur de salons ne
+ * connaît pas les langues. Les traduire ici casserait le compte au premier
+ * joueur anglophone.
+ *
+ * `piegeRate` en fait partie, et c'est le cœur : la consigne demandait ce que
+ * la règle interdit, et le joueur a obéi.
+ */
+export const MOTIFS_REGLE: readonly string[] = [
+  MOTIFS.piegeRate,
+  MOTIFS.rouge,
+  MOTIFS.bleu,
+  MOTIFS.rond,
+  MOTIFS.solitaire,
+  MOTIFS.angle,
+  MOTIFS.triangle,
+  MOTIFS.voyelle,
+  MOTIFS.plusGrosse,
+  MOTIFS.zoneInterdite,
+  MOTIFS.tropTot,
+  MOTIFS.espace,
+];
+
 /** Toutes les phrases, pour éprouver une table de traduction d'un coup. */
 export const MOTIFS_FR: readonly string[] = Object.values(MOTIFS);

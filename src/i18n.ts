@@ -762,6 +762,9 @@ type Dyn = {
   titreReflexe: string;
   titreFlair: string;
   titreSerie: string;
+  titreBrulee: string;
+  titreSurvivante: string;
+  titrePremiereFois: string;
   rangEme: (n: number) => string;
   manchesN: (n: number) => string;
   aRegarde: string;
@@ -1135,6 +1138,9 @@ const DYN: Record<Lang, Dyn> = {
     titreReflexe: "RÉFLEXE DU MATCH",
     titreFlair: "FLAIR",
     titreSerie: "SÉRIE",
+    titreBrulee: "TÊTE BRÛLÉE",
+    titreSurvivante: "SURVIVANT",
+    titrePremiereFois: "1re PARTIE",
     rangEme: (n) => `${n}${n === 1 ? "ᵉʳ" : "ᵉ"}`,
     // Le singulier compte : « 1 MANCHES » se remarque, et un joueur éliminé à la
     // première manche est le cas le plus fréquent de tout l'écran de fin.
@@ -1492,6 +1498,9 @@ const DYN: Record<Lang, Dyn> = {
     titreReflexe: "FASTEST OF THE MATCH",
     titreFlair: "FLAIR",
     titreSerie: "STREAK",
+    titreBrulee: "HOTHEAD",
+    titreSurvivante: "SURVIVOR",
+    titrePremiereFois: "1st GAME",
     rangEme: (n) => `${n}${rangSuffixe(n)}`,
     manchesN: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
     aRegarde: "WATCHED",

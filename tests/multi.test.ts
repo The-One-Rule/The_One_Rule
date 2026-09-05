@@ -539,6 +539,72 @@ describe("statistiques de siège", () => {
     expect(m.statsOf("a").bestStreak).toBe(peak);
   });
 
+  it("ne compte rulebreaks que sur une mort par SA PROPRE règle", () => {
+    /*
+     * TÊTE BRÛLÉE célèbre la seule faute que le jeu existe pour produire :
+     * mourir sur sa règle unique. Encore faut-il ne pas confondre avec les
+     * autres morts — le vide, l'horloge, la mauvaise cible — qui sont des
+     * fautes de n'importe quel jeu de réflexes.
+     *
+     * Le compteur vit dans le SERVEUR et pas dans le client, parce que deux
+     * clients qui observent des fenêtres différentes décerneraient des titres
+     * différents sur le même écran.
+     */
+    const m = matchAvec("sang", ["a", "b"]);
+    // La recherche d'une manche utile coûte des vies : on en donne de quoi
+    // tenir, sinon le test mesure l'élimination et pas le compteur.
+    setVies(m, "a", 99);
+
+    // 1. Une mort ORDINAIRE — clic dans le vide — ne compte pas.
+    //
+    // ⚠️ Sur une manche PIÈGE, cliquer dans le vide est déjà une faute contre
+    // sa propre règle (`piegeRate`), et c'est correct. Le test cherche donc
+    // une manche non piégeuse : sans cette recherche il passait ou tombait
+    // selon la graine, c'est-à-dire par chance.
+    let ordinaire = false;
+    for (let guard = 0; guard < 60 && !ordinaire; guard++) {
+      m.openRound();
+      const regle = m.rulesAt(m.roundIdx).get("a")!;
+      const round = buildMultiRound(m.seed, m.roundIdx, regle);
+      playPerfect(m, "b");
+      if (!round.trap) {
+        playDie(m, "a");
+        ordinaire = true;
+      }
+      m.closeRound();
+    }
+    expect(ordinaire, "aucune manche non piégeuse en 60 tours").toBe(true);
+    expect(m.statsOf("a").rulebreaks).toBe(0);
+
+    // 2. Cliquer du ROUGE sous LE SANG, c'est enfreindre SA règle.
+    let compte = 0;
+    for (let guard = 0; guard < 200 && compte < 1; guard++) {
+      m.openRound();
+      const regle = m.rulesAt(m.roundIdx).get("a")!;
+      const round = buildMultiRound(m.seed, m.roundIdx, regle);
+      playPerfect(m, "b");
+      /*
+       * ⚠️ L'ENTITÉ ET SA POSITION doivent s'accorder. Le serveur reconstruit
+       * la position depuis l'entité (décision n°3) : un index correct avec des
+       * coordonnées quelconques rend « TU AS CLIQUÉ DANS LE VIDE », pas la
+       * faute de règle qu'on cherche à mesurer. Payé une fois ici.
+       *
+       * Et la manche ne doit pas être un PIÈGE : là, se taire suffit, donc
+       * tout clic est déjà une faute de règle — on ne prouverait rien sur la
+       * couleur.
+       */
+      const rouge = round.ents.find((e) => e.color === "garance");
+      if (rouge && !round.trap) {
+        m.input("a", m.roundIdx, { kind: "click", ent: rouge, x: rouge.x, y: rouge.y }, 200);
+        compte = 1;
+      }
+      m.closeRound();
+      if (m.seats.find((s) => s.id === "a")!.eliminated) break;
+    }
+    expect(compte, "aucune manche n'a offert de pièce rouge").toBe(1);
+    expect(m.statsOf("a").rulebreaks).toBe(1);
+  });
+
   it("ne compte trapsAvoided que sur survive avec trap", () => {
     const m = matchAvec("sang", ["a", "b"]);
     let traps = 0;
