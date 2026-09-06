@@ -1603,10 +1603,26 @@ body {
   display: none;
 }
 
+/*
+ * LES TITRES DU MATCH — quatre CARTES, deux par rangée.
+ *
+ * C'était quatre bandes pleine largeur, chacune sur une ligne : label à
+ * gauche, valeur au milieu, nom poussé à droite par un `margin-left: auto`.
+ * Lisible sur un bureau, mais sur 375 px les trois parts se replient et la
+ * distinction se lit en trois temps au lieu d'un.
+ *
+ * La maquette téléphone en fait des cartes : l'intitulé, le NOM en évidence,
+ * la valeur qui le justifie — un objet qu'on lit d'un coup, et quatre objets
+ * qui se comparent d'un coup d'œil. C'est le bon format pour ce que sont ces
+ * titres : un palmarès, pas une liste de mesures.
+ */
 .titles {
   margin: 18px 0 8px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* ⚠️ `minmax(0, 1fr)` et pas `1fr` : le minimum d'une piste `1fr` est le
+     `min-content` de son contenu, et « réaction médiane 412 ms » ferait alors
+     sortir la carte de la colonne. Le dépôt a déjà payé exactement ça. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1614,43 +1630,76 @@ body {
   display: none;
 }
 
-/* Les distinctions de fin de match : une par ligne, chacune une plaquette. */
+/* Une distinction = une carte : intitulé, nom, puis ce qui la justifie. */
 .titles__row {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding: var(--sp-2) var(--sp-3);
   background: color-mix(in srgb, var(--ink-2) 75%, transparent);
   border: none;
   border-left: var(--bd-frame) solid color-mix(in srgb, var(--signal) 55%, transparent);
+  min-width: 0;
+}
+
+/*
+ * ⚠️ L'ORDRE EST POSÉ SUR LES TROIS ENFANTS, JAMAIS SUR UN SEUL.
+ *
+ * Le DOM les produit dans l'ordre intitulé / valeur / nom ; la carte les lit
+ * intitulé / nom / valeur. Un `order` sur le seul élément à déplacer laisserait
+ * les deux autres à `order: 0`, donc DEVANT lui — la faute que ce dépôt a déjà
+ * payée deux fois, dont une sur le titre du salon.
+ */
+.titles__label {
+  order: 1;
+}
+
+.titles__who {
+  order: 2;
+}
+
+.titles__value {
+  order: 3;
 }
 
 .titles__label {
   font-size: var(--t-intitule);
   letter-spacing: var(--ls-intitule);
   color: var(--signal-pale);
-  min-width: 14ch;
+  /* `min-width: 14ch` alignait les colonnes d'une bande ; dans une carte, il
+     ne fait que forcer une largeur que la grille doit décider. */
 }
 
+/* Ce qui JUSTIFIE le titre : une mesure, donc discrète et alignée. */
 .titles__value {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  color: var(--paper);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.04em;
+  color: var(--paper-dim);
   font-variant-numeric: tabular-nums;
+  /* Une mesure peut être longue (« réaction médiane 412 ms ») : elle se replie
+     dans sa carte plutôt que de l'élargir. */
+  white-space: normal;
 }
 
+/* LE NOM porte la carte : c'est lui qu'on cherche dans un palmarès. */
 .titles__who {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  min-width: 0;
+}
+
+.titles__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes glyphFall {
@@ -3013,6 +3062,29 @@ body {
   text-align: center;
 }
 
+/*
+ * OU FINIT CELUI QUI LIT — sous le nom du vainqueur.
+ *
+ * En `--t-petit` et en `--paper-dim` : elle situe, elle ne celebre pas. Le
+ * titre au-dessus porte le nom du gagnant et garde tout l'accent ; cette ligne
+ * repond a l'autre question, celle que se pose tout le monde sauf lui.
+ *
+ * ⚠️ Vide, elle ne prend AUCUNE hauteur — un spectateur n'a pas de rang, et un
+ * blanc reserve sous le titre se lirait comme une donnee manquante.
+ */
+.end__rang {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.end__rang:empty {
+  display: none;
+}
+
 @media (min-width: 900px) {
   .end {
     gap: 26px 52px;
@@ -3771,8 +3843,61 @@ button.chip:active:not(:disabled) {
   transition: background var(--d-fast) linear, border-color var(--d-fast) linear;
 }
 
+/*
+ * ⚠️ `min-width: 0`, SANS QUOI LA LIGNE SE REPLIE SUR TELEPHONE.
+ *
+ * Un element flexible ne retrecit pas sous son `min-content` tant qu'on ne le
+ * lui permet pas — la lecon est deja dans cette feuille pour les pistes de
+ * grille, et elle vaut ici. Mesure a 375 px sur le podium de fin : nom 87 +
+ * regle 154 + statut 70 + 32 de gouttieres = 343 px pour 293 disponibles. Le
+ * `flex-wrap` renvoyait donc « VAINQUEUR » a la ligne, et la rangee du
+ * vainqueur faisait 77 px quand les autres en font 47.
+ *
+ * La regle est la seule des trois qui puisse ceder : le rang et le nom sont
+ * l'identite, le statut est le verdict. Elle s'ellipse donc, et la rangee tient.
+ */
+/*
+ * ⚠️ LE PODIUM DE FIN NE SE REPLIE PAS — et c'est ce qui rend l'ellipse utile.
+ *
+ * `.lobbyrow` porte `flex-wrap: wrap` pour le SALON, ou une rangee peut
+ * legitimement passer sur deux lignes. Mais tant qu'un conteneur enveloppe, ses
+ * enfants ne RETRECISSENT pas : ils passent a la ligne. Le `min-width: 0` et
+ * l'ellipse poses sur la regle etaient donc inertes ici — mesure, la rangee du
+ * vainqueur faisait toujours 77 px contre 47 pour les autres, « VAINQUEUR »
+ * renvoye seul sur une seconde ligne.
+ *
+ * Le podium a besoin de l'inverse du salon : trois rangees de meme hauteur, que
+ * l'on compare d'un coup d'oeil. On lui retire donc le repli, et la regle cede
+ * a sa place.
+ */
+#multiPodium .lobbyrow {
+  flex-wrap: nowrap;
+}
+
+/*
+ * SUR TELEPHONE, LA RANGEE DU VAINQUEUR NE REDIT PAS QU'IL A GAGNE.
+ *
+ * Trois choses le disent deja au-dessus et autour : le titre en grand
+ * (« MARGOT GAGNE »), le rang 1, et le surlignage de la rangee. Le mot
+ * « VAINQUEUR » ne coutait rien sur un bureau ; sur 375 px il prend 70 px a la
+ * seule colonne qui puisse ceder, et « LE COLOSSE » devenait « LE CO… ».
+ *
+ * La maquette telephone fait le meme choix — nom et regle, rien d'autre. Les
+ * rangees suivantes gardent leur statut : « 2e » et « ELIMINE » ne sont dits
+ * nulle part ailleurs.
+ */
+@media (max-width: 560px) {
+  #multiPodium .lobbyrow.is-winner .lobbyrow__status {
+    display: none;
+  }
+}
+
 .lobbyrow__rule {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--signal-pale);
   text-transform: uppercase;
 }

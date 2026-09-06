@@ -204,7 +204,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.partager": "PARTAGER",
     "fin.defier": "DÉFIER UN AMI",
     "fin.titres": "TITRES DU MATCH",
-    "fin.rejouerMulti": "REJOUER",
+    "fin.rejouerMulti": "REJOUER · MÊME SALON",
     "fin.quitter": "QUITTER",
     "mur.eyebrow": "CLASSEMENT",
     "mur.titre": "LE MUR DES RECORDS",
@@ -374,7 +374,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.partager": "SHARE",
     "fin.defier": "CHALLENGE A FRIEND",
     "fin.titres": "MATCH TITLES",
-    "fin.rejouerMulti": "PLAY AGAIN",
+    "fin.rejouerMulti": "PLAY AGAIN · SAME ROOM",
     "fin.quitter": "LEAVE",
     "mur.eyebrow": "LEADERBOARD",
     "mur.titre": "THE WALL OF RECORDS",
@@ -661,6 +661,8 @@ type Dyn = {
   matchTermine: string;
   egalite: string;
   tuAsGagne: string;
+  /** « MARGOT GAGNE » — le titre de l'écran de fin, quand ce n'est pas toi. */
+  finGagne: (nom: string) => string;
   vainqueur: string;
   finDuMatch: string;
   /* --- le brief, vu avant CHAQUE partie --- */
@@ -864,6 +866,8 @@ type Dyn = {
   multiRegleInconnue: string;
   /** « 2 pièges déjoués » — la ligne du bandeau, pendant la partie. */
   hudPieges: (n: number) => string;
+  /** « TU FINIS 2ᵉ SUR 6 · MANCHE 22 » — l'écran de fin d'un match. */
+  finTonRang: (place: number, total: number, manches: number) => string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -1071,6 +1075,7 @@ const DYN: Record<Lang, Dyn> = {
     matchTermine: "MATCH TERMINÉ",
     egalite: "ÉGALITÉ",
     tuAsGagne: "TU AS GAGNÉ",
+    finGagne: (nom) => `${nom} GAGNE`,
     vainqueur: "VAINQUEUR",
     finDuMatch: "FIN DU MATCH",
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
@@ -1283,6 +1288,14 @@ const DYN: Record<Lang, Dyn> = {
     finElimine: "ÉLIMINÉ",
     multiRegleInconnue: "MANCHE ILLISIBLE — RECHARGE LA PAGE",
     hudPieges: (n) => `${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}`,
+    /*
+     * ⚠️ L'ORDINAL N'EST PAS LE MEME EN FRANCAIS ET EN ANGLAIS, et il ne se
+     * traduit pas par un suffixe unique : « 1er » puis « 2e », contre « 1st,
+     * 2nd, 3rd, 4th ». Deux fonctions separees, chacune dans sa langue — une
+     * table commune aurait fini par produire « 2er » ou « 1th ».
+     */
+    finTonRang: (place, total, manches) =>
+      `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1472,6 +1485,7 @@ const DYN: Record<Lang, Dyn> = {
     matchTermine: "MATCH OVER",
     egalite: "DRAW",
     tuAsGagne: "YOU WON",
+    finGagne: (nom) => `${nom} WINS`,
     vainqueur: "WINNER",
     finDuMatch: "MATCH OVER",
     modeDaily: (j) => `DAILY RUN · #${j}`,
@@ -1647,6 +1661,13 @@ const DYN: Record<Lang, Dyn> = {
     finElimine: "OUT",
     multiRegleInconnue: "ROUND UNREADABLE — RELOAD THE PAGE",
     hudPieges: (n) => `${n} trap${n === 1 ? "" : "s"} defused`,
+    finTonRang: (place, total, manches) => {
+      const d = place % 10;
+      const c = place % 100;
+      const suf =
+        d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
+      return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
+    },
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,

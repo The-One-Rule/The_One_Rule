@@ -1687,6 +1687,14 @@
                  du vainqueur sans qu'on lui dise qu'il avait perdu. -->
             <p class="eyebrow" id="multiEndKicker">MATCH OVER</p>
             <h2 class="verdict" id="multiEndTitle">MATCH OVER</h2>
+            <!-- OU FINIT CELUI QUI LIT, et c'est le seul a ne pas le savoir.
+                 Le titre porte le nom du vainqueur : pour les cinq autres, cet
+                 ecran nommait quelqu'un d'autre et se taisait sur eux. La
+                 maquette telephone tranche par « TU FINIS 2e SUR 6 · MANCHE
+                 22 » — un rang, un effectif, et combien de temps la table a
+                 tenu. Le podium le dit deja en detail ; cette ligne le dit
+                 avant qu'on ait a le chercher. -->
+            <p class="end__rang" id="multiEndRang"></p>
           </div>
 
           <div class="col end__podium">
@@ -1700,7 +1708,7 @@
 
           <div class="end__foot">
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">PLAY AGAIN</button>
+              <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">PLAY AGAIN · SAME ROOM</button>
               <button class="btn" id="btnMultiEndInvite" data-i18n="salon.copierLien">COPY THE LINK</button>
               <button class="btn btn--ghost" id="btnMultiEndHome" data-i18n="fin.quitter">LEAVE</button>
             </div>

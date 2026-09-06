@@ -2089,8 +2089,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * ⚠️ Lu AVANT `clearMatch()`, qui efface `match`.
      */
     const vivants = msg.players.filter((p) => p.lives > 0).length;
+    /* Lu avant `clearMatch()`, et reutilise plus bas par la ligne de rang. */
+    const manchesTenues = match?.idx ?? 0;
     track("match_fin", {
-      manches: match?.idx ?? 0,
+      manches: manchesTenues,
       joueurs: msg.players.length,
       gagne: msg.winnerId !== null && msg.winnerId === net.myId,
       survivants: vivants,
@@ -2113,20 +2115,67 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const title = $("multiEndTitle");
     const kicker = $("multiEndKicker");
     const ecran = $("multi-end");
+    /*
+     * LE CODE DU SALON RESTE SOUS LES YEUX — « MATCH TERMINÉ · 3PS8 ».
+     *
+     * C'est l'ecran ou l'on decide de rejouer ensemble, et le code y avait
+     * disparu : pour le redonner a l'oral — la seule façon dont il circule
+     * vraiment (playtest du jour 2) — il fallait quitter l'ecran de fin.
+     * `roomCode` peut manquer sur un match rejoint par lien : la suite est
+     * alors omise plutot qu'affichee vide.
+     */
+    const suffixeCode = roomCode ? ` · ${roomCode}` : "";
     const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
     ecran.classList.toggle("is-victory", jeGagne);
     if (msg.winnerId === null) {
-      kicker.textContent = tr("matchTermine");
+      kicker.textContent = tr("matchTermine") + suffixeCode;
       title.textContent = tr("egalite");
       title.classList.remove("is-win");
     } else {
       const winner =
         lastPlayers.find((p) => p.id === msg.winnerId) ??
         msg.players.find((p) => p.id === msg.winnerId);
-      kicker.textContent = jeGagne ? tr("tuAsGagne") : tr("vainqueur");
-      title.textContent = winner?.name ?? tr("finDuMatch");
+      /*
+       * LE VERBE PASSE DANS LE TITRE — « MARGOT GAGNE », pas « MARGOT ».
+       *
+       * Le correctif d'origine avait mis l'issue dans l'intitule parce que le
+       * titre ne portait qu'un nom : celui qui perdait lisait un pseudo sans
+       * qu'un mot lui dise ce qui venait de se passer. La maquette telephone
+       * fait mieux avec le meme materiau — l'issue EST le titre, et l'intitule
+       * redevient ce qu'il dit etre : ou l'on se trouve, et dans quel salon.
+       * Le defaut d'origine reste corrige, et il se lit d'un coup d'oeil.
+       */
+      kicker.textContent = tr("matchTermine") + suffixeCode;
+      const nom = winner?.name;
+      title.textContent = jeGagne
+        ? tr("tuAsGagne")
+        : nom
+          ? tr("finGagne")(nom)
+          : tr("finDuMatch");
       title.classList.toggle("is-win", jeGagne);
     }
+
+    /*
+     * LA LIGNE DE RANG — la seule qui parle du joueur qui lit.
+     *
+     * Le classement se fait sur les vies puis le score, exactement comme le
+     * podium juste en dessous : deux tris differents donneraient deux rangs
+     * differents sur le meme ecran, et c'est le genre de contradiction qui fait
+     * douter du verdict entier.
+     *
+     * Les SPECTATEURS ne comptent ni au numerateur ni au denominateur — « 2e
+     * sur 6 » doit designer six joueurs, pas six connectes. Un spectateur, lui,
+     * n'a pas de rang du tout : la ligne se tait.
+     *
+     * ⚠️ `match.idx` est lu ICI, avant `clearMatch()` — comme `match_fin`.
+     */
+    const rang = $("multiEndRang");
+    const classes = msg.players
+      .filter((p) => !p.spectator)
+      .sort((a, b) => b.lives - a.lives || b.score - a.score);
+    const maPlace = classes.findIndex((p) => p.id === net!.myId);
+    rang.textContent =
+      maPlace >= 0 ? tr("finTonRang")(maPlace + 1, classes.length, manchesTenues) : "";
 
     renderTitles(msg.players);
     renderPodium(msg.players);
