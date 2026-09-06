@@ -2219,6 +2219,79 @@ et c'est le rapport qui tranchera.
 ⚠️ `share_carte` a dû entrer dans les DEUX listes blanches (`src/analytics/` et
 `api/collect.ts`), qui rejette en silence tout nom absent.
 
+### L'accueil montre enfin le jeu — et trois bugs trouvés en le posant
+
+**Le chiffre :** 118 nouveaux visiteurs sur 159 (**74 %**) repartent sans lancer
+une partie, médiane 6 secondes. L'onboarding ne peut rien y faire — il ne
+s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
+franchissent pas. Or l'accueil ne montrait **aucun jeu** : pas une image, pas un
+mouvement. Un jeu de réflexes se comprend en deux secondes de vidéo.
+
+`src/render/demo.ts` — une boucle de 8,6 s qui joue DEUX manches : une ordinaire
+pour poser la mécanique, une **piégée** pour la retourner. Elle s'arrête là.
+
+⚠️ **Ce qu'elle montre n'est pas « le jeu », c'est LE PIÈGE** — la seule chose
+non copiable de TOR, et la plus difficile à deviner puisque seules **5,4 %** des
+manches en produisent un.
+
+⚠️ **C'est une AFFICHE, pas un tutoriel, et la distinction est écrite.** Le dépôt
+tient que « un tutoriel qui simule le jeu enseigne un jeu qui n'existe pas » —
+d'où `game/onboarding.ts` sur le vrai terrain. Ici c'est impossible : une manche
+réelle compte quinze pièces sur 1000 × 420, illisible dans une bande de 108 px.
+On montre donc **une rangée de la grille 5 × 3** — une tranche exacte, pas une
+invention — avec les mêmes formes, les mêmes quatre teintes et le même verdict.
+
+**Elle se paie, et le prix est écrit** : la faille passe de `clamp(300px, 44vh,
+440px)` à `clamp(240px, 34vh, 400px)`. Elle mesurait 382 px sur un 375 × 812,
+soit 47 % de la page, pour porter deux libellés et deux descriptions —
+c'est-à-dire un menu à deux entrées que la barre du bas propose déjà. Mesuré
+après : chapo 152→260, accroche 260→370, faille 444→720, barre 749→812, **aucun
+défilement**.
+
+#### Trois bugs, tous trouvés en mesurant, aucun en relisant
+
+⚠️ **UNE COLLISION DE CLASSE, la deuxième du dépôt.** Ma bande s'appelait
+`.demo` — et `.demo` existait déjà : c'est l'explicatif à deux cas du repli
+« COMMENT ÇA MARCHE » du brief. Ma déclaration lui posait une bordure, un fond
+et un grain qu'il n'a jamais demandés ; son `display: grid` enfermait en retour
+mon canvas dans une piste de **350 px pour 718 disponibles**. La moitié VISIBLE
+(un canvas à moitié vide) m'a mis sur la piste ; la moitié invisible — un
+composant jamais regardé, repeint — est celle qui aurait duré. Renommée
+`.accroche`. C'est exactement `.piege`, à 1400 lignes d'écart, invisible pendant
+des semaines.
+
+⚠️ **PAS DE FILET GÉNÉRAL CONTRE ÇA, et c'est mesuré :** 127 classes de la
+feuille ont déjà plusieurs blocs racine (`.over__head` 5 fois, `.verdict` 5,
+`.card` 4…), et la plupart sont des raffinements voulus. Un allowlist de 127
+entrées serait du bruit, pas un filet. Le seul geste qui marche reste manuel :
+**avant d'ajouter une classe, `grep` la feuille.**
+
+⚠️ **UNE APPLICATION N'A QU'UNE BOUCLE.** La démo avait d'abord son propre
+`requestAnimationFrame`. `tests/smoke.test.ts` est tombé — son harnais ne retient
+que la DERNIÈRE callback enregistrée pour dérouler les frames à la main, donc la
+démo écrasait celle du jeu, le battement de lecture ne tombait jamais et aucun
+run ne démarrait. Symptôme affiché : « le brief ne se ferme pas », qui ne désigne
+rien de ce qui était cassé. Mais le vrai défaut n'est pas dans le harnais : c'est
+déjà la doctrine du battement de lecture, et pour les mêmes raisons — un filet
+qui déroule des frames voit tout, rien ne court sur un onglet qui ne compose pas,
+et **un décor ne doit jamais pouvoir affamer le jeu**. La boucle de `main.ts`
+peint la démo quand `screen === "home"`.
+
+⚠️ **`height: 100%` NE SE RÉSOUT PAS SUR UN CANVAS.** Cadre à 96 px, canvas
+mesuré à **170** : il retombait sur son ratio intrinsèque (300 × 150), soit
+169,5 à 339 px de large, et débordait de son propre cadre sans une erreur. La
+hauteur est portée par le canvas, une seule fois.
+
+⚠️ Et un quatrième, trouvé par son test : le curseur de la manche piégée
+descendait à **−2,78** après le renoncement (une borne manquante sur le temps).
+Invisible — le pinceau dessine à une coordonnée négative sans se plaindre.
+
+**Ce qui reste, et qui appartient à Pierre** : le doublon MULTI (faille + barre)
+est structurel — la faille et la barre sont deux fois la même navigation, et
+choisir laquelle perd veut dire toucher à la vitrine. ⚠️ Et `accueil_premier_clic`
+n'a **toujours pas été lu** : ces correctifs sont des incohérences réparées, pas
+une refonte informée par la mesure.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

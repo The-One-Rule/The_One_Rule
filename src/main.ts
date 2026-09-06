@@ -47,6 +47,8 @@ import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
+import { creeDemo } from "./render/demo";
+import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -287,6 +289,41 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "reglages",
 ]);
 
+/* ------------------------------------------------------------------ *
+ * LA DÉMO DE L'ACCUEIL
+ *
+ * ⚠️ Elle ne tourne QUE sur l'accueil. `show` est le passage obligé de tout
+ * changement d'écran : la brancher là couvre aussi les sorties qu'on n'a pas
+ * prévues — une invitation qui arrive, un lien de défi, une reprise de salon —
+ * exactement comme le battement de lecture. Une boucle `rAF` oubliée en pleine
+ * partie prendrait des images au jeu, et la taille du champ EST du gameplay.
+ * ------------------------------------------------------------------ */
+
+const textesDemo = (): TextesDemo => ({
+  regle: t("demoRegle"),
+  consigneA: t("demoConsigneA"),
+  consigneB: t("demoConsigneB"),
+  verdictA: t("demoVerdictA"),
+  verdictB: t("demoVerdictB"),
+});
+
+/*
+ * ⚠️ CONSTRUITE PARESSEUSEMENT, ET C'EST UNE LEÇON DÉJÀ PAYÉE.
+ *
+ * `createMulti()` s'exécutait pendant l'évaluation du module, donc AVANT que la
+ * langue enregistrée soit posée : les six émotes restaient françaises pour
+ * toujours. Une démo bâtie au chargement aurait le même défaut, sur cinq
+ * chaînes de plus. On la crée au premier affichage de l'accueil, quand la
+ * langue est connue.
+ */
+let demo: Demo | null = null;
+
+function demoSuitEcran(id: ScreenId): void {
+  if (id !== "home") return;
+  demo ??= creeDemo($<HTMLCanvasElement>("demoCvs"), textesDemo());
+  demo.reprend();
+}
+
 function show(id: ScreenId): void {
   /*
    * Quitter le brief ANNULE le battement de lecture.
@@ -343,6 +380,7 @@ function show(id: ScreenId): void {
     poseBarre();
     majNav();
   }
+  demoSuitEcran(id);
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -507,6 +545,10 @@ function choisitLangue(lang: Lang): void {
   renderHome();
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
+  // La demo non plus : ses cinq chaines sont peintes dans un canvas, donc
+  // invisibles a tout balayage du DOM. C'est exactement par la que les six
+  // emotes du multi etaient restees francaises.
+  demo?.rafraichit(textesDemo());
 }
 
 /**
@@ -5066,6 +5108,16 @@ const heatOf = (ratio: number, level: number): number =>
 
 function loop(now: number): void {
   requestAnimationFrame(loop);
+
+  /*
+   * La démo de l'accueil, et RIEN d'autre quand on y est.
+   *
+   * Elle est peinte par cette boucle plutôt que par la sienne : une
+   * application n'a qu'une horloge, et un décor ne doit jamais pouvoir
+   * disputer ses images au jeu. Le test `screen === "home"` suffit à la
+   * couper — l'accueil est en `display: none` dès qu'on joue.
+   */
+  if (screen === "home") demo?.image(now);
 
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.
