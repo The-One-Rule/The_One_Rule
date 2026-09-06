@@ -961,7 +961,15 @@
           <div class="col over__result">
             <div class="tally" id="tally">0</div>
             <p class="eyebrow" id="tallyLabel">ROUNDS HELD</p>
+            <!-- OU SE SITUE CE SCORE. Un nombre seul ne dit pas s'il est bon :
+                 la maquette le met entre son propre record, sa mediane, et le
+                 meilleur connu. Trois reperes, pas un jugement. -->
+            <p class="reperes" id="reperes"></p>
             <div class="marks" id="marks"></div>
+            <!-- La frise disait son affaire par la seule COULEUR. La legende la
+                 nomme, et reprend les silhouettes du mode motifs — c'est la
+                 meme information pour qui ne distingue pas le vert du rouge. -->
+            <p class="marks__legende" id="marksLegende"></p>
             <div class="reward hidden" id="reward"></div>
             <div class="rank hidden" id="rankResult"></div>
 
@@ -989,10 +997,24 @@
 
                  Masque quand le run n'a rien fait avancer — un bloc qui annonce
                  une progression nulle est pire que pas de bloc. -->
+            <!-- LA CARTE ACCOMPAGNE CE QU'ELLE A GAGNE.
+                 Les deux blocs parlent d'une regle, et la regle EST une carte :
+                 c'est l'objet que le joueur collectionne, celui qu'il retrouve
+                 dans le carnet. La nommer sans la montrer laissait ce lien a
+                 sa charge. Meme image, meme cadre, meme trame que partout
+                 ailleurs — `/cartes/<id>.png`. -->
             <div class="avance hidden" id="avance">
               <p class="eyebrow" data-i18n="fin.avance">WHAT THIS RUN ADVANCED</p>
-              <p class="avance__regle" id="avanceRegle"></p>
-              <p class="avance__quoi" id="avanceQuoi"></p>
+              <div class="avance__corps">
+                <div class="avance__carte" id="avanceCarte" aria-hidden="true"></div>
+                <div class="avance__texte">
+                  <p class="avance__regle" id="avanceRegle"></p>
+                  <!-- La progression VUE : les six cases de l'echelle, dont
+                       celles que ce run vient de faire tomber. -->
+                  <div class="avance__jauge" id="avanceJauge"></div>
+                  <p class="avance__quoi" id="avanceQuoi"></p>
+                </div>
+              </div>
               <button class="btn" id="btnAvanceTrain"></button>
             </div>
 
@@ -1001,8 +1023,13 @@
                  pas. Elle merite sa propre annonce. -->
             <div class="decouverte hidden" id="decouverte">
               <p class="eyebrow" data-i18n="fin.decouverte">RULE DISCOVERED</p>
-              <p class="decouverte__nom" id="decouverteNom"></p>
-              <p class="decouverte__note" id="decouverteNote"></p>
+              <div class="avance__corps">
+                <div class="avance__carte" id="decouverteCarte" aria-hidden="true"></div>
+                <div class="avance__texte">
+                  <p class="decouverte__nom" id="decouverteNom"></p>
+                  <p class="decouverte__note" id="decouverteNote"></p>
+                </div>
+              </div>
             </div>
 
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
@@ -1010,6 +1037,13 @@
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->
             <p class="eyebrow" data-i18n="fin.quetes">TODAY'S QUESTS</p>
             <div class="quests" id="overQuests"></div>
+            <!-- TROIS CHIFFRES, D'UN COUP D'OEIL — quetes, serie, carnet.
+                 Les trois choses qu'un run fait bouger en dehors du score. La
+                 liste des quetes juste au-dessus dit LESQUELLES ; ces tuiles
+                 disent OU L'ON EN EST, ce qu'aucune ligne ne donnait. La tuile
+                 SERIE remplace la phrase « serie en cours » : meme donnee, une
+                 ligne de moins. -->
+            <div class="bilan" id="bilan"></div>
             <div class="teaser" id="teaser"></div>
 
             <!-- L'invitation à enregistrer.

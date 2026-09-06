@@ -868,6 +868,19 @@ type Dyn = {
   hudPieges: (n: number) => string;
   /** « TU FINIS 2ᵉ SUR 6 · MANCHE 22 » — l'écran de fin d'un match. */
   finTonRang: (place: number, total: number, manches: number) => string;
+  /** Les trois repères sous le score de fin de run. */
+  finReperRecord: (n: number) => string;
+  finReperMediane: (n: number) => string;
+  finReperMeilleur: (n: number) => string;
+  /** La légende de la frise : ce que chaque marque veut dire. */
+  finLegTenue: string;
+  finLegPiege: string;
+  finLegFaute: string;
+  finLegChute: string;
+  /** Les trois tuiles de bilan, sur l'écran de fin. */
+  bilanQuetes: string;
+  bilanSerie: string;
+  bilanCarnet: string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -1296,6 +1309,16 @@ const DYN: Record<Lang, Dyn> = {
      */
     finTonRang: (place, total, manches) =>
       `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
+    finReperRecord: (n) => `TON RECORD · ${n}`,
+    finReperMediane: (n) => `MÉDIANE · ${n}`,
+    finReperMeilleur: (n) => `RECORD · ${n}`,
+    finLegTenue: "TENUE",
+    finLegPiege: "PIÈGE DÉJOUÉ",
+    finLegFaute: "ÉCHAUFFEMENT",
+    finLegChute: "CHUTE",
+    bilanQuetes: "QUÊTES",
+    bilanSerie: "SÉRIE",
+    bilanCarnet: "CARNET",
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1668,6 +1691,16 @@ const DYN: Record<Lang, Dyn> = {
         d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
       return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
     },
+    finReperRecord: (n) => `YOUR BEST · ${n}`,
+    finReperMediane: (n) => `MEDIAN · ${n}`,
+    finReperMeilleur: (n) => `RECORD · ${n}`,
+    finLegTenue: "HELD",
+    finLegPiege: "TRAP DEFUSED",
+    finLegFaute: "WARM-UP",
+    finLegChute: "FALL",
+    bilanQuetes: "QUESTS",
+    bilanSerie: "STREAK",
+    bilanCarnet: "CODEX",
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,

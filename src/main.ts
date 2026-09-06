@@ -43,7 +43,7 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { vueBut } from "./render/but";
+import { MEILLEUR_CONNU, vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -3176,6 +3176,63 @@ function finishRun(): void {
           : t("finManchesTenues");
   renderMarks($("marks"), end.marks);
 
+  /*
+   * LES TROIS REPERES — ce qui transforme un nombre en resultat.
+   *
+   * « 23 » ne dit rien tout seul : ni si c'est bien, ni si l'on progresse. La
+   * maquette le situe entre TON RECORD, TA MEDIANE et le MEILLEUR CONNU, et
+   * c'est le bon triptyque — le premier dit le progres, le second l'ordinaire,
+   * le troisieme l'horizon.
+   *
+   * ⚠️ Le record montre celui d'AVANT ce run, photographie au lancement
+   * (`recordAvantRun`) : afficher celui d'apres reviendrait, quand on vient de
+   * le battre, a se comparer a soi-meme et a n'annoncer aucun progres.
+   *
+   * La mediane vient des cinq derniers runs — `recent`, deja tenu pour la quete
+   * de performance. Elle se tait sous trois runs : une mediane sur deux valeurs
+   * n'est pas une mediane, c'est la moyenne de deux hasards.
+   */
+  const recents = s.recent;
+  const triees = [...recents].sort((a, b) => a - b);
+  const mediane = triees.length >= 3 ? triees[Math.floor(triees.length / 2)]! : null;
+  const morceaux: string[] = [];
+  /*
+   * ⚠️ Chaque repere se TAIT quand il n'a rien a dire.
+   *
+   * « TON RECORD · 0 » a un joueur qui n'a pas encore de record ne le situe
+   * pas : il lui apprend qu'il part de zero, au moment precis ou il vient de
+   * jouer. Meme raison pour la mediane sous trois runs. Le meilleur connu,
+   * lui, existe toujours — c'est l'horizon, pas une donnee personnelle.
+   */
+  if (recordAvantRun > 0) morceaux.push(t("finReperRecord")(recordAvantRun));
+  if (mediane !== null) morceaux.push(t("finReperMediane")(mediane));
+  morceaux.push(t("finReperMeilleur")(MEILLEUR_CONNU.score));
+  $("reperes").textContent = morceaux.join(" · ");
+
+  /*
+   * LA LEGENDE DE LA FRISE.
+   *
+   * La frise etait la seule surface du jeu a ne dire son affaire QUE par la
+   * teinte — le mode motifs lui avait deja donne des silhouettes, mais rien ne
+   * disait ce que chacune veut dire. On la nomme, avec la meme silhouette que
+   * la frise juste au-dessus.
+   *
+   * Seules les marques PRESENTES sont legendees : une legende qui annonce une
+   * chute sur un run sans faute decrit un autre run que celui qu'on vient de
+   * jouer.
+   */
+  const vues = new Set(end.marks);
+  const leg: string[] = [];
+  for (const [m, cle] of [
+    ["🟩", "finLegTenue"],
+    ["🟦", "finLegPiege"],
+    ["🟨", "finLegFaute"],
+    ["🟥", "finLegChute"],
+  ] as const) {
+    if (vues.has(m)) leg.push(`${SILHOUETTE[m]!.glyphe} ${t(cle)}`);
+  }
+  $("marksLegende").textContent = leg.join("   ");
+
   const reward = $("reward");
   reward.classList.toggle("hidden", gained <= 0);
   reward.textContent = gained > 0 ? t("quetesValidees")(gained) : "";
@@ -3205,8 +3262,41 @@ function finishRun(): void {
     teaser.querySelector("b")!.textContent = nomDeRegle(demain.id, demain.name);
     teaser.classList.remove("hidden");
   } else {
-    teaser.innerHTML = `${t("serieEnCours")}<b></b>`;
-    teaser.querySelector("b")!.textContent = t("finJours")(s.streak.count);
+    /*
+     * La serie a sa TUILE (voir `bilan`) : la redire en phrase ferait deux
+     * lignes pour un chiffre, sur l'ecran le plus charge du jeu.
+     */
+    teaser.classList.add("hidden");
+  }
+
+  /*
+   * LE BILAN EN TROIS TUILES — quetes, serie, carnet.
+   *
+   * Les trois grandeurs qu'un run fait bouger en dehors du score, et les seules
+   * que le joueur suit d'une partie a l'autre. Elles etaient dispersees : les
+   * quetes en liste, la serie en phrase, le carnet nulle part — il fallait
+   * quitter l'ecran pour savoir ou l'on en etait de la collection.
+   *
+   * ⚠️ Des CHIFFRES, pas des barres : trois jauges cote a cote se comparent
+   * alors qu'elles ne mesurent pas la meme chose. « 5 / 16 » et « 4 J » ne
+   * vivent pas sur la meme echelle.
+   */
+  const quetes = viewQuests(s, day);
+  const quetesFaites = quetes.filter((q) => q.done).length;
+  const carnetVues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+  const bilan = $("bilan");
+  bilan.innerHTML = "";
+  for (const [valeur, libelle] of [
+    [`${quetesFaites}/${quetes.length}`, t("bilanQuetes")],
+    [t("finJours")(s.streak.count), t("bilanSerie")],
+    [`${carnetVues}/${ONE_RULES.length}`, t("bilanCarnet")],
+  ] as const) {
+    const cel = document.createElement("div");
+    cel.className = "bilan__cel";
+    cel.innerHTML = `<b class="bilan__val"></b><span class="bilan__lab"></span>`;
+    cel.querySelector<HTMLElement>(".bilan__val")!.textContent = valeur;
+    cel.querySelector<HTMLElement>(".bilan__lab")!.textContent = libelle;
+    bilan.appendChild(cel);
   }
 
   // Un duel se rejoue à volonté : c'est la même partie, la comparaison reste
@@ -3344,6 +3434,19 @@ function objectifExercice(): number | null {
   return MANCHES_MAITRISE;
 }
 
+/**
+ * LA VIGNETTE D'UNE CARTE — la même image que partout ailleurs.
+ *
+ * Cinq surfaces montrent déjà une carte (collection, fiche, gouttière, « celle
+ * qui te résiste », l'état à mater) et chacune écrivait sa propre balise. Une
+ * sixième et une septième arrivent avec l'écran de fin : autant écrire la
+ * forme une fois. Le jour où les cartes changent de dossier ou de dimensions,
+ * il n'y aura qu'un endroit à corriger.
+ */
+function carteVignette(ruleId: string): string {
+  return `<img class="vignette" src="/cartes/${ruleId}.png" width="64" height="64" alt="" decoding="async" />`;
+}
+
 function majGouttieres(): void {
   const el = $("gout");
   if (!session) {
@@ -3440,8 +3543,16 @@ function peintAvance(
   score: number,
 ): void {
   const rec = apres.encountered[regle.id];
+  const echelle = echelleMaitrise(regle, rec);
   const casesAvant = franchies(echelleMaitrise(regle, avant));
-  const casesApres = franchies(echelleMaitrise(regle, rec));
+  const casesApres = franchies(echelle);
+  /*
+   * Le total vient de l'ECHELLE, jamais d'un 6 ecrit ici. Elle en produit six
+   * aujourd'hui ; le jour ou elle en produira dix — l'escalier de maitrise est
+   * au programme — cette jauge suivra sans qu'on y pense, et une jauge qui
+   * ment sur son propre total est pire que pas de jauge.
+   */
+  const totalCases = echelle.length;
 
   /*
    * UNE RÈGLE DÉCOUVERTE est un événement à part : c'est une carte de plus dans
@@ -3453,6 +3564,7 @@ function peintAvance(
   const vues = ONE_RULES.filter((r) => !!apres.encountered[r.id]).length;
   $("decouverte").classList.toggle("hidden", !neuve);
   if (neuve) {
+    $("decouverteCarte").innerHTML = carteVignette(regle.id);
     $("decouverteNom").textContent = nomDeRegle(regle.id, regle.name);
     $("decouverteNote").textContent = t("decouverteNote")(score, vues, ONE_RULES.length);
   }
@@ -3492,6 +3604,31 @@ function peintAvance(
     etatApres !== etatAvant && (etatApres === "maitrisee" || etatApres === "parfaite");
   bloc.classList.toggle("is-franchi", montre && franchi);
   if (!montre) return;
+  $("avanceCarte").innerHTML = carteVignette(regle.id);
+  /*
+   * LES SIX CASES, ET CELLES QUE CE RUN VIENT DE FAIRE TOMBER.
+   *
+   * Le bloc disait « MAÎTRISE 3 / 6 » en toutes lettres ; la maquette le montre.
+   * Une case NEUVE se distingue d'une case déjà acquise — c'est la seule chose
+   * que cet écran ait à célébrer, et un compteur qui passe de 2 à 3 ne la
+   * montre pas.
+   */
+  const jauge = $("avanceJauge");
+  jauge.innerHTML = "";
+  for (let i = 0; i < totalCases; i++) {
+    const c = document.createElement("i");
+    /*
+     * Trois etats, et une CLASSE pour chacun — pas deux classes et un implicite.
+     * Une case acquise et une case vide sont toutes deux « sans est-neuve » :
+     * les distinguer par leur rang en CSS (`nth-child`) marcherait aujourd'hui
+     * et se tromperait le jour ou l'echelle change de longueur.
+     */
+    if (i >= casesApres) c.className = "est-vide";
+    else if (i >= casesAvant) c.className = "est-neuve";
+    else c.className = "est-faite";
+    jauge.appendChild(c);
+  }
+
   $("avanceRegle").textContent = franchi
     ? t(etatApres === "parfaite" ? "avanceParfaite" : "avanceMaitrisee")(
         nomDeRegle(regle.id, regle.name),

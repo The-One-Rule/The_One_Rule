@@ -4633,6 +4633,155 @@ button.chip:active:not(:disabled) {
  * — et c'était une ligne de texte de 15 px perdue sous un chiffre de 86.
  * Encadrée et respirée, elle se lit comme une bande de pellicule.
  */
+/*
+ * LES DEUX BLOCS QUI PARLENT D'UNE REGLE — carte a gauche, texte a droite.
+ *
+ * `minmax(0, 1fr)` sur la colonne de texte : sans lui, une phrase longue
+ * pousserait la carte hors du bloc. Le depot a paye cette faute assez de fois.
+ */
+.avance__corps {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+  margin-top: var(--sp-2);
+  text-align: left;
+}
+
+.avance__carte {
+  width: 56px;
+  flex: 0 0 auto;
+}
+
+.vignette {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* La meme trame que partout : une carte de 64 px agrandie garde ses pixels
+     francs. */
+  image-rendering: pixelated;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
+}
+
+.avance__texte {
+  min-width: 0;
+}
+
+/*
+ * LES SIX CASES DE L'ECHELLE, et la ou les deux que ce run vient de gagner.
+ *
+ * Une case NEUVE prend l'accent : c'est la seule chose que cet ecran ait a
+ * celebrer, et un compteur qui passe de 2 a 3 ne la montre pas. Les cases
+ * acquises restent pleines mais sourdes, les vides gardent leur place — on
+ * doit voir le chemin restant autant que celui fait.
+ */
+.avance__jauge {
+  display: flex;
+  gap: 3px;
+  margin: 6px 0;
+}
+
+.avance__jauge i {
+  width: 100%;
+  height: 5px;
+}
+
+.avance__jauge i.est-vide {
+  background: var(--line);
+}
+
+.avance__jauge i.est-faite {
+  background: var(--paper-dim);
+}
+
+.avance__jauge i.est-neuve {
+  background: var(--signal);
+}
+
+/*
+ * LE BILAN EN TROIS TUILES — quetes, serie, carnet.
+ *
+ * Trois parts egales et un filet entre elles, comme la barre de verification
+ * du brief : c'est la meme nature d'objet — des grandeurs qu'on lit d'un coup
+ * d'oeil, jamais qu'on compare entre elles.
+ *
+ * `flex: 1 1 0` + `min-width: max-content` : la base nulle donne la part egale,
+ * le plancher interdit d'ecraser un mot. La feuille a paye trois essais avant
+ * d'arriver a cette combinaison pour la barre des vitesses ; on ne la refait
+ * pas.
+ */
+.bilan {
+  display: flex;
+  margin-top: var(--sp-3);
+  border: var(--bd-hair) solid var(--line);
+  background: color-mix(in srgb, var(--ink-2) 70%, transparent);
+}
+
+.bilan__cel {
+  flex: 1 1 0;
+  min-width: max-content;
+  padding: var(--sp-2) var(--sp-3);
+  border-right: var(--bd-hair) solid var(--line);
+  text-align: center;
+}
+
+.bilan__cel:last-child {
+  border-right: 0;
+}
+
+.bilan__val {
+  display: block;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.bilan__lab {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/*
+ * LES TROIS REPERES, sous le score.
+ *
+ * En `--mono` et en chiffres tabulaires : ce sont trois grandeurs qu'on compare
+ * du regard, et des chiffres qui ne s'alignent pas se comparent mal. En
+ * `--paper-dim` : ils SITUENT le score, ils ne le concurrencent pas — le grand
+ * nombre au-dessus reste le sujet.
+ */
+.reperes {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* La legende de la frise : elle NOMME ce que la frise montre. */
+.marks__legende {
+  margin: 6px auto 0;
+  max-width: 26ch;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  text-align: center;
+}
+
+.marks__legende:empty {
+  display: none;
+}
+
 .marks {
   margin: var(--sp-4) auto 0;
   max-width: 22ch;
@@ -4814,6 +4963,14 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
   text-align: left;
+}
+
+/* Chaque composant declare son propre masquage — il n'y a pas de `.hidden`
+   generique dans cette feuille. Le teaser se tait desormais en entrainement,
+   ou la tuile SERIE dit la meme chose : sans cette regle il gardait ses 32 px
+   et son filet, vides. */
+.teaser.hidden {
+  display: none;
 }
 
 .teaser b {
@@ -9816,8 +9973,21 @@ button.chip:active:not(:disabled) {
   text-align: left;
 }
 
+/*
+ * ⚠️ `#compteAnon` N'AVAIT AUCUNE REGLE DE MASQUAGE, et le JS le masque.
+ *
+ * `$("compteAnon").classList.toggle("hidden", connecte)` basculait donc une
+ * classe qui ne faisait RIEN : une fois connecte, tout le bloc anonyme — la
+ * grille, la mention, les boutons de fournisseur — restait affiche SOUS le bloc
+ * connecte. Sans erreur, sans avertissement, exactement la panne que ce
+ * fichier de test decrit en tete.
+ *
+ * Trouve en etendant `tests/hidden.test.ts` aux elements que seul le JS masque :
+ * l'ancien filet ne lisait que les `class="hidden"` ecrits dans l'HTML.
+ */
 #compteTitre.hidden,
-#compteLede.hidden {
+#compteLede.hidden,
+#compteAnon.hidden {
   display: none;
 }
 
