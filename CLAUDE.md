@@ -2035,6 +2035,120 @@ s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
 franchissent pas. `accueil_premier_clic` existe pour dire enfin D'OÙ ils
 partent ; **ne rien redessiner sur l'accueil avant de l'avoir lu.**
 
+### L'escalier d'une règle — fait, jamais vu par un joueur
+
+Demandé par Pierre, maquette à l'appui : « tu cliques sur la carte et tu arrives
+sur une autre page avec des escaliers qui représentent chaque palier jusqu'à la
+maîtrise … au début c'est soft et ça augmente progressivement en introduisant
+les pièges … et à la fin du genre 50 en rapide pour valider la règle ».
+
+**Vingt paliers, quatre volées de cinq.** `src/game/escalier.ts`, pur et testé.
+
+⚠️ **IL N'INVENTE QU'UNE SEULE MÉCANIQUE.** Trois leviers existaient déjà et
+étaient réglés en dur pour toujours — l'ALLURE (un réglage global choisi une
+fois), la CADENCE DE PIÈGES (`FORCED_TRAP_ROUNDS`, les manches 2, 5 et 9), la
+LONGUEUR (`DAILY_LENGTH` ou l'infini, sans entre-deux). L'escalier les rend
+progressifs, et c'est tout. Ce que ça règle est mesuré : **538 des 572 runs
+relevés sont des entraînements**, c'est-à-dire que le mode le plus pratiqué du
+jeu est celui qui ne mène nulle part.
+
+⚠️ **LE SEUL LEVIER NEUF EST L'ANNONCE DU PIÈGE, ET IL CROISE LA DÉCISION N°5.**
+Aux paliers 6 à 9 le jeu dit « PIÈGE » dans la case META ; au 10 une fois sur
+deux ; à partir du 11, plus jamais. La décision n°5 protège l'ÉPREUVE et n'est
+levée sur AUCUN mode dont un résultat se compare — run du jour, multi, classé,
+entraînement libre. L'escalier est un apprentissage, et l'échafaudage tombe au
+palier 11, donc **avant** le 15 qui déclare la maîtrise : rien de comparable
+n'est jamais obtenu avec l'aide. Un test refuse tout palier ≥ 15 qui annoncerait
+encore.
+
+⚠️ **UN RUN DE PALIER NOURRIT L'ESCALIER, JAMAIS CE QUI JUGE.** Il écrit `best`
+et `pieges` — des faits — et rien d'autre : ni `parAllure`, ni `serie`, ni
+`sansFaute` (les cases de l'échelle), ni `recent`, ni le moindre record. Sa
+longueur est bornée, son allure imposée, sa cadence forcée : quinze manches là
+ne prouvent pas ce que quinze manches en entraînement libre prouvent. En code,
+c'est UNE ligne — `majCarnet` reçoit `undefined` au lieu de son argument `run`,
+et les quatre champs se taisent d'un coup, y compris le cinquième qu'on
+ajoutera un jour.
+
+⚠️ **`VERSION_CONTENU` n'a PAS bougé** (`hdblrb`, vérifié). `buildRound` gagne un
+paramètre `forcePiege` dont le DÉFAUT est l'ancienne constante, et `Session` un
+`longueur` absent partout ailleurs. **Un test compare l'appel nu à l'appel qui
+passe explicitement `FORCED_TRAP_ROUNDS`, sur quatre graines et huit niveaux** —
+sans lui, une dérive du défaut changerait le run du jour, le multi et le rejeu
+serveur en silence, et tous les scores enregistrés cesseraient d'être
+comparables. Éprouvé en cassant le défaut : il tombe.
+
+⚠️ **LA FUSION DE L'ESCALIER N'EST PAS UN MAXIMUM CHAMP PAR CHAMP** — la seule
+du dépôt qui ne le soit pas. `essais` et `meilleur` décrivent un palier PRÉCIS :
+un maximum séparé collerait « MEILLEUR ESSAI · 14 manches » sur un palier qui en
+demande 18. La loi est « le palier le plus haut gagne, avec son escorte », et à
+égalité seulement le maximum. C'est bien un treillis, donc les doubles onglets
+restent inoffensifs. Elle vit dans `shared/compte.ts` avec les autres, pas dans
+`game/` : une loi de fusion écrite deux fois diverge.
+
+**Ce que la mesure a corrigé, écran en main :**
+
+- ⚠️ **Un invariant que j'avais écrit trop large, et qui est tombé deux fois sur
+  le même palier.** « Rien ne se relâche jamais » : faux, et c'est la maquette
+  qui a raison. Le palier 11 passe de 18 à 15 manches et de 1 piège / 4 à 1 / 5,
+  parce qu'il encaisse déjà l'entrée en × 1,0 ET le retrait de l'annonce. Lui
+  demander tout en plus en ferait un mur — la falaise de la manche 3, déplacée.
+  L'invariant juste est plus étroit : **dans une volée, rien ne se relâche ;
+  changer de volée coûte toujours l'allure, strictement.** Deux tests, un par
+  moitié, sinon le second serait une échappatoire au premier.
+- **Le total de la maquette est faux** : elle annonce 371 manches sous une
+  colonne qui en fait 396. Il est donc CALCULÉ, comme la durée (≈ 13 min,
+  dérivée de `windowMs`). Les documents mentent, et la maquette aussi (§2).
+- **La marche courante s'ouvrait à 922 px dans une fenêtre de 812**, donc
+  l'écran ouvrait sur le sommet — sur ce qu'on ne peut pas jouer. Et le premier
+  correctif ne marchait pas : `scrollIntoView` sur un élément encore `hidden`
+  ne fait rien, silencieusement. Il s'appelle depuis `ouvreEscalier`, APRÈS
+  `show`.
+- **« × 1.5 » puis « × 2 »** — le point décimal est anglais, et une échelle dont
+  un cran perd sa décimale ne se lit plus comme une échelle. D'où `allureTxt`,
+  posée dans l'i18n : c'est une convention de LANGUE, comme le pluriel à zéro.
+- **La volée 1 alignait trois marches disant mot pour mot « 2 manches de plus à
+  tenir »** — la phrase est dérivée, donc juste, mais trois lignes identiques se
+  lisent comme un bug. Une marche qui n'ajoute QUE de la durée ne se nomme plus
+  dans la liste : la colonne de droite dit déjà « 10 MANCHES ». La phrase reste
+  sur la fiche, où elle est le seul texte.
+- **La coche remplaçait le numéro** : la volée 1 devenait cinq lignes sans
+  identité, alors que c'est par son numéro qu'on désigne un palier — et que
+  REPRENDRE le nomme. La coche est passée à droite.
+- **Un bouton portait une règle du jeu** (« UN PALIER RATÉ SE REJOUE · TU NE
+  REDESCENDS JAMAIS ») : un avertissement déguisé en action. La phrase est allée
+  sous la montée, le bouton dit « ◂ ESCALIER ».
+- **Le texte d'une marche se PLIE, il ne se coupe pas.** Mesuré à 1280 : 569 px
+  dans 514, donc « … et le jeu te… ». Une ellipse est bonne pour un nom, mauvaise
+  pour une explication — c'est elle qu'on vient lire.
+
+⚠️ **Un défi ou un match classé n'a JAMAIS de palier, quoi qu'il reste d'armé.**
+`openBrief` consomme l'armement — donc tout autre lancement repart à zéro, le
+garde-fou étant au point de passage commun et non sur chaque porte (leçon du
+REJOUER muet). Mais la REVANCHE d'un duel appelle `startRun(false)` sans y
+repasser : `lanceRun` ignore donc le palier dès que `challenge` ou `ranked` est
+posé. Sans ça, enchaîner un palier puis un duel ferait jouer le duel sur la
+longueur et la cadence du palier — une partie qui ne se compare plus à celle de
+l'adversaire, le seul défaut tenu pour fatal.
+
+**Ce qui n'a PAS pu être vérifié** : le mode en JEU. Le volet ne compose aucune
+frame (`requestAnimationFrame` bloqué, 0 image en 500 ms), donc le battement de
+lecture ne tombe jamais et aucun run ne démarre. La plomberie est couverte par
+les unitaires — `maxRounds`, le défaut de `forcePiege`, l'allure qui ne touche
+que la fenêtre — mais **l'annonce du piège dans la case META, la borne de fin de
+palier et le libellé « PALIER 8 FRANCHI » n'ont jamais été vus tourner.** C'est
+la première chose à regarder en soirée.
+
+**Deux choses volontairement pas faites**, et ce sont des directions :
+
+- L'escalier n'a **aucune entrée depuis l'accueil** : on y arrive par une carte
+  du carnet, puis sa fiche. C'est la boucle voulue (on se fait massacrer, la
+  règle entre au carnet, on va la travailler) mais ça fait trois clics.
+- **Sur téléphone, lancer demande de toucher la marche courante d'abord**, parce
+  que la fiche du palier est une seconde vue. La maquette met un CTA au bas de
+  la montée ; ce serait un second bouton du même nom à trois cents pixels du
+  premier — « pas une insistance, une hésitation ». À trancher en jouant.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

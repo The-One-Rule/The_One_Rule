@@ -768,7 +768,85 @@
 
           <div class="btnrow">
             <button class="btn btn--primary" id="btnFicheTrain"></button>
+            <!-- L'ESCALIER. En second, et c'est voulu : la fiche désigne déjà
+                 l'exercice qui comble la prochaine case, et c'est la réponse
+                 la plus courte. La montée est l'engagement long. -->
+            <button class="btn" id="btnFicheEsc"></button>
             <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">◂ COLLECTION</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées.
+
+           UN SEUL ÉCRAN, DEUX MISES EN PAGE. Sur téléphone, la montée et le
+           palier sont deux VUES qui alternent (`.esc.est-detail`) ; à partir
+           de 900 px, elles sont deux colonnes visibles ensemble. La maquette
+           dessine bien deux écrans mobiles distincts, mais son « glisse vers
+           le bas pour revenir » est un geste que ce dépôt n'a nulle part
+           ailleurs — un panneau qui ne se ferme que par un geste inconnu est
+           un cul-de-sac. On utilise l'idiome existant : un bouton de retour.
+
+           L'ORDRE EST DESCENDANT, comme sur la maquette : le palier 20 en
+           haut, le 1 en bas. C'est un escalier, on le monte.
+           ============================================================ -->
+      <section class="screen hidden" id="escalier">
+        <div class="screen__scroll esc" id="escBoite">
+          <div class="esc__tete">
+            <button class="esc__back" id="btnEscBack">
+              <span aria-hidden="true">&#9666;</span>
+              <span id="btnEscBackTxt"></span>
+            </button>
+            <p class="esc__ou" id="escOu"></p>
+          </div>
+
+          <!-- LA MONTÉE -->
+          <div class="esc__montee" id="escMontee">
+            <div class="esc__ident">
+              <div class="esc__vue" id="escVue"></div>
+              <div class="esc__identtxt">
+                <p class="eyebrow" id="escVolee"></p>
+                <p class="lede" id="escAjout"></p>
+              </div>
+            </div>
+
+            <!-- La jauge des vingt paliers. Une case par palier : à cette
+                 échelle une barre continue ne dirait plus « vingt marches ». -->
+            <ol class="esc__jauge" id="escJauge" aria-hidden="true"></ol>
+            <p class="esc__vers" id="escVers"></p>
+
+            <ol class="esc__liste" id="escListe"></ol>
+
+            <p class="esc__total" id="escTotal"></p>
+
+            <!-- LA SEULE RÈGLE DU MODE, ET ELLE VA SOUS LA MONTÉE.
+                 « Un palier raté se rejoue, tu ne redescends jamais » répond à
+                 la question qu'on se pose devant vingt marches — qu'est-ce que
+                 je risque ? Elle appartient donc à la vue qui les montre
+                 toutes, pas à la fiche d'une seule. -->
+            <p class="esc__note" id="escNote"></p>
+          </div>
+
+          <!-- LE PALIER -->
+          <div class="esc__palier" id="escPalier">
+            <p class="eyebrow" id="palVolee"></p>
+            <div class="pal__tete">
+              <h2 class="pal__nom" id="palNom"></h2>
+              <span class="pal__jauge" id="palEssai"></span>
+            </div>
+
+            <p class="eyebrow" id="palAjoutTitre"></p>
+            <p class="piege" id="palAjout"></p>
+
+            <div class="pal__chiffres" id="palChiffres"></div>
+
+            <p class="pal__meilleur" id="palMeilleur"></p>
+
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnPalGo"></button>
+              <button class="btn btn--ghost" id="btnPalBack"></button>
+            </div>
           </div>
         </div>
       </section>

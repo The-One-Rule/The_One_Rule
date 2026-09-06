@@ -178,10 +178,17 @@ describe("REJOUER — le run du jour se rejoue tant qu'il reste un essai", () =>
    * devant l'autorisation.
    */
   const source = readFileSync("src/main.ts", "utf8");
-  const corps = source.slice(
-    source.indexOf("function replay()"),
-    source.indexOf("function replay()") + 1800,
-  );
+  /*
+   * ⚠️ ON DÉCOUPE JUSQU'À L'ACCOLADE FERMANTE, PAS SUR UN NOMBRE D'OCTETS.
+   *
+   * La fenêtre était de 1800 caractères. Ajouter un commentaire dans
+   * `replay()` a repoussé l'appel hors de cette fenêtre, et les deux
+   * assertions se sont mises à décrire du code qu'elles ne lisaient plus —
+   * l'une en échouant, l'autre en passant pour rien. Une borne qui dépend de
+   * la longueur des commentaires n'est pas une borne.
+   */
+  const debut = source.indexOf("function replay()");
+  const corps = source.slice(debut, source.indexOf("\n}", debut) + 2);
 
   it("replay() ne sort plus sans rien faire sur le run du jour", () => {
     expect(
