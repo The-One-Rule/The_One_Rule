@@ -2131,6 +2131,20 @@ posé. Sans ça, enchaîner un palier puis un duel ferait jouer le duel sur la
 longueur et la cadence du palier — une partie qui ne se compare plus à celle de
 l'adversaire, le seul défaut tenu pour fatal.
 
+**L'escalier SUIT le compte, et il ne le demande jamais.** Décision n°12 : aucun
+verrou, aucun bouton masqué, il vit en `localStorage` comme le reste. Et il fait
+le voyage — `tests/carnet-voyage.test.ts` déroule les cinq étapes réelles
+(`agregatsDe` → JSON → `litAgregats` qui RECONSTRUIT → `fusionne` → un second
+appareil vierge) et compare l'entrée ENTIÈRE à l'arrivée.
+
+⚠️ **Ce fichier ne teste pas une liste de champs, il teste LA liste.** Il retire
+chaque clé du carnet à tour de rôle et exige que l'arrivée diffère — donc il
+prouve que les huit champs sont réellement câblés, et le dix-septième le sera
+aussi sans qu'on y pense. Il manquait : `tests/revendication.test.ts` ne couvrait
+que `best`, `cleared` et `pieges`, alors que la panne décrite au §12 (« un champ
+oublié se voit seulement quand un joueur change d'appareil ») avait déjà été
+payée une fois.
+
 **Ce qui n'a PAS pu être vérifié** : le mode en JEU. Le volet ne compose aucune
 frame (`requestAnimationFrame` bloqué, 0 image en 500 ms), donc le battement de
 lecture ne tombe jamais et aucun run ne démarre. La plomberie est couverte par
