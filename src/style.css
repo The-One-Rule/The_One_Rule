@@ -5836,7 +5836,15 @@ button.chip:active:not(:disabled) {
    * le bas de la faille passait sous la ligne de flottaison — or c'est la
    * vitrine, et une vitrine coupee ne montre rien.
    */
-  min-height: clamp(300px, 44vh, 440px);
+  /*
+   * ⚠️ RABAISSÉE POUR PAYER LA DÉMO — de `clamp(300px, 44vh, 440px)`.
+   *
+   * Mesurée à 382 px sur un 375 × 812, la faille occupait 47 % de la page pour
+   * porter deux libellés et deux descriptions, c'est-à-dire un menu à deux
+   * entrées que la barre du bas propose déjà. Elle reste la vitrine ; elle
+   * cesse d'être le corps de l'écran.
+   */
+  min-height: clamp(240px, 34vh, 400px);
   margin-top: var(--sp-2);
   flex: 1 1 auto;
   isolation: isolate;
@@ -12591,6 +12599,85 @@ button.chip:active:not(:disabled) {
   font-size: 13px;
   line-height: 1.45;
   letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------------
+ * L'ACCROCHE DE L'ACCUEIL — la démo qui montre le piège
+ *
+ * ⚠️ ELLE S'APPELAIT `.demo`, ET C'ÉTAIT UNE COLLISION DE CLASSE.
+ *
+ * `.demo` existait déjà : c'est l'explicatif à deux cas du repli « COMMENT ÇA
+ * MARCHE », dans le brief. Ma déclaration lui posait une bordure, un fond et un
+ * grain qu'il n'a jamais demandés, et son `display: grid` enfermait en retour
+ * mon canvas dans une piste de 350 px au lieu des 718 disponibles — mesuré.
+ *
+ * La moitié VISIBLE du bug (un canvas à moitié vide) m'a mis sur la piste ; la
+ * moitié invisible — un composant que je n'ai jamais regardé, repeint — est
+ * celle qui aurait duré. C'est exactement la collision `.piege` que ce dépôt a
+ * déjà payée, à 1400 lignes d'écart et invisible pendant des semaines.
+ *
+ * ⚠️ **ELLE SE PAIE, ET LE PRIX EST ÉCRIT.** L'accueil tient au pixel près sur
+ * un téléphone — c'est mesuré, et deux blocs y ont déjà été refusés pour ça.
+ * Les 96 px de la bande sont donc PRIS à la faille, dont la hauteur minimale
+ * passe de `clamp(300px, 44vh, 440px)` à `clamp(240px, 34vh, 400px)`.
+ *
+ * C'est le bon échange : la faille mesurait 382 px pour porter deux libellés et
+ * deux lignes de description, soit 47 % de la page pour un menu à deux entrées
+ * — alors que la barre du bas porte déjà les mêmes deux portes. La démo, elle,
+ * est la seule chose de l'écran qui montre le JEU.
+ * ------------------------------------------------------------------ */
+
+.accroche {
+  width: 100%;
+  /*
+   * ⚠️ LA HAUTEUR EST PORTÉE PAR LE CANVAS, PAS PAR SON CADRE.
+   *
+   * Premier essai : `height: 96px` ici et `height: 100%` sur le canvas.
+   * Mesuré — le cadre faisait bien 96 px, le canvas 170. Un pourcentage de
+   * hauteur ne se résout pas toujours sur un enfant remplacé, et le canvas
+   * retombe alors sur son RATIO INTRINSÈQUE (300 × 150) : à 339 px de large,
+   * ça donne exactement 169,5. Il débordait donc de son propre cadre, sans
+   * erreur et sans rien de rouge.
+   *
+   * Une seule déclaration de hauteur, sur l'élément qui la porte vraiment.
+   */
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  /* Le grain de la couche pixel, pour que la bande appartienne à l'écran. */
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--signal) 6%, transparent) 0 2px,
+    transparent 2px 4px
+  );
+}
+
+.accroche__cvs {
+  display: block;
+  width: 100%;
+  height: 108px;
+}
+
+/*
+ * ⚠️ L'AIDE CLAVIER NE S'AFFICHE PAS LÀ OÙ IL N'Y A PAS DE CLAVIER.
+ *
+ * Relevé sur un 375 × 812 : « SOURIS ET CLAVIER · R POUR RELANCER · ÉCHAP POUR
+ * LE MENU », en toutes lettres, sur un écran qui n'a ni souris, ni R, ni Échap.
+ * Ce n'est pas seulement du bruit — ça dit au visiteur mobile que le jeu n'est
+ * pas fait pour lui, sur la seule page qu'il lira jamais.
+ *
+ * Le test porte sur la CAPACITÉ, pas sur la largeur : une tablette avec un
+ * clavier garde la ligne, un grand téléphone la perd. `pointer: coarse` +
+ * `hover: none` est exactement « doigt, pas souris ».
+ *
+ * ⚠️ En CSS et non en JS : `.fineprint` porte deux `<b>`, et l'écrire en
+ * `textContent` les détruirait — le piège des cartes de l'accueil, payé trois
+ * fois dans ce dépôt.
+ */
+@media (hover: none) and (pointer: coarse) {
+  #homeFineprint,
+  #reglagesFineprint {
+    display: none;
+  }
 }
 
 /* ------------------------------------------------------------------

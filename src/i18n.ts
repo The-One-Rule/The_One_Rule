@@ -889,6 +889,19 @@ type Dyn = {
    * figées par langue dériveraient de la table dès le premier chiffre changé,
    * et rien ne le dirait.
    */
+  /* ---- LA DÉMO DE L'ACCUEIL ---- */
+  /*
+   * ⚠️ CES CINQ CHAÎNES SONT DU CONTENU DE JEU, PAS DE L'INTERFACE. Elles
+   * imitent une manche : une règle unique, deux consignes, deux verdicts. Elles
+   * doivent donc suivre le vocabulaire réel — « PIÈGE DÉJOUÉ » est le mot que le
+   * jeu emploie, et en inventer un autre ici apprendrait un lexique faux.
+   */
+  demoRegle: string;
+  demoConsigneA: string;
+  demoConsigneB: string;
+  demoVerdictA: string;
+  demoVerdictB: string;
+
   /* ---- L'EXPLOIT DE FIN DE RUN, ET LA CARTE DE PARTAGE ---- */
   /** Le bandeau, quand le record tombe. */
   finRecordTitre: string;
@@ -1402,6 +1415,11 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "SÉRIE",
     bilanCarnet: "CARNET",
 
+    demoRegle: "TA RÈGLE · JAMAIS DE ROUGE",
+    demoConsigneA: "Clique le rond bleu",
+    demoConsigneB: "Clique le carré rouge",
+    demoVerdictA: "TENU",
+    demoVerdictB: "PIÈGE DÉJOUÉ",
     finRecordTitre: "TU AS BATTU TON RECORD",
     finRecordAncien: (n) => `ANCIEN · ${n}`,
     finRecordAvance: (n) => `+${n}`,
@@ -1860,6 +1878,11 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "STREAK",
     bilanCarnet: "CODEX",
 
+    demoRegle: "YOUR RULE · NEVER RED",
+    demoConsigneA: "Click the blue circle",
+    demoConsigneB: "Click the red square",
+    demoVerdictA: "HELD",
+    demoVerdictB: "TRAP AVOIDED",
     finRecordTitre: "YOU BEAT YOUR RECORD",
     finRecordAncien: (n) => `PREVIOUS · ${n}`,
     finRecordAvance: (n) => `+${n}`,

@@ -2219,6 +2219,116 @@ et c'est le rapport qui tranchera.
 ⚠️ `share_carte` a dû entrer dans les DEUX listes blanches (`src/analytics/` et
 `api/collect.ts`), qui rejette en silence tout nom absent.
 
+### L'accueil montre enfin le jeu — et trois bugs trouvés en le posant
+
+**Le chiffre :** 118 nouveaux visiteurs sur 159 (**74 %**) repartent sans lancer
+une partie, médiane 6 secondes. L'onboarding ne peut rien y faire — il ne
+s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
+franchissent pas. Or l'accueil ne montrait **aucun jeu** : pas une image, pas un
+mouvement. Un jeu de réflexes se comprend en deux secondes de vidéo.
+
+`src/render/demo.ts` — une boucle de 8,6 s qui joue DEUX manches : une ordinaire
+pour poser la mécanique, une **piégée** pour la retourner. Elle s'arrête là.
+
+⚠️ **Ce qu'elle montre n'est pas « le jeu », c'est LE PIÈGE** — la seule chose
+non copiable de TOR, et la plus difficile à deviner puisque seules **5,4 %** des
+manches en produisent un.
+
+⚠️ **C'est une AFFICHE, pas un tutoriel, et la distinction est écrite.** Le dépôt
+tient que « un tutoriel qui simule le jeu enseigne un jeu qui n'existe pas » —
+d'où `game/onboarding.ts` sur le vrai terrain. Ici c'est impossible : une manche
+réelle compte quinze pièces sur 1000 × 420, illisible dans une bande de 108 px.
+On montre donc **une rangée de la grille 5 × 3** — une tranche exacte, pas une
+invention — avec les mêmes formes, les mêmes quatre teintes et le même verdict.
+
+**Elle se paie, et le prix est écrit** : la faille passe de `clamp(300px, 44vh,
+440px)` à `clamp(240px, 34vh, 400px)`. Elle mesurait 382 px sur un 375 × 812,
+soit 47 % de la page, pour porter deux libellés et deux descriptions —
+c'est-à-dire un menu à deux entrées que la barre du bas propose déjà. Mesuré
+après : chapo 152→260, accroche 260→370, faille 444→720, barre 749→812, **aucun
+défilement**.
+
+#### Trois bugs, tous trouvés en mesurant, aucun en relisant
+
+⚠️ **UNE COLLISION DE CLASSE, la deuxième du dépôt.** Ma bande s'appelait
+`.demo` — et `.demo` existait déjà : c'est l'explicatif à deux cas du repli
+« COMMENT ÇA MARCHE » du brief. Ma déclaration lui posait une bordure, un fond
+et un grain qu'il n'a jamais demandés ; son `display: grid` enfermait en retour
+mon canvas dans une piste de **350 px pour 718 disponibles**. La moitié VISIBLE
+(un canvas à moitié vide) m'a mis sur la piste ; la moitié invisible — un
+composant jamais regardé, repeint — est celle qui aurait duré. Renommée
+`.accroche`. C'est exactement `.piege`, à 1400 lignes d'écart, invisible pendant
+des semaines.
+
+⚠️ **PAS DE FILET GÉNÉRAL CONTRE ÇA, et c'est mesuré :** 127 classes de la
+feuille ont déjà plusieurs blocs racine (`.over__head` 5 fois, `.verdict` 5,
+`.card` 4…), et la plupart sont des raffinements voulus. Un allowlist de 127
+entrées serait du bruit, pas un filet. Le seul geste qui marche reste manuel :
+**avant d'ajouter une classe, `grep` la feuille.**
+
+⚠️ **UNE APPLICATION N'A QU'UNE BOUCLE.** La démo avait d'abord son propre
+`requestAnimationFrame`. `tests/smoke.test.ts` est tombé — son harnais ne retient
+que la DERNIÈRE callback enregistrée pour dérouler les frames à la main, donc la
+démo écrasait celle du jeu, le battement de lecture ne tombait jamais et aucun
+run ne démarrait. Symptôme affiché : « le brief ne se ferme pas », qui ne désigne
+rien de ce qui était cassé. Mais le vrai défaut n'est pas dans le harnais : c'est
+déjà la doctrine du battement de lecture, et pour les mêmes raisons — un filet
+qui déroule des frames voit tout, rien ne court sur un onglet qui ne compose pas,
+et **un décor ne doit jamais pouvoir affamer le jeu**. La boucle de `main.ts`
+peint la démo quand `screen === "home"`.
+
+⚠️ **`height: 100%` NE SE RÉSOUT PAS SUR UN CANVAS.** Cadre à 96 px, canvas
+mesuré à **170** : il retombait sur son ratio intrinsèque (300 × 150), soit
+169,5 à 339 px de large, et débordait de son propre cadre sans une erreur. La
+hauteur est portée par le canvas, une seule fois.
+
+⚠️ Et un quatrième, trouvé par son test : le curseur de la manche piégée
+descendait à **−2,78** après le renoncement (une borne manquante sur le temps).
+Invisible — le pinceau dessine à une coordonnée négative sans se plaindre.
+
+**Ce qui reste, et qui appartient à Pierre** : le doublon MULTI (faille + barre)
+est structurel — la faille et la barre sont deux fois la même navigation, et
+choisir laquelle perd veut dire toucher à la vitrine. ⚠️ Et `accueil_premier_clic`
+n'a **toujours pas été lu** : ces correctifs sont des incohérences réparées, pas
+une refonte informée par la mesure.
+
+### Le bug livré à un joueur : la montée repartait de zéro à chaque run
+
+Rapporté en playtest, mot pour mot : « impossible d'aller au-delà de l'étape 2,
+même en la réussissant ». Capture à l'appui, l'écran affichait pourtant
+« PALIER 2 FRANCHI ».
+
+⚠️ **`majCarnet` RECONSTRUIT l'entrée du carnet, elle ne la complète pas.** Tout
+champ qu'elle ne nomme pas est effacé à chaque run. Le §12 nomme pourtant les
+TROIS bouts où un champ neuf doit être branché — `majCarnet`, `fusionne`, le
+nettoyage de `api/moi.ts`. En ajoutant `escalier` j'en ai câblé deux et sauté
+celui qui est cité en PREMIER, qui est justement le seul à tourner à chaque
+partie.
+
+Le mécanisme, dans l'ordre : un run de palier écrivait `majCarnet(...)`, qui
+rendait une entrée SANS escalier ; la ligne suivante relisait cette entrée pour y
+trouver la montée, tombait sur « pas commencée », et repartait du palier 1. Le
+libellé « PALIER 2 FRANCHI » vient du palier JOUÉ et non de l'état enregistré :
+**le jeu annonçait une victoire qu'il venait d'effacer.**
+
+⚠️ **Ça mordait bien au-delà de l'escalier** : n'importe quel run d'entraînement
+ou du jour passe par `majCarnet`, donc jouer QUOI QUE CE SOIT détruisait la
+montée — sans rapport apparent et sans rien à l'écran.
+
+**Le report est posé EN PREMIER dans l'objet rendu**, donc tout ce que la
+fonction calcule vraiment l'écrase. Un `...prev` placé après annulerait chaque
+mise à jour et le carnet cesserait d'avancer : un bug aussi silencieux, en sens
+inverse. Il a son test.
+
+⚠️ **`tests/carnet-voyage.test.ts` ne pouvait pas le voir** — il éprouve le
+voyage entre deux appareils, pas le chemin d'un run. D'où
+`tests/majcarnet.test.ts`, qui exige qu'aucun champ ne se perde ICI et qui
+grimpe les vingt paliers par la séquence réelle de `finishRun`. Éprouvé en
+remettant la faute : deux assertions tombent.
+
+⚠️ **Aucune donnée n'est corrompue.** Les sauvegardes touchées portent
+`{ palier: 1 }` : les joueurs reprennent au palier 2 et progressent normalement.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

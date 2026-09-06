@@ -46,7 +46,9 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { MEILLEUR_CONNU, vueBut } from "./render/but";
+import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
+import { creeDemo } from "./render/demo";
+import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -287,6 +289,41 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "reglages",
 ]);
 
+/* ------------------------------------------------------------------ *
+ * LA DÉMO DE L'ACCUEIL
+ *
+ * ⚠️ Elle ne tourne QUE sur l'accueil. `show` est le passage obligé de tout
+ * changement d'écran : la brancher là couvre aussi les sorties qu'on n'a pas
+ * prévues — une invitation qui arrive, un lien de défi, une reprise de salon —
+ * exactement comme le battement de lecture. Une boucle `rAF` oubliée en pleine
+ * partie prendrait des images au jeu, et la taille du champ EST du gameplay.
+ * ------------------------------------------------------------------ */
+
+const textesDemo = (): TextesDemo => ({
+  regle: t("demoRegle"),
+  consigneA: t("demoConsigneA"),
+  consigneB: t("demoConsigneB"),
+  verdictA: t("demoVerdictA"),
+  verdictB: t("demoVerdictB"),
+});
+
+/*
+ * ⚠️ CONSTRUITE PARESSEUSEMENT, ET C'EST UNE LEÇON DÉJÀ PAYÉE.
+ *
+ * `createMulti()` s'exécutait pendant l'évaluation du module, donc AVANT que la
+ * langue enregistrée soit posée : les six émotes restaient françaises pour
+ * toujours. Une démo bâtie au chargement aurait le même défaut, sur cinq
+ * chaînes de plus. On la crée au premier affichage de l'accueil, quand la
+ * langue est connue.
+ */
+let demo: Demo | null = null;
+
+function demoSuitEcran(id: ScreenId): void {
+  if (id !== "home") return;
+  demo ??= creeDemo($<HTMLCanvasElement>("demoCvs"), textesDemo());
+  demo.reprend();
+}
+
 function show(id: ScreenId): void {
   /*
    * Quitter le brief ANNULE le battement de lecture.
@@ -343,6 +380,7 @@ function show(id: ScreenId): void {
     poseBarre();
     majNav();
   }
+  demoSuitEcran(id);
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -507,6 +545,10 @@ function choisitLangue(lang: Lang): void {
   renderHome();
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
+  // La demo non plus : ses cinq chaines sont peintes dans un canvas, donc
+  // invisibles a tout balayage du DOM. C'est exactement par la que les six
+  // emotes du multi etaient restees francaises.
+  demo?.rafraichit(textesDemo());
 }
 
 /**
@@ -2498,10 +2540,26 @@ function peintBut(sien: number | null, duJour: number | null): void {
    * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
    * la place, il n'y a aucune raison de choisir.
    */
-  $("ledeHome").classList.toggle("hidden", !(LARGE?.matches ?? false));
-  $("but").classList.remove("hidden");
-  $("butPlein").classList.toggle("hidden", but.cible === null);
-  $("butVide").classList.toggle("hidden", but.cible !== null);
+  /*
+   * ⚠️ CE N'EST PLUS LA LARGEUR QUI DÉCIDE, C'EST CE QU'IL Y A À DIRE.
+   *
+   * L'ancienne ligne masquait le chapo sous 900 px, point. Relevé en arrivant
+   * sur le site avec un `localStorage` vide, à 375 × 812 — l'état exact des
+   * 74 % qui repartent en 6 secondes — le texte INTÉGRAL de la page était :
+   * « THE ONE RULE · PERSONNE N'A ENCORE JOUÉ · Sois le premier · TENTER LA RUN
+   * DU JOUR · SOLO · MULTI ». Nulle part il n'était dit ce qu'on fait ici.
+   *
+   * La priorité vit dans `render/but.ts`, pure et testée, avec sa raison.
+   */
+  const s = P.load();
+  // « Connaît le jeu » = a déjà rencontré une règle, ou fait le tutoriel. Le
+  // carnet est le bon marqueur : il ne se remplit qu'en JOUANT.
+  const connait = Object.keys(s.encountered).length > 0 || s.onboarded === true;
+  const vue = vueAccueil(but.cible !== null, connait, LARGE?.matches ?? false);
+  $("ledeHome").classList.toggle("hidden", !vue.chapo);
+  $("but").classList.toggle("hidden", vue.bloc === "rien");
+  $("butPlein").classList.toggle("hidden", vue.bloc !== "objectif");
+  $("butVide").classList.toggle("hidden", vue.bloc !== "invitation");
   if (!but.cible) return;
 
   // Le chiffre NU et son unite dessous : c'est la composition de la maquette,
@@ -3451,6 +3509,20 @@ function finishRun(): void {
      * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
      */
     const surPalier = palierEnCours !== null;
+    /*
+     * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
+     *
+     * Elle se lisait après, sur l'entrée que `majCarnet` venait de rendre — ce
+     * qui marche tant que `majCarnet` recopie le champ, et rate en silence dès
+     * qu'il l'oublie. C'est exactement ce qui s'est produit, et le symptôme
+     * était « impossible d'aller au-delà de l'étape 2 ».
+     *
+     * `majCarnet` porte désormais le champ, donc les deux lectures donneraient
+     * le même résultat. On garde quand même celle-ci : elle ne DÉPEND plus de
+     * ce que fait la fonction d'à côté, et c'est la même précaution que la
+     * photo d'`avant` prise deux lignes plus haut.
+     */
+    const monteeAvant = st.encountered[rule.id]?.escalier ?? ESC.ESCALIER_VIERGE;
     st.encountered[rule.id] = P.majCarnet(
       st.encountered[rule.id],
       end.score,
@@ -3459,8 +3531,7 @@ function finishRun(): void {
       surPalier ? undefined : { allure: pace, ...lisRun(end.marks) },
     );
     if (surPalier) {
-      const av = st.encountered[rule.id]!.escalier ?? ESC.ESCALIER_VIERGE;
-      st.encountered[rule.id]!.escalier = ESC.majEscalier(av, end.score);
+      st.encountered[rule.id]!.escalier = ESC.majEscalier(monteeAvant, end.score);
     } else {
       // `recent` calibre la quête de performance et la médiane de l'écran de
       // fin. Un palier plafonné à cinq manches la ferait mentir vers le bas,
@@ -5050,6 +5121,16 @@ const heatOf = (ratio: number, level: number): number =>
 
 function loop(now: number): void {
   requestAnimationFrame(loop);
+
+  /*
+   * La démo de l'accueil, et RIEN d'autre quand on y est.
+   *
+   * Elle est peinte par cette boucle plutôt que par la sienne : une
+   * application n'a qu'une horloge, et un décor ne doit jamais pouvoir
+   * disputer ses images au jeu. Le test `screen === "home"` suffit à la
+   * couper — l'accueil est en `display: none` dès qu'on joue.
+   */
+  if (screen === "home") demo?.image(now);
 
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.

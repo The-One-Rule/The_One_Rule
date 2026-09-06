@@ -334,6 +334,20 @@
                  l'entrainement font ce travail mieux qu'elle. -->
             <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
 
+            <!-- LA DEMO — six secondes, muettes, qui montrent le PIEGE.
+                 74 % des nouveaux visiteurs repartent sans lancer une partie,
+                 mediane 6 secondes, et l'accueil ne montrait aucun jeu. Un jeu
+                 de reflexes se comprend en deux secondes de video et pas du
+                 tout en trois lignes de texte.
+
+                 ⚠️ DECORATIVE ET `aria-hidden` : tout ce qu'elle dit, le chapo
+                 le dit deja en toutes lettres juste au-dessus. C'est la
+                 condition pour qu'elle puisse etre figee sans rien perdre —
+                 `prefers-reduced-motion` l'arrete sur l'image du piege dejoue. -->
+            <div class="accroche" id="demoBoite" aria-hidden="true">
+              <canvas class="accroche__cvs" id="demoCvs"></canvas>
+            </div>
+
             <!-- LA CARTE DE RECORD — celle du RUN DU JOUR, et de rien d'autre.
                  Elle PREND LA PLACE du chapo, elle ne s'y ajoute pas : mesure
                  qui a impose ca, sur 375x812 la faille finissait deja a y=818
