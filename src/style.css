@@ -12593,6 +12593,70 @@ button.chip:active:not(:disabled) {
   letter-spacing: 0;
 }
 
+/* ------------------------------------------------------------------
+ * LE RECORD BATTU, sur l'écran de fin
+ *
+ * Le seul accent chaud de cet écran. L'ambre est déjà la couleur de l'état
+ * PARFAITE et de la pastille du run du jour : un joueur qui l'a vue là la
+ * reconnaît ici.
+ * ------------------------------------------------------------------ */
+
+.exploit {
+  margin: 10px auto 0;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: var(--bd-hair) solid color-mix(in srgb, var(--ambre) 55%, var(--line));
+  /*
+   * La trame rayée de la maquette, en `repeating-linear-gradient` — la même
+   * matière que le cadre en marches de la couche pixel, et le même angle. Ce
+   * n'est pas un dégradé : deux couleurs franches, aucune transition.
+   */
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--ambre) 14%, transparent) 0 6px,
+      transparent 6px 12px
+    ),
+    var(--ink-2);
+}
+
+.exploit.hidden {
+  display: none;
+}
+
+.exploit__titre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ambre);
+}
+
+.exploit__chiffres {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.exploit__chiffres b {
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ambre);
+}
+
+/* Rien à montrer : l'écart est nul (record égalé), la case reste vide. */
+.exploit__chiffres b:empty {
+  display: none;
+}
+
 /* ==================================================================
  * L'ESCALIER D'UNE RÈGLE
  *

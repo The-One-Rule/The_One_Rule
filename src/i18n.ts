@@ -889,6 +889,32 @@ type Dyn = {
    * figées par langue dériveraient de la table dès le premier chiffre changé,
    * et rien ne le dirait.
    */
+  /* ---- L'EXPLOIT DE FIN DE RUN, ET LA CARTE DE PARTAGE ---- */
+  /** Le bandeau, quand le record tombe. */
+  finRecordTitre: string;
+  /** « ANCIEN · 23 » — ce qu'on vient de dépasser. */
+  finRecordAncien: (n: number) => string;
+  /** « +8 » — l'écart, seul chiffre qui dise la taille du progrès. */
+  finRecordAvance: (n: number) => string;
+  /** Le record ÉGALÉ. Un mot différent : « record » doit rester rare. */
+  finEgaleTitre: string;
+  /** L'exploit tel qu'il paraît SUR la carte de partage, en une ligne. */
+  finRecordCarte: (n: number) => string;
+  /** Le bouton, et son accusé de réception. */
+  finCarte: string;
+  finCartePrete: string;
+  finCarteRatee: string;
+  /**
+   * Le slogan, imprimé sur la carte.
+   *
+   * ⚠️ C'est la seule phrase de l'image qui s'adresse à quelqu'un qui n'a jamais
+   * ouvert le jeu — donc la seule chose qui puisse transformer une capture en
+   * visite. Il est repris du `<title>`, mot pour mot : deux formulations
+   * différentes du même jeu dilueraient l'une et l'autre.
+   */
+  slogan: string;
+  modeClasse: string;
+
   /**
    * Une ALLURE écrite : « 1,5 » en français, « 1.5 » en anglais.
    *
@@ -1376,6 +1402,16 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "SÉRIE",
     bilanCarnet: "CARNET",
 
+    finRecordTitre: "TU AS BATTU TON RECORD",
+    finRecordAncien: (n) => `ANCIEN · ${n}`,
+    finRecordAvance: (n) => `+${n}`,
+    finEgaleTitre: "TU AS ÉGALÉ TON RECORD",
+    finRecordCarte: (n) => `NOUVEAU RECORD · +${n}`,
+    finCarte: "CARTE À PARTAGER",
+    finCartePrete: "CARTE PRÊTE",
+    finCarteRatee: "CARTE IMPOSSIBLE ICI",
+    slogan: "PARFOIS, OBÉIR EST LA FAUTE",
+    modeClasse: "CLASSÉ",
     allureTxt: (a) => a.toFixed(1).replace(".", ","),
     escTitre: "ESCALIER",
     escRetour: "ESCALIER",
@@ -1824,6 +1860,16 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "STREAK",
     bilanCarnet: "CODEX",
 
+    finRecordTitre: "YOU BEAT YOUR RECORD",
+    finRecordAncien: (n) => `PREVIOUS · ${n}`,
+    finRecordAvance: (n) => `+${n}`,
+    finEgaleTitre: "YOU MATCHED YOUR RECORD",
+    finRecordCarte: (n) => `NEW RECORD · +${n}`,
+    finCarte: "SHAREABLE CARD",
+    finCartePrete: "CARD READY",
+    finCarteRatee: "NO CARD HERE",
+    slogan: "SOMETIMES, OBEYING IS THE MISTAKE",
+    modeClasse: "RANKED",
     allureTxt: (a) => a.toFixed(1),
     escTitre: "THE CLIMB",
     escRetour: "THE CLIMB",

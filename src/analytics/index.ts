@@ -32,6 +32,7 @@ export const EVENT_NAMES = [
   "run_end",
   "quest_complete",
   "share",
+  "share_carte",
   "duel_sent",
   "duel_opened",
   "invite_sent",

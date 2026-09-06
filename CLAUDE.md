@@ -2163,6 +2163,62 @@ la première chose à regarder en soirée.
   la montée ; ce serait un second bouton du même nom à trois cents pixels du
   premier — « pas une insistance, une hésitation ». À trancher en jouant.
 
+### L'écran de fin : le record battu, et la carte de partage
+
+Les deux derniers morceaux de la maquette. ⚠️ **Trois autres points de la même
+liste étaient DÉJÀ FAITS** — les vies dans le bandeau, « RECORD DÉPASSÉ » au
+pied, les équerres du terrain — et le quatrième (la série) existe là où il veut
+dire quelque chose : `plate__streak` en multi, dès ×3. En solo après
+l'échauffement, la série ÉGALE le score, donc l'afficher ne dirait rien. Encore
+le §2 : mesurer avant de refaire.
+
+**`render/exploit.ts` est le CINQUIÈME module de priorité pure** du dépôt, après
+`plate`, `seat`, `jour` et `but`. Les quatre précédents ont été extraits APRÈS
+un bug ; celui-ci l'est avant, ce qui est le seul progrès possible.
+
+⚠️ **Le bandeau REMPLACE le repère « TON RECORD », il ne s'y ajoute pas** —
+sinon « TON RECORD · 23 » se lit sous « TU AS BATTU TON RECORD » à un
+centimètre d'intervalle.
+
+⚠️ **Trois modes n'ont pas de record personnel à battre**, et aucun pour la même
+raison : le run du jour se mesure « SUR 40 », un palier d'escalier est PLAFONNÉ
+par construction (féliciter quelqu'un d'avoir atteint la cible qu'on lui a fixée
+est une flatterie), un duel se juge contre l'adversaire.
+
+⚠️ **Battre zéro n'est pas un exploit.** Le premier run d'un joueur a une
+médiane de QUATRE manches : sans cette garde, l'écran lui annonce un « NOUVEAU
+RECORD » à 4 et lui apprend du même coup que le mot ne vaut rien.
+
+⚠️ **RECORD ÉGALÉ se dit, mais pas avec le même mot.** Le joueur sait qu'il
+vient de refaire son meilleur score — le pied affichait « TON RECORD · 23 »
+pendant qu'il montait à 23 — et un écran muet passe pour ne pas l'avoir vu. Mais
+l'écart reste VIDE : « +0 » se lirait comme un progrès nul.
+
+**La carte de partage.** Le partage texte est à **0 % sur trois relevés et 203
+joueurs** — jour 2 (14), jour 3 (50), jours 238-245 (139) — et le bouton
+existait à chaque fois. L'hypothèse testée : ce qui manquait n'est pas le bouton
+mais l'OBJET. Trois lignes collées dans une conversation ne se distinguent
+d'aucun autre message ; une image se reconnaît et porte l'adresse du jeu sur
+elle. **Le bouton texte RESTE** : `share` et `share_carte` sont deux événements,
+et c'est le rapport qui tranchera.
+
+- ⚠️ **On attend `document.fonts.ready`.** Un canvas qui dessine avant Inter et
+  JetBrains Mono retombe sur la police système SANS ERREUR — l'image part, hors
+  marque. Même famille que les emoji écartés des pictogrammes de l'accueil.
+- ⚠️ **On ne retombe PAS sur le partage texte** si l'image échoue : le joueur a
+  demandé une carte, lui envoyer trois lignes serait un refus déguisé en succès.
+- ⚠️ **La frise a dû monter et grossir.** Premier rendu mesuré à l'écran : 26 px
+  de côté ancrés au bas de la carte, donc 250 px de vide au milieu et une bande
+  si fine qu'elle se lisait comme une décoration. Or la frise EST le récit du
+  run — la seule partie qui dise COMMENT ça s'est passé, pas seulement combien.
+- Bornée à 60 marques, et ce sont les DERNIÈRES : un run de 201 manches donnerait
+  201 carrés de 5 px, c'est-à-dire du bruit.
+- `donneesCarte` est PURE et testée, `dessineCarte` ne fait que peindre. Sans
+  cette coupe rien ne serait vérifiable : jsdom n'a pas de canvas.
+
+⚠️ `share_carte` a dû entrer dans les DEUX listes blanches (`src/analytics/` et
+`api/collect.ts`), qui rejette en silence tout nom absent.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

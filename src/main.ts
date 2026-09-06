@@ -17,6 +17,8 @@ import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as ESC from "./game/escalier";
+import { exploitDuRun } from "./render/exploit";
+import { dessineCarte, donneesCarte } from "./render/partage";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
@@ -1920,6 +1922,19 @@ function openBrief(mode: Mode): void {
 /** Vrai dès que la fin de l'échauffement a été annoncée, pour ce run-là. */
 let finEchauffementDite = false;
 
+/*
+ * CE QUE LE DERNIER RUN A ÉTÉ — retenu pour l'écran de fin et pour la carte.
+ *
+ * `palierEnCours` reste posé jusqu'au prochain `openBrief`, mais s'y fier
+ * depuis l'écran de fin ferait dépendre l'affichage d'un état qu'un autre
+ * chemin peut effacer entre-temps. On fige les deux valeurs au moment où le
+ * run se termine, comme `lastRun` fige déjà le reste — c'est la même leçon que
+ * « une valeur mémorisée doit l'être à un instant où l'on sait ce qu'elle
+ * vaut ».
+ */
+let palierDuDernierRun: ESC.Palier | undefined;
+let avanceDuRun = 0;
+
 /**
  * LE BATTEMENT DE LECTURE, entre COMMENCER et la première consigne.
  *
@@ -3387,6 +3402,7 @@ function finishRun(): void {
   const { end, rule, mode } = session;
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
+  palierDuDernierRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
   let avant: P.RuleRecord | undefined;
@@ -3595,7 +3611,7 @@ function finishRun(): void {
    * doit apprendre au joueur d'un palier — le reste (record, médiane) parle
    * d'une autre épreuve.
    */
-  const palFini = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
+  const palFini = palierDuDernierRun;
   $("tally").textContent = String(mode === "escalade" ? paliers : end.score);
   $("tallyLabel").textContent =
     mode === "escalade"
@@ -3639,10 +3655,42 @@ function finishRun(): void {
    * jouer. Meme raison pour la mediane sous trois runs. Le meilleur connu,
    * lui, existe toujours — c'est l'horizon, pas une donnee personnelle.
    */
-  if (recordAvantRun > 0) morceaux.push(t("finReperRecord")(recordAvantRun));
+  /*
+   * L'EXPLOIT — et le repère qu'il REMPLACE.
+   *
+   * Un run qui bat le record ne doit pas afficher « TON RECORD · 23 » sous
+   * « TU AS BATTU TON RECORD » : les deux lignes se contredisent à un
+   * centimètre d'intervalle, et la seconde a déjà dit le chiffre. Le bandeau
+   * prend donc la place du repère plutôt que de s'y ajouter.
+   *
+   * ⚠️ Trois modes n'ont PAS de record personnel à battre, et aucun pour la
+   * même raison — voir `render/exploit.ts`. Le calcul est là-bas, pur et
+   * testé ; ici on ne fait que peindre ce qu'il décide.
+   */
+  const comparable =
+    mode !== "daily" && palFini === undefined && !challenge && mode !== "ranked";
+  const exploit = exploitDuRun(end.score, recordAvantRun, comparable);
+  const boiteEx = $("exploit");
+  boiteEx.classList.toggle("hidden", exploit.id === "rien");
+  if (exploit.id !== "rien") {
+    $("exploitTitre").textContent =
+      exploit.id === "record" ? t("finRecordTitre") : t("finEgaleTitre");
+    $("exploitAncien").textContent = t("finRecordAncien")(exploit.ancien);
+    // Vide sur un record ÉGALÉ : « +0 » se lirait comme un progrès nul, alors
+    // que refaire son meilleur score n'en est pas un et n'est pas un échec.
+    $("exploitAvance").textContent =
+      exploit.avance > 0 ? t("finRecordAvance")(exploit.avance) : "";
+  }
+
+  if (recordAvantRun > 0 && exploit.id === "rien") {
+    morceaux.push(t("finReperRecord")(recordAvantRun));
+  }
   if (mediane !== null) morceaux.push(t("finReperMediane")(mediane));
   morceaux.push(t("finReperMeilleur")(MEILLEUR_CONNU.score));
   $("reperes").textContent = morceaux.join(" · ");
+  // La carte de partage reprend l'écart : elle n'a pas à le recalculer, deux
+  // jugements finiraient par diverger.
+  avanceDuRun = exploit.avance;
 
   /*
    * LA LEGENDE DE LA FRISE.
@@ -3757,6 +3805,7 @@ function finishRun(): void {
             : t("goReviensDemain")
           : t("goRejouer");
   $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
+  $("btnShareCarte").textContent = t("finCarte");
 
   /*
    * L'invitation à enregistrer.
@@ -4823,6 +4872,114 @@ $("btnDuel").addEventListener("click", async () => {
   } catch {
     /* partage annulé */
   }
+});
+
+/* ------------------------------------------------------------------ *
+ * LA CARTE DE PARTAGE
+ *
+ * ⚠️ **LE PARTAGE TEXTE EST À 0 % SUR TROIS RELEVÉS ET 203 JOUEURS** — jour 2
+ * (14 joueurs), jour 3 (50), jours 238-245 (139). Le bouton existait à chaque
+ * fois. Ce n'est donc pas un creux : c'est une fonctionnalité que personne
+ * n'utilise, et la répéter plus fort ne changerait rien.
+ *
+ * L'hypothèse qu'on teste ici : ce qui manquait n'est pas le bouton mais
+ * l'OBJET. Trois lignes de texte et quatre carrés d'emoji, collés dans une
+ * conversation, ne se distinguent d'aucun autre message. Une image se
+ * reconnaît, et surtout elle porte l'adresse du jeu sur elle — ce que le texte
+ * ne faisait que sur le lien de DÉFI, jamais sur le partage de score.
+ *
+ * ⚠️ **LE BOUTON TEXTE RESTE.** Il coûte une ligne, il marche partout, et
+ * remplacer une chose à 0 % par une autre sans garder la première rendrait la
+ * comparaison impossible : `share` et `share_carte` sont deux événements, et
+ * c'est le rapport qui tranchera.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Fabrique l'image et la propose.
+ *
+ * Trois issues, dans cet ordre : le partage natif avec le FICHIER quand le
+ * navigateur l'accepte (le seul chemin qui envoie vraiment l'image), le
+ * téléchargement sinon, et un message honnête si même ça échoue. On ne retombe
+ * PAS sur le partage texte : le joueur a demandé une carte, lui envoyer trois
+ * lignes à la place serait un refus déguisé en succès.
+ */
+async function partageCarte(): Promise<void> {
+  if (!lastRun) return;
+  const btn = $<HTMLButtonElement>("btnShareCarte");
+  const rendre = (cle: "finCartePrete" | "finCarteRatee"): void => {
+    btn.textContent = t(cle);
+    setTimeout(() => (btn.textContent = t("finCarte")), 1800);
+  };
+
+  const { end, rule, mode } = lastRun;
+  const d = donneesCarte({
+    mode: mode === "escalade" || mode === "ranked" || mode === "daily" ? mode : "training",
+    jour: day,
+    regle: nomDeRegle(rule.id, rule.name),
+    score: end.score,
+    cleared: end.cleared,
+    marks: end.marks,
+    allure: P.load().trainingPace,
+    palier: palierDuDernierRun
+      ? { n: palierDuDernierRun.n, manches: palierDuDernierRun.manches }
+      : undefined,
+    avance: avanceDuRun,
+    url: location.protocol === "file:" ? "theonerule.party" : location.origin,
+  });
+
+  try {
+    /*
+     * ⚠️ ON ATTEND LES POLICES.
+     *
+     * Un canvas qui dessine avant que « Inter » et « JetBrains Mono » soient
+     * prêtes retombe sur la police système SANS ERREUR — l'image part, et elle
+     * est hors marque. C'est la même famille que les emoji écartés des
+     * pictogrammes de l'accueil : un rendu qui change d'un appareil à l'autre
+     * n'est pas un effet, c'est un bug.
+     */
+    await document.fonts?.ready;
+    const cvs = document.createElement("canvas");
+    dessineCarte(cvs, d);
+    const blob = await new Promise<Blob | null>((res) => cvs.toBlob(res, "image/png"));
+    if (!blob) {
+      rendre("finCarteRatee");
+      return;
+    }
+    const fichier = new File([blob], `the-one-rule-${end.score}.png`, { type: "image/png" });
+
+    if (navigator.canShare?.({ files: [fichier] }) && navigator.share) {
+      await navigator.share({ files: [fichier], text: `${d.slogan} · ${d.url}` });
+      // Après coup, jamais avant : un partage annulé lève, et compter
+      // l'intention comme un envoi gonflerait exactement le chiffre qu'on
+      // cherche à lire.
+      track("share_carte", { mode, rule: rule.id, score: end.score, voie: "natif" });
+      rendre("finCartePrete");
+      return;
+    }
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fichier.name;
+    a.click();
+    // L'objet URL est retenu par le navigateur tant qu'on ne le révoque pas ;
+    // à 1080×1080 ça finit par peser sur un onglet qui reste ouvert.
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    track("share_carte", { mode, rule: rule.id, score: end.score, voie: "fichier" });
+    rendre("finCartePrete");
+  } catch {
+    /*
+     * Un partage ANNULÉ passe par ici comme un échec de rendu, et c'est
+     * volontairement indiscernable : dans les deux cas le joueur n'a rien
+     * envoyé, et lui afficher « CARTE IMPOSSIBLE » après une annulation
+     * volontaire est moins grave que de compter l'annulation comme un envoi.
+     */
+    rendre("finCarteRatee");
+  }
+}
+
+$("btnShareCarte").addEventListener("click", () => {
+  sfx.ui();
+  void partageCarte();
 });
 
 $("btnShare").addEventListener("click", async () => {

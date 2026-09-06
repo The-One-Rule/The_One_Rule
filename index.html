@@ -1039,6 +1039,25 @@
           <div class="col over__result">
             <div class="tally" id="tally">0</div>
             <p class="eyebrow" id="tallyLabel">ROUNDS HELD</p>
+
+            <!-- LE RECORD BATTU.
+                 Le pied l'annonce deja EN DIRECT pendant le run ; l'ecran de
+                 fin, lui, se contentait de poser le score entre trois reperes.
+                 Le seul instant du run qui vaut d'etre vecu meritait mieux
+                 qu'une ligne parmi trois.
+
+                 ⚠️ Il REMPLACE le repere « TON RECORD » plutot que de s'y
+                 ajouter : afficher « TON RECORD · 23 » sous « TU AS BATTU TON
+                 RECORD » se contredit a une ligne d'intervalle. La priorite
+                 vit dans render/exploit.ts, pure et testee — cinquieme du
+                 depot apres plate, seat, jour et but. -->
+            <div class="exploit hidden" id="exploit">
+              <p class="exploit__titre" id="exploitTitre"></p>
+              <p class="exploit__chiffres">
+                <span id="exploitAncien"></span>
+                <b id="exploitAvance"></b>
+              </p>
+            </div>
             <!-- OU SE SITUE CE SCORE. Un nombre seul ne dit pas s'il est bon :
                  la maquette le met entre son propre record, sa mediane, et le
                  meilleur connu. Trois reperes, pas un jugement. -->
@@ -1143,6 +1162,12 @@
             <div class="btnrow">
               <button class="btn btn--primary" id="btnAgain" data-i18n="fin.rejouer">PLAY AGAIN · R</button>
               <button class="btn" id="btnShare" data-i18n="fin.partager">SHARE</button>
+              <!-- LA CARTE. Le partage TEXTE est a 0 % sur trois releves et 203
+                   joueurs — le bouton existait a chaque fois. L'hypothese est
+                   que ce qui manquait n'est pas le bouton mais l'OBJET : trois
+                   lignes collees dans une conversation ne se distinguent
+                   d'aucun autre message. -->
+              <button class="btn" id="btnShareCarte"></button>
               <button class="btn" id="btnDuel" data-i18n="fin.defier">CHALLENGE A FRIEND</button>
               <button class="btn btn--ghost" id="btnHome" data-i18n="commun.menu">MENU</button>
             </div>
