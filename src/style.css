@@ -1181,8 +1181,32 @@ body {
   padding: 6px 8px;
 }
 
+/*
+ * ⚠️ LA REGLE DE CHACUN RESTE VISIBLE, MEME EN BANDEAU — et c'est GRATUIT.
+ *
+ * Elle etait masquee des que les plaques passaient en bandeau (donc sur tout
+ * telephone), pour economiser de la hauteur : la taille du champ est du
+ * gameplay (n°10), et chaque pixel rendu au bandeau est un pixel pris au
+ * terrain. La precaution etait juste dans son intention et fausse en fait.
+ *
+ * Mesure a 375 x 812, quatre plaques : bandeau 60 px et canvas 524 px, que la
+ * regle soit affichee ou non. Elle tient dans la hauteur DEJA reservee par la
+ * plaque — le masquage ne rendait donc rien du tout, et coutait la seule chose
+ * qui distingue deux joueurs du meme salon.
+ *
+ * C'est aussi ce que montre la maquette telephone : « TOI · LES ANGLES »,
+ * « SACHA · L'AZUR · PIEGE ! ». Sans elle, une plaque ne dit que des vies.
+ *
+ * Elle s'ellipse plutot que de replier la plaque : a quatre par ligne on
+ * dispose d'environ 84 px, et un nom de regle est un repere, pas une lecture.
+ */
 #app:not(.has-gutters) .plates--compact .plate__rule {
-  display: none;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plates--compact .plate__name {
@@ -8124,11 +8148,20 @@ button.chip:active:not(:disabled) {
   height: 96px;
 }
 
-.onb__embleme svg {
+.onb__embleme svg,
+.onb__carte {
   width: 100%;
   height: 100%;
   display: block;
+  /* La meme trame que partout ailleurs : une carte de 64 px agrandie doit
+     garder ses pixels francs, jamais un lissage. */
   image-rendering: pixelated;
+}
+
+/* Le cadre de la carte, comme dans la collection : elle est un OBJET. */
+.onb__carte {
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
 }
 
 .onb__compte {

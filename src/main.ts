@@ -18,7 +18,7 @@ import type { Action, OneRule, Outcome, Round } from "./engine/types";
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
-import { emblemeDe, emblemeSvg, etatCarte } from "./render/carte";
+import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
@@ -2727,7 +2727,25 @@ function poseTemps(n: Temps): void {
   }
   if (n === 6) {
     $("onbT6Nom").textContent = nomDeRegle(regle.id, regle.name);
-    $("onbT6Embleme").innerHTML = emblemeSvg(emblemeDe(regle), { verrouille: false });
+    /*
+     * ⚠️ LA VRAIE CARTE, celle qu'il retrouvera dans sa collection.
+     *
+     * Cet écran montrait un embleme SVG genere — et c'etait le SEUL endroit du
+     * jeu a le faire. Les cinq autres surfaces qui montrent une carte (la
+     * collection, la fiche, la gouttiere de partie, « celle qui te resiste »,
+     * l'etat a mater) affichent l'image `/cartes/<id>.png`.
+     *
+     * Le joueur gagnait donc sa premiere carte sous une forme, et la retrouvait
+     * sous une autre au premier passage par la collection. C'est le moment
+     * precis ou l'on veut qu'il reconnaisse l'objet : le tutoriel existe pour
+     * raccorder l'arrivee a la collection, et il montrait autre chose qu'elle.
+     *
+     * `decoding="async"` et pas `loading="lazy"` : l'image est visible des que
+     * le temps s'ouvre, donc rien a differer — et une carte qui arrive apres
+     * coup est exactement le defaut qu'on vient de corriger sur la gouttiere.
+     */
+    $("onbT6Embleme").innerHTML =
+      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
     const vues = Object.keys(P.load().encountered).length;
     $("onbT6Compte").textContent = t("onbCompte")(Math.max(1, vues), ONE_RULES.length);
     $("onbT6Suite").textContent = t("onbSuite")(ONE_RULES.length - Math.max(1, vues));
