@@ -12593,6 +12593,29 @@ button.chip:active:not(:disabled) {
   letter-spacing: 0;
 }
 
+/*
+ * ⚠️ L'AIDE CLAVIER NE S'AFFICHE PAS LÀ OÙ IL N'Y A PAS DE CLAVIER.
+ *
+ * Relevé sur un 375 × 812 : « SOURIS ET CLAVIER · R POUR RELANCER · ÉCHAP POUR
+ * LE MENU », en toutes lettres, sur un écran qui n'a ni souris, ni R, ni Échap.
+ * Ce n'est pas seulement du bruit — ça dit au visiteur mobile que le jeu n'est
+ * pas fait pour lui, sur la seule page qu'il lira jamais.
+ *
+ * Le test porte sur la CAPACITÉ, pas sur la largeur : une tablette avec un
+ * clavier garde la ligne, un grand téléphone la perd. `pointer: coarse` +
+ * `hover: none` est exactement « doigt, pas souris ».
+ *
+ * ⚠️ En CSS et non en JS : `.fineprint` porte deux `<b>`, et l'écrire en
+ * `textContent` les détruirait — le piège des cartes de l'accueil, payé trois
+ * fois dans ce dépôt.
+ */
+@media (hover: none) and (pointer: coarse) {
+  #homeFineprint,
+  #reglagesFineprint {
+    display: none;
+  }
+}
+
 /* ------------------------------------------------------------------
  * LE RECORD BATTU, sur l'écran de fin
  *

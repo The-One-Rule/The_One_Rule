@@ -127,3 +127,64 @@ export function vueBut(
     depasse: cible !== null && record > 0 && record >= cible.score,
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * CE QUE L'ACCUEIL MET EN HAUT — le chapo, ou le chiffre
+ * ------------------------------------------------------------------ */
+
+/** Le bloc de droite (ou du dessous), quand il y en a un. */
+export type BlocAccueil = "objectif" | "invitation" | "rien";
+
+export interface VueAccueil {
+  /** La phrase qui dit ce QU'EST le jeu. */
+  chapo: boolean;
+  bloc: BlocAccueil;
+}
+
+/**
+ * ⚠️ **LE CHAPO NE DOIT PAS CÉDER LA PLACE À UN BLOC QUI N'A RIEN À DIRE.**
+ *
+ * Relevé en arrivant sur le site avec un `localStorage` vide, à 375 x 812 —
+ * c'est-à-dire dans l'état exact des 74 % de visiteurs qui repartent sans
+ * lancer une partie, médiane 6 secondes. Le texte INTÉGRAL de la page était :
+ *
+ *     THE ONE RULE · PERSONNE N'A ENCORE JOUÉ · Sois le premier ·
+ *     TENTER LA RUN DU JOUR · SOLO · MULTI · …
+ *
+ * **Nulle part il n'était dit ce qu'on fait dans ce jeu.** La phrase existait
+ * pourtant, écrite et traduite — « Une règle unique. Les consignes changent.
+ * Parfois, obéir est la faute. » — mais elle portait `hidden` sous 900 px,
+ * chassée par la carte d'objectif.
+ *
+ * L'arbitrage d'origine était juste sur le fond : 135 px de budget mesurés, et
+ * l'accueil tient au pixel près sur un téléphone. Il était faux dans son SENS.
+ * Le bloc qui chasse l'explication n'avait rien à dire à la personne qui a
+ * besoin de l'explication — pour un nouveau venu, il affichait l'état VIDE du
+ * classement, c'est-à-dire « personne ne joue à ce jeu ». C'est la pire phrase
+ * d'arrivée possible pour un jeu dont l'accroche est sociale.
+ *
+ * ⚠️ Et ce n'est pas un cas rare : sans Supabase ni fournisseur OAuth,
+ * `classementDuJour` rend `null` pour tout le monde et tous les jours. L'état
+ * majoritaire du site supprimait donc la seule phrase qui le vend.
+ *
+ * **L'invitation garde sa place pour qui connaît déjà le jeu.** « Sois le
+ * premier » est une vraie accroche quand on sait qu'un classement quotidien
+ * existe ; c'est un constat de désert quand on l'ignore. La même phrase change
+ * de sens selon le lecteur, et c'est le seul endroit du dépôt où ça se produit.
+ *
+ * @param cible   y a-t-il un chiffre à battre aujourd'hui ?
+ * @param connait le joueur a-t-il déjà rencontré le jeu (carnet non vide, ou
+ *                tutoriel fait) ? Un nouveau venu ne sait pas ce qu'est un
+ *                classement du jour.
+ * @param large   au-dessus de 900 px, il y a la place pour les deux.
+ */
+export function vueAccueil(cible: boolean, connait: boolean, large: boolean): VueAccueil {
+  // En large, les deux tiennent : la colonne de gauche mesurait 260 px pour
+  // 573 à droite, elle était VIDE. Aucune raison de choisir.
+  if (large) return { chapo: true, bloc: cible ? "objectif" : "invitation" };
+  // Un chiffre à battre vaut mieux qu'une définition : celui qui revient sait
+  // déjà ce qu'est le jeu, il vient chercher sa cible.
+  if (cible) return { chapo: false, bloc: "objectif" };
+  // Sans chiffre : au nouveau venu on explique, à l'habitué on propose.
+  return connait ? { chapo: false, bloc: "invitation" } : { chapo: true, bloc: "rien" };
+}

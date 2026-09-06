@@ -46,7 +46,7 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { MEILLEUR_CONNU, vueBut } from "./render/but";
+import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -2498,10 +2498,26 @@ function peintBut(sien: number | null, duJour: number | null): void {
    * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
    * la place, il n'y a aucune raison de choisir.
    */
-  $("ledeHome").classList.toggle("hidden", !(LARGE?.matches ?? false));
-  $("but").classList.remove("hidden");
-  $("butPlein").classList.toggle("hidden", but.cible === null);
-  $("butVide").classList.toggle("hidden", but.cible !== null);
+  /*
+   * ⚠️ CE N'EST PLUS LA LARGEUR QUI DÉCIDE, C'EST CE QU'IL Y A À DIRE.
+   *
+   * L'ancienne ligne masquait le chapo sous 900 px, point. Relevé en arrivant
+   * sur le site avec un `localStorage` vide, à 375 × 812 — l'état exact des
+   * 74 % qui repartent en 6 secondes — le texte INTÉGRAL de la page était :
+   * « THE ONE RULE · PERSONNE N'A ENCORE JOUÉ · Sois le premier · TENTER LA RUN
+   * DU JOUR · SOLO · MULTI ». Nulle part il n'était dit ce qu'on fait ici.
+   *
+   * La priorité vit dans `render/but.ts`, pure et testée, avec sa raison.
+   */
+  const s = P.load();
+  // « Connaît le jeu » = a déjà rencontré une règle, ou fait le tutoriel. Le
+  // carnet est le bon marqueur : il ne se remplit qu'en JOUANT.
+  const connait = Object.keys(s.encountered).length > 0 || s.onboarded === true;
+  const vue = vueAccueil(but.cible !== null, connait, LARGE?.matches ?? false);
+  $("ledeHome").classList.toggle("hidden", !vue.chapo);
+  $("but").classList.toggle("hidden", vue.bloc === "rien");
+  $("butPlein").classList.toggle("hidden", vue.bloc !== "objectif");
+  $("butVide").classList.toggle("hidden", vue.bloc !== "invitation");
   if (!but.cible) return;
 
   // Le chiffre NU et son unite dessous : c'est la composition de la maquette,
