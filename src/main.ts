@@ -3509,6 +3509,20 @@ function finishRun(): void {
      * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
      */
     const surPalier = palierEnCours !== null;
+    /*
+     * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
+     *
+     * Elle se lisait après, sur l'entrée que `majCarnet` venait de rendre — ce
+     * qui marche tant que `majCarnet` recopie le champ, et rate en silence dès
+     * qu'il l'oublie. C'est exactement ce qui s'est produit, et le symptôme
+     * était « impossible d'aller au-delà de l'étape 2 ».
+     *
+     * `majCarnet` porte désormais le champ, donc les deux lectures donneraient
+     * le même résultat. On garde quand même celle-ci : elle ne DÉPEND plus de
+     * ce que fait la fonction d'à côté, et c'est la même précaution que la
+     * photo d'`avant` prise deux lignes plus haut.
+     */
+    const monteeAvant = st.encountered[rule.id]?.escalier ?? ESC.ESCALIER_VIERGE;
     st.encountered[rule.id] = P.majCarnet(
       st.encountered[rule.id],
       end.score,
@@ -3517,8 +3531,7 @@ function finishRun(): void {
       surPalier ? undefined : { allure: pace, ...lisRun(end.marks) },
     );
     if (surPalier) {
-      const av = st.encountered[rule.id]!.escalier ?? ESC.ESCALIER_VIERGE;
-      st.encountered[rule.id]!.escalier = ESC.majEscalier(av, end.score);
+      st.encountered[rule.id]!.escalier = ESC.majEscalier(monteeAvant, end.score);
     } else {
       // `recent` calibre la quête de performance et la médiane de l'écran de
       // fin. Un palier plafonné à cinq manches la ferait mentir vers le bas,

@@ -2292,6 +2292,37 @@ choisir laquelle perd veut dire toucher à la vitrine. ⚠️ Et `accueil_premie
 n'a **toujours pas été lu** : ces correctifs sont des incohérences réparées, pas
 une refonte informée par la mesure.
 
+### Le bug livre a un joueur : la montee se remettait a zero a chaque run
+
+Rapporte en playtest, mot pour mot : « impossible d aller au-dela de l etape 2,
+meme en la reussissant ». Capture a l appui, l ecran affichait pourtant
+« PALIER 2 FRANCHI ».
+
+**Cause :  RECONSTRUIT l entree du carnet, elle ne la complete pas.**
+Tout champ qu elle ne nomme pas est efface a chaque run. Le §12 nomme pourtant
+les TROIS bouts ou un champ neuf doit etre branche — , , le
+nettoyage de . J en ai cable deux et saute le premier, qui est
+justement le seul a tourner a CHAQUE partie.
+
+Le mecanisme : un run de palier ecrivait une entree sans montee ; la ligne
+suivante relisait cette entree pour y trouver la montee, tombait sur « pas
+commencee », et repartait du palier 1. Le libelle « PALIER 2 FRANCHI » vient du
+palier JOUE et non de l etat enregistre — **le jeu annoncait une victoire qu il
+venait d effacer.**
+
+⚠️ Et ca mordait bien au-dela de l escalier : n importe quel run d entrainement
+ou du jour passe par , donc jouer QUOI QUE CE SOIT detruisait la
+montee.
+
+⚠️ ** ne pouvait pas le voir** — il eprouve le
+voyage entre deux appareils, pas le chemin d un run. D ou
+, qui exige qu aucun champ ne se perde ICI, et qui
+grimpe les vingt paliers par la sequence reelle de . Eprouve en
+remettant la faute : deux assertions tombent.
+
+⚠️ **Aucune donnee n est corrompue.** Les sauvegardes touchees portent
+ : les joueurs reprennent au palier 2 et progressent normalement.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

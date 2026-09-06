@@ -367,7 +367,34 @@ export function majCarnet(
    * gonflerait toutes les sauvegardes — et surtout la charge que `api/moi.ts`
    * fait transiter — pour ne rien dire de plus que leur absence.
    */
+  /*
+   * ⚠️ **CETTE FONCTION RECONSTRUIT L'ENTRÉE, ELLE NE LA COMPLÈTE PAS.**
+   *
+   * Tout champ du carnet qui n'est pas nommé ici est EFFACÉ à chaque run. Le
+   * §12 de CLAUDE.md nomme les trois bouts où un champ neuf doit être branché
+   * — `majCarnet`, `fusionne`, le nettoyage de `api/moi.ts` — et celui-ci est
+   * cité en premier parce que c'est le seul qui tourne à CHAQUE partie.
+   *
+   * ⚠️ **CE QUE ÇA A COÛTÉ.** `escalier` a été ajouté au carnet en ne branchant
+   * que les deux autres. Conséquence, rapportée en playtest le soir même :
+   * « impossible d'aller au-delà de l'étape 2, même en la réussissant ». Le
+   * mécanisme exact — un run de palier écrivait `majCarnet(...)`, qui rendait
+   * une entrée SANS escalier ; la ligne suivante relisait cette entrée pour y
+   * trouver la montée, tombait sur « pas commencée », et repartait du palier 1.
+   * Le joueur voyait pourtant « PALIER 2 FRANCHI » à l'écran, parce que ce
+   * libellé vient du palier JOUÉ et non de l'état enregistré : le jeu
+   * annonçait une victoire qu'il venait d'effacer.
+   *
+   * Et ça mordait bien au-delà de l'escalier : n'importe quel run
+   * d'entraînement ou du jour passe ici, donc jouer QUOI QUE CE SOIT détruisait
+   * la montée. `tests/carnet-voyage.test.ts` ne l'a pas vu — il éprouve le
+   * voyage entre deux appareils, pas le chemin d'un run. D'où
+   * `tests/majcarnet.test.ts`, qui exige qu'aucun champ ne se perde ICI.
+   */
   return {
+    // Ce que ce run ne concerne pas voyage tel quel. En premier, donc écrasé
+    // par tout ce que la fonction calcule vraiment juste en dessous.
+    ...(prev ?? {}),
     best: Math.max(prev?.best ?? 0, score),
     cleared: (prev?.cleared ?? false) || cleared,
     pieges: (prev?.pieges ?? 0) + pieges,
