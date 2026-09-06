@@ -204,7 +204,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.partager": "PARTAGER",
     "fin.defier": "DÉFIER UN AMI",
     "fin.titres": "TITRES DU MATCH",
-    "fin.rejouerMulti": "REJOUER",
+    "fin.rejouerMulti": "REJOUER · MÊME SALON",
     "fin.quitter": "QUITTER",
     "mur.eyebrow": "CLASSEMENT",
     "mur.titre": "LE MUR DES RECORDS",
@@ -239,8 +239,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
-    "piege.rien": "TU N'AS RIEN FAIT",
-    "piege.dejoue": "PIÈGE DÉJOUÉ",
     "but.aBattre": "LE RECORD DU JOUR",
     "nav.classement": "CLASSEMENT",
     "etat.collection": "TA COLLECTION",
@@ -254,7 +252,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "but.premier": "Sois le premier.",
     "but.tenter": "TENTER LA RUN DU JOUR",
     "nav.cartes": "CARTES",
-    "nav.training": "ENTRAÎNEMENT",
     "nav.jouer": "JOUER",
     "nav.daily": "DU JOUR",
     "nav.multi": "MULTI",
@@ -377,7 +374,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.partager": "SHARE",
     "fin.defier": "CHALLENGE A FRIEND",
     "fin.titres": "MATCH TITLES",
-    "fin.rejouerMulti": "PLAY AGAIN",
+    "fin.rejouerMulti": "PLAY AGAIN · SAME ROOM",
     "fin.quitter": "LEAVE",
     "mur.eyebrow": "LEADERBOARD",
     "mur.titre": "THE WALL OF RECORDS",
@@ -412,8 +409,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
-    "piege.rien": "YOU DID NOTHING",
-    "piege.dejoue": "TRAP DEFUSED",
     "but.aBattre": "TODAY'S RECORD",
     "nav.classement": "RANKING",
     "etat.collection": "YOUR COLLECTION",
@@ -427,7 +422,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "but.premier": "Be the first.",
     "but.tenter": "TRY THE DAILY RUN",
     "nav.cartes": "CARDS",
-    "nav.training": "TRAINING",
     "nav.jouer": "PLAY",
     "nav.daily": "DAILY",
     "nav.multi": "MULTI",
@@ -574,8 +568,6 @@ type Dyn = {
   butDejaBattu: string;
   butSien: (n: number) => string;
   butModeJour: string;
-  piegePourquoi: (consigne: string, regle: string) => string;
-  piegeCarte: (regle: string, pieges: number, cases: number) => string;
   avanceRegle: (regle: string, cases: number) => string;
   avancePieges: (n: number) => string;
   avanceManches: (n: number, allure: string) => string;
@@ -669,6 +661,8 @@ type Dyn = {
   matchTermine: string;
   egalite: string;
   tuAsGagne: string;
+  /** « MARGOT GAGNE » — le titre de l'écran de fin, quand ce n'est pas toi. */
+  finGagne: (nom: string) => string;
   vainqueur: string;
   finDuMatch: string;
   /* --- le brief, vu avant CHAQUE partie --- */
@@ -862,6 +856,113 @@ type Dyn = {
   finRegleEnfreinte: string;
   finRompu: string;
   finElimine: string;
+  /**
+   * Manche que ce bundle ne sait pas reconstruire (voir `syncFrame`).
+   *
+   * Elle ne s'excuse pas et ne nomme pas la cause : elle DIT quoi faire.
+   * L'écran gelait sans un mot, et recharger suffit — le décalage de versions
+   * entre le front et les salons est la seule cause connue.
+   */
+  multiRegleInconnue: string;
+  /** « 2 pièges déjoués » — la ligne du bandeau, pendant la partie. */
+  hudPieges: (n: number) => string;
+  /** « TU FINIS 2ᵉ SUR 6 · MANCHE 22 » — l'écran de fin d'un match. */
+  finTonRang: (place: number, total: number, manches: number) => string;
+  /** Les trois repères sous le score de fin de run. */
+  finReperRecord: (n: number) => string;
+  finReperMediane: (n: number) => string;
+  finReperMeilleur: (n: number) => string;
+  /** La légende de la frise : ce que chaque marque veut dire. */
+  finLegTenue: string;
+  finLegPiege: string;
+  finLegFaute: string;
+  finLegChute: string;
+  /** Les trois tuiles de bilan, sur l'écran de fin. */
+  bilanQuetes: string;
+  bilanSerie: string;
+  bilanCarnet: string;
+
+  /* ---- L'ESCALIER D'UNE RÈGLE ---- */
+  /*
+   * ⚠️ AUCUNE PHRASE DE PALIER N'EST ÉCRITE VINGT FOIS. `ajoutDuPalier` rend un
+   * identifiant et un chiffre ; `escAjout` en fait une phrase. Vingt lignes
+   * figées par langue dériveraient de la table dès le premier chiffre changé,
+   * et rien ne le dirait.
+   */
+  /* ---- L'EXPLOIT DE FIN DE RUN, ET LA CARTE DE PARTAGE ---- */
+  /** Le bandeau, quand le record tombe. */
+  finRecordTitre: string;
+  /** « ANCIEN · 23 » — ce qu'on vient de dépasser. */
+  finRecordAncien: (n: number) => string;
+  /** « +8 » — l'écart, seul chiffre qui dise la taille du progrès. */
+  finRecordAvance: (n: number) => string;
+  /** Le record ÉGALÉ. Un mot différent : « record » doit rester rare. */
+  finEgaleTitre: string;
+  /** L'exploit tel qu'il paraît SUR la carte de partage, en une ligne. */
+  finRecordCarte: (n: number) => string;
+  /** Le bouton, et son accusé de réception. */
+  finCarte: string;
+  finCartePrete: string;
+  finCarteRatee: string;
+  /**
+   * Le slogan, imprimé sur la carte.
+   *
+   * ⚠️ C'est la seule phrase de l'image qui s'adresse à quelqu'un qui n'a jamais
+   * ouvert le jeu — donc la seule chose qui puisse transformer une capture en
+   * visite. Il est repris du `<title>`, mot pour mot : deux formulations
+   * différentes du même jeu dilueraient l'une et l'autre.
+   */
+  slogan: string;
+  modeClasse: string;
+
+  /**
+   * Une ALLURE écrite : « 1,5 » en français, « 1.5 » en anglais.
+   *
+   * ⚠️ Deux relevés à l'écran, deux corrections, et elles vivent ICI toutes les
+   * deux parce que ce sont des conventions de LANGUE — comme l'ordre des mots
+   * d'une consigne ou le pluriel à zéro :
+   *
+   *   · « × 1.5 » — le point décimal est anglais, et il saute d'autant plus
+   *     aux yeux que le reste de la ligne est en capitales ;
+   *   · « × 2 » à côté de « × 1,5 » — une échelle dont un cran perd sa
+   *     décimale ne se lit plus comme une échelle. La maquette écrit d'ailleurs
+   *     « × 2,0 » et « × 0,8 », jamais « × 2 ».
+   */
+  allureTxt: (a: number) => string;
+  escTitre: string;
+  escRetour: string;
+  escSurN: (n: number, tot: number) => string;
+  escVolee: (n: number, nom: string, allure: string) => string;
+  escVoleeNom: (id: "decouverte" | "apprentissage" | "controle" | "perfection") => string;
+  escVoleeNote: (id: "decouverte" | "apprentissage" | "controle" | "perfection") => string;
+  escAjoutTitre: string;
+  escAjout: (id: string, valeur: number | null) => string;
+  escTuEsIci: string;
+  escSommet: string;
+  escMaitrisee: string;
+  escManches: (n: number) => string;
+  escTenir: string;
+  escAllure: string;
+  escPieges: string;
+  escMorts: string;
+  escPiegesVal: (cadence: number) => string;
+  escMeilleurEssai: string;
+  escMeilleurVal: (manches: number, essais: number) => string;
+  escAucunEssai: string;
+  escLancer: string;
+  escReprendre: (n: number) => string;
+  escNote: string;
+  escTotal: string;
+  escTotalVal: (manches: number, minutes: number) => string;
+  escVersSommet: (de: number, a: number) => string;
+  escFini: string;
+  escFiniNote: string;
+  escOuvrir: string;
+  escProgres: (franchis: number, tot: number) => string;
+  /** L'annonce du piège EN JEU — volées 2 et 3 basse, jamais ailleurs. */
+  escAnnonce: string;
+  escFranchi: (n: number) => string;
+  escRate: (manches: number, cible: number) => string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -942,7 +1043,8 @@ const DYN: Record<Lang, Dyn> = {
     etatJourEpuise: "TROIS ESSAIS JOUÉS",
     etatJourVierge: "PAS ENCORE JOUÉ",
     etatJourReste: (n) => `${n} ESSAI${n > 1 ? "S" : ""} RESTANT${n > 1 ? "S" : ""}`,
-    etatJourNote: (essais, manches) => `${essais} ESSAIS · ${manches} MANCHES`,
+    etatJourNote: (essais, manches) =>
+      `${essais} ESSAI${essais > 1 ? "S" : ""} · ${manches} MANCHES`,
     etatGraceOui: "1 JOUR DE GRÂCE DISPONIBLE",
     etatGraceNon: "JOUR DE GRÂCE DÉJÀ UTILISÉ",
     filtreRien: "Rien dans cette catégorie pour l'instant.",
@@ -976,10 +1078,6 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "Tu fais mieux que ça.",
     butSien: (n) => `TON SCORE DU JOUR · ${n}`,
     butModeJour: "RUN DU JOUR",
-    piegePourquoi: (consigne, regle) =>
-      `La consigne demandait « ${consigne} ». ${regle} l'interdit.`,
-    piegeCarte: (regle, pieges, cases) =>
-      `${regle} · ${pieges} PIÈGE${pieges > 1 ? "S" : ""} DÉJOUÉ${pieges > 1 ? "S" : ""} · MAÎTRISE ${cases}/6`,
     avanceRegle: (regle, cases) => `${regle} · MAÎTRISE ${cases} / 6`,
     avancePieges: (n) => `+${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}.`,
     avanceManches: (n, allure) => `Meilleur à l'allure ${allure} : ${n} manches.`,
@@ -1072,6 +1170,7 @@ const DYN: Record<Lang, Dyn> = {
     matchTermine: "MATCH TERMINÉ",
     egalite: "ÉGALITÉ",
     tuAsGagne: "TU AS GAGNÉ",
+    finGagne: (nom) => `${nom} GAGNE`,
     vainqueur: "VAINQUEUR",
     finDuMatch: "FIN DU MATCH",
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
@@ -1282,6 +1381,102 @@ const DYN: Record<Lang, Dyn> = {
     finRegleEnfreinte: "RÈGLE UNIQUE ENFREINTE",
     finRompu: "ROMPU",
     finElimine: "ÉLIMINÉ",
+    multiRegleInconnue: "MANCHE ILLISIBLE — RECHARGE LA PAGE",
+    hudPieges: (n) => `${n} piège${n > 1 ? "s" : ""} déjoué${n > 1 ? "s" : ""}`,
+    /*
+     * ⚠️ L'ORDINAL N'EST PAS LE MEME EN FRANCAIS ET EN ANGLAIS, et il ne se
+     * traduit pas par un suffixe unique : « 1er » puis « 2e », contre « 1st,
+     * 2nd, 3rd, 4th ». Deux fonctions separees, chacune dans sa langue — une
+     * table commune aurait fini par produire « 2er » ou « 1th ».
+     */
+    finTonRang: (place, total, manches) =>
+      `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
+    finReperRecord: (n) => `TON RECORD · ${n}`,
+    finReperMediane: (n) => `MÉDIANE · ${n}`,
+    finReperMeilleur: (n) => `RECORD · ${n}`,
+    finLegTenue: "TENUE",
+    finLegPiege: "PIÈGE DÉJOUÉ",
+    finLegFaute: "ÉCHAUFFEMENT",
+    finLegChute: "CHUTE",
+    bilanQuetes: "QUÊTES",
+    bilanSerie: "SÉRIE",
+    bilanCarnet: "CARNET",
+
+    finRecordTitre: "TU AS BATTU TON RECORD",
+    finRecordAncien: (n) => `ANCIEN · ${n}`,
+    finRecordAvance: (n) => `+${n}`,
+    finEgaleTitre: "TU AS ÉGALÉ TON RECORD",
+    finRecordCarte: (n) => `NOUVEAU RECORD · +${n}`,
+    finCarte: "CARTE À PARTAGER",
+    finCartePrete: "CARTE PRÊTE",
+    finCarteRatee: "CARTE IMPOSSIBLE ICI",
+    slogan: "PARFOIS, OBÉIR EST LA FAUTE",
+    modeClasse: "CLASSÉ",
+    allureTxt: (a) => a.toFixed(1).replace(".", ","),
+    escTitre: "ESCALIER",
+    escRetour: "ESCALIER",
+    escSurN: (n, tot) => `PALIER ${n} / ${tot}`,
+    escVolee: (n, nom, allure) => `VOLÉE ${n} · ${nom} · × ${allure}`,
+    escVoleeNom: (id) =>
+      id === "decouverte"
+        ? "DÉCOUVERTE"
+        : id === "apprentissage"
+          ? "APPRENTISSAGE"
+          : id === "controle"
+            ? "CONTRÔLE"
+            : "PERFECTION",
+    escVoleeNote: (id) =>
+      id === "decouverte"
+        ? "AUCUN PIÈGE"
+        : id === "apprentissage"
+          ? "LES PIÈGES S'ANNONCENT"
+          : id === "controle"
+            ? "LES PIÈGES NE S'ANNONCENT PLUS"
+            : "PLUS RIEN DE NEUF, SEULEMENT LA DURÉE",
+    escAjoutTitre: "CE QUE CE PALIER AJOUTE",
+    escAjout: (id, v) => {
+      switch (id) {
+        case "premierPiege":
+          return `Premier piège : il en tombe un toutes les ${v} manches, et le jeu te le dit.`;
+        case "cadence":
+          return `Les pièges se resserrent : un toutes les ${v} manches.`;
+        case "annonceMoitie":
+          return "L'annonce du piège disparaît une manche sur deux.";
+        case "annonceJamais":
+          return "Plus aucune annonce. À partir d'ici, c'est le jeu réel.";
+        case "allure":
+          return `La fenêtre se resserre : × ${(v ?? 1).toFixed(1).replace(".", ",")}.`;
+        case "duree":
+          return v === 1 ? "Une manche de plus à tenir." : `${v} manches de plus à tenir.`;
+        default:
+          return "La première marche. Ta règle, rien d'autre.";
+      }
+    },
+    escTuEsIci: "TU ES ICI",
+    escSommet: "SOMMET",
+    escMaitrisee: "MAÎTRISÉE",
+    escManches: (n) => `${n} MANCHES`,
+    escTenir: "TENIR",
+    escAllure: "ALLURE",
+    escPieges: "PIÈGES",
+    escMorts: "MORTS TOLÉRÉES",
+    escPiegesVal: (c) => (c > 0 ? `1 SUR ${c}` : "AUCUN FORCÉ"),
+    escMeilleurEssai: "MEILLEUR ESSAI",
+    escMeilleurVal: (m, e) => `${m} manches · ${e === 1 ? "1er" : `${e}e`} essai`,
+    escAucunEssai: "JAMAIS TENTÉ",
+    escLancer: "LANCER LE PALIER",
+    escReprendre: (n) => `REPRENDRE LE PALIER ${n}`,
+    escNote: "UN PALIER RATÉ SE REJOUE · TU NE REDESCENDS JAMAIS",
+    escTotal: "TOTAL DE LA MONTÉE",
+    escTotalVal: (m, min) => `${m} MANCHES · ≈ ${min} MIN`,
+    escVersSommet: (de, a) => `↑ P${de} → P${a} · LE SOMMET`,
+    escFini: "MONTÉE TERMINÉE",
+    escFiniNote: "Tu as gravi les vingt paliers. Cette règle ne te doit plus rien.",
+    escOuvrir: "GRAVIR CETTE RÈGLE",
+    escProgres: (f, tot) => `${f} / ${tot} PALIERS`,
+    escAnnonce: "PIÈGE",
+    escFranchi: (n) => `PALIER ${n} FRANCHI`,
+    escRate: (m, cible) => `${m} / ${cible} MANCHES`,
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1344,7 +1539,8 @@ const DYN: Record<Lang, Dyn> = {
     etatJourEpuise: "THREE TRIES PLAYED",
     etatJourVierge: "NOT PLAYED YET",
     etatJourReste: (n) => `${n} TR${n === 1 ? "Y" : "IES"} LEFT`,
-    etatJourNote: (essais, manches) => `${essais} TRIES · ${manches} ROUNDS`,
+    etatJourNote: (essais, manches) =>
+      `${essais} TR${essais > 1 ? "IES" : "Y"} · ${manches} ROUNDS`,
     etatGraceOui: "1 GRACE DAY AVAILABLE",
     etatGraceNon: "GRACE DAY ALREADY USED",
     filtreRien: "Nothing in this category yet.",
@@ -1378,10 +1574,6 @@ const DYN: Record<Lang, Dyn> = {
     butDejaBattu: "You are already past that.",
     butSien: (n) => `YOUR SCORE TODAY · ${n}`,
     butModeJour: "DAILY RUN",
-    piegePourquoi: (consigne, regle) =>
-      `The order asked for « ${consigne} ». ${regle} forbids it.`,
-    piegeCarte: (regle, pieges, cases) =>
-      `${regle} · ${pieges} TRAP${pieges === 1 ? "" : "S"} DEFUSED · MASTERY ${cases}/6`,
     avanceRegle: (regle, cases) => `${regle} · MASTERY ${cases} / 6`,
     avancePieges: (n) => `+${n} trap${n === 1 ? "" : "s"} defused.`,
     avanceManches: (n, allure) => `Best at ${allure} pace: ${n} rounds.`,
@@ -1474,6 +1666,7 @@ const DYN: Record<Lang, Dyn> = {
     matchTermine: "MATCH OVER",
     egalite: "DRAW",
     tuAsGagne: "YOU WON",
+    finGagne: (nom) => `${nom} WINS`,
     vainqueur: "WINNER",
     finDuMatch: "MATCH OVER",
     modeDaily: (j) => `DAILY RUN · #${j}`,
@@ -1647,6 +1840,101 @@ const DYN: Record<Lang, Dyn> = {
     finRegleEnfreinte: "ONE RULE BROKEN",
     finRompu: "BROKEN",
     finElimine: "OUT",
+    multiRegleInconnue: "ROUND UNREADABLE — RELOAD THE PAGE",
+    hudPieges: (n) => `${n} trap${n === 1 ? "" : "s"} defused`,
+    finTonRang: (place, total, manches) => {
+      const d = place % 10;
+      const c = place % 100;
+      const suf =
+        d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
+      return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
+    },
+    finReperRecord: (n) => `YOUR BEST · ${n}`,
+    finReperMediane: (n) => `MEDIAN · ${n}`,
+    finReperMeilleur: (n) => `RECORD · ${n}`,
+    finLegTenue: "HELD",
+    finLegPiege: "TRAP DEFUSED",
+    finLegFaute: "WARM-UP",
+    finLegChute: "FALL",
+    bilanQuetes: "QUESTS",
+    bilanSerie: "STREAK",
+    bilanCarnet: "CODEX",
+
+    finRecordTitre: "YOU BEAT YOUR RECORD",
+    finRecordAncien: (n) => `PREVIOUS · ${n}`,
+    finRecordAvance: (n) => `+${n}`,
+    finEgaleTitre: "YOU MATCHED YOUR RECORD",
+    finRecordCarte: (n) => `NEW RECORD · +${n}`,
+    finCarte: "SHAREABLE CARD",
+    finCartePrete: "CARD READY",
+    finCarteRatee: "NO CARD HERE",
+    slogan: "SOMETIMES, OBEYING IS THE MISTAKE",
+    modeClasse: "RANKED",
+    allureTxt: (a) => a.toFixed(1),
+    escTitre: "THE CLIMB",
+    escRetour: "THE CLIMB",
+    escSurN: (n, tot) => `STEP ${n} / ${tot}`,
+    escVolee: (n, nom, allure) => `FLIGHT ${n} · ${nom} · × ${allure}`,
+    escVoleeNom: (id) =>
+      id === "decouverte"
+        ? "DISCOVERY"
+        : id === "apprentissage"
+          ? "LEARNING"
+          : id === "controle"
+            ? "CONTROL"
+            : "PERFECTION",
+    escVoleeNote: (id) =>
+      id === "decouverte"
+        ? "NO TRAPS"
+        : id === "apprentissage"
+          ? "TRAPS ARE CALLED OUT"
+          : id === "controle"
+            ? "TRAPS ARE NO LONGER CALLED OUT"
+            : "NOTHING NEW, ONLY THE DISTANCE",
+    escAjoutTitre: "WHAT THIS STEP ADDS",
+    escAjout: (id, v) => {
+      switch (id) {
+        case "premierPiege":
+          return `First trap: one every ${v} rounds, and the game tells you.`;
+        case "cadence":
+          return `Traps close in: one every ${v} rounds.`;
+        case "annonceMoitie":
+          return "The trap warning disappears every other round.";
+        case "annonceJamais":
+          return "No more warnings. From here on, this is the real game.";
+        case "allure":
+          return `The window tightens: × ${(v ?? 1).toFixed(1)}.`;
+        case "duree":
+          return v === 1 ? "One more round to hold." : `${v} more rounds to hold.`;
+        default:
+          return "The first step. Your rule, nothing else.";
+      }
+    },
+    escTuEsIci: "YOU ARE HERE",
+    escSommet: "SUMMIT",
+    escMaitrisee: "MASTERED",
+    escManches: (n) => `${n} ROUNDS`,
+    escTenir: "HOLD",
+    escAllure: "PACE",
+    escPieges: "TRAPS",
+    escMorts: "DEATHS ALLOWED",
+    escPiegesVal: (c) => (c > 0 ? `1 IN ${c}` : "NONE FORCED"),
+    escMeilleurEssai: "BEST ATTEMPT",
+    escMeilleurVal: (m, e) => `${m} rounds · attempt ${e}`,
+    escAucunEssai: "NEVER ATTEMPTED",
+    escLancer: "START THE STEP",
+    escReprendre: (n) => `RETRY STEP ${n}`,
+    escNote: "A FAILED STEP IS REPLAYED · YOU NEVER FALL BACK",
+    escTotal: "WHOLE CLIMB",
+    escTotalVal: (m, min) => `${m} ROUNDS · ≈ ${min} MIN`,
+    escVersSommet: (de, a) => `↑ S${de} → S${a} · THE SUMMIT`,
+    escFini: "CLIMB COMPLETE",
+    escFiniNote: "You climbed all twenty steps. This rule owes you nothing more.",
+    escOuvrir: "CLIMB THIS RULE",
+    escProgres: (f, tot) => `${f} / ${tot} STEPS`,
+    escAnnonce: "TRAP",
+    escFranchi: (n) => `STEP ${n} CLEARED`,
+    escRate: (m, cible) => `${m} / ${cible} ROUNDS`,
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,
@@ -2194,6 +2482,83 @@ export function briefDeRegle(ruleId: string, secours: string): string {
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
 export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncee",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every move twice",
+    acceleration: "30% faster",
+    mainGauche: "Hold SPACE down",
+  },
+};
+
+/**
+ * Le brief COURT d'une regle, pour le bandeau de jeu.
+ *
+ * Retombe sur le brief long quand la regle n'est pas dans la table — une pile
+ * d'escalade a un identifiant compose (« pointe+sang ») qui n'y figure pas, et
+ * un bandeau muet serait pire qu'un bandeau trop long.
+ */
+export function briefCourtDeRegle(ruleId: string, secours: string): string {
+  return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_COURTS_REGLES = BRIEFS_COURTS;
 
 /* ------------------------------------------------------------------ *
  * L'ALLURE

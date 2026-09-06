@@ -22,7 +22,7 @@
 import { hashStr, mulberry32 } from "./rng";
 import { INSTRUCTIONS, pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
-import { windowForSteps } from "./difficulty";
+import { plancherParGeste, windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import type { Instruction, OneRule, Round, Want } from "./types";
 
@@ -128,7 +128,13 @@ export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Rou
   };
 
   if (rule.transform) round = rule.transform(round, ruleRng(seed, shared.idx, rule.id), shared.idx);
-  return round;
+  /*
+   * Le MEME plancher qu'en solo, et pose au meme endroit — apres la regle.
+   * Le serveur lit `round.durationMs` dans `durationFor` : une seule des deux
+   * faces qui l'appliquerait ferait diverger le temps juge du temps affiche,
+   * c'est-a-dire le defaut tenu pour fatal (n°3).
+   */
+  return { ...round, durationMs: plancherParGeste(round.durationMs, round.steps.length) };
 }
 
 /**

@@ -612,6 +612,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Dette | Quand ça mord |
 |---|---|
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
+| **Front et salons déployés séparément** | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
 | `api/ranked.ts` en `MemoryStore` | mode classé masqué en production. **Ne pas rebrancher `a=top` tel quel** : il accepte `body.id` sans aucune vérification, donc n'importe qui peut soumettre sous n'importe quelle identité. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
@@ -1804,12 +1805,26 @@ de refaire.**
 
 #### Les retours de manche, et la fin de run
 
-**Le piège déjoué est le seul retour qui PARLE.** Une réussite ordinaire ne dit
+**Le piège déjoué NE PARLE PLUS — il se sent.** Une réussite ordinaire ne dit
 rien et n'arrête rien ; une mort révèle le piège APRÈS (n°5). Entre les deux, le
-piège déjoué est le geste que le jeu existe pour apprendre — et il ne rendait
-qu'un son et une gerbe. Il annonce désormais la consigne qui piégeait, et il
-fait **avancer une carte à l'écran** : « LE SANG · 4 PIÈGES DÉJOUÉS · MAÎTRISE
-2/6 », à l'instant où le joueur la gagne.
+piège déjoué est le geste que le jeu existe pour apprendre, et il a eu droit
+pendant un temps à une annonce écrite : la consigne qui piégeait, et l'avancement
+de la carte.
+
+⚠️ **Cette annonce a été retirée, et c'est une leçon d'usage, pas de code.**
+Elle était posée `inset: 0` dans `#stage`, donc en 46 px AU CENTRE DU TERRAIN,
+pendant 1500 ms — plus longtemps qu'une fenêtre tardive (760 ms). Elle
+recouvrait donc la manche suivante. Déplacée hors du champ, elle restait de
+trop : *« juste un petit retour haptique suffit »*. Le joueur qui vient de NE
+RIEN FAIRE sait déjà pourquoi ; lui expliquer son propre geste pendant que la
+manche suivante s'ouvre, c'est occuper les deux secondes où il doit lire autre
+chose.
+
+Restent trois canaux, tous instantanés et hors du chemin de lecture : le son
+`trapAvoided`, le flash violet et la secousse du canvas, et
+`navigator.vibrate`. Le compteur, lui, a trouvé sa place ailleurs — sur la
+ligne du bandeau (« JAMAIS DE ROUGE · 2 pièges déjoués »), où il se consulte au
+lieu de s'imposer.
 
 ⚠️ **UN BUG QUE SEUL LE JEU RÉEL MONTRE.** Première version à l'écran : « la
 consigne demandait NE FAIS RIEN » — absurde. Cause : **`survive()` ouvre la
@@ -1853,7 +1868,8 @@ règle, ne fais rien » du brief et du salon, et le calque plein écran du PIÈG
 DÉJOUÉ. La seconde posait `position: absolute; inset: 0` et gagnait la cascade
 — ces deux lignes de TEXTE étaient donc absolument positionnées par-dessus tout
 leur écran, sans leur cadre à arête gauche. Elles avaient l'air placées par
-chance, et elles l'étaient. Le calque s'appelle `piegefx`.
+chance, et elles l'étaient. Le calque, renommé `piegefx`, a depuis été supprimé
+— voir ci-dessus — mais la leçon vaut pour toute la feuille.
 
 ⚠️ Trouvé **en ajoutant**, pas en relisant, et **le relevé de boîtes ne le
 voyait pas** : trois cellules à 360-419 px et un texte qui se peint dessus sans
@@ -1970,6 +1986,238 @@ oublis :**
   intitulés par un élément pleine largeur dans la grille du choix, et le dépôt
   a déjà payé deux fois un enfant de grille qui réordonne ses frères. Le gain
   est cosmétique, le risque ne l'est pas.
+
+### Playtest du jour 247 — trois pannes MUETTES, et le trou qui les cachait
+
+Rapportées de vive voix : « L'ÉCLAIR ne faisait littéralement pas apparaître
+les consignes », « freeze multiple en multi », « le bouton REJOUER bug en
+silence sur la run du jour ». Aucune des trois ne produisait d'erreur, de test
+rouge ou de ligne de journal. **C'est la famille de pannes que ce dépôt attrape
+le plus mal : elles n'échouent pas, elles annulent.**
+
+- **L'ÉCLAIR** réglait son masquage sur `elapsedMs`, le temps de la MANCHE, qui
+  n'est pas le temps où le texte a été LISIBLE. En multi, `elapsedMs` court
+  depuis l'instant serveur, donc le temps de vol du message est déjà consommé à
+  la première image : à 320 ms de fenêtre et 300 ms de latence, il ne reste
+  rien — et ça frappe d'abord les téléphones. En kill-cam, `syncFrame` passe
+  `camRound.durationMs`, toujours supérieur au seuil : la consigne du mort n'y
+  paraissait JAMAIS. Le HUD porte désormais une **horloge de lecture**, locale
+  et repartie à chaque manche, identifiée par la RÉFÉRENCE de l'objet (deux
+  manches d'affilée peuvent porter le même texte). `resolveAction` garde
+  `elapsedMs` : ce qui est jugé n'a pas bougé, décision n°3 intacte.
+- **Le freeze** : `rebuildViewRound` pose délibérément `match.round = null`
+  quand la règle ne se résout pas, et `syncFrame` écrivait `match.round!`. Un
+  `!` affirme au compilateur ce que le code d'à côté vient d'infirmer — `tsc`
+  ne peut pas le voir. TypeError à chaque image, et la panne est SILENCIEUSE
+  parce que la boucle replanifie son `rAF` **avant** son corps : elle ne meurt
+  pas, elle tourne à vide. Déclencheur : le passage à 16 règles, et un client
+  resté sur le bundle de la veille.
+- **REJOUER** : les trois essais quotidiens n'avaient été câblés qu'à moitié —
+  bouton actif, fonction qui refuse. Un refus muet se lit comme un jeu cassé,
+  jamais comme une règle. En le vérifiant, on a trouvé le même désaccord à
+  l'envers : `navDaily` ouvrait le brief du jour à zéro essai avec un
+  COMMENCER actif. **Le garde-fou appartient au point de passage commun, pas à
+  chaque porte** — la prochaine porte oubliera de le poser.
+
+**Le multijoueur n'était pas mesuré du tout**, et c'est ce qui a rendu ces bugs
+introuvables : douze joueurs et quinze runs solo au rapport, pas une trace de
+la soirée en salon. Cinq événements entrent (`salon_cree`, `salon_rejoint`,
+`match_debut`, `match_fin`, `multi_manche_illisible`), plus
+`accueil_premier_clic`. ⚠️ `api/collect.ts` porte une liste blanche qui rejette
+**en silence** tout nom absent : `tests/collect.test.ts` tient les deux listes
+d'accord, et il est tombé au premier essai.
+
+**LE CHIFFRE QUI DOMINE TOUT, et qui n'est toujours pas réparé** : sur 10 jours,
+**118 nouveaux visiteurs sur 159 (74 %) repartent sans lancer une seule
+partie**, médiane 6 secondes, la moitié en moins de 5. Ce n'est pas la
+difficulté — ils ne jouent jamais. L'onboarding ne peut rien y faire : il ne
+s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
+franchissent pas. `accueil_premier_clic` existe pour dire enfin D'OÙ ils
+partent ; **ne rien redessiner sur l'accueil avant de l'avoir lu.**
+
+### L'escalier d'une règle — fait, jamais vu par un joueur
+
+Demandé par Pierre, maquette à l'appui : « tu cliques sur la carte et tu arrives
+sur une autre page avec des escaliers qui représentent chaque palier jusqu'à la
+maîtrise … au début c'est soft et ça augmente progressivement en introduisant
+les pièges … et à la fin du genre 50 en rapide pour valider la règle ».
+
+**Vingt paliers, quatre volées de cinq.** `src/game/escalier.ts`, pur et testé.
+
+⚠️ **IL N'INVENTE QU'UNE SEULE MÉCANIQUE.** Trois leviers existaient déjà et
+étaient réglés en dur pour toujours — l'ALLURE (un réglage global choisi une
+fois), la CADENCE DE PIÈGES (`FORCED_TRAP_ROUNDS`, les manches 2, 5 et 9), la
+LONGUEUR (`DAILY_LENGTH` ou l'infini, sans entre-deux). L'escalier les rend
+progressifs, et c'est tout. Ce que ça règle est mesuré : **538 des 572 runs
+relevés sont des entraînements**, c'est-à-dire que le mode le plus pratiqué du
+jeu est celui qui ne mène nulle part.
+
+⚠️ **LE SEUL LEVIER NEUF EST L'ANNONCE DU PIÈGE, ET IL CROISE LA DÉCISION N°5.**
+Aux paliers 6 à 9 le jeu dit « PIÈGE » dans la case META ; au 10 une fois sur
+deux ; à partir du 11, plus jamais. La décision n°5 protège l'ÉPREUVE et n'est
+levée sur AUCUN mode dont un résultat se compare — run du jour, multi, classé,
+entraînement libre. L'escalier est un apprentissage, et l'échafaudage tombe au
+palier 11, donc **avant** le 15 qui déclare la maîtrise : rien de comparable
+n'est jamais obtenu avec l'aide. Un test refuse tout palier ≥ 15 qui annoncerait
+encore.
+
+⚠️ **UN RUN DE PALIER NOURRIT L'ESCALIER, JAMAIS CE QUI JUGE.** Il écrit `best`
+et `pieges` — des faits — et rien d'autre : ni `parAllure`, ni `serie`, ni
+`sansFaute` (les cases de l'échelle), ni `recent`, ni le moindre record. Sa
+longueur est bornée, son allure imposée, sa cadence forcée : quinze manches là
+ne prouvent pas ce que quinze manches en entraînement libre prouvent. En code,
+c'est UNE ligne — `majCarnet` reçoit `undefined` au lieu de son argument `run`,
+et les quatre champs se taisent d'un coup, y compris le cinquième qu'on
+ajoutera un jour.
+
+⚠️ **`VERSION_CONTENU` n'a PAS bougé** (`hdblrb`, vérifié). `buildRound` gagne un
+paramètre `forcePiege` dont le DÉFAUT est l'ancienne constante, et `Session` un
+`longueur` absent partout ailleurs. **Un test compare l'appel nu à l'appel qui
+passe explicitement `FORCED_TRAP_ROUNDS`, sur quatre graines et huit niveaux** —
+sans lui, une dérive du défaut changerait le run du jour, le multi et le rejeu
+serveur en silence, et tous les scores enregistrés cesseraient d'être
+comparables. Éprouvé en cassant le défaut : il tombe.
+
+⚠️ **LA FUSION DE L'ESCALIER N'EST PAS UN MAXIMUM CHAMP PAR CHAMP** — la seule
+du dépôt qui ne le soit pas. `essais` et `meilleur` décrivent un palier PRÉCIS :
+un maximum séparé collerait « MEILLEUR ESSAI · 14 manches » sur un palier qui en
+demande 18. La loi est « le palier le plus haut gagne, avec son escorte », et à
+égalité seulement le maximum. C'est bien un treillis, donc les doubles onglets
+restent inoffensifs. Elle vit dans `shared/compte.ts` avec les autres, pas dans
+`game/` : une loi de fusion écrite deux fois diverge.
+
+**Ce que la mesure a corrigé, écran en main :**
+
+- ⚠️ **Un invariant que j'avais écrit trop large, et qui est tombé deux fois sur
+  le même palier.** « Rien ne se relâche jamais » : faux, et c'est la maquette
+  qui a raison. Le palier 11 passe de 18 à 15 manches et de 1 piège / 4 à 1 / 5,
+  parce qu'il encaisse déjà l'entrée en × 1,0 ET le retrait de l'annonce. Lui
+  demander tout en plus en ferait un mur — la falaise de la manche 3, déplacée.
+  L'invariant juste est plus étroit : **dans une volée, rien ne se relâche ;
+  changer de volée coûte toujours l'allure, strictement.** Deux tests, un par
+  moitié, sinon le second serait une échappatoire au premier.
+- **Le total de la maquette est faux** : elle annonce 371 manches sous une
+  colonne qui en fait 396. Il est donc CALCULÉ, comme la durée (≈ 13 min,
+  dérivée de `windowMs`). Les documents mentent, et la maquette aussi (§2).
+- **La marche courante s'ouvrait à 922 px dans une fenêtre de 812**, donc
+  l'écran ouvrait sur le sommet — sur ce qu'on ne peut pas jouer. Et le premier
+  correctif ne marchait pas : `scrollIntoView` sur un élément encore `hidden`
+  ne fait rien, silencieusement. Il s'appelle depuis `ouvreEscalier`, APRÈS
+  `show`.
+- **« × 1.5 » puis « × 2 »** — le point décimal est anglais, et une échelle dont
+  un cran perd sa décimale ne se lit plus comme une échelle. D'où `allureTxt`,
+  posée dans l'i18n : c'est une convention de LANGUE, comme le pluriel à zéro.
+- **La volée 1 alignait trois marches disant mot pour mot « 2 manches de plus à
+  tenir »** — la phrase est dérivée, donc juste, mais trois lignes identiques se
+  lisent comme un bug. Une marche qui n'ajoute QUE de la durée ne se nomme plus
+  dans la liste : la colonne de droite dit déjà « 10 MANCHES ». La phrase reste
+  sur la fiche, où elle est le seul texte.
+- **La coche remplaçait le numéro** : la volée 1 devenait cinq lignes sans
+  identité, alors que c'est par son numéro qu'on désigne un palier — et que
+  REPRENDRE le nomme. La coche est passée à droite.
+- **Un bouton portait une règle du jeu** (« UN PALIER RATÉ SE REJOUE · TU NE
+  REDESCENDS JAMAIS ») : un avertissement déguisé en action. La phrase est allée
+  sous la montée, le bouton dit « ◂ ESCALIER ».
+- **Le texte d'une marche se PLIE, il ne se coupe pas.** Mesuré à 1280 : 569 px
+  dans 514, donc « … et le jeu te… ». Une ellipse est bonne pour un nom, mauvaise
+  pour une explication — c'est elle qu'on vient lire.
+
+⚠️ **Un défi ou un match classé n'a JAMAIS de palier, quoi qu'il reste d'armé.**
+`openBrief` consomme l'armement — donc tout autre lancement repart à zéro, le
+garde-fou étant au point de passage commun et non sur chaque porte (leçon du
+REJOUER muet). Mais la REVANCHE d'un duel appelle `startRun(false)` sans y
+repasser : `lanceRun` ignore donc le palier dès que `challenge` ou `ranked` est
+posé. Sans ça, enchaîner un palier puis un duel ferait jouer le duel sur la
+longueur et la cadence du palier — une partie qui ne se compare plus à celle de
+l'adversaire, le seul défaut tenu pour fatal.
+
+**L'escalier SUIT le compte, et il ne le demande jamais.** Décision n°12 : aucun
+verrou, aucun bouton masqué, il vit en `localStorage` comme le reste. Et il fait
+le voyage — `tests/carnet-voyage.test.ts` déroule les cinq étapes réelles
+(`agregatsDe` → JSON → `litAgregats` qui RECONSTRUIT → `fusionne` → un second
+appareil vierge) et compare l'entrée ENTIÈRE à l'arrivée.
+
+⚠️ **Ce fichier ne teste pas une liste de champs, il teste LA liste.** Il retire
+chaque clé du carnet à tour de rôle et exige que l'arrivée diffère — donc il
+prouve que les huit champs sont réellement câblés, et le dix-septième le sera
+aussi sans qu'on y pense. Il manquait : `tests/revendication.test.ts` ne couvrait
+que `best`, `cleared` et `pieges`, alors que la panne décrite au §12 (« un champ
+oublié se voit seulement quand un joueur change d'appareil ») avait déjà été
+payée une fois.
+
+**Ce qui n'a PAS pu être vérifié** : le mode en JEU. Le volet ne compose aucune
+frame (`requestAnimationFrame` bloqué, 0 image en 500 ms), donc le battement de
+lecture ne tombe jamais et aucun run ne démarre. La plomberie est couverte par
+les unitaires — `maxRounds`, le défaut de `forcePiege`, l'allure qui ne touche
+que la fenêtre — mais **l'annonce du piège dans la case META, la borne de fin de
+palier et le libellé « PALIER 8 FRANCHI » n'ont jamais été vus tourner.** C'est
+la première chose à regarder en soirée.
+
+**Deux choses volontairement pas faites**, et ce sont des directions :
+
+- L'escalier n'a **aucune entrée depuis l'accueil** : on y arrive par une carte
+  du carnet, puis sa fiche. C'est la boucle voulue (on se fait massacrer, la
+  règle entre au carnet, on va la travailler) mais ça fait trois clics.
+- **Sur téléphone, lancer demande de toucher la marche courante d'abord**, parce
+  que la fiche du palier est une seconde vue. La maquette met un CTA au bas de
+  la montée ; ce serait un second bouton du même nom à trois cents pixels du
+  premier — « pas une insistance, une hésitation ». À trancher en jouant.
+
+### L'écran de fin : le record battu, et la carte de partage
+
+Les deux derniers morceaux de la maquette. ⚠️ **Trois autres points de la même
+liste étaient DÉJÀ FAITS** — les vies dans le bandeau, « RECORD DÉPASSÉ » au
+pied, les équerres du terrain — et le quatrième (la série) existe là où il veut
+dire quelque chose : `plate__streak` en multi, dès ×3. En solo après
+l'échauffement, la série ÉGALE le score, donc l'afficher ne dirait rien. Encore
+le §2 : mesurer avant de refaire.
+
+**`render/exploit.ts` est le CINQUIÈME module de priorité pure** du dépôt, après
+`plate`, `seat`, `jour` et `but`. Les quatre précédents ont été extraits APRÈS
+un bug ; celui-ci l'est avant, ce qui est le seul progrès possible.
+
+⚠️ **Le bandeau REMPLACE le repère « TON RECORD », il ne s'y ajoute pas** —
+sinon « TON RECORD · 23 » se lit sous « TU AS BATTU TON RECORD » à un
+centimètre d'intervalle.
+
+⚠️ **Trois modes n'ont pas de record personnel à battre**, et aucun pour la même
+raison : le run du jour se mesure « SUR 40 », un palier d'escalier est PLAFONNÉ
+par construction (féliciter quelqu'un d'avoir atteint la cible qu'on lui a fixée
+est une flatterie), un duel se juge contre l'adversaire.
+
+⚠️ **Battre zéro n'est pas un exploit.** Le premier run d'un joueur a une
+médiane de QUATRE manches : sans cette garde, l'écran lui annonce un « NOUVEAU
+RECORD » à 4 et lui apprend du même coup que le mot ne vaut rien.
+
+⚠️ **RECORD ÉGALÉ se dit, mais pas avec le même mot.** Le joueur sait qu'il
+vient de refaire son meilleur score — le pied affichait « TON RECORD · 23 »
+pendant qu'il montait à 23 — et un écran muet passe pour ne pas l'avoir vu. Mais
+l'écart reste VIDE : « +0 » se lirait comme un progrès nul.
+
+**La carte de partage.** Le partage texte est à **0 % sur trois relevés et 203
+joueurs** — jour 2 (14), jour 3 (50), jours 238-245 (139) — et le bouton
+existait à chaque fois. L'hypothèse testée : ce qui manquait n'est pas le bouton
+mais l'OBJET. Trois lignes collées dans une conversation ne se distinguent
+d'aucun autre message ; une image se reconnaît et porte l'adresse du jeu sur
+elle. **Le bouton texte RESTE** : `share` et `share_carte` sont deux événements,
+et c'est le rapport qui tranchera.
+
+- ⚠️ **On attend `document.fonts.ready`.** Un canvas qui dessine avant Inter et
+  JetBrains Mono retombe sur la police système SANS ERREUR — l'image part, hors
+  marque. Même famille que les emoji écartés des pictogrammes de l'accueil.
+- ⚠️ **On ne retombe PAS sur le partage texte** si l'image échoue : le joueur a
+  demandé une carte, lui envoyer trois lignes serait un refus déguisé en succès.
+- ⚠️ **La frise a dû monter et grossir.** Premier rendu mesuré à l'écran : 26 px
+  de côté ancrés au bas de la carte, donc 250 px de vide au milieu et une bande
+  si fine qu'elle se lisait comme une décoration. Or la frise EST le récit du
+  run — la seule partie qui dise COMMENT ça s'est passé, pas seulement combien.
+- Bornée à 60 marques, et ce sont les DERNIÈRES : un run de 201 manches donnerait
+  201 carrés de 5 px, c'est-à-dire du bruit.
+- `donneesCarte` est PURE et testée, `dessineCarte` ne fait que peindre. Sans
+  cette coupe rien ne serait vérifiable : jsdom n'a pas de canvas.
+
+⚠️ `share_carte` a dû entrer dans les DEUX listes blanches (`src/analytics/` et
+`api/collect.ts`), qui rejette en silence tout nom absent.
 
 ### Backlog
 

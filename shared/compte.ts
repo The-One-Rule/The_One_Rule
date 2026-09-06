@@ -137,6 +137,60 @@ export interface CarnetEntree {
   sansFaute?: boolean;
   /** Combien de runs cette règle a déjà pris. */
   runs?: number;
+  /**
+   * L'ESCALIER de cette règle — vingt paliers, voir `src/game/escalier.ts`.
+   *
+   * ⚠️ La forme vit ici et non là-bas parce que la FUSION vit ici : ce fichier
+   * est le seul que les deux côtés partagent, et une loi de fusion écrite deux
+   * fois est une loi qui finit par diverger en silence — le symptôme serait un
+   * escalier qui rétrécit à la synchro, exactement le défaut que `pieges` et
+   * `parAllure` ont déjà appris à éviter.
+   */
+  escalier?: EscalierEntree;
+}
+
+/**
+ * Où en est la montée d'une règle.
+ *
+ * `essais` et `meilleur` ne décrivent QUE le palier courant : ils repartent à
+ * zéro quand on en franchit un. C'est cette dépendance qui rend leur fusion
+ * particulière (voir `fusionneEscalier`).
+ */
+export interface EscalierEntree {
+  /** Le dernier palier FRANCHI. 0 = la montée n'a pas commencé. */
+  palier: number;
+  /** Essais consommés sur le palier courant. */
+  essais: number;
+  /** Meilleur nombre de manches atteint sur le palier courant. */
+  meilleur: number;
+}
+
+/**
+ * La fusion de deux montées.
+ *
+ * ⚠️ **CE N'EST PAS UN MAXIMUM CHAMP PAR CHAMP**, et c'est la seule fusion du
+ * dépôt qui ne l'est pas. La raison : `essais` et `meilleur` décrivent un
+ * palier PRÉCIS. Prendre le maximum de chacun séparément collerait le meilleur
+ * essai du palier 8 sur le palier 12 — « MEILLEUR ESSAI · 14 manches » sur un
+ * palier qui en demande 18, alors que le joueur n'y a jamais joué.
+ *
+ * La loi est donc : **le palier le plus haut gagne, avec son escorte.** À
+ * égalité seulement, on prend le maximum des deux. C'est bien un treillis —
+ * idempotent, commutatif, monotone sur `palier` — donc les doubles onglets et
+ * les synchros concurrentes restent inoffensifs, comme pour le reste du carnet.
+ */
+export function fusionneEscalier(
+  x: EscalierEntree | undefined,
+  y: EscalierEntree | undefined,
+): EscalierEntree | undefined {
+  if (!x) return y;
+  if (!y) return x;
+  if (x.palier !== y.palier) return x.palier > y.palier ? x : y;
+  return {
+    palier: x.palier,
+    essais: Math.max(x.essais, y.essais),
+    meilleur: Math.max(x.meilleur, y.meilleur),
+  };
 }
 
 /**
@@ -152,12 +206,18 @@ function maigre(
   serie: number,
   sansFaute: boolean,
   runs: number,
+  escalier: EscalierEntree | undefined,
 ): Partial<CarnetEntree> {
   return {
     ...(Object.keys(parAllure).length ? { parAllure } : {}),
     ...(runs ? { runs } : {}),
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
+    // Une montée qui n'a pas commencé n'a rien à dire : `{0,0,0}` pèse autant
+    // qu'un vrai état et ne porte pas plus d'information que son absence.
+    ...(escalier && escalier.palier + escalier.essais + escalier.meilleur > 0
+      ? { escalier }
+      : {}),
   };
 }
 
@@ -247,6 +307,7 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
         Math.max(x?.serie ?? 0, y?.serie ?? 0),
         (x?.sansFaute ?? false) || (y?.sansFaute ?? false),
         Math.max(x?.runs ?? 0, y?.runs ?? 0),
+        fusionneEscalier(x?.escalier, y?.escalier),
       ),
     };
   }

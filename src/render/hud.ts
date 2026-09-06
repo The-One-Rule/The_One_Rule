@@ -1,5 +1,5 @@
 import { colorHex } from "./scene";
-import { briefDeRegle, composePhrase, composeSous, nomDeRegle, t } from "../i18n";
+import { briefCourtDeRegle, composePhrase, composeSous, nomDeRegle, t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -37,6 +37,73 @@ export class Hud {
   private announceTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
+   * L'HORLOGE DE LECTURE — depuis quand cette manche est SOUS LES YEUX.
+   *
+   * ⚠️ Ce n'est PAS le temps de jeu, et c'est tout l'objet de ce champ.
+   *
+   * Deux effets de règle se règlent sur une durée d'affichage : L'ÉCLAIR cache
+   * la consigne à `hideTextAtMs`, LE MENTEUR la corrige à `revealAtMs`. Les
+   * deux lisaient `elapsedMs`, c'est-à-dire le temps de la MANCHE, qui n'est
+   * pas le temps où le texte a été lisible :
+   *
+   *   · en multi, `elapsedMs = clock.now() − startAt` court depuis l'instant
+   *     SERVEUR. Le temps de vol du message est donc déjà consommé quand la
+   *     première image s'affiche. Avec `hideTextAtMs` à 320 ms dans les
+   *     manches tardives, un joueur à 300 ms de latence ne voit RIEN — c'est le
+   *     « L'ÉCLAIR ne fait littéralement pas apparaître les consignes »
+   *     rapporté au playtest, et il frappe d'autant plus fort que la connexion
+   *     est mauvaise, donc sur téléphone ;
+   *   · en kill-cam, `syncFrame` passe `camRound.durationMs` comme temps
+   *     écoulé — soit une valeur toujours supérieure à `hideTextAtMs`. La
+   *     consigne du mort n'y était donc JAMAIS montrée, alors que la kill-cam
+   *     n'existe que pour montrer ce qui vient de se passer.
+   *
+   * Le temps de lecture est LOCAL par nature, et il n'a pas à être synchronisé :
+   * il ne décide de rien qui soit jugé — la décision n°3 (client et serveur
+   * jugent la même action) porte sur `resolveAction`, qui garde `elapsedMs` et
+   * n'est pas touché ici. Ce qui se joue ici est ce que l'œil a eu le temps de
+   * prendre.
+   */
+  private lectureRound: Round | null = null;
+  private lectureDebut = 0;
+
+  /**
+   * Les deux moitiés de la ligne du bandeau, tenues séparément.
+   *
+   * L'interdit vient de la règle et ne change qu'à la rotation ; le compteur de
+   * pièges monte en cours de partie. Les garder à part évite de redemander la
+   * traduction à chaque piège déjoué, et surtout évite qu'une des deux écrase
+   * l'autre selon l'ordre des appels — c'est la faute que ce dépôt a déjà payée
+   * partout où deux écritures visaient le même nœud.
+   */
+  private briefRegle = "";
+  private briefPieges = 0;
+
+  /**
+   * LE COMPTEUR DE PIÈGES DÉJOUÉS, sur la ligne du bandeau.
+   *
+   * Repris de la maquette téléphone : « Jamais de rouge · 2 pièges déjoués ».
+   * C'est la seule chose que le joueur gagne pendant une partie et qu'aucun
+   * autre élément de l'écran de jeu ne dit — le pied porte la manche, le
+   * record et le mode, jamais ce qu'on vient d'éviter.
+   *
+   * Muet à zéro : « 0 pièges déjoués » occuperait la ligne pour annoncer qu'il
+   * ne s'est rien passé.
+   */
+  setPieges(n: number): void {
+    if (n === this.briefPieges) return;
+    this.briefPieges = n;
+    this.peintBrief();
+  }
+
+  /** Recompose la ligne. Appelée par les deux seules choses qui la changent. */
+  private peintBrief(): void {
+    const p = this.briefPieges;
+    this.bandBrief.textContent =
+      p > 0 ? `${this.briefRegle} · ${t("hudPieges")(p)}` : this.briefRegle;
+  }
+
+  /**
    * Pose la règle unique — et l'ANNONCE quand elle change.
    *
    * Une règle qui change en silence est une règle qu'on découvre en mourant :
@@ -61,7 +128,16 @@ export class Hud {
      * de la table : elle retombe donc sur le `brief` qu'on lui passe, que
      * `regleAffichee()` a déjà traduit. Rien n'est traduit deux fois.
      */
-    this.bandBrief.textContent = rule ? briefDeRegle(rule.id, rule.brief) : "";
+    /*
+     * LA FORME COURTE, et elle seule — voir `briefCourtDeRegle`.
+     *
+     * Le bandeau affichait le brief long, coupe a l'ellipse : « Ne clique
+     * jamais la premiere colonne. Elle est h… » sur 375 px. Une phrase coupee
+     * en plein mot n'informe pas. L'ecran d'annonce garde le brief entier, ou
+     * il y a la place et le temps de le lire.
+     */
+    this.briefRegle = rule ? briefCourtDeRegle(rule.id, rule.brief) : "";
+    this.peintBrief();
     this.band.classList.toggle("is-armed", !!rule);
     if (change) {
       this.band.classList.remove("is-new");
@@ -155,6 +231,8 @@ export class Hud {
     this.fill.classList.remove("is-urgent");
     this.urgentShown = false;
     this.lastText = "";
+    this.lectureRound = null;
+    this.lectureDebut = 0;
   }
 
   /**
@@ -176,11 +254,26 @@ export class Hud {
      * reste donc en francais — a corriger quand on traduira le mensonge, et
      * c'est le seul reste connu de l'ecran de jeu.
      */
+    /*
+     * L'horloge de LECTURE repart à chaque manche nouvelle — voir le champ.
+     *
+     * La manche est identifiée par sa RÉFÉRENCE et non par son contenu : le
+     * multi reconstruit un objet neuf à chaque `rebuildViewRound`, le solo à
+     * chaque `nextRound`, et deux manches successives peuvent parfaitement
+     * porter le même texte. Comparer les textes ferait repartir l'horloge une
+     * fois sur deux, ce qui est pire qu'un bug franc.
+     */
+    if (round !== this.lectureRound) {
+      this.lectureRound = round;
+      this.lectureDebut = performance.now();
+    }
+    const msLus = performance.now() - this.lectureDebut;
+
     let text = composePhrase(round.phrase, round.text);
-    if (round.falseText && round.revealAtMs !== undefined && elapsedMs < round.revealAtMs) {
+    if (round.falseText && round.revealAtMs !== undefined && msLus < round.revealAtMs) {
       text = round.falseText;
     }
-    const hidden = round.hideTextAtMs !== undefined && elapsedMs > round.hideTextAtMs;
+    const hidden = round.hideTextAtMs !== undefined && msLus > round.hideTextAtMs;
 
     const shown = hidden ? "" : (round.glyph ?? text);
     if (shown !== this.lastText) {

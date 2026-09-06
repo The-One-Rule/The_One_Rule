@@ -810,6 +810,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let rejoining = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
+  /**
+   * Dernière manche pour laquelle l'illisibilité a déjà été signalée.
+   *
+   * `-1` ne peut désigner aucune manche (`match.idx` part de 0), donc l'état
+   * neuf ne masque jamais le premier signalement.
+   */
+  let illisibleSignale = -1;
+  /**
+   * Comment on est entré dans le salon où l'on se trouve.
+   *
+   * Posée à l'appel, consommée à la première `room` reçue : c'est l'ARRIVÉE
+   * qu'on veut compter, pas l'intention. Un code faux, un salon plein ou une
+   * socket morte ne doivent pas gonfler le chiffre — sinon l'entonnoir dirait
+   * que tout le monde entre, ce qui est exactement la question posée.
+   *
+   * ⚠️ La reprise après coupure ne la pose PAS : rejoindre son propre salon
+   * après un métro n'est pas une entrée, et le compter ferait passer un réseau
+   * instable pour de l'affluence.
+   */
+  let entreeSalon: "cree" | "rejoint" | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -1546,6 +1566,25 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     lobbyInMatch = true;
     hideDrama();
 
+    /*
+     * LE MATCH COMMENCE — le premier chiffre qui manquait.
+     *
+     * Posé après la garde du spectateur : celui qui n'a pas de siège ne lance
+     * pas une partie, il en regarde une. Le compter ferait passer une table de
+     * quatre pour une table de six.
+     *
+     * On note l'effectif et les réglages parce que c'est ce qui manque pour
+     * lire les abandons : un salon de deux et un salon de dix ne se jouent pas
+     * de la même façon, et l'équilibrage se règle par mode.
+     */
+    track("match_debut", {
+      joueurs: lastPlayers.filter((p) => p.lives > 0).length,
+      spectateur: !msg.rules[net.myId],
+      duo: roomSettings?.duo ?? false,
+      vitesse: roomSettings?.speed ?? null,
+      vies: roomSettings?.lives ?? null,
+    });
+
     // Aligne les ruleId publiques sur l'attribution du match
     lastPlayers = lastPlayers.map((p) => ({
       ...p,
@@ -2040,6 +2079,25 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       st.multi.matches++;
     });
 
+    /*
+     * LE MATCH SE TERMINE — et c'est ici que se lit l'abandon.
+     *
+     * `manches` dit combien de temps la table a tenu, `place` où l'on finit.
+     * Un match qui s'arrête à la troisième manche et un match qui va au bout
+     * racontent deux choses opposées, et rien ne les distinguait jusqu'ici.
+     *
+     * ⚠️ Lu AVANT `clearMatch()`, qui efface `match`.
+     */
+    const vivants = msg.players.filter((p) => p.lives > 0).length;
+    /* Lu avant `clearMatch()`, et reutilise plus bas par la ligne de rang. */
+    const manchesTenues = match?.idx ?? 0;
+    track("match_fin", {
+      manches: manchesTenues,
+      joueurs: msg.players.length,
+      gagne: msg.winnerId !== null && msg.winnerId === net.myId,
+      survivants: vivants,
+    });
+
     hideDrama();
     musicApi.stop();
     lastPlayers = mergePlayers(lastPlayers, msg.players);
@@ -2057,20 +2115,67 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const title = $("multiEndTitle");
     const kicker = $("multiEndKicker");
     const ecran = $("multi-end");
+    /*
+     * LE CODE DU SALON RESTE SOUS LES YEUX — « MATCH TERMINÉ · 3PS8 ».
+     *
+     * C'est l'ecran ou l'on decide de rejouer ensemble, et le code y avait
+     * disparu : pour le redonner a l'oral — la seule façon dont il circule
+     * vraiment (playtest du jour 2) — il fallait quitter l'ecran de fin.
+     * `roomCode` peut manquer sur un match rejoint par lien : la suite est
+     * alors omise plutot qu'affichee vide.
+     */
+    const suffixeCode = roomCode ? ` · ${roomCode}` : "";
     const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
     ecran.classList.toggle("is-victory", jeGagne);
     if (msg.winnerId === null) {
-      kicker.textContent = tr("matchTermine");
+      kicker.textContent = tr("matchTermine") + suffixeCode;
       title.textContent = tr("egalite");
       title.classList.remove("is-win");
     } else {
       const winner =
         lastPlayers.find((p) => p.id === msg.winnerId) ??
         msg.players.find((p) => p.id === msg.winnerId);
-      kicker.textContent = jeGagne ? tr("tuAsGagne") : tr("vainqueur");
-      title.textContent = winner?.name ?? tr("finDuMatch");
+      /*
+       * LE VERBE PASSE DANS LE TITRE — « MARGOT GAGNE », pas « MARGOT ».
+       *
+       * Le correctif d'origine avait mis l'issue dans l'intitule parce que le
+       * titre ne portait qu'un nom : celui qui perdait lisait un pseudo sans
+       * qu'un mot lui dise ce qui venait de se passer. La maquette telephone
+       * fait mieux avec le meme materiau — l'issue EST le titre, et l'intitule
+       * redevient ce qu'il dit etre : ou l'on se trouve, et dans quel salon.
+       * Le defaut d'origine reste corrige, et il se lit d'un coup d'oeil.
+       */
+      kicker.textContent = tr("matchTermine") + suffixeCode;
+      const nom = winner?.name;
+      title.textContent = jeGagne
+        ? tr("tuAsGagne")
+        : nom
+          ? tr("finGagne")(nom)
+          : tr("finDuMatch");
       title.classList.toggle("is-win", jeGagne);
     }
+
+    /*
+     * LA LIGNE DE RANG — la seule qui parle du joueur qui lit.
+     *
+     * Le classement se fait sur les vies puis le score, exactement comme le
+     * podium juste en dessous : deux tris differents donneraient deux rangs
+     * differents sur le meme ecran, et c'est le genre de contradiction qui fait
+     * douter du verdict entier.
+     *
+     * Les SPECTATEURS ne comptent ni au numerateur ni au denominateur — « 2e
+     * sur 6 » doit designer six joueurs, pas six connectes. Un spectateur, lui,
+     * n'a pas de rang du tout : la ligne se tait.
+     *
+     * ⚠️ `match.idx` est lu ICI, avant `clearMatch()` — comme `match_fin`.
+     */
+    const rang = $("multiEndRang");
+    const classes = msg.players
+      .filter((p) => !p.spectator)
+      .sort((a, b) => b.lives - a.lives || b.score - a.score);
+    const maPlace = classes.findIndex((p) => p.id === net!.myId);
+    rang.textContent =
+      maPlace >= 0 ? tr("finTonRang")(maPlace + 1, classes.length, manchesTenues) : "";
 
     renderTitles(msg.players);
     renderPodium(msg.players);
@@ -2098,6 +2203,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   const onMsg = (msg: ServerMsg): void => {
     if (msg.t === "room") {
+      /*
+       * L'ARRIVÉE dans un salon, comptée une fois et à l'endroit où elle est
+       * certaine : le serveur vient de confirmer. Voir `entreeSalon`.
+       */
+      if (entreeSalon) {
+        track(entreeSalon === "cree" ? "salon_cree" : "salon_rejoint", {
+          joueurs: msg.players.length,
+        });
+        entreeSalon = null;
+      }
       roomCode = msg.code;
       lastRoomCode = msg.code;
       roomSettings = msg.settings ?? roomSettings;
@@ -2569,6 +2684,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       await openJoin(code);
       return;
     }
+    entreeSalon = "rejoint";
     client.joinRoom(code);
   }
 
@@ -2624,15 +2740,32 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!match || !net) return { consumed: false };
     if (!canAct()) return { consumed: true };
 
+    /*
+     * La garde de `canAct()` couvre déjà la manche absente — mais À DISTANCE,
+     * et c'est précisément ce genre d'écart qui a produit le freeze quelques
+     * lignes plus bas. Une garde locale coûte deux lignes et ne peut pas se
+     * désynchroniser d'une condition qu'on ne relit pas.
+     *
+     * Rien n'est ENVOYÉ dans ce cas, et c'est délibéré : le joueur n'a pas de
+     * scène sous les yeux, donc son geste ne désigne rien. Transmettre un
+     * index de pièce tiré d'un plateau qu'il ne voit pas, c'est jouer à sa
+     * place — et sous une règle piégeante, jouer à sa place le tue.
+     *
+     * Le geste est en revanche CONSOMMÉ : le rendre au navigateur ferait
+     * défiler la page sur un appui d'ESPACE, par-dessus un écran déjà dégradé.
+     * Le bandeau, lui, dit quoi faire — recharger.
+     */
+    if (!match.round || !match.rule) return { consumed: true };
+
     net.sendInput(match.idx, toWire(action));
 
     const elapsed = Math.max(0, net.clock.now() - match.startAt);
     const { outcome, progress } = resolveAction(
-      match.round!,
+      match.round,
       match.progress,
       vueServeur(action),
       elapsed,
-      match.rule!.judge,
+      match.rule.judge,
     );
     match.progress = progress;
 
@@ -2766,15 +2899,60 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const ratio = clamp01((net.clock.now() - match.startAt) / span);
     const elapsed = Math.max(0, net.clock.now() - match.startAt);
 
+    /*
+     * ⚠️ LA MANCHE PEUT ÊTRE ABSENTE, ET CE N'EST PAS UNE ANOMALIE.
+     *
+     * `rebuildViewRound` pose délibérément `match.round = null` quand la règle
+     * annoncée par le serveur ne se résout pas dans ce bundle — le cas concret
+     * étant un décalage de versions, puisque le front (Vercel) et les salons
+     * (Fly) se déploient séparément. Sa note le dit : « un champ vide est un
+     * mauvais moment ; une scène fausse est un mensonge ».
+     *
+     * Sauf que le champ vide n'a jamais été écrit ici. Ces trois lignes
+     * déréférençaient `match.round!` — un `!` qui affirme au compilateur ce que
+     * le code d'à côté vient précisément d'infirmer. Résultat mesuré au
+     * playtest : TypeError à CHAQUE image, donc plus aucun rendu, donc l'écran
+     * gelé. C'est le « freeze » rapporté, et il est multiple parce qu'il
+     * recommence à chaque manche dont la règle manque.
+     *
+     * Ce qui l'a déclenché : `ONE_RULES` est passée à seize règles (« REGLES :
+     * quatre de plus »). Un client resté sur le bundle précédent — onglet
+     * ouvert depuis la veille, page en cache — reçoit alors le nom d'une règle
+     * qu'il ne connaît pas.
+     *
+     * La boucle de `main.ts` replanifie son `requestAnimationFrame` AVANT son
+     * corps, donc elle ne meurt pas : elle tourne à vide, ce qui rend la panne
+     * silencieuse dans les journaux et totale à l'écran. Le pire des deux.
+     *
+     * On honore donc le contrat que `MultiDraw` portait déjà et que le décompte
+     * respecte : champ vide, et le match continue.
+     */
+    if (!match.round) {
+      /*
+       * Signalé UNE fois par manche, jamais par image.
+       *
+       * `syncFrame` tourne soixante fois par seconde : sans ce garde-fou, une
+       * seule manche illisible noierait le collecteur et le rapport. C'est la
+       * mesure d'une panne, donc elle doit rester rare par construction.
+       */
+      if (match.idx !== illisibleSignale) {
+        illisibleSignale = match.idx;
+        track("multi_manche_illisible", { idx: match.idx, regle: match.rules[net.myId] ?? null });
+      }
+      hud.clearRound();
+      hud.setMeta(tr("multiRegleInconnue"));
+      return { round: null, rule: match.rule, ratio, reveal: false };
+    }
+
     if (match.phase === "round") {
-      hud.updateRound(match.round!, elapsed, ratio);
+      hud.updateRound(match.round, elapsed, ratio);
     } else {
-      hud.updateRound(match.round!, elapsed, 1);
+      hud.updateRound(match.round, elapsed, 1);
     }
 
     const reveal =
       match.phase === "frozen" &&
-      !!match.round!.trap &&
+      !!match.round.trap &&
       match.authority?.kind === "death";
 
     return {
@@ -2899,6 +3077,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
     const client = await ensureConnected();
     if (!client) return;
+    entreeSalon = "cree";
     client.createRoom();
     if (duo) client.setSettings({ duo: true });
   }
@@ -2916,6 +3095,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       }
       setJoinErr(null);
       const client = await ensureConnected();
+      entreeSalon = "rejoint";
       client?.joinRoom(code);
     })();
   });
@@ -3080,6 +3260,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           return;
         }
         setJoinErr(null);
+        entreeSalon = "rejoint";
         client.joinRoom(code);
       })();
     },

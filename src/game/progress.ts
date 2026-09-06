@@ -1,9 +1,10 @@
 import { dayIndex } from "./daily";
 import { langueDuNavigateur } from "../i18n";
 import { cleEntrainement } from "./perfs";
-import { PACE_DEFAULT } from "../engine/difficulty";
+import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
-import type { Agregats } from "../../shared/compte";
+import type { Agregats, EscalierEntree } from "../../shared/compte";
+import { ESCALIER_VIERGE, majEscalier } from "./escalier";
 
 const KEY = "oneRule.save.v1";
 
@@ -57,6 +58,15 @@ export interface RuleRecord {
    * synchro.
    */
   runs?: number;
+  /**
+   * L'ESCALIER de cette règle — vingt paliers, voir `game/escalier.ts`.
+   *
+   * ⚠️ Absent vaut « la montée n'a pas commencé », comme tout ce qui est arrivé
+   * après. Lire avec `escalierDe`, jamais directement : un joueur qui a déjà
+   * joué cent runs d'entraînement n'a aucun palier franchi, et c'est juste —
+   * ces runs n'avaient ni longueur, ni cadence, ni allure imposées.
+   */
+  escalier?: EscalierEntree;
 }
 
 export interface Save {
@@ -368,6 +378,43 @@ export function majCarnet(
   };
 }
 
+/**
+ * Où en est la montée d'une règle. Absent vaut « pas commencée ».
+ *
+ * Un accesseur plutôt qu'un `?? ESCALIER_VIERGE` recopié partout : c'est la
+ * même précaution que `essaisDuJour`, et pour la même raison — le repli d'un
+ * champ arrivé après coup doit être écrit à un seul endroit.
+ */
+export const escalierDe = (s: Save, ruleId: string): EscalierEntree =>
+  s.encountered[ruleId]?.escalier ?? ESCALIER_VIERGE;
+
+/**
+ * Ce qu'un essai de palier laisse derrière lui.
+ *
+ * ⚠️ ÉCRIT À PART DE `majCarnet`, ET C'EST DÉLIBÉRÉ. Un run de palier n'est pas
+ * un run d'entraînement : sa longueur est bornée, son allure est imposée et sa
+ * cadence de pièges est forcée. Le laisser remplir `parAllure` — donc les
+ * cases de l'échelle de maîtrise — rendrait « MAÎTRISÉE » atteignable en
+ * quinze manches à un palier qui annonce ses pièges. Ce qui se compare ne se
+ * gagne pas sur un échafaudage (décision n°14).
+ *
+ * Ce qu'un palier écrit malgré tout au carnet : les PIÈGES déjoués, qui sont
+ * des faits, et la rencontre de la règle. Rien d'autre.
+ */
+export function majEscalierDe(ruleId: string, manches: number, pieges: number): Save {
+  return mutate((s) => {
+    const prev = s.encountered[ruleId];
+    const apres = majEscalier(prev?.escalier ?? ESCALIER_VIERGE, manches);
+    s.encountered[ruleId] = {
+      ...prev,
+      best: prev?.best ?? 0,
+      cleared: prev?.cleared ?? false,
+      pieges: (prev?.pieges ?? 0) + pieges,
+      escalier: apres,
+    };
+  });
+}
+
 export function recordRun(
   ruleId: string,
   score: number,
@@ -422,7 +469,20 @@ export function majJour(
     played: true,
     score: Math.max(memeJour ? avant.score : 0, score),
     cleared: (memeJour && avant.cleared) || cleared,
-    essais: (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    /*
+     * PLAFONNE. Le compteur montait sans borne — releve a 6 sur une journee
+     * qui en autorise 3, en empruntant un chemin de lancement qui a depuis ete
+     * ferme. Un compteur qui depasse sa propre limite rend tout ce qui en
+     * derive faux : « essais restants » passe negatif avant d'etre borne
+     * ailleurs, et l'etat de la journee cesse de se deduire du chiffre.
+     *
+     * Le plafond ne remplace pas le verrou de lancement, il le double : l'un
+     * empeche de jouer, l'autre empeche d'ecrire un etat impossible.
+     */
+    essais: Math.min(
+      DAILY_ESSAIS,
+      (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    ),
   };
 }
 

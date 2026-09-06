@@ -172,22 +172,6 @@
              enseignerait un jeu qui n'existe pas.
              `pointer-events: none` — la seule chose cliquable ici reste le
              canvas, exactement comme en partie. -->
-        <!-- LE PIEGE DEJOUE — le seul retour de manche qui PARLE.
-             Une reussite ordinaire ne dit rien et n'arrete rien ; une mort
-             revele le piege APRES (decision n°5). Entre les deux, le piege
-             DEJOUE est le geste que le jeu existe pour apprendre, et c'est le
-             seul moment ou il vaut la peine de s'expliquer.
-
-             Hors flux et `pointer-events: none` comme l'aide du tutoriel : il
-             ne prend pas un pixel au terrain, et il n'arrete pas la manche
-             suivante. -->
-        <div id="piege" class="piegefx hidden" aria-live="polite">
-          <p class="piegefx__quoi" data-i18n="piege.rien">YOU DID NOTHING</p>
-          <p class="piegefx__titre" data-i18n="piege.dejoue">TRAP DEFUSED</p>
-          <p class="piegefx__pourquoi" id="piegePourquoi"></p>
-          <p class="piegefx__carte" id="piegeCarte"></p>
-        </div>
-
 
         <!-- LA COUPURE, ET CE QU'ELLE NE COÛTE PAS.
              Décision n°4 : une coupure n'est pas une défaite. Elle ne se
@@ -335,7 +319,15 @@
       <section class="screen" id="home">
         <div class="screen__scroll home">
           <div class="home__brand">
-            <h1 class="logo">THE<br class="logo__saut" />ONE <em>RULE</em></h1>
+            <!-- L'ESPACE AVANT LE `<br>` N'EST PAS DECORATIVE.
+               Le saut est masque au-dessus de 900 px (`.logo__saut`), et sans
+               elle les deux mots se collaient : l'enseigne annoncait
+               « THEONE RULE » sur tout le desktop. Le defaut n'existait qu'en
+               large — en dessous le `<br>` separe — ce qui explique qu'il ait
+               survecu aux releves d'accueil, tous faits a 375 px.
+               Une espace en fin de ligne est supprimee au rendu : la forme
+               mobile ne bouge pas d'un pixel. -->
+          <h1 class="logo">THE <br class="logo__saut" />ONE <em>RULE</em></h1>
             <!-- Une ligne, pas un paragraphe. L'ancienne faisait 39 mots et
                  262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
                  sur un ecran qu'on revoit vingt fois. Le brief et
@@ -381,8 +373,15 @@
                   <p class="but__quoi" data-i18n="but.personne">NOBODY HAS PLAYED YET</p>
                   <p class="but__premier" data-i18n="but.premier">Be the first.</p>
                 </div>
-                <button class="btn btn--primary" type="button" id="btnButJour" data-i18n="but.tenter">TRY THE DAILY RUN</button>
               </div>
+              <!-- LE BOUTON EST SOUS LA PLAQUE, ET SOUS LES DEUX ETATS.
+                   Il vivait DANS `.but__vide`, donc il n'existait que tant que
+                   personne n'avait joue : des qu'un record s'affichait, la
+                   plaque du run du jour n'avait plus aucun bouton, et le seul
+                   JOUER de l'ecran etait celui de la barre, a l'autre bout.
+                   Demande en soiree — « deplacer le bouton Jouer en dessous de
+                   la plaque record du jour ». Il y est, dans les deux etats. -->
+              <button class="btn btn--primary but__go" type="button" id="btnButJour" data-i18n="but.tenter">TRY THE DAILY RUN</button>
             </div>
           </div>
 
@@ -769,7 +768,85 @@
 
           <div class="btnrow">
             <button class="btn btn--primary" id="btnFicheTrain"></button>
+            <!-- L'ESCALIER. En second, et c'est voulu : la fiche désigne déjà
+                 l'exercice qui comble la prochaine case, et c'est la réponse
+                 la plus courte. La montée est l'engagement long. -->
+            <button class="btn" id="btnFicheEsc"></button>
             <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">◂ COLLECTION</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================================================
+           L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées.
+
+           UN SEUL ÉCRAN, DEUX MISES EN PAGE. Sur téléphone, la montée et le
+           palier sont deux VUES qui alternent (`.esc.est-detail`) ; à partir
+           de 900 px, elles sont deux colonnes visibles ensemble. La maquette
+           dessine bien deux écrans mobiles distincts, mais son « glisse vers
+           le bas pour revenir » est un geste que ce dépôt n'a nulle part
+           ailleurs — un panneau qui ne se ferme que par un geste inconnu est
+           un cul-de-sac. On utilise l'idiome existant : un bouton de retour.
+
+           L'ORDRE EST DESCENDANT, comme sur la maquette : le palier 20 en
+           haut, le 1 en bas. C'est un escalier, on le monte.
+           ============================================================ -->
+      <section class="screen hidden" id="escalier">
+        <div class="screen__scroll esc" id="escBoite">
+          <div class="esc__tete">
+            <button class="esc__back" id="btnEscBack">
+              <span aria-hidden="true">&#9666;</span>
+              <span id="btnEscBackTxt"></span>
+            </button>
+            <p class="esc__ou" id="escOu"></p>
+          </div>
+
+          <!-- LA MONTÉE -->
+          <div class="esc__montee" id="escMontee">
+            <div class="esc__ident">
+              <div class="esc__vue" id="escVue"></div>
+              <div class="esc__identtxt">
+                <p class="eyebrow" id="escVolee"></p>
+                <p class="lede" id="escAjout"></p>
+              </div>
+            </div>
+
+            <!-- La jauge des vingt paliers. Une case par palier : à cette
+                 échelle une barre continue ne dirait plus « vingt marches ». -->
+            <ol class="esc__jauge" id="escJauge" aria-hidden="true"></ol>
+            <p class="esc__vers" id="escVers"></p>
+
+            <ol class="esc__liste" id="escListe"></ol>
+
+            <p class="esc__total" id="escTotal"></p>
+
+            <!-- LA SEULE RÈGLE DU MODE, ET ELLE VA SOUS LA MONTÉE.
+                 « Un palier raté se rejoue, tu ne redescends jamais » répond à
+                 la question qu'on se pose devant vingt marches — qu'est-ce que
+                 je risque ? Elle appartient donc à la vue qui les montre
+                 toutes, pas à la fiche d'une seule. -->
+            <p class="esc__note" id="escNote"></p>
+          </div>
+
+          <!-- LE PALIER -->
+          <div class="esc__palier" id="escPalier">
+            <p class="eyebrow" id="palVolee"></p>
+            <div class="pal__tete">
+              <h2 class="pal__nom" id="palNom"></h2>
+              <span class="pal__jauge" id="palEssai"></span>
+            </div>
+
+            <p class="eyebrow" id="palAjoutTitre"></p>
+            <p class="piege" id="palAjout"></p>
+
+            <div class="pal__chiffres" id="palChiffres"></div>
+
+            <p class="pal__meilleur" id="palMeilleur"></p>
+
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnPalGo"></button>
+              <button class="btn btn--ghost" id="btnPalBack"></button>
+            </div>
           </div>
         </div>
       </section>
@@ -962,7 +1039,34 @@
           <div class="col over__result">
             <div class="tally" id="tally">0</div>
             <p class="eyebrow" id="tallyLabel">ROUNDS HELD</p>
+
+            <!-- LE RECORD BATTU.
+                 Le pied l'annonce deja EN DIRECT pendant le run ; l'ecran de
+                 fin, lui, se contentait de poser le score entre trois reperes.
+                 Le seul instant du run qui vaut d'etre vecu meritait mieux
+                 qu'une ligne parmi trois.
+
+                 ⚠️ Il REMPLACE le repere « TON RECORD » plutot que de s'y
+                 ajouter : afficher « TON RECORD · 23 » sous « TU AS BATTU TON
+                 RECORD » se contredit a une ligne d'intervalle. La priorite
+                 vit dans render/exploit.ts, pure et testee — cinquieme du
+                 depot apres plate, seat, jour et but. -->
+            <div class="exploit hidden" id="exploit">
+              <p class="exploit__titre" id="exploitTitre"></p>
+              <p class="exploit__chiffres">
+                <span id="exploitAncien"></span>
+                <b id="exploitAvance"></b>
+              </p>
+            </div>
+            <!-- OU SE SITUE CE SCORE. Un nombre seul ne dit pas s'il est bon :
+                 la maquette le met entre son propre record, sa mediane, et le
+                 meilleur connu. Trois reperes, pas un jugement. -->
+            <p class="reperes" id="reperes"></p>
             <div class="marks" id="marks"></div>
+            <!-- La frise disait son affaire par la seule COULEUR. La legende la
+                 nomme, et reprend les silhouettes du mode motifs — c'est la
+                 meme information pour qui ne distingue pas le vert du rouge. -->
+            <p class="marks__legende" id="marksLegende"></p>
             <div class="reward hidden" id="reward"></div>
             <div class="rank hidden" id="rankResult"></div>
 
@@ -990,10 +1094,24 @@
 
                  Masque quand le run n'a rien fait avancer — un bloc qui annonce
                  une progression nulle est pire que pas de bloc. -->
+            <!-- LA CARTE ACCOMPAGNE CE QU'ELLE A GAGNE.
+                 Les deux blocs parlent d'une regle, et la regle EST une carte :
+                 c'est l'objet que le joueur collectionne, celui qu'il retrouve
+                 dans le carnet. La nommer sans la montrer laissait ce lien a
+                 sa charge. Meme image, meme cadre, meme trame que partout
+                 ailleurs — `/cartes/<id>.png`. -->
             <div class="avance hidden" id="avance">
               <p class="eyebrow" data-i18n="fin.avance">WHAT THIS RUN ADVANCED</p>
-              <p class="avance__regle" id="avanceRegle"></p>
-              <p class="avance__quoi" id="avanceQuoi"></p>
+              <div class="avance__corps">
+                <div class="avance__carte" id="avanceCarte" aria-hidden="true"></div>
+                <div class="avance__texte">
+                  <p class="avance__regle" id="avanceRegle"></p>
+                  <!-- La progression VUE : les six cases de l'echelle, dont
+                       celles que ce run vient de faire tomber. -->
+                  <div class="avance__jauge" id="avanceJauge"></div>
+                  <p class="avance__quoi" id="avanceQuoi"></p>
+                </div>
+              </div>
               <button class="btn" id="btnAvanceTrain"></button>
             </div>
 
@@ -1002,8 +1120,13 @@
                  pas. Elle merite sa propre annonce. -->
             <div class="decouverte hidden" id="decouverte">
               <p class="eyebrow" data-i18n="fin.decouverte">RULE DISCOVERED</p>
-              <p class="decouverte__nom" id="decouverteNom"></p>
-              <p class="decouverte__note" id="decouverteNote"></p>
+              <div class="avance__corps">
+                <div class="avance__carte" id="decouverteCarte" aria-hidden="true"></div>
+                <div class="avance__texte">
+                  <p class="decouverte__nom" id="decouverteNom"></p>
+                  <p class="decouverte__note" id="decouverteNote"></p>
+                </div>
+              </div>
             </div>
 
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
@@ -1011,6 +1134,13 @@
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->
             <p class="eyebrow" data-i18n="fin.quetes">TODAY'S QUESTS</p>
             <div class="quests" id="overQuests"></div>
+            <!-- TROIS CHIFFRES, D'UN COUP D'OEIL — quetes, serie, carnet.
+                 Les trois choses qu'un run fait bouger en dehors du score. La
+                 liste des quetes juste au-dessus dit LESQUELLES ; ces tuiles
+                 disent OU L'ON EN EST, ce qu'aucune ligne ne donnait. La tuile
+                 SERIE remplace la phrase « serie en cours » : meme donnee, une
+                 ligne de moins. -->
+            <div class="bilan" id="bilan"></div>
             <div class="teaser" id="teaser"></div>
 
             <!-- L'invitation à enregistrer.
@@ -1032,6 +1162,12 @@
             <div class="btnrow">
               <button class="btn btn--primary" id="btnAgain" data-i18n="fin.rejouer">PLAY AGAIN · R</button>
               <button class="btn" id="btnShare" data-i18n="fin.partager">SHARE</button>
+              <!-- LA CARTE. Le partage TEXTE est a 0 % sur trois releves et 203
+                   joueurs — le bouton existait a chaque fois. L'hypothese est
+                   que ce qui manquait n'est pas le bouton mais l'OBJET : trois
+                   lignes collees dans une conversation ne se distinguent
+                   d'aucun autre message. -->
+              <button class="btn" id="btnShareCarte"></button>
               <button class="btn" id="btnDuel" data-i18n="fin.defier">CHALLENGE A FRIEND</button>
               <button class="btn btn--ghost" id="btnHome" data-i18n="commun.menu">MENU</button>
             </div>
@@ -1150,9 +1286,18 @@
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="8" height="11"/><rect x="13" y="7" width="8" height="11" opacity=".55"/></svg>
             <span class="nav__lab" data-i18n="nav.cartes">CARDS</span><b class="nav__compte" id="navCartesCompte"></b>
           </button>
-          <button type="button" class="nav__item" id="navTraining">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="14" width="4" height="6"/><rect x="10" y="9" width="4" height="11"/><rect x="17" y="4" width="4" height="16"/></svg>
-            <span class="nav__lab" data-i18n="nav.training">TRAINING</span>
+          <!-- CLASSEMENT prend la place qu'ENTRAINEMENT occupait.
+               ENTRAINEMENT et JOUER menaient au MEME ecran — `openBrief("training")`
+               dans les deux cas, a l'onboarding pres — soit deux cases voisines
+               de la meme barre pour une seule destination. Un doublon exact ne
+               se defend pas dans une barre de cinq.
+               La case liberee garde la symetrie 2-2 autour du bouton central, et
+               CLASSEMENT cesse d'etre reserve au large : il etait masque faute de
+               place, pas par choix. L'entrainement reste atteignable par JOUER et
+               par SOLO. -->
+          <button type="button" class="nav__item" id="navClassement">
+            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="12" width="5" height="8"/><rect x="10" y="6" width="5" height="14"/><rect x="17" y="15" width="5" height="5" opacity=".55"/></svg>
+            <span class="nav__lab" data-i18n="nav.classement">RANKING</span>
           </button>
           <div class="nav__centre">
             <button type="button" class="nav__jouer" id="navJouer" data-i18n="nav.jouer">PLAY</button>
@@ -1165,14 +1310,6 @@
           <button type="button" class="nav__item" id="navMulti">
             <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="2" y="8" width="7" height="7"/><rect x="10" y="5" width="7" height="7" opacity=".55"/><rect x="15" y="12" width="7" height="7"/></svg>
             <span class="nav__lab" data-i18n="nav.multi">MULTI</span>
-          </button>
-          <!-- ⚠️ CLASSEMENT n'existe QUE sur large, et ce n'est pas un oubli :
-               une sixieme case dans une barre de cinq a 375 px donnerait des
-               cibles sous les 44 px tactiles. Sur telephone il reste atteignable
-               depuis SOLO — un seul controle, revele la ou il y a la place. -->
-          <button type="button" class="nav__item nav__item--large" id="navClassement">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="12" width="5" height="8"/><rect x="10" y="6" width="5" height="14"/><rect x="17" y="15" width="5" height="5" opacity=".55"/></svg>
-            <span class="nav__lab" data-i18n="nav.classement">RANKING</span>
           </button>
       </nav>
 
@@ -1687,6 +1824,14 @@
                  du vainqueur sans qu'on lui dise qu'il avait perdu. -->
             <p class="eyebrow" id="multiEndKicker">MATCH OVER</p>
             <h2 class="verdict" id="multiEndTitle">MATCH OVER</h2>
+            <!-- OU FINIT CELUI QUI LIT, et c'est le seul a ne pas le savoir.
+                 Le titre porte le nom du vainqueur : pour les cinq autres, cet
+                 ecran nommait quelqu'un d'autre et se taisait sur eux. La
+                 maquette telephone tranche par « TU FINIS 2e SUR 6 · MANCHE
+                 22 » — un rang, un effectif, et combien de temps la table a
+                 tenu. Le podium le dit deja en detail ; cette ligne le dit
+                 avant qu'on ait a le chercher. -->
+            <p class="end__rang" id="multiEndRang"></p>
           </div>
 
           <div class="col end__podium">
@@ -1700,7 +1845,7 @@
 
           <div class="end__foot">
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">PLAY AGAIN</button>
+              <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">PLAY AGAIN · SAME ROOM</button>
               <button class="btn" id="btnMultiEndInvite" data-i18n="salon.copierLien">COPY THE LINK</button>
               <button class="btn btn--ghost" id="btnMultiEndHome" data-i18n="fin.quitter">LEAVE</button>
             </div>

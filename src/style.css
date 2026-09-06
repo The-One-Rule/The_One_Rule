@@ -1181,8 +1181,32 @@ body {
   padding: 6px 8px;
 }
 
+/*
+ * ⚠️ LA REGLE DE CHACUN RESTE VISIBLE, MEME EN BANDEAU — et c'est GRATUIT.
+ *
+ * Elle etait masquee des que les plaques passaient en bandeau (donc sur tout
+ * telephone), pour economiser de la hauteur : la taille du champ est du
+ * gameplay (n°10), et chaque pixel rendu au bandeau est un pixel pris au
+ * terrain. La precaution etait juste dans son intention et fausse en fait.
+ *
+ * Mesure a 375 x 812, quatre plaques : bandeau 60 px et canvas 524 px, que la
+ * regle soit affichee ou non. Elle tient dans la hauteur DEJA reservee par la
+ * plaque — le masquage ne rendait donc rien du tout, et coutait la seule chose
+ * qui distingue deux joueurs du meme salon.
+ *
+ * C'est aussi ce que montre la maquette telephone : « TOI · LES ANGLES »,
+ * « SACHA · L'AZUR · PIEGE ! ». Sans elle, une plaque ne dit que des vies.
+ *
+ * Elle s'ellipse plutot que de replier la plaque : a quatre par ligne on
+ * dispose d'environ 84 px, et un nom de regle est un repere, pas une lecture.
+ */
 #app:not(.has-gutters) .plates--compact .plate__rule {
-  display: none;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  min-height: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .plates--compact .plate__name {
@@ -1603,10 +1627,26 @@ body {
   display: none;
 }
 
+/*
+ * LES TITRES DU MATCH — quatre CARTES, deux par rangée.
+ *
+ * C'était quatre bandes pleine largeur, chacune sur une ligne : label à
+ * gauche, valeur au milieu, nom poussé à droite par un `margin-left: auto`.
+ * Lisible sur un bureau, mais sur 375 px les trois parts se replient et la
+ * distinction se lit en trois temps au lieu d'un.
+ *
+ * La maquette téléphone en fait des cartes : l'intitulé, le NOM en évidence,
+ * la valeur qui le justifie — un objet qu'on lit d'un coup, et quatre objets
+ * qui se comparent d'un coup d'œil. C'est le bon format pour ce que sont ces
+ * titres : un palmarès, pas une liste de mesures.
+ */
 .titles {
   margin: 18px 0 8px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* ⚠️ `minmax(0, 1fr)` et pas `1fr` : le minimum d'une piste `1fr` est le
+     `min-content` de son contenu, et « réaction médiane 412 ms » ferait alors
+     sortir la carte de la colonne. Le dépôt a déjà payé exactement ça. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -1614,43 +1654,76 @@ body {
   display: none;
 }
 
-/* Les distinctions de fin de match : une par ligne, chacune une plaquette. */
+/* Une distinction = une carte : intitulé, nom, puis ce qui la justifie. */
 .titles__row {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding: var(--sp-2) var(--sp-3);
   background: color-mix(in srgb, var(--ink-2) 75%, transparent);
   border: none;
   border-left: var(--bd-frame) solid color-mix(in srgb, var(--signal) 55%, transparent);
+  min-width: 0;
+}
+
+/*
+ * ⚠️ L'ORDRE EST POSÉ SUR LES TROIS ENFANTS, JAMAIS SUR UN SEUL.
+ *
+ * Le DOM les produit dans l'ordre intitulé / valeur / nom ; la carte les lit
+ * intitulé / nom / valeur. Un `order` sur le seul élément à déplacer laisserait
+ * les deux autres à `order: 0`, donc DEVANT lui — la faute que ce dépôt a déjà
+ * payée deux fois, dont une sur le titre du salon.
+ */
+.titles__label {
+  order: 1;
+}
+
+.titles__who {
+  order: 2;
+}
+
+.titles__value {
+  order: 3;
 }
 
 .titles__label {
   font-size: var(--t-intitule);
   letter-spacing: var(--ls-intitule);
   color: var(--signal-pale);
-  min-width: 14ch;
+  /* `min-width: 14ch` alignait les colonnes d'une bande ; dans une carte, il
+     ne fait que forcer une largeur que la grille doit décider. */
 }
 
+/* Ce qui JUSTIFIE le titre : une mesure, donc discrète et alignée. */
 .titles__value {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: -0.02em;
-  color: var(--paper);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.04em;
+  color: var(--paper-dim);
   font-variant-numeric: tabular-nums;
+  /* Une mesure peut être longue (« réaction médiane 412 ms ») : elle se replie
+     dans sa carte plutôt que de l'élargir. */
+  white-space: normal;
 }
 
+/* LE NOM porte la carte : c'est lui qu'on cherche dans un palmarès. */
 .titles__who {
-  margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  min-width: 0;
+}
+
+.titles__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @keyframes glyphFall {
@@ -3013,6 +3086,29 @@ body {
   text-align: center;
 }
 
+/*
+ * OU FINIT CELUI QUI LIT — sous le nom du vainqueur.
+ *
+ * En `--t-petit` et en `--paper-dim` : elle situe, elle ne celebre pas. Le
+ * titre au-dessus porte le nom du gagnant et garde tout l'accent ; cette ligne
+ * repond a l'autre question, celle que se pose tout le monde sauf lui.
+ *
+ * ⚠️ Vide, elle ne prend AUCUNE hauteur — un spectateur n'a pas de rang, et un
+ * blanc reserve sous le titre se lirait comme une donnee manquante.
+ */
+.end__rang {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.end__rang:empty {
+  display: none;
+}
+
 @media (min-width: 900px) {
   .end {
     gap: 26px 52px;
@@ -3771,8 +3867,61 @@ button.chip:active:not(:disabled) {
   transition: background var(--d-fast) linear, border-color var(--d-fast) linear;
 }
 
+/*
+ * ⚠️ `min-width: 0`, SANS QUOI LA LIGNE SE REPLIE SUR TELEPHONE.
+ *
+ * Un element flexible ne retrecit pas sous son `min-content` tant qu'on ne le
+ * lui permet pas — la lecon est deja dans cette feuille pour les pistes de
+ * grille, et elle vaut ici. Mesure a 375 px sur le podium de fin : nom 87 +
+ * regle 154 + statut 70 + 32 de gouttieres = 343 px pour 293 disponibles. Le
+ * `flex-wrap` renvoyait donc « VAINQUEUR » a la ligne, et la rangee du
+ * vainqueur faisait 77 px quand les autres en font 47.
+ *
+ * La regle est la seule des trois qui puisse ceder : le rang et le nom sont
+ * l'identite, le statut est le verdict. Elle s'ellipse donc, et la rangee tient.
+ */
+/*
+ * ⚠️ LE PODIUM DE FIN NE SE REPLIE PAS — et c'est ce qui rend l'ellipse utile.
+ *
+ * `.lobbyrow` porte `flex-wrap: wrap` pour le SALON, ou une rangee peut
+ * legitimement passer sur deux lignes. Mais tant qu'un conteneur enveloppe, ses
+ * enfants ne RETRECISSENT pas : ils passent a la ligne. Le `min-width: 0` et
+ * l'ellipse poses sur la regle etaient donc inertes ici — mesure, la rangee du
+ * vainqueur faisait toujours 77 px contre 47 pour les autres, « VAINQUEUR »
+ * renvoye seul sur une seconde ligne.
+ *
+ * Le podium a besoin de l'inverse du salon : trois rangees de meme hauteur, que
+ * l'on compare d'un coup d'oeil. On lui retire donc le repli, et la regle cede
+ * a sa place.
+ */
+#multiPodium .lobbyrow {
+  flex-wrap: nowrap;
+}
+
+/*
+ * SUR TELEPHONE, LA RANGEE DU VAINQUEUR NE REDIT PAS QU'IL A GAGNE.
+ *
+ * Trois choses le disent deja au-dessus et autour : le titre en grand
+ * (« MARGOT GAGNE »), le rang 1, et le surlignage de la rangee. Le mot
+ * « VAINQUEUR » ne coutait rien sur un bureau ; sur 375 px il prend 70 px a la
+ * seule colonne qui puisse ceder, et « LE COLOSSE » devenait « LE CO… ».
+ *
+ * La maquette telephone fait le meme choix — nom et regle, rien d'autre. Les
+ * rangees suivantes gardent leur statut : « 2e » et « ELIMINE » ne sont dits
+ * nulle part ailleurs.
+ */
+@media (max-width: 560px) {
+  #multiPodium .lobbyrow.is-winner .lobbyrow__status {
+    display: none;
+  }
+}
+
 .lobbyrow__rule {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--signal-pale);
   text-transform: uppercase;
 }
@@ -4484,6 +4633,155 @@ button.chip:active:not(:disabled) {
  * — et c'était une ligne de texte de 15 px perdue sous un chiffre de 86.
  * Encadrée et respirée, elle se lit comme une bande de pellicule.
  */
+/*
+ * LES DEUX BLOCS QUI PARLENT D'UNE REGLE — carte a gauche, texte a droite.
+ *
+ * `minmax(0, 1fr)` sur la colonne de texte : sans lui, une phrase longue
+ * pousserait la carte hors du bloc. Le depot a paye cette faute assez de fois.
+ */
+.avance__corps {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--sp-3);
+  align-items: start;
+  margin-top: var(--sp-2);
+  text-align: left;
+}
+
+.avance__carte {
+  width: 56px;
+  flex: 0 0 auto;
+}
+
+.vignette {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* La meme trame que partout : une carte de 64 px agrandie garde ses pixels
+     francs. */
+  image-rendering: pixelated;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
+}
+
+.avance__texte {
+  min-width: 0;
+}
+
+/*
+ * LES SIX CASES DE L'ECHELLE, et la ou les deux que ce run vient de gagner.
+ *
+ * Une case NEUVE prend l'accent : c'est la seule chose que cet ecran ait a
+ * celebrer, et un compteur qui passe de 2 a 3 ne la montre pas. Les cases
+ * acquises restent pleines mais sourdes, les vides gardent leur place — on
+ * doit voir le chemin restant autant que celui fait.
+ */
+.avance__jauge {
+  display: flex;
+  gap: 3px;
+  margin: 6px 0;
+}
+
+.avance__jauge i {
+  width: 100%;
+  height: 5px;
+}
+
+.avance__jauge i.est-vide {
+  background: var(--line);
+}
+
+.avance__jauge i.est-faite {
+  background: var(--paper-dim);
+}
+
+.avance__jauge i.est-neuve {
+  background: var(--signal);
+}
+
+/*
+ * LE BILAN EN TROIS TUILES — quetes, serie, carnet.
+ *
+ * Trois parts egales et un filet entre elles, comme la barre de verification
+ * du brief : c'est la meme nature d'objet — des grandeurs qu'on lit d'un coup
+ * d'oeil, jamais qu'on compare entre elles.
+ *
+ * `flex: 1 1 0` + `min-width: max-content` : la base nulle donne la part egale,
+ * le plancher interdit d'ecraser un mot. La feuille a paye trois essais avant
+ * d'arriver a cette combinaison pour la barre des vitesses ; on ne la refait
+ * pas.
+ */
+.bilan {
+  display: flex;
+  margin-top: var(--sp-3);
+  border: var(--bd-hair) solid var(--line);
+  background: color-mix(in srgb, var(--ink-2) 70%, transparent);
+}
+
+.bilan__cel {
+  flex: 1 1 0;
+  min-width: max-content;
+  padding: var(--sp-2) var(--sp-3);
+  border-right: var(--bd-hair) solid var(--line);
+  text-align: center;
+}
+
+.bilan__cel:last-child {
+  border-right: 0;
+}
+
+.bilan__val {
+  display: block;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.bilan__lab {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+/*
+ * LES TROIS REPERES, sous le score.
+ *
+ * En `--mono` et en chiffres tabulaires : ce sont trois grandeurs qu'on compare
+ * du regard, et des chiffres qui ne s'alignent pas se comparent mal. En
+ * `--paper-dim` : ils SITUENT le score, ils ne le concurrencent pas — le grand
+ * nombre au-dessus reste le sujet.
+ */
+.reperes {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* La legende de la frise : elle NOMME ce que la frise montre. */
+.marks__legende {
+  margin: 6px auto 0;
+  max-width: 26ch;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  text-align: center;
+}
+
+.marks__legende:empty {
+  display: none;
+}
+
 .marks {
   margin: var(--sp-4) auto 0;
   max-width: 22ch;
@@ -4665,6 +4963,14 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-intitule);
   color: var(--paper-dim);
   text-align: left;
+}
+
+/* Chaque composant declare son propre masquage — il n'y a pas de `.hidden`
+   generique dans cette feuille. Le teaser se tait desormais en entrainement,
+   ou la tuile SERIE dit la meme chose : sans cette regle il gardait ses 32 px
+   et son filet, vides. */
+.teaser.hidden {
+  display: none;
 }
 
 .teaser b {
@@ -7999,11 +8305,20 @@ button.chip:active:not(:disabled) {
   height: 96px;
 }
 
-.onb__embleme svg {
+.onb__embleme svg,
+.onb__carte {
   width: 100%;
   height: 100%;
   display: block;
+  /* La meme trame que partout ailleurs : une carte de 64 px agrandie doit
+     garder ses pixels francs, jamais un lissage. */
   image-rendering: pixelated;
+}
+
+/* Le cadre de la carte, comme dans la collection : elle est un OBJET. */
+.onb__carte {
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink);
 }
 
 .onb__compte {
@@ -8170,6 +8485,20 @@ button.chip:active:not(:disabled) {
 .but__plein.hidden,
 .but__vide.hidden {
   display: none;
+}
+
+/*
+ * LE BOUTON DE LA PLAQUE — sous les deux etats, jamais a cote.
+ *
+ * `margin-top: auto` le colle au bas de la plaque quel que soit l'etat affiche
+ * au-dessus : l'etat plein et l'etat vide n'ont pas la meme hauteur, et un
+ * bouton qui remonte d'une dizaine de pixels selon qu'un record existe ou non
+ * se lit comme un defaut.
+ */
+.but__go {
+  margin-top: 10px;
+  align-self: stretch;
+  justify-content: center;
 }
 
 /*
@@ -8892,7 +9221,28 @@ button.chip:active:not(:disabled) {
     grid-column: 1 / -1;
   }
 
-
+  /*
+   * ⚠️ PAS DE HAUTEUR FORCEE EN LARGE — la barre haute est deja passee par la.
+   *
+   * `min-height: 100%` vaut 100 % de `.screen`, mais le conteneur commence
+   * SOUS la barre : il valait donc toute la hauteur de l'ecran, posee 74 px
+   * plus bas. Mesure a 1676 x 972 : contenu 767 px, conteneur 972,
+   * `scrollHeight` 1046 pour un `clientHeight` de 972. Deux defauts d'un coup —
+   * 131 px de vide noir sous le pied, et 74 px de defilement qui ne menent
+   * nulle part, sur un ecran qui tient largement.
+   *
+   * On rend la hauteur au CONTENU, et c'est `margin: auto` qui place le bloc —
+   * le remede que la decision n°6 documente depuis longtemps : il centre quand
+   * il y a la place, et laisse le contenu commencer en haut quand il n'y en a
+   * pas. Rien n'est jamais rendu inatteignable.
+   *
+   * ⚠️ Le mobile n'est PAS touche : sous 900 px le contenu deborde deja, la
+   * hauteur y est reglee et mesuree, et c'est la que vit la faute des 76 %
+   * d'entrees. Cette regle ne descend pas sous 900.
+   */
+  #home .screen__scroll {
+    min-height: 0;
+  }
 }
 
 /* ==================================================================
@@ -9085,121 +9435,6 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* ==================================================================
-   LE PIEGE DEJOUE — le seul retour de manche qui parle
-
-   Une reussite ordinaire ne dit rien et n'arrete rien ; une mort revele le
-   piege APRES, jamais pendant (decision n°5). Entre les deux, le piege dejoue
-   est le geste que le jeu existe pour apprendre.
-
-   ⚠️ HORS FLUX et `pointer-events: none` : il ne prend pas un pixel au
-   terrain, et la manche suivante s'ouvre normalement derriere. Une pause ici
-   casserait le rythme au moment precis ou le joueur vient de reussir.
-
-   ⚠️ IL S'APPELLE `piegefx` ET PAS `piege`, ET CE N'EST PAS UN GOUT.
-
-   `.piege` etait DEJA pris par la ligne « si une consigne enfreint ta regle,
-   ne fais rien » du brief et du salon. Deux declarations du meme selecteur,
-   700 lignes d'ecart, l'une posant `position: absolute; inset: 0` : la
-   seconde gagnait la cascade, donc ces deux lignes de texte etaient
-   absolument positionnees par-dessus tout leur ecran. Elles avaient l'air
-   placees par chance, et elles l'etaient.
-
-   Trouve en AJOUTANT trois cellules au brief : le texte s'est peint par
-   -dessus. Le releve de boites, lui, ne signalait aucun chevauchement —
-   c'est la lecon deja payee sur « TA REGLE T'ATTEND ».
-   ================================================================== */
-
-.piegefx {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 var(--gap);
-  pointer-events: none;
-  text-align: center;
-}
-
-.piegefx.hidden {
-  display: none;
-}
-
-.piegefx__quoi {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--paper-dim);
-}
-
-.piegefx__titre {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(30px, 6vw, 46px);
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--signal-pale);
-}
-
-.piegefx__pourquoi {
-  margin: 0;
-  max-width: 34ch;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
-  line-height: 1.45;
-  color: var(--paper);
-  text-wrap: balance;
-}
-
-/* La carte qui AVANCE, sous les yeux du joueur, a l'instant ou il la gagne. */
-.piegefx__carte {
-  margin: 4px 0 0;
-  padding: 5px 12px;
-  font-family: var(--mono);
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  color: var(--signal-pale);
-  background: var(--ink);
-  border: 1px solid var(--signal);
-}
-
-/* Seuls `transform` et `opacity` s'animent — la meme regle que --heat. */
-.piegefx.is-vu {
-  animation: piegeEntre 1.5s ease-out forwards;
-}
-
-@keyframes piegeEntre {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  12% {
-    opacity: 1;
-    transform: none;
-  }
-  76% {
-    opacity: 1;
-    transform: none;
-  }
-  100% {
-    opacity: 0;
-    transform: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* ⚠️ Neutraliser l'animation SANS remettre l'opacite laisserait l'element
-     invisible — le piege deja paye avec `animation-fill-mode: backwards`. */
-  .piegefx.is-vu {
-    animation: none;
-    opacity: 1;
-  }
-}
 
 /* ==================================================================
    CE QUE CE RUN A FAIT AVANCER
@@ -9738,8 +9973,21 @@ button.chip:active:not(:disabled) {
   text-align: left;
 }
 
+/*
+ * ⚠️ `#compteAnon` N'AVAIT AUCUNE REGLE DE MASQUAGE, et le JS le masque.
+ *
+ * `$("compteAnon").classList.toggle("hidden", connecte)` basculait donc une
+ * classe qui ne faisait RIEN : une fois connecte, tout le bloc anonyme — la
+ * grille, la mention, les boutons de fournisseur — restait affiche SOUS le bloc
+ * connecte. Sans erreur, sans avertissement, exactement la panne que ce
+ * fichier de test decrit en tete.
+ *
+ * Trouve en etendant `tests/hidden.test.ts` aux elements que seul le JS masque :
+ * l'ancien filet ne lisait que les `class="hidden"` ecrits dans l'HTML.
+ */
 #compteTitre.hidden,
-#compteLede.hidden {
+#compteLede.hidden,
+#compteAnon.hidden {
   display: none;
 }
 
@@ -11010,16 +11258,24 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* CLASSEMENT n'existe QUE sur large : une sixieme case dans une barre de cinq
-   a 375 px donnerait des cibles sous les 44 px tactiles. */
-.nav__item--large {
-  display: none;
-}
+/* `nav__item--large` n'a plus d'usage : CLASSEMENT a pris la case
+   d'ENTRAINEMENT, qui menait au meme ecran que JOUER. La barre garde ses cinq
+   cases et ses cibles au-dessus de 44 px — c'est un echange, pas un ajout. */
 
-@media (min-width: 900px) {
-  #app.barre-haute .nav__item--large {
-    display: flex;
-  }
+/*
+ * ⚠️ SUR LARGE, JOUER QUITTE LA BARRE — il est passe sous la plaque du record.
+ *
+ * Deux boutons du meme nom aux deux bouts de l'ecran, ce n'est pas une
+ * insistance, c'est une hesitation — la feuille le dit deja ailleurs. La barre
+ * du haut garde ses quatre destinations ; l'ACTION, elle, se lit desormais la
+ * ou l'ecran vient de donner une raison de jouer.
+ *
+ * ⚠️ Le telephone n'est PAS concerne : sa barre est en bas, JOUER y est la
+ * cible centrale et surelevee, et c'est son ergonomie. Cette regle ne vaut que
+ * sous `barre-haute`.
+ */
+#app.barre-haute .nav__centre {
+  display: none;
 }
 
 /* ==================================================================
@@ -12335,4 +12591,509 @@ button.chip:active:not(:disabled) {
   font-size: 13px;
   line-height: 1.45;
   letter-spacing: 0;
+}
+
+/* ------------------------------------------------------------------
+ * LE RECORD BATTU, sur l'écran de fin
+ *
+ * Le seul accent chaud de cet écran. L'ambre est déjà la couleur de l'état
+ * PARFAITE et de la pastille du run du jour : un joueur qui l'a vue là la
+ * reconnaît ici.
+ * ------------------------------------------------------------------ */
+
+.exploit {
+  margin: 10px auto 0;
+  max-width: 320px;
+  padding: 10px 14px;
+  border: var(--bd-hair) solid color-mix(in srgb, var(--ambre) 55%, var(--line));
+  /*
+   * La trame rayée de la maquette, en `repeating-linear-gradient` — la même
+   * matière que le cadre en marches de la couche pixel, et le même angle. Ce
+   * n'est pas un dégradé : deux couleurs franches, aucune transition.
+   */
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--ambre) 14%, transparent) 0 6px,
+      transparent 6px 12px
+    ),
+    var(--ink-2);
+}
+
+.exploit.hidden {
+  display: none;
+}
+
+.exploit__titre {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ambre);
+}
+
+.exploit__chiffres {
+  margin: 4px 0 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.exploit__chiffres b {
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--ambre);
+}
+
+/* Rien à montrer : l'écart est nul (record égalé), la case reste vide. */
+.exploit__chiffres b:empty {
+  display: none;
+}
+
+/* ==================================================================
+ * L'ESCALIER D'UNE RÈGLE
+ *
+ * ⚠️ UN SEUL ÉCRAN, DEUX MISES EN PAGE, ET C'EST LE CSS QUI DÉCIDE — pas le
+ * JavaScript. Sur téléphone, `.esc.est-detail` bascule d'une vue à l'autre ;
+ * à partir de 900 px la classe ne fait plus rien parce que les deux colonnes
+ * sont visibles ensemble. Un basculement piloté en JS aurait demandé d'écouter
+ * la largeur, donc de reconstruire un `matchMedia` que la feuille sait tenir
+ * seule — et il aurait laissé le palier caché sur un écran large.
+ * ================================================================== */
+
+.esc {
+  max-width: 1080px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  text-align: left;
+}
+
+.esc__tete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  grid-column: 1 / -1;
+}
+
+.esc__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--tap);
+  padding: 0 4px 0 0;
+  background: none;
+  border: 0;
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  cursor: pointer;
+}
+
+.esc__back:hover {
+  color: var(--paper);
+}
+
+.esc__ou {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.esc__montee,
+.esc__palier {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* --- l'en-tête de la montée : la carte, la volée, ce qui change --- */
+
+.esc__ident {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.esc__vue {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: grid;
+  place-items: center;
+}
+
+.esc__vue img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.esc__identtxt {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.esc__identtxt .lede {
+  margin: 0;
+  text-align: left;
+}
+
+/* --- la jauge des vingt paliers --- */
+
+.esc__jauge {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 2px;
+}
+
+.esc__jauge li {
+  flex: 1 1 0;
+  height: 8px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+}
+
+.esc__jauge li.est-franchi {
+  background: var(--ok);
+  border-color: var(--ok);
+}
+
+.esc__jauge li.est-ici {
+  background: var(--signal);
+  border-color: var(--signal-pale);
+}
+
+.esc__vers {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  text-align: right;
+}
+
+/* --- la liste des paliers, du sommet vers le bas --- */
+
+.esc__liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/*
+ * L'intitulé d'une volée. Il ouvre le groupe qu'il nomme — donc, dans une
+ * liste qui descend, il se pose AU-DESSUS de son palier le plus haut.
+ */
+.esc__vol {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 10px 0 2px;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.esc__vol::before {
+  content: "";
+  flex: none;
+  width: 18px;
+  height: 9px;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 2px, transparent 2px 4px);
+}
+
+.esc__vol b {
+  color: var(--paper);
+  font-weight: 400;
+}
+
+/*
+ * Une marche. Bouton plein — donc utilisable au clavier sans une ligne de JS,
+ * et chaque marche annonce son propre état plutôt que de compter sur sa
+ * position dans la liste.
+ */
+.esc__marche {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 9px 11px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  color: var(--paper-dim);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.esc__marche:hover {
+  border-color: color-mix(in srgb, var(--signal) 45%, var(--line));
+}
+
+.esc__num {
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  font-variant-numeric: tabular-nums;
+  color: var(--paper-dim);
+}
+
+/*
+ * ⚠️ LA LIGNE D'UNE MARCHE SE PLIE, ELLE NE SE COUPE PAS.
+ *
+ * Premier essai : `nowrap` + points de suspension. Mesuré à 1280 — un texte de
+ * 569 px dans une boîte de 514 — donc « Premier piège : il en tombe un toutes
+ * les 6 manches, et le jeu te… ». Or cette phrase EST le contenu de la marche :
+ * la tronquer retire précisément ce qu'on vient lire. Une ellipse est bonne
+ * pour un nom (on sait déjà de quoi il parle), mauvaise pour une explication.
+ */
+.esc__nom {
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  line-height: 1.35;
+}
+
+.esc__cout {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Franchi : le jade, le même signe que partout ailleurs dans le jeu. */
+.esc__marche.est-franchi {
+  color: var(--paper);
+  border-color: color-mix(in srgb, var(--ok) 40%, var(--line));
+}
+
+.esc__marche.est-franchi .esc__num {
+  color: var(--ok);
+}
+
+/* Où l'on est. Le SEUL accent de la liste : deux accents ne désignent plus rien. */
+.esc__marche.est-ici {
+  color: var(--paper);
+  background: color-mix(in srgb, var(--signal) 12%, var(--ink-2));
+  border: 2px solid var(--signal);
+}
+
+.esc__marche.est-ici .esc__num {
+  color: var(--signal-pale);
+  font-size: var(--t-base);
+}
+
+.esc__marche.est-ici .esc__cout {
+  color: var(--signal-pale);
+}
+
+/* Au-dessus : verrouillé. Il se voit, il ne se clique pas. */
+.esc__marche:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* Le sommet porte l'ambre : c'est le seul palier qui termine quelque chose. */
+.esc__marche.est-sommet {
+  border-color: color-mix(in srgb, var(--ambre) 45%, var(--line));
+}
+
+.esc__marche.est-sommet .esc__num {
+  color: var(--ambre);
+}
+
+.esc__total {
+  margin: 6px 0 0;
+  padding-top: 10px;
+  border-top: var(--bd-hair) solid var(--line);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.esc__note {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  text-align: center;
+}
+
+/* --- le palier --- */
+
+.pal__tete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pal__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.pal__jauge {
+  flex: none;
+  padding: 5px 9px;
+  border: var(--bd-hair) solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.esc__palier .piege {
+  margin: 0;
+  text-align: left;
+}
+
+.pal__chiffres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.pal__cel {
+  flex: 1 1 0;
+  /*
+   * `max-content` comme plancher : c'est la troisième barre segmentée de ce
+   * dépôt, et les deux premières ont coûté un libellé écrasé chacune. La base
+   * nulle donne la part égale, le plancher interdit de couper un mot.
+   */
+  min-width: max-content;
+  padding: 10px 12px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pal__val {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1;
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.pal__val.est-danger {
+  color: var(--rouge);
+}
+
+.pal__lab {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.pal__meilleur {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--ambre);
+  background: var(--ink-2);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+}
+
+.pal__meilleur b {
+  color: var(--ambre);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * LES DEUX VUES DU TÉLÉPHONE.
+ *
+ * ⚠️ Chaque composant déclare son propre masquage : la feuille n'a PAS de
+ * `.hidden` générique, et une règle unique perdrait la cascade contre les
+ * `display: flex` posés juste au-dessus.
+ */
+@media (max-width: 899px) {
+  .esc .esc__palier {
+    display: none;
+  }
+
+  .esc.est-detail .esc__montee {
+    display: none;
+  }
+
+  .esc.est-detail .esc__palier {
+    display: flex;
+  }
+}
+
+/*
+ * EN LARGE : les deux ensemble, et le palier RESTE EN VUE pendant qu'on
+ * parcourt la montée. C'est tout l'intérêt d'avoir deux colonnes — sans le
+ * `sticky`, choisir un palier en haut de la liste renverrait lire sa fiche
+ * à 800 px plus bas.
+ */
+@media (min-width: 900px) {
+  .esc {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+    gap: 28px;
+  }
+
+  .esc__palier {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    padding: 14px;
+    background: var(--ink-2);
+    border: var(--bd-hair) solid var(--line);
+  }
 }

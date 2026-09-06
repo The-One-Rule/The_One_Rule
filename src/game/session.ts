@@ -79,6 +79,10 @@ export class Session {
   private grace: number;
   /** Multiplicateur de fenêtre — 1 hors entraînement, toujours. */
   readonly pace: number;
+  /** ESCALIER : manches à tenir. `undefined` = la borne du mode. */
+  private readonly longueur?: number;
+  /** ESCALIER : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
+  private readonly forcePiege?: (level: number) => boolean;
 
   private runStart: number;
 
@@ -110,6 +114,18 @@ export class Session {
     pace?: number;
     /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
+    /**
+     * ESCALIER : le nombre de manches à tenir, et la cadence de pièges.
+     *
+     * ⚠️ Les deux sont OPTIONNELS et absents partout ailleurs. C'est la même
+     * astuce que l'escalade et que le DUO : le mode existant devient un cas
+     * particulier du nouveau, donc aucun branchement de mode n'entre dans un
+     * chemin chaud et l'existant ne peut pas régresser. Sans `longueur`,
+     * `maxRounds` répond exactement ce qu'il répondait ; sans `forcePiege`,
+     * `buildRound` reprend `FORCED_TRAP_ROUNDS`.
+     */
+    longueur?: number;
+    forcePiege?: (level: number) => boolean;
   }) {
     this.mode = opts.mode;
     this.pile = opts.pile?.length ? opts.pile : [opts.rule];
@@ -131,6 +147,8 @@ export class Session {
      */
     this.grace = GRACE_ROUNDS;
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
+    this.longueur = opts.longueur;
+    this.forcePiege = opts.forcePiege;
     this.majRegle();
     this.nextRound(opts.now);
   }
@@ -151,8 +169,11 @@ export class Session {
   }
 
   get maxRounds(): number {
-    // Le classé est borné comme le quotidien : un match doit se conclure, et
-    // deux runs de longueur différente ne se comparent pas.
+    // Un palier de l'escalier porte sa propre borne : c'est ce qui fait qu'on
+    // le FRANCHIT au lieu d'y survivre. Ailleurs, rien n'a bougé — le classé
+    // est borné comme le quotidien, deux runs de longueur différente ne se
+    // comparant pas, et l'entraînement libre n'a pas de fin.
+    if (this.longueur !== undefined) return this.longueur;
     return this.mode === "training" ? Infinity : DAILY_LENGTH;
   }
 
@@ -202,7 +223,14 @@ export class Session {
     // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
     this.regleAjoutee = this.majRegle();
     if (this.regleAjoutee) this.derniereAjoutee = this.regleAjoutee;
-    this.round = buildRound(this.rng, this.level, this.rule, this.pool, this.pace);
+    this.round = buildRound(
+      this.rng,
+      this.level,
+      this.rule,
+      this.pool,
+      this.pace,
+      this.forcePiege,
+    );
     this.progress = { step: 0 };
     this.roundStart = now;
   }
