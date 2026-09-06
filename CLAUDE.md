@@ -2292,36 +2292,42 @@ choisir laquelle perd veut dire toucher à la vitrine. ⚠️ Et `accueil_premie
 n'a **toujours pas été lu** : ces correctifs sont des incohérences réparées, pas
 une refonte informée par la mesure.
 
-### Le bug livre a un joueur : la montee se remettait a zero a chaque run
+### Le bug livré à un joueur : la montée repartait de zéro à chaque run
 
-Rapporte en playtest, mot pour mot : « impossible d aller au-dela de l etape 2,
-meme en la reussissant ». Capture a l appui, l ecran affichait pourtant
+Rapporté en playtest, mot pour mot : « impossible d'aller au-delà de l'étape 2,
+même en la réussissant ». Capture à l'appui, l'écran affichait pourtant
 « PALIER 2 FRANCHI ».
 
-**Cause :  RECONSTRUIT l entree du carnet, elle ne la complete pas.**
-Tout champ qu elle ne nomme pas est efface a chaque run. Le §12 nomme pourtant
-les TROIS bouts ou un champ neuf doit etre branche — , , le
-nettoyage de . J en ai cable deux et saute le premier, qui est
-justement le seul a tourner a CHAQUE partie.
+⚠️ **`majCarnet` RECONSTRUIT l'entrée du carnet, elle ne la complète pas.** Tout
+champ qu'elle ne nomme pas est effacé à chaque run. Le §12 nomme pourtant les
+TROIS bouts où un champ neuf doit être branché — `majCarnet`, `fusionne`, le
+nettoyage de `api/moi.ts`. En ajoutant `escalier` j'en ai câblé deux et sauté
+celui qui est cité en PREMIER, qui est justement le seul à tourner à chaque
+partie.
 
-Le mecanisme : un run de palier ecrivait une entree sans montee ; la ligne
-suivante relisait cette entree pour y trouver la montee, tombait sur « pas
-commencee », et repartait du palier 1. Le libelle « PALIER 2 FRANCHI » vient du
-palier JOUE et non de l etat enregistre — **le jeu annoncait une victoire qu il
-venait d effacer.**
+Le mécanisme, dans l'ordre : un run de palier écrivait `majCarnet(...)`, qui
+rendait une entrée SANS escalier ; la ligne suivante relisait cette entrée pour y
+trouver la montée, tombait sur « pas commencée », et repartait du palier 1. Le
+libellé « PALIER 2 FRANCHI » vient du palier JOUÉ et non de l'état enregistré :
+**le jeu annonçait une victoire qu'il venait d'effacer.**
 
-⚠️ Et ca mordait bien au-dela de l escalier : n importe quel run d entrainement
-ou du jour passe par , donc jouer QUOI QUE CE SOIT detruisait la
-montee.
+⚠️ **Ça mordait bien au-delà de l'escalier** : n'importe quel run d'entraînement
+ou du jour passe par `majCarnet`, donc jouer QUOI QUE CE SOIT détruisait la
+montée — sans rapport apparent et sans rien à l'écran.
 
-⚠️ ** ne pouvait pas le voir** — il eprouve le
-voyage entre deux appareils, pas le chemin d un run. D ou
-, qui exige qu aucun champ ne se perde ICI, et qui
-grimpe les vingt paliers par la sequence reelle de . Eprouve en
+**Le report est posé EN PREMIER dans l'objet rendu**, donc tout ce que la
+fonction calcule vraiment l'écrase. Un `...prev` placé après annulerait chaque
+mise à jour et le carnet cesserait d'avancer : un bug aussi silencieux, en sens
+inverse. Il a son test.
+
+⚠️ **`tests/carnet-voyage.test.ts` ne pouvait pas le voir** — il éprouve le
+voyage entre deux appareils, pas le chemin d'un run. D'où
+`tests/majcarnet.test.ts`, qui exige qu'aucun champ ne se perde ICI et qui
+grimpe les vingt paliers par la séquence réelle de `finishRun`. Éprouvé en
 remettant la faute : deux assertions tombent.
 
-⚠️ **Aucune donnee n est corrompue.** Les sauvegardes touchees portent
- : les joueurs reprennent au palier 2 et progressent normalement.
+⚠️ **Aucune donnée n'est corrompue.** Les sauvegardes touchées portent
+`{ palier: 1 }` : les joueurs reprennent au palier 2 et progressent normalement.
 
 ### Backlog
 
