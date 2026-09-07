@@ -61,6 +61,7 @@ type Textes = {
   soloDesc: string;
   multiDesc: string;
   fineprintHtml: string;
+  fineprintReglagesHtml: string;
   menu: string;
   reglages: string;
   compte: string;
@@ -82,7 +83,20 @@ export const TEXTES: Record<Lang, Textes> = {
     failleLabel: "Modes de jeu",
     soloDesc: "Run du jour, escalade, entraînement.",
     multiDesc: "Ton code, tes potes, une règle chacun.",
-    fineprintHtml:
+    /*
+     * ⚠️ CETTE LIGNE A CHANGÉ DE SENS AVEC L'ACCUEIL.
+     *
+     * Elle listait les raccourcis clavier — « SOURIS ET CLAVIER · R POUR
+     * RELANCER · ÉCHAP POUR LE MENU » — sur une page où l'on n'a encore rien
+     * lancé. Sous PLAY, ce qu'il faut dire n'est pas comment relancer, c'est
+     * ce qui va se passer si on appuie : un entraînement, sans risque, et la
+     * touche qui y mène.
+     *
+     * L'écran des RÉGLAGES garde l'ancienne, qui y est à sa place — d'où deux
+     * clés au lieu d'une.
+     */
+    fineprintHtml: "ENTRAÎNEMENT · SANS RISQUE · <b>ESPACE</b>",
+    fineprintReglagesHtml:
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
     reglages: "RÉGLAGES",
@@ -102,7 +116,8 @@ export const TEXTES: Record<Lang, Textes> = {
     failleLabel: "Game modes",
     soloDesc: "Daily run, climb, training.",
     multiDesc: "Your code, your friends, one rule each.",
-    fineprintHtml:
+    fineprintHtml: "TRAINING · NO RISK · <b>SPACE</b>",
+    fineprintReglagesHtml:
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
     reglages: "SETTINGS",
@@ -142,7 +157,6 @@ export const TEXTES: Record<Lang, Textes> = {
  */
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
-    "home.play": "JOUER",
     "onb.regleUnique": "TA RÈGLE UNIQUE",
     "onb.t1.titre": "Le jeu te donne une seule règle.",
     "onb.t1.lede": "Elle vaut pour toute la partie, et elle reste affichée.",
@@ -239,18 +253,23 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
-    "but.aBattre": "LE RECORD DU JOUR",
     "nav.classement": "CLASSEMENT",
-    "etat.collection": "TA COLLECTION",
-    "etat.mater": "À MATER",
-    "etat.jour": "RUN DU JOUR",
-    "etat.serie": "SÉRIE",
-    "etat.quetes": "QUÊTES DU JOUR",
-    "aria.etat": "Ton état",
-    "but.tonScore": "TON SCORE",
-    "but.personne": "PERSONNE N'A ENCORE JOUÉ",
-    "but.premier": "Sois le premier.",
     "but.tenter": "JOUER",
+    "home.entrer": "ENTRER DANS LE JEU ▸",
+    "prof.jour": "DU JOUR",
+    "prof.jourNom": "Le run de tout le monde",
+    "prof.jourNote": "MÊME RÈGLE · 3 ESSAIS · UNE FOIS PAR JOUR",
+    "prof.classement": "CLASSEMENT",
+    "prof.classementNom": "Le mur des scores",
+    "prof.classementNote": "VÉRIFIÉ CÔTÉ SERVEUR",
+    "prof.multi": "MULTI",
+    "prof.multiNom": "Ton code, tes potes",
+    "prof.multiNote": "UNE RÈGLE CHACUN · JUSQU'À 10",
+    "prof.escalade": "ESCALADE",
+    "prof.escaladeNom": "Une règle. Puis deux.",
+    "prof.escaladeNote": "JUSQU'OÙ TU TIENS",
+    "prof.cartes": "CARNET",
+    "prof.cartesNom": "Tes 16 cartes",
     "nav.cartes": "CARTES",
     "nav.jouer": "JOUER",
     "nav.daily": "DU JOUR",
@@ -312,7 +331,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.quitter": "QUITTER LE SALON",
   },
   en: {
-    "home.play": "PLAY",
     "onb.regleUnique": "YOUR ONE RULE",
     "onb.t1.titre": "The game gives you one single rule.",
     "onb.t1.lede": "It holds for the whole run, and it stays on screen.",
@@ -409,18 +427,23 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
-    "but.aBattre": "TODAY'S RECORD",
     "nav.classement": "RANKING",
-    "etat.collection": "YOUR COLLECTION",
-    "etat.mater": "TO MASTER",
-    "etat.jour": "DAILY RUN",
-    "etat.serie": "STREAK",
-    "etat.quetes": "TODAY'S QUESTS",
-    "aria.etat": "Your state",
-    "but.tonScore": "YOUR SCORE",
-    "but.personne": "NOBODY HAS PLAYED YET",
-    "but.premier": "Be the first.",
     "but.tenter": "PLAY",
+    "home.entrer": "ENTER THE GAME ▸",
+    "prof.jour": "DAILY",
+    "prof.jourNom": "Everyone's run",
+    "prof.jourNote": "SAME RULE · 3 TRIES · ONCE A DAY",
+    "prof.classement": "LEADERBOARD",
+    "prof.classementNom": "The wall of scores",
+    "prof.classementNote": "VERIFIED SERVER-SIDE",
+    "prof.multi": "MULTI",
+    "prof.multiNom": "Your code, your friends",
+    "prof.multiNote": "ONE RULE EACH · UP TO 10",
+    "prof.escalade": "ESCALATION",
+    "prof.escaladeNom": "One rule. Then two.",
+    "prof.escaladeNote": "HOW FAR DO YOU HOLD",
+    "prof.cartes": "CODEX",
+    "prof.cartesNom": "Your 16 cards",
     "nav.cartes": "CARDS",
     "nav.jouer": "PLAY",
     "nav.daily": "DAILY",
@@ -895,6 +918,19 @@ type Dyn = {
   finPalierReprendre: (n: number) => string;
   /** Le retour à la montée. */
   finVersEscalier: string;
+
+  /* ---- LE MODE ATTRACT ---- */
+  /** L'intitulé au-dessus du nom de la règle, coin haut gauche. */
+  /** « À BATTRE AUJOURD'HUI · 31 » sur la carte DU JOUR. */
+  profJourRecord: (n: number) => string;
+  profJourBattu: (n: number) => string;
+  attractRegle: string;
+  /** « DÉMO · MANCHE 7 » */
+  attractManche: (n: number) => string;
+  /** ⚠️ Sans cette ligne, un visiteur croit que le site ne répond pas. */
+  attractPersonne: string;
+  attractTenu: string;
+  attractPiege: string;
 
   /* ---- LA DÉMO DE L'ACCUEIL ---- */
   /*
@@ -1425,6 +1461,13 @@ const DYN: Record<Lang, Dyn> = {
     finPalierSuivant: (n) => `PALIER ${n} · SUIVANT`,
     finPalierReprendre: (n) => `REPRENDRE LE PALIER ${n}`,
     finVersEscalier: "◂ L'ESCALIER",
+    profJourRecord: (n) => `À BATTRE AUJOURD'HUI · ${n}`,
+    profJourBattu: (n) => `TU FAIS MIEUX QUE ${n}`,
+    attractRegle: "TA RÈGLE",
+    attractManche: (n) => `DÉMO · MANCHE ${n}`,
+    attractPersonne: "PERSONNE NE TIENT LA SOURIS",
+    attractTenu: "TENU",
+    attractPiege: "PIÈGE DÉJOUÉ",
     demoRegle: "TA RÈGLE · JAMAIS DE ROUGE",
     demoConsigneA: "Clique le rond bleu",
     demoConsigneB: "Clique le carré rouge",
@@ -1891,6 +1934,13 @@ const DYN: Record<Lang, Dyn> = {
     finPalierSuivant: (n) => `STEP ${n} · NEXT`,
     finPalierReprendre: (n) => `RETRY STEP ${n}`,
     finVersEscalier: "◂ THE CLIMB",
+    profJourRecord: (n) => `TO BEAT TODAY · ${n}`,
+    profJourBattu: (n) => `YOU ARE ABOVE ${n}`,
+    attractRegle: "YOUR RULE",
+    attractManche: (n) => `DEMO · ROUND ${n}`,
+    attractPersonne: "NOBODY IS HOLDING THE MOUSE",
+    attractTenu: "HELD",
+    attractPiege: "TRAP AVOIDED",
     demoRegle: "YOUR RULE · NEVER RED",
     demoConsigneA: "Click the blue circle",
     demoConsigneB: "Click the red square",
@@ -2096,12 +2146,17 @@ export function appliqueLangue(
 
   poseHtml(doc.getElementById("ledeHome"), t.ledeHtml);
   poseHtml(doc.getElementById("homeFineprint"), t.fineprintHtml);
-  poseHtml(doc.getElementById("reglagesFineprint"), t.fineprintHtml);
-  poseTexte(doc.getElementById("failleSoloDesc"), t.soloDesc);
-  poseTexte(doc.getElementById("failleMultiDesc"), t.multiDesc);
-
-  const faille = doc.getElementById("faille");
-  if (faille) faille.setAttribute("aria-label", t.failleLabel);
+  poseHtml(doc.getElementById("reglagesFineprint"), t.fineprintReglagesHtml);
+  /*
+   * ⚠️ LA FAILLE A QUITTÉ L'ACCUEIL, ET SES TROIS LIGNES AVEC.
+   *
+   * L'objet fendu SOLO / MULTI était la vitrine du site ; il est remplacé par
+   * le MODE ATTRACT — « le fond EST le jeu » — et par la rangée de profondeur,
+   * qui porte les cinq modes au lieu de deux. Les chaînes `soloDesc`,
+   * `multiDesc` et `failleLabel` restent dans la table : le multijoueur les
+   * emploie encore ailleurs, et les retirer demanderait de vérifier chaque
+   * appelant pour un gain nul.
+   */
 
   const langBox = doc.getElementById("lang");
   if (langBox) langBox.setAttribute("aria-label", t.langAria);

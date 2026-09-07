@@ -13184,3 +13184,446 @@ button.chip:active:not(:disabled) {
     border: var(--bd-hair) solid var(--line);
   }
 }
+
+/* ==================================================================
+ * L'ACCUEIL — LE MODE ATTRACT
+ *
+ * « LE CHAMP, PLEIN ÉCRAN : LE FOND EST LE JEU ». Une vraie partie tourne
+ * derrière la page ; PLAY est au centre ; la profondeur est en bas.
+ *
+ * ⚠️ **LE CALQUE EST HORS FLUX ET NON CLIQUABLE.** Il ne prend pas un pixel à
+ * la mise en page et n'intercepte aucun clic : tout ce qui est actionnable vit
+ * au-dessus, dans `.home`. C'est la condition pour qu'il puisse être arrêté
+ * (`prefers-reduced-motion`, ou une partie qui démarre) sans rien casser.
+ * ================================================================== */
+
+.attract {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: #111a28; /* SOL : la meme surface que le terrain de jeu */
+}
+
+.attract.hidden {
+  display: none;
+}
+
+.attract__cvs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/*
+ * LE VIGNETTAGE — il n'est PAS décoratif ici.
+ *
+ * Le §7 note qu'un vignettage radial ne marche pas sur l'écran de JEU : les
+ * quatre coins du terrain y tombent à 85–102 % du rayon, donc en pleine zone
+ * assombrie, et le jeu occupe presque toute la surface. Sur l'accueil c'est
+ * l'inverse : le champ est un FOND, et il doit céder le centre au bouton. Le
+ * dégradé est donc ce qui rend PLAY lisible par-dessus une scène qui bouge.
+ */
+.attract::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(115% 78% at 50% 46%, transparent 30%, rgba(8, 11, 17, 0.78) 100%);
+}
+
+/* Le curseur de la main qui joue. Placé en pixels par le JS. */
+.attract__curseur {
+  position: absolute;
+  width: 26px;
+  height: 31px;
+  z-index: 3;
+  filter: drop-shadow(3px 4px 0 rgba(8, 11, 17, 0.9));
+}
+
+.attract__curseur svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.attract__curseur.hidden {
+  display: none;
+}
+
+/*
+ * LA CHALEUR — le cadre bat, et il rougit quand ça tourne mal.
+ *
+ * Même principe que `--heat` en jeu : une seule grandeur publiée par la boucle,
+ * et elle ne pilote que du décor hors flux. Seules `opacity` et les ombres
+ * changent.
+ */
+.attract__chaleur {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  opacity: var(--attract-heat, 0);
+  box-shadow:
+    inset 0 0 110px 14px color-mix(in srgb, var(--signal) 26%, transparent),
+    inset 0 0 0 3px color-mix(in srgb, var(--signal) 55%, transparent);
+}
+
+.attract__chaleur.est-chaud {
+  box-shadow:
+    inset 0 0 110px 14px color-mix(in srgb, var(--rouge) 34%, transparent),
+    inset 0 0 0 3px color-mix(in srgb, var(--rouge) 70%, transparent);
+}
+
+/* ------------------------------------------------------------------
+ * CE QUI SE POSE SUR LE CHAMP
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ L'ACCUEIL DEVIENT UNE GRILLE À TROIS RANGÉES, et c'est ce qui met PLAY
+ * au centre optique plutôt qu'au milieu du texte : la règle en haut, le centre
+ * de gravité qui prend tout l'espace restant, la profondeur en bas.
+ */
+#home .home {
+  position: relative;
+  z-index: 1;
+  max-width: none;
+  width: 100%;
+  /*
+   * ⚠️ `flex: 1` ET NON `min-height: 100%`.
+   *
+   * `.screen` porte un `padding-top` quand la barre haute est là : un enfant à
+   * 100 % de la hauteur DÉBORDE alors d'exactement ce padding. Mesuré — la
+   * grille commençait à y=73 et faisait 900 px, donc finissait à 973 pour un
+   * écran de 900, et la rangée du bas passait sous la ligne de flottaison.
+   */
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /*
+   * ⚠️ LES TROIS RANGÉES NE SUFFISAIENT PAS : IL FALLAIT DIRE « UNE COLONNE ».
+   *
+   * `.home` héritait d'un `grid-auto-flow: column` de l'ancien accueil. Ma
+   * règle ne redéfinissait que `grid-template-rows`, donc les enfants se
+   * rangeaient toujours CÔTE À CÔTE : mesuré, deux colonnes implicites de
+   * 832 et 537 px, la carte de règle et le centre de gravité sur la même
+   * ligne, et la profondeur poussée hors de l'écran. Une collision de cascade
+   * de plus, et la troisième de la session.
+   */
+  grid-auto-flow: row;
+  grid-template-columns: minmax(0, 1fr);
+  /*
+   * ⚠️ `minmax(0, 1fr)` ET NON `1fr` — le piège du §7, payé une quatrième fois.
+   *
+   * Le minimum d'une piste `1fr` est le `min-content` de ce qu'elle porte. Le
+   * centre de gravité contient le logo, le chapo, un bouton de 97 px et le
+   * bloc secondaire : sa piste refusait de descendre sous cette somme et
+   * poussait la rangée du bas HORS de la boîte. Mesuré à 375 × 812 — la boîte
+   * finissait à 696 px de contenu utile et la profondeur à 733, donc sous la
+   * barre de navigation, invisible et cliquable au travers.
+   */
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  text-align: center;
+}
+
+/* --- la règle, au coin haut gauche --- */
+
+.home__regle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  justify-self: start;
+}
+
+.home__reglecarte {
+  flex: none;
+  width: 54px;
+  height: 76px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+  overflow: hidden;
+  display: block;
+}
+
+.home__reglecarte img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.home__regletxt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.home__reglenom {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--paper);
+}
+
+/* --- la consigne, posée sur le champ --- */
+
+.home__consigne {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 11px;
+}
+
+.home__instr {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: clamp(15px, 2.2vw, 25px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  /* Le champ bouge derrière : sans cette ombre, la consigne devient illisible
+     dès qu'une pièce claire passe dessous. */
+  text-shadow: 0 3px 18px rgba(8, 11, 17, 0.95), 0 0 34px rgba(8, 11, 17, 0.8);
+}
+
+.home__chrono {
+  width: min(412px, 60vw);
+  height: 3px;
+  background: color-mix(in srgb, var(--line) 72%, transparent);
+  display: block;
+}
+
+.home__chrono i {
+  display: block;
+  height: 3px;
+  width: 100%;
+  background: var(--paper-dim);
+  transform-origin: left;
+}
+
+.home__chrono i.est-chaud {
+  background: var(--rouge);
+}
+
+.home__verdict {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-intitule);
+  color: var(--ok);
+  min-height: 1em;
+}
+
+.home__demo {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+  text-align: right;
+  line-height: 1.7;
+}
+
+/* --- le centre de gravité --- */
+
+.home__centre {
+  align-self: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+/*
+ * PLAY. Le seul aplat d'accent de la page, et le seul objet qui bouge au repos.
+ *
+ * ⚠️ Il ne porte PAS `--px` ni de biseau : la maquette en fait un cadre épais
+ * sur un fond translucide, pour qu'on voie le jeu tourner À TRAVERS lui. C'est
+ * ce qui le relie au fond au lieu de le poser dessus.
+ */
+.play {
+  position: relative;
+  width: min(424px, 82vw);
+  min-height: clamp(76px, 12vh, 132px);
+  padding: 0;
+  background: color-mix(in srgb, var(--signal) 12%, transparent);
+  border: 8px solid var(--signal);
+  box-shadow:
+    12px 12px 0 0 color-mix(in srgb, var(--signal) 42%, transparent),
+    0 0 70px color-mix(in srgb, var(--signal) 34%, transparent);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: clamp(30px, 7vw, 66px);
+  letter-spacing: 0.16em;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.play:hover {
+  transform: translate(-4px, -4px);
+  background: color-mix(in srgb, var(--signal) 22%, transparent);
+  border-color: var(--signal-pale);
+  box-shadow:
+    18px 18px 0 0 color-mix(in srgb, var(--signal) 50%, transparent),
+    0 0 110px color-mix(in srgb, var(--signal-pale) 45%, transparent);
+}
+
+.play:active {
+  transform: translate(6px, 6px);
+  box-shadow: 4px 4px 0 0 color-mix(in srgb, var(--signal) 42%, transparent);
+}
+
+.home__second {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 9px;
+}
+
+.home__entrer {
+  cursor: pointer;
+}
+
+/* --- la profondeur --- */
+
+.profondeur {
+  display: flex;
+  gap: 10px;
+  align-self: end;
+  width: 100%;
+}
+
+.prof {
+  flex: 1 1 0;
+  /* `max-content` comme plancher : c'est la quatrième barre segmentée du
+     dépôt, et les trois premières ont chacune coûté un libellé écrasé. */
+  min-width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 13px 15px;
+  background: color-mix(in srgb, var(--ink-2) 82%, transparent);
+  border: var(--bd-hair) solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.prof:hover {
+  border-color: var(--signal);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--signal) 30%, transparent);
+  transform: translateY(-3px);
+}
+
+.prof__quoi {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-intitule);
+  color: var(--signal);
+}
+
+.prof__nom {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.1;
+  color: var(--paper);
+}
+
+.prof__note {
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+
+/*
+ * ⚠️ SUR TÉLÉPHONE, LA PROFONDEUR SE PLIE EN DEUX COLONNES.
+ *
+ * Cinq cartes en rangée réclament ~840 px ; la maquette est un 1440 et ne dit
+ * rien du mobile. Une rangée qui défile latéralement serait pire que tout : le
+ * §7 rappelle qu'un accueil glissable au doigt a déjà été un bug rapporté.
+ */
+@media (max-width: 899px) {
+  .profondeur {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .prof {
+    min-width: 0;
+    padding: 10px 12px;
+  }
+
+  .prof__nom {
+    font-size: 15px;
+  }
+
+  /*
+   * ⚠️ LA CINQUIÈME CARTE DISPARAÎT SUR TÉLÉPHONE, ET C'EST UN DOUBLON QU'ON
+   * RETIRE, PAS UNE INFORMATION.
+   *
+   * Mesuré à 375 × 812 : la rangée finissait à 805 px et la barre du bas occupe
+   * 749–812, donc CARNET passait DESSOUS — invisible, et pourtant cliquable au
+   * travers. Or la barre porte déjà CARTES en première position : sur un écran
+   * où elle est présente, la cinquième carte répétait un bouton situé à trois
+   * centimètres.
+   *
+   * En large, la barre remonte et la rangée reste complète : c'est là qu'elle
+   * est la seule porte vers les cinq modes.
+   */
+  .prof:last-child {
+    display: none;
+  }
+
+  /*
+   * ⚠️ ON RÉSERVE LA HAUTEUR DE LA BARRE, ON NE DEVINE PAS UNE MARGE.
+   *
+   * La barre du bas vit en ABSOLU dans `#app` — hors flux, pour ne pas pouvoir
+   * rogner le terrain de jeu (décision n°10). Elle est donc invisible à la
+   * grille de l'accueil, qui finissait 4 px sous elle : la dernière rangée de
+   * cartes passait dessous, cliquable au travers.
+   *
+   * `83px` n'est pas un chiffre au jugé : c'est la hauteur mesurée de la barre
+   * (729 → 812), et la seule valeur qui garantisse que rien ne se glisse
+   * dessous quel que soit le contenu au-dessus.
+   */
+  #home .home {
+    padding-bottom: 83px;
+  }
+
+  .home__demo {
+    display: none;
+  }
+}
+
+/*
+ * ⚠️ `prefers-reduced-motion` : le champ s'ARRÊTE, il ne disparaît pas.
+ *
+ * Neutraliser une animation sans rien laisser à sa place est le piège
+ * documenté du dépôt. Le canvas garde sa dernière image — une scène figée dit
+ * encore ce qu'est le jeu — et seul PLAY cesse de flotter.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .play:hover,
+  .play:active {
+    transform: none;
+  }
+}

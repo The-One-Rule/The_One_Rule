@@ -317,298 +317,105 @@
            et celui qui porte la serie. L'enterrer sans le dire aurait ete le
            seul vrai cout de ce rangement. -->
       <section class="screen" id="home">
+        <!-- ══════════════════════════════════════════════════════════
+             LE MODE ATTRACT — « LE CHAMP, PLEIN ÉCRAN : LE FOND EST LE JEU »
+
+             ⚠️ LE CHIFFRE QUI L'EXIGE : 118 nouveaux visiteurs sur 159 (74 %)
+             repartent sans lancer une seule partie, mediane 6 secondes. Un jeu
+             de reflexes se comprend en deux secondes de video et pas du tout en
+             trois lignes de texte — et l'accueil ne montrait AUCUN jeu.
+
+             ⚠️ CE N'EST PAS UNE IMITATION. La premiere tentative dessinait cinq
+             formes a la main dans une bande de 108 px : « la demo est mal
+             faite ». Ici tourne une VRAIE Session, avec le vrai buildRound,
+             dessinee par le vrai SceneRenderer. Il n'y a plus rien a tenir
+             d'accord avec le jeu, parce que c'est le jeu.
+
+             ⚠️ TOUT CE CALQUE EST `aria-hidden` ET NON CLIQUABLE. Rien de ce
+             qu'il montre n'est necessaire pour jouer : le chapo le dit en
+             toutes lettres, et `prefers-reduced-motion` peut donc l'arreter
+             sans rien perdre.
+             ══════════════════════════════════════════════════════════ -->
+        <div class="attract" id="attract" aria-hidden="true">
+          <canvas class="attract__cvs" id="attractCvs"></canvas>
+          <!-- Le curseur de la main qui joue. En SVG pixel, pas en emoji : le
+               rendu d'un emoji change d'un systeme a l'autre. -->
+          <span class="attract__curseur" id="attractCurseur">
+            <svg viewBox="0 0 11 13" shape-rendering="crispEdges">
+              <path d="M0 0h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h-5v1h-1v1h-1v-1h-1v-11z" fill="#efeae0" />
+              <path d="M1 1h1v1h1v1h1v1h1v1h1v1h1v1h1v1h-2v1h-1v1h-1v-1h-1v-8z" fill="#0e1520" />
+            </svg>
+          </span>
+          <!-- La chaleur : le cadre bat, et il rougit quand ca tourne mal. -->
+          <span class="attract__chaleur" id="attractChaleur"></span>
+        </div>
+
         <div class="screen__scroll home">
-          <div class="home__brand">
-            <!-- L'ESPACE AVANT LE `<br>` N'EST PAS DECORATIVE.
-               Le saut est masque au-dessus de 900 px (`.logo__saut`), et sans
-               elle les deux mots se collaient : l'enseigne annoncait
-               « THEONE RULE » sur tout le desktop. Le defaut n'existait qu'en
-               large — en dessous le `<br>` separe — ce qui explique qu'il ait
-               survecu aux releves d'accueil, tous faits a 375 px.
-               Une espace en fin de ligne est supprimee au rendu : la forme
-               mobile ne bouge pas d'un pixel. -->
-          <h1 class="logo">THE <br class="logo__saut" />ONE <em>RULE</em></h1>
-            <!-- Une ligne, pas un paragraphe. L'ancienne faisait 39 mots et
-                 262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
-                 sur un ecran qu'on revoit vingt fois. Le brief et
-                 l'entrainement font ce travail mieux qu'elle. -->
-            <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
-
-            <!-- LA DEMO — six secondes, muettes, qui montrent le PIEGE.
-                 74 % des nouveaux visiteurs repartent sans lancer une partie,
-                 mediane 6 secondes, et l'accueil ne montrait aucun jeu. Un jeu
-                 de reflexes se comprend en deux secondes de video et pas du
-                 tout en trois lignes de texte.
-
-                 ⚠️ DECORATIVE ET `aria-hidden` : tout ce qu'elle dit, le chapo
-                 le dit deja en toutes lettres juste au-dessus. C'est la
-                 condition pour qu'elle puisse etre figee sans rien perdre —
-                 `prefers-reduced-motion` l'arrete sur l'image du piege dejoue. -->
-            <div class="accroche" id="demoBoite" aria-hidden="true">
-              <canvas class="accroche__cvs" id="demoCvs"></canvas>
-            </div>
-
-            <!-- LA CARTE DE RECORD — celle du RUN DU JOUR, et de rien d'autre.
-                 Elle PREND LA PLACE du chapo, elle ne s'y ajoute pas : mesure
-                 qui a impose ca, sur 375x812 la faille finissait deja a y=818
-                 pour 812 de haut, et le bloc ajoute repoussait le bas de MULTI
-                 a 142 px sous la ligne de flottaison.
-
-                 ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MEME EPREUVE. La cible est
-                 le meilleur du jour, le tien est TON score du jour — jamais ton
-                 record d'entrainement, qui se fait a une allure choisie sur une
-                 regle choisie. Deux epreuves sous un meme cadre, c'est un
-                 chiffre faux. -->
-            <div class="but hidden" id="but">
-              <!-- Etat 1 : le classement repond.
-                   ⚠️ BANDE HORIZONTALE, releve sur la source de la maquette :
-                   le chiffre a gauche, un filet vertical, la phrase au milieu,
-                   le tien a droite. Empile en colonne, le bloc faisait deux
-                   fois la hauteur et ne ressemblait pas au dessin. -->
-              <div class="but__plein hidden" id="butPlein">
-                <div class="but__gros">
-                  <p class="but__chiffre" id="butChiffre"></p>
-                  <p class="but__unite" id="butUnite"></p>
-                </div>
-                <span class="but__filet" aria-hidden="true"></span>
-                <div class="but__milieu">
-                  <p class="but__quoi" data-i18n="but.aBattre">TODAY'S RECORD</p>
-                  <p class="but__pousse" id="butPousse"></p>
-                </div>
-                <div class="but__droite" id="butDroite">
-                  <p class="but__quoi" data-i18n="but.tonScore">YOUR SCORE</p>
-                  <p class="but__sien" id="butSien"></p>
-                </div>
-              </div>
-              <!-- Etat 2 : il se tait — et c'est l'etat PERMANENT tant que le
-                   deploiement n'a pas ses comptes. Une invitation, pas un trou. -->
-              <div class="but__vide hidden" id="butVide">
-                <div class="but__milieu">
-                  <p class="but__quoi" data-i18n="but.personne">NOBODY HAS PLAYED YET</p>
-                  <p class="but__premier" data-i18n="but.premier">Be the first.</p>
-                </div>
-              </div>
-              <!-- LE BOUTON EST SOUS LA PLAQUE, ET SOUS LES DEUX ETATS.
-                   Il vivait DANS `.but__vide`, donc il n'existait que tant que
-                   personne n'avait joue : des qu'un record s'affichait, la
-                   plaque du run du jour n'avait plus aucun bouton, et le seul
-                   JOUER de l'ecran etait celui de la barre, a l'autre bout.
-                   Demande en soiree — « deplacer le bouton Jouer en dessous de
-                   la plaque record du jour ». Il y est, dans les deux etats. -->
-              <button class="btn btn--primary but__go" type="button" id="btnButJour" data-i18n="but.tenter">PLAY</button>
-            </div>
-          </div>
-
-
-          <!-- LA COLONNE D'ETAT — DESKTOP SEULEMENT.
-               Vue 22/27 : « la colonne de droite porte l'etat du joueur, qui
-               n'a pas la place d'exister sur telephone ». Ce n'est pas une
-               formule : mesure a 375 x 812, la faille finit a 666 et le pied a
-               752 — il reste 60 px. Quatre blocs de plus y pousseraient la
-               moitie basse de MULTI sous la ligne de flottaison, la faute qui a
-               deja coute 76 % d'entrees avec le bandeau de mesure.
-
-               ⚠️ Rien d'unique ici : chaque bloc est un objet que le joueur a
-               deja vu ailleurs (la jauge du carnet, la regle qui resiste, les
-               quetes). L'accueil les REUNIT, il n'en invente aucun. -->
-          <aside class="etat" id="etat" aria-label="Your state" data-i18n-aria="aria.etat">
-            <!-- TA COLLECTION : la meme jauge que le carnet et que le compte.
-                 Un seul objet a apprendre, et il dit la meme chose partout. -->
-            <div class="etat__bloc">
-              <p class="etat__tete">
-                <span class="eyebrow" data-i18n="etat.collection">YOUR COLLECTION</span>
-                <b class="etat__compte" id="etatCollTotal"></b>
-              </p>
-              <div class="codexbar__jauge" id="etatCollJauge" aria-hidden="true"></div>
-              <p class="etat__note" id="etatCollNote"></p>
-            </div>
-
-            <!-- A MATER : la seule ligne de l'ecran qui DESIGNE un exercice au
-                 lieu d'en proposer seize. Elle ouvre la FICHE et non
-                 l'exercice — la fiche dit ce qui manque, et c'est elle qui
-                 lance. Meme geste que dans la collection. -->
-            <button class="etat__bloc etat__bloc--vedette hidden" type="button" id="etatMater">
-              <span class="eyebrow" data-i18n="etat.mater">TO MASTER</span>
-              <span class="etat__mater">
-                <img class="etat__img" id="etatMaterImg" width="64" height="64" alt="" />
-                <span class="etat__materTxt">
-                  <b class="etat__materNom" id="etatMaterNom"></b>
-                  <span class="etat__note" id="etatMaterNote"></span>
-                </span>
-              </span>
-            </button>
-
-            <!-- Deux faits cote a cote : ou j'en suis aujourd'hui, et depuis
-                 combien de jours je reviens. -->
-            <div class="etat__paire">
-              <div class="etat__bloc">
-                <p class="eyebrow" data-i18n="etat.jour">DAILY RUN</p>
-                <p class="etat__gros" id="etatJour"></p>
-                <p class="etat__note" id="etatJourNote"></p>
-              </div>
-              <div class="etat__bloc">
-                <p class="eyebrow" data-i18n="etat.serie">STREAK</p>
-                <p class="etat__gros" id="etatSerie"></p>
-                <p class="etat__note" id="etatSerieNote"></p>
-              </div>
-            </div>
-
-            <!-- Les quetes, rendues par `renderQuests` — le meme rendu que
-                 SOLO et que la fin de run. Une liste ecrite trois fois
-                 divergerait. -->
-            <div class="etat__bloc">
-              <p class="etat__tete">
-                <span class="eyebrow" data-i18n="etat.quetes">TODAY'S QUESTS</span>
-                <b class="etat__compte" id="etatQuetesTotal"></b>
-              </p>
-              <div class="quests" id="etatQuetes"></div>
-            </div>
-          </aside>
-
-          <!-- Le trait entre l'enseigne et le corps. Discret, dentelé,
-               même vocabulaire que la faille : c'est lui qui dit où
-               commence le jeu. -->
-          <hr class="coupe" aria-hidden="true" />
-
-          <!-- LA FAILLE — un seul objet, deux mondes.
-               SOLO au-dessus, MULTI en dessous, et entre les deux une
-               FISSURE qui est le vrai sujet : c'est elle qui porte
-               l'identite du site, et c'est autour d'elle que tout bouge.
-
-               Deux vrais `<button>` decoupes par `clip-path` : le decoupage
-               porte AUSSI le test de survol, donc chaque zone ne recoit que
-               les clics qui tombent dedans. Pas de geometrie en JS, pas de
-               zone morte, et le clavier fonctionne.
-
-               La fissure est un calque a part, HORS des boutons : dans le
-               decoupage, tout ce qu'elle emet serait rogne a son propre bord
-               au lieu d'en sortir. Elle couvre TOUTE la faille — meme repere
-               que les deux decoupes — pour que le vide entre les levres se
-               decrive dans le meme systeme de coordonnees qu'elles. -->
-          <!-- LA REPONSE PAR DEFAUT.
-               Mesure : 92 % des nouveaux joueurs n'ont jamais appuye sur
-               COMMENCER, et il fallait TROIS gestes pour atteindre la
-               premiere manche (SOLO -> ENTRAINEMENT -> COMMENCER). PLAY en
-               retire un et mene a l'ENTRAINEMENT, jamais au run du jour :
-               celui-ci est irreversible, un essai par jour, et un testeur
-               l'a deja brule en quinze secondes sans avoir compris la regle.
-
-               Il ne remplace pas la faille, il y repond : on joue, ou on
-               choisit. Le brief reste sur le chemin — c'est le seul endroit
-               ou un inconnu apprend que le jeu a une regle unique, et le
-               sauter a deja ete un bug. -->
-          <div class="btnrow btnrow--play">
-            <button class="btn btn--primary btn--play" id="btnPlay" data-i18n="home.play">PLAY</button>
-          </div>
-
-          <div class="faille" id="faille" aria-label="Game modes">
-            <button class="faille__zone faille__zone--solo" id="btnSolo">
-              <span class="faille__corps">
-                <span class="faille__titre" data-i18n="solo.eyebrow">SOLO</span>
-                <span class="faille__desc" id="failleSoloDesc">Daily run, climb, training.</span>
-                <span class="faille__etat" id="soloEtat"></span>
-              </span>
-            </button>
-
-            <button class="faille__zone faille__zone--multi" id="btnMulti">
-              <span class="faille__corps">
-                <span class="faille__titre">MULTI</span>
-                <span class="faille__desc" id="failleMultiDesc">Your code, your friends, one rule each.</span>
-                <span class="faille__etat" id="cardMultiState"></span>
-              </span>
-            </button>
-
-            <!-- LA VITRINE.
-                 Tout est decoratif et `aria-hidden` : rien ici ne porte
-                 d'information, donc rien ne se perd si le mouvement est
-                 coupe. Les particules sont un nombre FIXE d'elements, et
-                 chacune porte son abscisse et son ordonnee — posees SUR la
-                 ligne de cassure, qui serpente entre 44 et 61 % de la
-                 hauteur. Un `top: 50%` uniforme en aurait fait naitre la
-                 moitie au milieu d'une face, loin de la fente.
-
-                 Les valeurs sont generees une fois, pas calculees a
-                 l'execution : aucun JS ne touche cette vitrine. -->
-            <span class="fissure" aria-hidden="true">
-              <!-- Le vide, decoupe par `--ruban` : c'est la seule chose de
-                   l'ecran qui montre le fond a travers l'objet. -->
-              <span class="fissure__abime"></span>
-              <!-- La lumiere qui parcourt la fente. Clippee au ruban comme
-                   l'abime : sans ca elle deborde du composant et forme une
-                   tache laiteuse a cote — defaut mesure de la version
-                   precedente. -->
-              <span class="fissure__fenetre"><span class="fissure__balayage"></span></span>
-
-              <!-- Les arcs : de brefs eclairs en travers de la cassure. -->
-              <span class="fissure__arcs">
-                <i style="--i: 0; --x: 12%; --y: 49.7%"></i><i style="--i: 1; --x: 31%; --y: 55.9%"></i><i style="--i: 2; --x: 50%; --y: 47.8%"></i>
-                <i style="--i: 3; --x: 69%; --y: 55.5%"></i><i style="--i: 4; --x: 88%; --y: 57.1%"></i>
-              </span>
-
-              <!-- Les braises : elles montent, elles tombent, elles ne font
-                   rien d'autre. C'est le fond sonore visuel de la fente. -->
-              <span class="fissure__braises">
-                <i style="--i: 0; --x: 2%; --y: 47.1%"></i><i style="--i: 1; --x: 6.6%; --y: 50.7%"></i><i style="--i: 2; --x: 11.1%; --y: 49.7%"></i>
-                <i style="--i: 3; --x: 15.7%; --y: 47.9%"></i><i style="--i: 4; --x: 20.3%; --y: 47.3%"></i><i style="--i: 5; --x: 24.9%; --y: 56.8%"></i>
-                <i style="--i: 6; --x: 29.4%; --y: 55.9%"></i><i style="--i: 7; --x: 34%; --y: 50.1%"></i><i style="--i: 8; --x: 38.6%; --y: 58.4%"></i>
-                <i style="--i: 9; --x: 43.1%; --y: 57.5%"></i><i style="--i: 10; --x: 47.7%; --y: 57.5%"></i><i style="--i: 11; --x: 52.3%; --y: 53.1%"></i>
-                <i style="--i: 12; --x: 56.9%; --y: 53.1%"></i><i style="--i: 13; --x: 61.4%; --y: 52%"></i><i style="--i: 14; --x: 66%; --y: 55.5%"></i>
-                <i style="--i: 15; --x: 70.6%; --y: 55.5%"></i><i style="--i: 16; --x: 75.1%; --y: 53.3%"></i><i style="--i: 17; --x: 79.7%; --y: 50.2%"></i>
-                <i style="--i: 18; --x: 84.3%; --y: 50%"></i><i style="--i: 19; --x: 88.9%; --y: 57.1%"></i><i style="--i: 20; --x: 93.4%; --y: 47.7%"></i>
-                <i style="--i: 21; --x: 98%; --y: 47.9%"></i>
-              </span>
-
-              <!-- Les debris : des fragments de matiere qui se detachent et
-                   tournent. Plus gros, plus lents, moins nombreux — c'est ce
-                   qui donne de la profondeur aux braises. -->
-              <span class="fissure__debris">
-                <i style="--i: 0; --x: 7%; --y: 50.7%"></i><i style="--i: 1; --x: 19.3%; --y: 47.3%"></i><i style="--i: 2; --x: 31.6%; --y: 55.9%"></i>
-                <i style="--i: 3; --x: 43.9%; --y: 57.5%"></i><i style="--i: 4; --x: 56.1%; --y: 53.1%"></i><i style="--i: 5; --x: 68.4%; --y: 55.5%"></i>
-                <i style="--i: 6; --x: 80.7%; --y: 50.2%"></i><i style="--i: 7; --x: 93%; --y: 47.7%"></i>
-              </span>
-
-              <!-- Les eclats : des etincelles qui claquent sur place.
-                   Plus rares que les braises, plus vives — c'est le
-                   scintillement, pas le fond. -->
-              <span class="fissure__eclats">
-                <i style="--i: 0; --x: 10%; --y: 49.7%"></i><i style="--i: 1; --x: 27%; --y: 55.9%"></i>
-                <i style="--i: 2; --x: 44%; --y: 57.5%"></i><i style="--i: 3; --x: 61%; --y: 52%"></i>
-                <i style="--i: 4; --x: 78%; --y: 50.2%"></i><i style="--i: 5; --x: 91%; --y: 47.7%"></i>
-                <i style="--i: 6; --x: 18%; --y: 47.3%"></i><i style="--i: 7; --x: 53%; --y: 53.1%"></i>
-              </span>
-
-              <!-- Ce qui TRAVERSE la fente : un eclat qui la parcourt
-                   d'un bout a l'autre, comme quelque chose qui court
-                   derriere la cassure. -->
-              <span class="fissure__traverse">
-                <i style="--i: 0; --x: 8%; --y: 50.7%"></i><i style="--i: 1; --x: 28%; --y: 55.9%"></i>
-                <i style="--i: 2; --x: 52%; --y: 53.1%"></i><i style="--i: 3; --x: 74%; --y: 53.3%"></i>
-                <i style="--i: 4; --x: 90%; --y: 47.7%"></i>
-              </span>
-
-              <!-- Ce qui SORT de la fissure change selon le monde survole :
-                   des chevrons qui montent pour SOLO, des lames qui tombent
-                   pour MULTI. Les deux jeux existent en permanence et ne
-                   s'allument qu'au survol de leur moitie. -->
-              <span class="fissure__sortie fissure__sortie--solo">
-                <i style="--i: 0; --x: 6%; --y: 50.7%"></i><i style="--i: 1; --x: 16%; --y: 47.3%"></i>
-                <i style="--i: 2; --x: 28%; --y: 55.9%"></i><i style="--i: 3; --x: 40%; --y: 58.4%"></i>
-                <i style="--i: 4; --x: 50%; --y: 47.8%"></i><i style="--i: 5; --x: 62%; --y: 52%"></i>
-                <i style="--i: 6; --x: 74%; --y: 53.3%"></i><i style="--i: 7; --x: 86%; --y: 54.5%"></i>
-                <i style="--i: 8; --x: 94%; --y: 47.7%"></i>
-              </span>
-              <span class="fissure__sortie fissure__sortie--multi">
-                <i style="--i: 0; --x: 6%; --y: 50.7%"></i><i style="--i: 1; --x: 16%; --y: 47.3%"></i>
-                <i style="--i: 2; --x: 28%; --y: 55.9%"></i><i style="--i: 3; --x: 40%; --y: 58.4%"></i>
-                <i style="--i: 4; --x: 50%; --y: 47.8%"></i><i style="--i: 5; --x: 62%; --y: 52%"></i>
-                <i style="--i: 6; --x: 74%; --y: 53.3%"></i><i style="--i: 7; --x: 86%; --y: 54.5%"></i>
-                <i style="--i: 8; --x: 94%; --y: 47.7%"></i>
-              </span>
+          <!-- LA REGLE — la carte au coin haut gauche, discrete. C'est le seul
+               endroit de l'accueil ou l'on voit une carte du jeu. -->
+          <div class="home__regle" id="attractRegle">
+            <span class="home__reglecarte" id="attractCarte" aria-hidden="true"></span>
+            <span class="home__regletxt">
+              <span class="eyebrow" id="attractRegleLabel"></span>
+              <b class="home__reglenom" id="attractRegleNom"></b>
             </span>
           </div>
 
-          <div class="home__foot">
-            <p class="fineprint" id="homeFineprint">MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU</p>
+          <!-- LA CONSIGNE — comme en jeu : posee SUR le champ, sans cadre. -->
+          <div class="home__consigne" id="attractConsigne" aria-hidden="true">
+            <p class="home__instr" id="attractInstr"></p>
+            <span class="home__chrono"><i id="attractChrono"></i></span>
+            <p class="home__verdict" id="attractVerdict"></p>
+          </div>
+
+          <!-- « DEMO · MANCHE 7 / PERSONNE NE TIENT LA SOURIS ». La seconde
+               ligne compte autant que la premiere : sans elle, un visiteur
+               croit que le jeu ne repond pas a sa souris. -->
+          <p class="home__demo" id="attractMeta"></p>
+
+          <!-- ░ LE CENTRE DE GRAVITE ░ -->
+          <div class="home__centre">
+            <h1 class="logo">THE <br class="logo__saut" />ONE <em>RULE</em></h1>
+            <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
+
+            <button class="btn play" id="btnPlay" data-i18n="but.tenter">PLAY</button>
+
+            <div class="home__second">
+              <button class="chip home__entrer" id="btnEntrer" data-i18n="home.entrer">ENTER THE GAME ▸</button>
+              <p class="fineprint" id="homeFineprint">TRAINING · NO RISK · <b>SPACE</b></p>
+            </div>
+          </div>
+
+          <!-- ░ LA PROFONDEUR — une rangee, pas un tableau de bord ░
+               Pour qui veut s'investir. Elle vient APRES le centre de gravite
+               et n'a pas le droit de lui disputer l'attention : c'est pourquoi
+               aucune de ces cartes ne porte l'accent. -->
+          <div class="profondeur" id="profondeur">
+            <button class="prof" id="profJour">
+              <span class="prof__quoi" data-i18n="prof.jour">DAILY</span>
+              <span class="prof__nom" data-i18n="prof.jourNom">Everyone's run</span>
+              <span class="prof__note" id="profJourNote" data-i18n="prof.jourNote">SAME RULE · 3 TRIES · ONCE A DAY</span>
+            </button>
+            <button class="prof" id="profClassement">
+              <span class="prof__quoi" data-i18n="prof.classement">LEADERBOARD</span>
+              <span class="prof__nom" data-i18n="prof.classementNom">The wall of scores</span>
+              <span class="prof__note" data-i18n="prof.classementNote">VERIFIED SERVER-SIDE</span>
+            </button>
+            <button class="prof" id="btnMulti">
+              <span class="prof__quoi" data-i18n="prof.multi">MULTI</span>
+              <span class="prof__nom" data-i18n="prof.multiNom">Your code, your friends</span>
+              <span class="prof__note" id="profMultiNote" data-i18n="prof.multiNote">ONE RULE EACH · UP TO 10</span>
+            </button>
+            <button class="prof" id="profEscalade">
+              <span class="prof__quoi" data-i18n="prof.escalade">ESCALATION</span>
+              <span class="prof__nom" data-i18n="prof.escaladeNom">One rule. Then two.</span>
+              <span class="prof__note" data-i18n="prof.escaladeNote">HOW FAR DO YOU HOLD</span>
+            </button>
+            <button class="prof" id="profCartes">
+              <span class="prof__quoi" data-i18n="prof.cartes">CODEX</span>
+              <span class="prof__nom" data-i18n="prof.cartesNom">Your 16 cards</span>
+              <span class="prof__note" id="profCartesNote"></span>
+            </button>
           </div>
         </div>
       </section>

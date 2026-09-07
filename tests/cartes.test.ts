@@ -31,7 +31,15 @@ import { readFileSync } from "node:fs";
  * `textContent` — ce que ce fichier existe pour refuser.
  */
 const CARTES = ["btnDaily", "btnTraining", "btnRanked", "btnEscalade"];
-const PORTES = ["btnSolo", "btnMulti"];
+/*
+ * ⚠️ LES PORTES ONT CHANGÉ DE FORME, PAS DE NATURE.
+ *
+ * C'était la faille — un objet fendu, SOLO au-dessus et MULTI en dessous. Ce
+ * sont maintenant les cinq cartes de la PROFONDEUR, en bas de l'accueil. Le
+ * piège, lui, est identique : ce sont des `<button>` à plusieurs `<span>`, et
+ * un `textContent` posé sur le bouton les détruirait.
+ */
+const PORTES = ["profJour", "profClassement", "btnMulti", "profEscalade", "profCartes"];
 const SOURCES = ["src/main.ts", "src/multi.ts", "src/i18n.ts"];
 
 beforeAll(() => {
@@ -50,12 +58,12 @@ describe("cartes de l'accueil", () => {
     }
   });
 
-  it("chaque face de la faille porte un titre, une description et un état", () => {
+  it("chaque porte de la profondeur porte un intitulé, un nom et une note", () => {
     for (const id of PORTES) {
       const porte = document.getElementById(id);
       expect(porte, `#${id} absent du document`).not.toBeNull();
-      for (const part of ["__titre", "__desc", "__etat"]) {
-        expect(porte!.querySelector(`.faille${part}`), `#${id} sans .faille${part}`).not.toBeNull();
+      for (const part of ["__quoi", "__nom", "__note"]) {
+        expect(porte!.querySelector(`.prof${part}`), `#${id} sans .prof${part}`).not.toBeNull();
       }
     }
   });
@@ -87,7 +95,14 @@ describe("cartes de l'accueil", () => {
   it("l'état de chaque carte a bien un identifiant à écrire", () => {
     // C'est la contrepartie : si l'état n'avait pas d'id, il n'y aurait aucun
     // autre endroit où écrire, et la tentation reviendrait.
-    for (const id of ["cardDailyState", "cardMultiState", "cardTrainingState", "cardRankedState"]) {
+    /*
+     * ⚠️ `cardMultiState` A DISPARU AVEC LA FAILLE. Il portait « SERVEUR DE
+     * SALONS HORS LIGNE » sous la moitié MULTI, c'est-à-dire une panne annoncée
+     * à l'arrivée à tout le monde. L'information est descendue sur la note de la
+     * carte MULTI (`profMultiNote`), où elle répond à qui vient de s'y
+     * intéresser — et où elle est, elle aussi, un `<span>` dédié.
+     */
+    for (const id of ["cardDailyState", "cardTrainingState", "cardRankedState", "profMultiNote"]) {
       expect(document.getElementById(id), `#${id} absent`).not.toBeNull();
     }
   });

@@ -11,6 +11,7 @@ import {
   windowMs,
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
+import { FIELD_H, FIELD_W } from "./engine/types";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
@@ -47,12 +48,11 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
-import { creeDemo } from "./render/demo";
+import { MEILLEUR_CONNU, vueBut } from "./render/but";
+import { cibleDe, pilote } from "./game/attract";
 import { ecranAuChargement, ecranDe } from "./route";
 import type { EcranId } from "./route";
 import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
-import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -91,7 +91,6 @@ import { initMulti, readInvite } from "./multi";
 import {
   appliqueLangue,
   estLang,
-  etatSolo,
   jetons,
   libelleCompte,
   accrocheDuJour,
@@ -294,38 +293,212 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
 ]);
 
 /* ------------------------------------------------------------------ *
- * LA DÉMO DE L'ACCUEIL
+ * LE MODE ATTRACT — « LE CHAMP, PLEIN ÉCRAN : LE FOND EST LE JEU »
  *
- * ⚠️ Elle ne tourne QUE sur l'accueil. `show` est le passage obligé de tout
- * changement d'écran : la brancher là couvre aussi les sorties qu'on n'a pas
- * prévues — une invitation qui arrive, un lien de défi, une reprise de salon —
- * exactement comme le battement de lecture. Une boucle `rAF` oubliée en pleine
- * partie prendrait des images au jeu, et la taille du champ EST du gameplay.
+ * ⚠️ **118 NOUVEAUX VISITEURS SUR 159 — 74 % — REPARTENT SANS LANCER UNE SEULE
+ * PARTIE**, médiane 6 secondes. L'accueil ne montrait aucun jeu, et un jeu de
+ * réflexes se comprend en deux secondes de vidéo, pas en trois lignes de texte.
+ *
+ * ⚠️ **CE N'EST PAS UNE IMITATION.** La première tentative dessinait cinq
+ * formes à la main dans une bande de 108 px — rapporté : « la démo est mal
+ * faite ». Ici tourne une VRAIE `Session`, avec le vrai `buildRound`, dessinée
+ * par le vrai `SceneRenderer` sur son propre canvas. Il n'y a plus rien à tenir
+ * d'accord avec le jeu, parce que c'est le jeu : le jour où une règle change,
+ * la démo change avec, sans qu'on y pense.
+ *
+ * ⚠️ **ELLE N'ÉCRIT RIEN.** Pas de `finishRun`, pas de carnet, pas de records,
+ * aucune analytique. Une partie qui tourne toute seule ne doit rien laisser
+ * derrière elle — sinon les compteurs du joueur monteraient pendant qu'il lit
+ * la page.
+ *
+ * ⚠️ **ET ELLE NE COÛTE RIEN EN JEU.** Elle est peinte par la boucle de jeu et
+ * seulement quand `screen === "home"`, comme le battement de lecture : une
+ * application n'a qu'une horloge, et un décor ne doit jamais pouvoir disputer
+ * ses images au jeu.
  * ------------------------------------------------------------------ */
 
-const textesDemo = (): TextesDemo => ({
-  regle: t("demoRegle"),
-  consigneA: t("demoConsigneA"),
-  consigneB: t("demoConsigneB"),
-  verdictA: t("demoVerdictA"),
-  verdictB: t("demoVerdictB"),
-});
+/** L'allure de la démo : la plus lente, pour qu'on ait le temps de LIRE. */
+const ATTRACT_ALLURE = 2;
 
-/*
- * ⚠️ CONSTRUITE PARESSEUSEMENT, ET C'EST UNE LEÇON DÉJÀ PAYÉE.
+let attract: {
+  session: Session;
+  scene: SceneRenderer;
+  /** D'où vient le curseur — le déplacement doit être continu d'une manche à l'autre. */
+  main: { x: number; y: number } | null;
+  /** La manche a-t-elle déjà reçu son clic ? Une seule action par manche. */
+  agi: boolean;
+  /** Le verdict à afficher, et jusqu'à quand. */
+  verdict: { texte: string; jusqua: number } | null;
+} | null = null;
+
+/**
+ * (Re)démarre la partie de démonstration.
  *
- * `createMulti()` s'exécutait pendant l'évaluation du module, donc AVANT que la
- * langue enregistrée soit posée : les six émotes restaient françaises pour
- * toujours. Une démo bâtie au chargement aurait le même défaut, sur cinq
- * chaînes de plus. On la crée au premier affichage de l'accueil, quand la
- * langue est connue.
+ * ⚠️ La graine change à chaque fois : deux visites ne montrent pas la même
+ * suite de manches. Une démo identique à chaque chargement se reconnaît, et ce
+ * qu'on reconnaît on cesse de le regarder.
  */
-let demo: Demo | null = null;
+function lanceAttract(): void {
+  const cvs = $<HTMLCanvasElement>("attractCvs");
+  const scene = attract?.scene ?? new SceneRenderer(cvs);
+  const graine = (Math.random() * 2 ** 31) | 0;
+  /*
+   * ⚠️ UNE RÈGLE QUI PIÈGE, TOUJOURS.
+   *
+   * Sept règles sur seize ne posent aucun piège, et la densité du catalogue est
+   * de 5,4 % de manches piégeuses. Tirer au hasard donnerait donc, une fois sur
+   * deux, une démo qui ne montre JAMAIS ce qui distingue ce jeu — c'est-à-dire
+   * une démo pour rien. On tire parmi celles qui piègent, et `FORCED_TRAP_ROUNDS`
+   * garantit un piège dès les premières manches.
+   */
+  const piegeuses = ONE_RULES.filter((r) => r.traps && estJouableIci(r));
+  const regle = piegeuses[Math.abs(graine) % piegeuses.length] ?? ONE_RULES[0]!;
+  attract = {
+    session: new Session({
+      mode: "training",
+      rule: regle,
+      rng: mulberry32(graine),
+      now: performance.now(),
+      seed: graine,
+      touchOnly: TOUCH_ONLY,
+      pace: ATTRACT_ALLURE,
+    }),
+    scene,
+    main: null,
+    agi: false,
+    verdict: null,
+  };
+  peintReglAttract(regle);
+}
 
-function demoSuitEcran(id: ScreenId): void {
-  if (id !== "home") return;
-  demo ??= creeDemo($<HTMLCanvasElement>("demoCvs"), textesDemo());
-  demo.reprend();
+/** Le coin haut gauche : la carte de la règle, et son nom. */
+function peintReglAttract(regle: OneRule): void {
+  $("attractCarte").innerHTML = carteVignette(regle.id);
+  $("attractRegleLabel").textContent = t("attractRegle");
+  $("attractRegleNom").textContent = nomDeRegle(regle.id, regle.name);
+}
+
+/**
+ * Une image de la démo. Appelée par la boucle de jeu, uniquement sur l'accueil.
+ */
+function imageAttract(now: number): void {
+  if (!attract) return;
+  const { session: sess, scene: sc } = attract;
+
+  /*
+   * ⚠️ ELLE NE MEURT PAS, ELLE RECOMMENCE.
+   *
+   * Un run de démonstration finit toujours par tomber — l'échauffement ne
+   * protège que trois manches. Montrer l'écran de mort n'apprendrait rien de
+   * plus et couperait la seule chose qu'on veut faire voir : que ça tourne.
+   */
+  if (sess.phase !== "playing") {
+    lanceAttract();
+    return;
+  }
+
+  const ratio = sess.ratio(now);
+
+  // La main.
+  const g = pilote(sess.round, ratio, attract.main);
+  if (g.curseur) attract.main = g.curseur;
+  if (g.clique && !attract.agi) {
+    attract.agi = true;
+    const cible = cibleDe(sess.round);
+    const issue = sess.input(
+      cible
+        ? { kind: "click", ent: cible, x: cible.x, y: cible.y }
+        : { kind: "key", key: "A" },
+      now,
+    );
+    if (issue.kind === "survive") {
+      attract.verdict = { texte: t("attractTenu"), jusqua: now + 700 };
+    }
+  }
+  const avant = sess.round;
+  sess.tick(now);
+  if (sess.round !== avant) {
+    // Manche suivante : la main repart de là où elle était, et le droit d'agir
+    // se rouvre. Sans cette remise à zéro, une seule manche serait jouée.
+    attract.agi = false;
+    if (avant.trap && sess.phase === "playing") {
+      attract.verdict = { texte: t("attractPiege"), jusqua: now + 1100 };
+    }
+  }
+
+  peintAttract(now, ratio, g);
+  sc.draw({ round: sess.round, rule: sess.rule, now, ratio });
+}
+
+/** Ce que la démo écrit autour du champ. */
+function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>): void {
+  if (!attract) return;
+  const sess = attract.session;
+
+  /*
+   * ⚠️ LA CONSIGNE SE COMPOSE, ELLE NE SE LIT PAS.
+   *
+   * `round.text` est le français CANONIQUE — il sert au MENTEUR à emprunter une
+   * phrase plausible, pas à l'affichage. Le rendre tel quel afficherait du
+   * français à un joueur anglais, sur la seule page qu'il lira jamais.
+   * `composePhrase` fait ce que le HUD fait en jeu.
+   */
+  $("attractInstr").textContent = composePhrase(sess.round.phrase, sess.round.text);
+  const barre = $("attractChrono");
+  barre.style.transform = `scaleX(${1 - ratio})`;
+  const chaud = ratio > CRITICAL_RATIO;
+  barre.classList.toggle("est-chaud", chaud);
+
+  const v = attract.verdict && now < attract.verdict.jusqua ? attract.verdict.texte : "";
+  $("attractVerdict").textContent = v;
+
+  /*
+   * « DÉMO · MANCHE 7 » puis « PERSONNE NE TIENT LA SOURIS ».
+   *
+   * ⚠️ La seconde ligne compte autant que la première : sans elle, un visiteur
+   * qui bouge sa souris et ne voit rien répondre croit que le site est cassé.
+   */
+  const meta = $("attractMeta");
+  meta.textContent = "";
+  meta.append(
+    t("attractManche")(sess.level),
+    document.createElement("br"),
+    t("attractPersonne"),
+  );
+
+  /*
+   * LE CURSEUR, en pixels d'écran.
+   *
+   * ⚠️ `fieldRect()` est la SEULE source de la conversion, et c'est délibéré :
+   * c'est déjà elle qui décide où le renderer pose les pièces. Refaire le
+   * calcul à partir de la taille du canvas donnerait un curseur décalé dès que
+   * la gouttière change — et un curseur qui ne pointe pas la pièce qu'il vise
+   * enseigne un geste faux.
+   */
+  const cur = $("attractCurseur");
+  if (g.curseur) {
+    const r = attract.scene.fieldRect();
+    const x = r.x + (g.curseur.x / FIELD_W) * r.w;
+    const y = r.y + (g.curseur.y / FIELD_H) * r.h;
+    cur.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    cur.classList.remove("hidden");
+  } else {
+    cur.classList.add("hidden");
+  }
+
+  // La chaleur : le cadre bat, et il rougit quand ça tourne mal.
+  const boite = $("attract");
+  boite.style.setProperty("--attract-heat", String(Math.round(ratio * 20) / 20));
+  $("attractChaleur").classList.toggle("est-chaud", chaud);
+}
+
+/** La démo suit l'écran : elle ne tourne QUE sur l'accueil. */
+function attractSuitEcran(id: ScreenId): void {
+  if (id !== "home") {
+    attract = null;
+    return;
+  }
+  if (!attract) lanceAttract();
 }
 
 function show(id: ScreenId): void {
@@ -384,7 +557,7 @@ function show(id: ScreenId): void {
     poseBarre();
     majNav();
   }
-  demoSuitEcran(id);
+  attractSuitEcran(id);
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -490,7 +663,6 @@ function renderHome(): void {
    * en français, et « RECORD » une fois passé en anglais — un cran de retard à
    * chaque bascule, qui ne se rattrapait qu'au repeint suivant.
    */
-  const rule = ruleOfDay(day);
   const lang: Lang = estLang(s.lang) ? s.lang : "fr";
   const c = compte();
   appliqueLangue(document, lang, {
@@ -502,16 +674,21 @@ function renderHome(): void {
   hud.setMeta("");
   hud.setFooter(0, s.bestTraining, "—");
 
-  $("soloEtat").textContent = etatSolo(lang, {
-    played: s.daily.played,
-    score: s.daily.score,
-    ruleName: nomDeRegle(rule.id, rule.name),
-    streak: s.streak.count,
-  });
-
-  $("cardMultiState").textContent = multi.available
-    ? TEXTES[lang].multiOk
-    : TEXTES[lang].multiOff;
+  /*
+   * ⚠️ LE SALON HORS LIGNE SE DIT SUR SA CARTE, PLUS EN HAUT DE PAGE.
+   *
+   * L'ancien accueil affichait « SERVEUR DE SALONS HORS LIGNE » sous la moitié
+   * MULTI de la faille, c'est-à-dire une panne annoncée à l'arrivée, à tout le
+   * monde, y compris à qui n'a jamais joué. Le bouton reste désactivé — ça, ça
+   * n'est pas négociable — mais l'information descend sur la carte, où elle
+   * répond à quelqu'un qui vient de s'y intéresser.
+   *
+   * ⚠️ ET LA LIGNE « RUN DU JOUR : LE MENTEUR » A DISPARU AVEC LA FAILLE. Elle
+   * nommait la règle du jour AVANT que le joueur ait cliqué quoi que ce soit :
+   * la carte DU JOUR porte désormais le RECORD à battre, qui donne envie sans
+   * rien brûler.
+   */
+  if (!multi.available) $("profMultiNote").textContent = TEXTES[lang].multiOff;
   $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
   /*
@@ -532,7 +709,6 @@ function renderHome(): void {
    * bandeau de mesure, qui a coûté 76 % d'entrées.
    */
   peintBut(monScoreDuJour(s), recordDuJour);
-  peintEtat(s);
   /*
    * Le record du JOUR se charge après coup, et ne bloque rien.
    *
@@ -575,10 +751,15 @@ function renderHome(): void {
       });
   }
 
-  const vjm = vueDuJour(s, day);
-  const versMulti = (vjm.acquis || vjm.verrouille) && multi.available;
-  $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
-  $("btnMulti").classList.toggle("faille__zone--primary", versMulti);
+  /*
+   * ⚠️ LA FAILLE A QUITTÉ L'ACCUEIL.
+   *
+   * Elle désignait la porte à prendre en donnant l'accent à SOLO ou à MULTI
+   * selon que le run du jour était fait. La rangée de profondeur ne fonctionne
+   * pas ainsi : aucune de ses cinq cartes ne porte l'accent, parce qu'elles
+   * viennent APRÈS le centre de gravité et n'ont pas le droit de disputer
+   * l'attention à PLAY. La réponse par défaut est PLAY, toujours.
+   */
 
   appliqueMotifs(s.daltonien);
   setEnabled(s.sound);
@@ -601,10 +782,12 @@ function choisitLangue(lang: Lang): void {
   renderHome();
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
-  // La demo non plus : ses cinq chaines sont peintes dans un canvas, donc
-  // invisibles a tout balayage du DOM. C'est exactement par la que les six
-  // emotes du multi etaient restees francaises.
-  demo?.rafraichit(textesDemo());
+  /*
+   * Le mode attract non plus : son intitulé et son nom de règle sont posés une
+   * fois au lancement. C'est exactement par là que les six émotes du multi
+   * étaient restées françaises.
+   */
+  if (attract) peintReglAttract(attract.session.rule);
 }
 
 /**
@@ -2466,192 +2649,56 @@ function oublieRecordDuJour(): void {
   recordDuJour = null;
 }
 
-/**
- * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
+/*
+ * ⚠️ `regleQuiResiste` A ÉTÉ SUPPRIMÉE : elle ne servait qu'à l'ancien accueil.
  *
- * On départage sur le nombre de cases franchies — à runs égaux, celle dont on
- * est le plus loin.
- *
- * ⚠️ Extraite parce que DEUX écrans la désignent maintenant : la collection et
- * l'accueil. Une sélection écrite deux fois finit par diverger, et le symptôme
- * serait une règle différente selon l'écran pour la même question.
- *
- * Elle ne rend rien au-dessous de deux runs : à un seul, « celle qui te
- * résiste » désignerait une règle qu'on vient de croiser une fois.
+ * Le CARNET a sa propre désignation de « celle qui te résiste », calculée sur
+ * place et avec un seuil à elle (deux runs, sans quoi une règle croisée une
+ * fois passerait pour un échec). Garder la seconde aurait laissé deux formules
+ * pour une même question — et ce dépôt a déjà payé trois fois la divergence de
+ * deux formules dont une seule tournait.
  */
-function regleQuiResiste(s: P.Save): { r: OneRule; rec: P.RuleRecord } | null {
-  const aMater = ONE_RULES.filter(
-    (r) => !!s.encountered[r.id] && !estMaitrisee(r, s.encountered[r.id]),
-  );
-  const r = [...aMater].sort((x, y) => {
-    const rx = s.encountered[x.id]?.runs ?? 0;
-    const ry = s.encountered[y.id]?.runs ?? 0;
-    if (rx !== ry) return ry - rx;
-    return (
-      franchies(echelleMaitrise(x, s.encountered[x.id])) -
-      franchies(echelleMaitrise(y, s.encountered[y.id]))
-    );
-  })[0];
-  const rec = r ? s.encountered[r.id] : undefined;
-  if (!r || !rec || (rec.runs ?? 0) < 2) return null;
-  return { r, rec };
-}
 
-/**
- * LA COLONNE D'ÉTAT DE L'ACCUEIL — desktop seulement.
+/*
+ * ⚠️ `peintEtat` A ÉTÉ SUPPRIMÉE AVEC L'ANCIEN ACCUEIL.
  *
- * ⚠️ ELLE N'INVENTE RIEN. Chaque bloc est un objet que le joueur a déjà vu
- * ailleurs : la jauge du carnet, la règle qui résiste, les quêtes. L'accueil
- * les RÉUNIT — c'est la seule chose qu'il ajoute, et c'est la seule qui vaille
- * la largeur d'un écran de bureau.
+ * Elle peignait la colonne latérale du desktop : « TA COLLECTION 0 / 16 »,
+ * « PAS ENCORE JOUÉ », « 0 J », « 0 / 3 QUÊTES », plus la carte à mater. Quatre
+ * compteurs et une carte — c'est-à-dire, pour le seul public qui n'a encore
+ * rien, un mur de zéros. C'était le défaut relevé en arrivant sur le site avec
+ * une sauvegarde vide, et la maquette le remplace par la rangée de PROFONDEUR :
+ * cinq portes qui disent ce qu'on peut FAIRE plutôt que ce qu'on n'a pas.
  *
- * Elle est peinte même quand la colonne est masquée : le coût est nul (aucune
- * requête, aucune image au-delà de celles déjà en cache) et un rendu
- * conditionnel au seuil CSS ferait décider une largeur d'un contenu, ce qui
- * est exactement l'oscillation que `render/layout.ts` existe pour éviter.
+ * Rien n'est perdu de ce qu'elle disait : la collection a son écran, la série
+ * et les quêtes vivent sur SOLO et sur l'écran de fin, la carte à mater est sur
+ * le carnet (`#resiste`), et le record du jour a rejoint la carte DU JOUR.
  */
-function peintEtat(s: P.Save): void {
-  /* --- TA COLLECTION : la même jauge qu'ailleurs, et le même vocabulaire. --- */
-  const etats = ONE_RULES.map((r) =>
-    etatCarte(franchies(echelleMaitrise(r, s.encountered[r.id]))),
-  );
-  const vues = etats.filter((e) => e !== "verrouillee").length;
-  $("etatCollTotal").textContent = `${vues} / ${ONE_RULES.length}`;
-  const jauge = $("etatCollJauge");
-  jauge.innerHTML = "";
-  for (const e of etats) {
-    const i = document.createElement("i");
-    if (e !== "verrouillee") {
-      i.className = `est-${e === "parfaite" ? "parfaite" : e === "maitrisee" ? "maitrisee" : "decouverte"}`;
-    }
-    jauge.appendChild(i);
-  }
-  const reste = ONE_RULES.length - vues;
-  $("etatCollNote").textContent = reste > 0 ? t("etatCollReste")(reste) : t("etatCollTout");
-
-  /* --- À MATER : elle DÉSIGNE, elle ne propose pas seize choix. --- */
-  const qui = regleQuiResiste(s);
-  $("etatMater").classList.toggle("hidden", !qui);
-  if (qui) {
-    $<HTMLImageElement>("etatMaterImg").src = `/cartes/${qui.r.id}.png`;
-    const cases = franchies(echelleMaitrise(qui.r, qui.rec));
-    $("etatMaterNom").textContent = `${nomDeRegle(qui.r.id, qui.r.name)} · ${cases}/6`;
-    /*
-     * ⚠️ La maquette écrit « 4 morts sur tes 12 derniers runs ». Le carnet ne
-     * compte NI les morts NI une fenêtre glissante : `RuleRecord` porte `best`,
-     * `cleared`, `pieges`, `parAllure`, `serie`, `sansFaute` et `runs`. Écrire
-     * cette phrase demanderait d'instrumenter le chemin chaud du jeu pour une
-     * ligne décorative. On dit ce qu'on sait, et c'est déjà vrai.
-     */
-    $("etatMaterNote").textContent = t("resisteNote")(qui.rec.runs ?? 0, cases);
-    $("etatMater").dataset.regle = qui.r.id;
-  }
-
-  /* --- LE RUN DU JOUR : la priorité de `render/jour.ts`, pas un compte d'essais. --- */
-  const vj = vueDuJour(s, day);
-  $("etatJour").textContent =
-    vj.etat === "termine"
-      ? t("etatJourFait")(s.daily.score)
-      : vj.etat === "epuise"
-        ? t("etatJourEpuise")
-        : vj.etat === "vierge"
-          ? t("etatJourVierge")
-          : t("etatJourReste")(vj.restants);
-  /*
-   * ⚠️ LA NOTE DIT CE QUI RESTE, PLUS LA CAPACITE DU MODE.
-   *
-   * Elle affichait `DAILY_ESSAIS` en dur, donc « 3 ESSAIS · 40 MANCHES » quoi
-   * qu'il arrive. Juste au-dessus, la ligne d'etat annonce « TROIS ESSAIS
-   * JOUES » : la colonne se contredisait a une ligne d'intervalle, et on y
-   * lisait qu'il restait trois essais au moment precis ou il n'en restait
-   * aucun. Rapporte en soiree comme « les 3 essais sont bugues » — l'etat
-   * etait juste, c'est le chiffre a cote qui mentait.
-   */
-  $("etatJourNote").textContent = t("etatJourNote")(vj.restants, DAILY_LENGTH);
-
-  /* --- LA SÉRIE, et son jour de grâce — qui existe vraiment. --- */
-  $("etatSerie").textContent = t("cptEnJours")(s.streak.count);
-  /*
-   * `graceLeft` est remis à 1 au changement de SEMAINE (`graceWeek`), et
-   * consommé quand un trou d'un jour est comblé. Le dire au présent — « il
-   * t'en reste un » ou « déjà utilisé » — vaut mieux que d'énoncer la règle :
-   * ce qu'on veut savoir, c'est si on peut sauter demain.
-   */
-  const semaine = Math.floor(day / 7);
-  const graceDispo = s.streak.graceWeek !== semaine || s.streak.graceLeft > 0;
-  $("etatSerieNote").textContent = graceDispo ? t("etatGraceOui") : t("etatGraceNon");
-
-  /* --- LES QUÊTES : le même rendu que SOLO et que la fin de run. --- */
-  const q = viewQuests(s, day);
-  $("etatQuetesTotal").textContent = `${q.filter((x) => x.done).length} / ${q.length}`;
-  renderQuests("etatQuetes");
-}
 
 /**
- * LA CARTE DE RECORD DE L'ACCUEIL — le RUN DU JOUR, et rien d'autre.
+ * LE RECORD DU JOUR, SUR LA CARTE « DU JOUR ».
  *
- * ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MÊME ÉPREUVE, et c'est la contrainte qui
- * façonne la fonction. La cible est le meilleur du jour ; « le tien » est TON
- * score du jour, jamais ton record d'entraînement — celui-ci se fait à une
- * allure choisie, sur une règle choisie, et le poser à côté d'un score du jour
- * mettrait deux épreuves sous un même cadre. C'est exactement le chiffre faux
- * que `render/but.ts` existe pour interdire.
+ * ⚠️ **LE BLOC D'OBJECTIF A DISPARU AVEC L'ANCIEN ACCUEIL**, et son chiffre ne
+ * devait pas disparaître avec lui. Il occupait le haut de la page et arbitrait
+ * avec le chapo — arbitrage qui n'a plus lieu d'être : la nouvelle composition
+ * montre le chapo ET les cinq portes, il n'y a plus de place à se disputer.
  *
- * ⚠️ AUCUN REPLI D'ENTRAÎNEMENT ICI (`repli: "aucun"`). Le mur des records, lui,
- * garde le sien : il l'étiquette, et un mur sans record n'est plus un mur.
+ * Ce que le chiffre disait reste vrai et reste utile : un record du JOUR est
+ * vérifié (`verifyRun` a rejoué le journal), vivant — il change chaque jour —
+ * et bien plus atteignable qu'un record de tous les temps. Il se pose donc sur
+ * la carte qui parle de ce mode, là où il répond à une question qu'on se pose
+ * déjà : « ça vaut quoi, aujourd'hui ? »
  *
- * Quand le classement se tait, la carte devient une INVITATION plutôt qu'un
- * trou. Et ce n'est pas un cas rare : tant que le déploiement n'a ni Supabase
- * ni fournisseur OAuth, `classementDuJour` rend `null` pour tout le monde, tous
- * les jours — c'est donc l'état que la plupart des visiteurs verront.
+ * ⚠️ La carte GARDE sa note par défaut quand le classement se tait — sans
+ * comptes configurés, `classementDuJour` rend `null` pour tout le monde et tous
+ * les jours. Un « — » à la place d'un chiffre se lirait comme une panne.
  */
 function peintBut(sien: number | null, duJour: number | null): void {
   const but = vueBut(sien ?? 0, duJour, "aucun");
-  /*
-   * ⚠️ LE CHAPO CÈDE SA PLACE — SUR TÉLÉPHONE SEULEMENT.
-   *
-   * La mesure qui a impose l'exclusivite est une mesure de TELEPHONE : sur
-   * 375 x 812 la faille finissait deja a y=818 pour 812 de haut, et un bloc
-   * AJOUTE coutait 135 px, poussant le bas de MULTI a 142 px sous la ligne de
-   * flottaison. Ce budget-la n'existe pas en large : mesure a 1280 x 860, la
-   * colonne de gauche ne fait que 260 px pour 573 a droite — elle est VIDE.
-   *
-   * Et les deux disent des choses differentes : le chapo dit ce QU'EST le jeu
-   * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
-   * la place, il n'y a aucune raison de choisir.
-   */
-  /*
-   * ⚠️ CE N'EST PLUS LA LARGEUR QUI DÉCIDE, C'EST CE QU'IL Y A À DIRE.
-   *
-   * L'ancienne ligne masquait le chapo sous 900 px, point. Relevé en arrivant
-   * sur le site avec un `localStorage` vide, à 375 × 812 — l'état exact des
-   * 74 % qui repartent en 6 secondes — le texte INTÉGRAL de la page était :
-   * « THE ONE RULE · PERSONNE N'A ENCORE JOUÉ · Sois le premier · TENTER LA RUN
-   * DU JOUR · SOLO · MULTI ». Nulle part il n'était dit ce qu'on fait ici.
-   *
-   * La priorité vit dans `render/but.ts`, pure et testée, avec sa raison.
-   */
-  const s = P.load();
-  // « Connaît le jeu » = a déjà rencontré une règle, ou fait le tutoriel. Le
-  // carnet est le bon marqueur : il ne se remplit qu'en JOUANT.
-  const connait = Object.keys(s.encountered).length > 0 || s.onboarded === true;
-  const vue = vueAccueil(but.cible !== null, connait, LARGE?.matches ?? false);
-  $("ledeHome").classList.toggle("hidden", !vue.chapo);
-  $("but").classList.toggle("hidden", vue.bloc === "rien");
-  $("butPlein").classList.toggle("hidden", vue.bloc !== "objectif");
-  $("butVide").classList.toggle("hidden", vue.bloc !== "invitation");
+  const note = $("profJourNote");
   if (!but.cible) return;
-
-  // Le chiffre NU et son unite dessous : c'est la composition de la maquette,
-  // et elle rend le nombre lisible d'un coup d'oeil plutot qu'au milieu d'un mot.
-  $("butChiffre").textContent = String(but.cible.score);
-  $("butUnite").textContent = t("butUnite");
-  $("butPousse").textContent = but.depasse ? t("butDejaBattu") : t("butMieux");
-  // Son propre chiffre à CÔTÉ, jamais à la place : c'est ce qui rend la cible
-  // comparable au lieu de l'opposer. La colonne entiere disparait quand il n'a
-  // pas encore joue — un intitule au-dessus du vide se lit comme une panne.
-  $("butDroite").classList.toggle("hidden", but.sien === null);
-  $("butSien").textContent = but.sien === null ? "" : String(but.sien);
+  note.textContent = but.depasse
+    ? t("profJourBattu")(but.cible.score)
+    : t("profJourRecord")(but.cible.score);
 }
 
 /**
@@ -4904,41 +4951,67 @@ $("btnPlay").addEventListener("click", () => {
   }
   openBrief("training");
 });
-$("btnSolo").addEventListener("click", () => {
+/* ------------------------------------------------------------------ *
+ * LA PROFONDEUR — les cinq portes du bas de l'accueil
+ *
+ * ⚠️ ELLES REMPLACENT LA FAILLE, ET C'EST UN ÉLARGISSEMENT. L'objet fendu
+ * n'offrait que SOLO et MULTI, et « SOLO » cachait derrière lui trois modes
+ * qu'un nouveau venu ne pouvait pas deviner — mesuré au playtest : 538 runs
+ * d'entraînement contre 13 du run du jour et 18 d'escalade. Les cinq modes se
+ * nomment désormais eux-mêmes.
+ *
+ * ⚠️ AUCUNE NE PORTE L'ACCENT. Elles viennent APRÈS le centre de gravité et
+ * n'ont pas le droit de lui disputer l'attention : PLAY reste la réponse par
+ * défaut, elles sont des détours qu'on prend en connaissance de cause.
+ * ------------------------------------------------------------------ */
+
+$("btnEntrer").addEventListener("click", () => {
   sfx.ui();
+  // La même porte que PLAY, première arrivée comprise : deux chemins vers la
+  // première partie finiraient par diverger.
   if (estNouveau()) {
     ouvreOnboarding();
     return;
   }
+  openBrief("training");
+});
+
+$("profJour").addEventListener("click", () => {
+  sfx.ui();
+  /*
+   * ⚠️ ELLE OUVRE L'ÉCRAN SOLO, PAS DIRECTEMENT L'ANNONCE.
+   *
+   * Deux raisons, et la seconde est un bug évité de justesse. D'abord ce que
+   * l'écran porte : combien d'essais il reste aujourd'hui, la série, les
+   * quêtes — tout ce qu'on veut savoir AVANT de brûler un des trois essais.
+   * Sauter au brief les cacherait au moment précis où ils comptent.
+   *
+   * Ensuite : depuis que l'accueil n'a plus de bouton SOLO, c'est la SEULE
+   * porte vers cet écran. Le faire sauter le rendait inatteignable — un écran
+   * entier orphelin, que seule son adresse `/solo` aurait encore ouvert.
+   */
   renderSolo();
   show("solo");
 });
-$("etatMater").addEventListener("click", () => {
-  // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
-  const r = ONE_RULES.find((x) => x.id === $("etatMater").dataset.regle);
-  if (r) ouvreFiche(r);
+
+$("profClassement").addEventListener("click", () => {
+  sfx.ui();
+  renderClassement();
+  show("classement");
 });
 
-$("btnButJour").addEventListener("click", () => {
+$("profEscalade").addEventListener("click", () => {
   sfx.ui();
-  /*
-   * ⚠️ IL DOIT OUVRIR LE TUTORIEL COMME LES AUTRES PORTES.
-   *
-   * Sur large, JOUER a quitte la barre pour se poser sous cette plaque : ce
-   * bouton est donc devenu la porte principale de l'accueil, alors qu'il etait
-   * un raccourci parmi d'autres. Sans cette garde, un joueur qui n'a jamais vu
-   * une regle tombait droit dans le run du jour — le mode irreversible, a trois
-   * essais — sans avoir appris la mecanique. Les trois autres portes
-   * (`btnPlay`, `btnSolo`, `navJouer`) posent deja cette garde ; une quatrieme
-   * qui l'oublie annule le travail des trois.
-   */
-  if (estNouveau()) {
-    ouvreOnboarding();
-    return;
-  }
-  // La carte parle du run du jour : elle y mène, jamais ailleurs.
-  openBrief("daily");
+  openBrief("escalade");
 });
+
+$("profCartes").addEventListener("click", () => {
+  sfx.ui();
+  renderCodex();
+});
+
+
+
 
 $("btnResteTravailler").addEventListener("click", () => {
   // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
@@ -5332,7 +5405,7 @@ function loop(now: number): void {
    * disputer ses images au jeu. Le test `screen === "home"` suffit à la
    * couper — l'accueil est en `display: none` dès qu'on joue.
    */
-  if (screen === "home") demo?.image(now);
+  if (screen === "home") imageAttract(now);
 
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.
@@ -5763,7 +5836,18 @@ function ouvreAdresse(id: EcranId): void {
       $("btnMulti").dispatchEvent(new MouseEvent("click", { bubbles: true }));
       return;
     default:
-      // L'accueil est déjà peint par `renderHome()`, juste au-dessus.
+      /*
+       * ⚠️ L'ACCUEIL PASSE QUAND MÊME PAR `show`, ET CE N'EST PAS REDONDANT.
+       *
+       * `renderHome()` a déjà peint son contenu — mais `show` est le seul
+       * endroit qui prévient le reste : la barre haute, la barre du bas, et
+       * surtout le MODE ATTRACT, qui ne démarre que là. Sans cet appel, on
+       * arrivait sur un accueil dont le champ ne tournait pas : canvas resté à
+       * sa taille intrinsèque de 300 × 150, consigne vide, aucune règle
+       * annoncée. Rien dans la console, parce que rien n'avait échoué — la
+       * démo n'avait simplement jamais été lancée.
+       */
+      show("home");
       return;
   }
 }

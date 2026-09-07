@@ -94,10 +94,10 @@ describe("LE REBOURS DU BRIEF — le bouton doit retrouver son mot", () => {
   it("le rebours descend, puis rend le mot au bouton", async () => {
     await import("../src/main.ts");
     const btn = () => document.getElementById("btnGo") as HTMLButtonElement;
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.getElementById("btnOnbSkip")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    document.getElementById("btnTraining")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    
 
     const motInitial = btn().textContent!;
     expect(motInitial, "le brief doit proposer un mot, pas un chiffre").not.toMatch(/^\d+$/);
