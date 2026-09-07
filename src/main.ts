@@ -18,6 +18,7 @@ import type { Action, OneRule, Outcome, Round } from "./engine/types";
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as ESC from "./game/escalier";
 import { exploitDuRun } from "./render/exploit";
+import { actionsDeFin } from "./render/finactions";
 import { dessineCarte, donneesCarte } from "./render/partage";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
@@ -2064,6 +2065,30 @@ function majLecture(now: number): void {
     const b = $<HTMLButtonElement>("btnGo");
     b.disabled = false;
     b.classList.remove("btn--lecture");
+    /*
+     * ⚠️ ON REND SON LIBELLE AU BOUTON — LA FIN NORMALE L'OUBLIAIT.
+     *
+     * Seul `annuleLecture` le restituait, c'est-a-dire seulement sur une sortie
+     * PREMATUREE. Un rebours mene a son terme laissait donc « 1 » sur le
+     * bouton, pour de bon. Releve en deroulant la boucle image par image :
+     *
+     *     brief:START | +800ms:3 | +1600ms:2 | +2400ms:1 | +3200ms:1 (en jeu)
+     *
+     * Invisible pendant la partie — le brief est masque — et efface au brief
+     * suivant, puisque `openBrief` reecrit le libelle. D'ou une panne qui ne se
+     * declenche que par un chemin : lancer, laisser le rebours finir, revenir
+     * au brief, relancer, puis ECHAP pendant CE rebours-la. `startRun` avait
+     * memorise `bouton.textContent` — qui valait « 1 » — et `annuleLecture`
+     * le restituait fidelement. Bouton bloque sur un chiffre.
+     *
+     * C'est la meme racine que le bug deja documente sur ESPACE : celui-la
+     * avait ete ferme du cote de l'appel en trop, pas du cote de la cause. La
+     * regle du depot le disait pourtant — « une valeur memorisee doit l'etre a
+     * un instant ou l'on sait ce qu'elle vaut ». On garantit donc qu'au repos
+     * le bouton ne porte JAMAIS un chiffre, ce qui rend la memorisation
+     * toujours vraie.
+     */
+    b.textContent = lecture.libelle;
     lecture = null;
     lanceRun();
     return;
@@ -3862,20 +3887,47 @@ function finishRun(): void {
    * demain juste après un run raté à quatre manches était la fin de partie la
    * plus fréquente du jeu, et la plus décourageante.
    */
+  /*
+   * CE QUE L'ÉCRAN PROPOSE — décidé une fois, dans `render/finactions.ts`.
+   *
+   * Cinq boutons s'affichaient en toutes circonstances, et seuls deux
+   * changeaient d'état. Après un palier, quatre n'avaient aucun sens et le
+   * cinquième portait un mot faux : « REJOUER » lançait le palier SUIVANT.
+   */
   const essaisRestants = mode === "daily" ? Math.max(0, DAILY_ESSAIS - P.essaisDuJour(s)) : 0;
-  $<HTMLButtonElement>("btnAgain").disabled =
-    mode === "daily" && !challenge && essaisRestants === 0;
-  $<HTMLButtonElement>("btnAgain").textContent =
-    mode === "ranked"
+  const suiteMontee = palFini
+    ? ESC.palierCourant(P.escalierDe(s, rule.id))
+    : undefined;
+  const actes = actionsDeFin({
+    mode,
+    duel: !!challenge,
+    surPalier: palFini !== undefined,
+    palierFranchi: end.cleared,
+    palierSuivant: suiteMontee !== undefined,
+    essaisRestants,
+    duelPossible: end.splits.length >= 3,
+  });
+
+  const again = $<HTMLButtonElement>("btnAgain");
+  again.disabled = actes.bloquee;
+  again.textContent =
+    actes.principale === "matchSuivant"
       ? t("goMatchSuivant")
-      : challenge
+      : actes.principale === "revanche"
         ? t("goRevanche")
-        : mode === "daily"
-          ? essaisRestants > 0
-            ? t("goRejouer")
-            : t("goReviensDemain")
-          : t("goRejouer");
-  $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
+        : actes.principale === "suivant"
+          ? t("finPalierSuivant")(suiteMontee?.n ?? 0)
+          : actes.principale === "reprendre"
+            ? t("finPalierReprendre")(palFini?.n ?? 0)
+            : actes.principale === "demain"
+              ? t("goReviensDemain")
+              : t("goRejouer");
+
+  $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
+  $("btnVersEscalier").textContent = t("finVersEscalier");
+  $("btnShare").classList.toggle("hidden", !actes.partage);
+  $("btnShareCarte").classList.toggle("hidden", !actes.partage);
+  $("btnDuel").classList.toggle("hidden", !actes.duel);
   $("btnShareCarte").textContent = t("finCarte");
 
   /*
@@ -5065,6 +5117,12 @@ async function partageCarte(): Promise<void> {
     rendre("finCarteRatee");
   }
 }
+
+$("btnVersEscalier").addEventListener("click", () => {
+  if (!escalierRegle) return;
+  sfx.ui();
+  ouvreEscalier(escalierRegle);
+});
 
 $("btnShareCarte").addEventListener("click", () => {
   sfx.ui();

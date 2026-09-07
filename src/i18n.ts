@@ -889,6 +889,13 @@ type Dyn = {
    * figées par langue dériveraient de la table dès le premier chiffre changé,
    * et rien ne le dirait.
    */
+  /** Le palier suivant, depuis l'écran de fin. */
+  finPalierSuivant: (n: number) => string;
+  /** Le même palier, quand il n'est pas passé. */
+  finPalierReprendre: (n: number) => string;
+  /** Le retour à la montée. */
+  finVersEscalier: string;
+
   /* ---- LA DÉMO DE L'ACCUEIL ---- */
   /*
    * ⚠️ CES CINQ CHAÎNES SONT DU CONTENU DE JEU, PAS DE L'INTERFACE. Elles
@@ -1415,6 +1422,9 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "SÉRIE",
     bilanCarnet: "CARNET",
 
+    finPalierSuivant: (n) => `PALIER ${n} · SUIVANT`,
+    finPalierReprendre: (n) => `REPRENDRE LE PALIER ${n}`,
+    finVersEscalier: "◂ L'ESCALIER",
     demoRegle: "TA RÈGLE · JAMAIS DE ROUGE",
     demoConsigneA: "Clique le rond bleu",
     demoConsigneB: "Clique le carré rouge",
@@ -1878,6 +1888,9 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "STREAK",
     bilanCarnet: "CODEX",
 
+    finPalierSuivant: (n) => `STEP ${n} · NEXT`,
+    finPalierReprendre: (n) => `RETRY STEP ${n}`,
+    finVersEscalier: "◂ THE CLIMB",
     demoRegle: "YOUR RULE · NEVER RED",
     demoConsigneA: "Click the blue circle",
     demoConsigneB: "Click the red square",
