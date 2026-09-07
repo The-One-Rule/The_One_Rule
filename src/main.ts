@@ -50,6 +50,7 @@ import { vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
 import { creeDemo } from "./render/demo";
 import { ecranAuChargement, ecranDe } from "./route";
+import type { EcranId } from "./route";
 import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
 import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
@@ -5722,12 +5723,49 @@ renderHome();
  * être celle où l'on est, sinon le tout premier appui sur PRÉCÉDENT ferait
  * sortir du site alors qu'on vient d'arriver.
  */
-{
-  const arrivee = ecranAuChargement(location.pathname);
-  poseArrivee(arrivee);
-  // `ecranAuChargement` ne rend jamais « partie » — elle n'est pas adressable
-  // et retombe sur son parent — mais le type de `show` ne le sait pas.
-  if (arrivee !== "home" && arrivee !== "partie") show(arrivee);
+/**
+ * Ouvrir un écran depuis son ADRESSE.
+ *
+ * ⚠️ **`show()` NE SUFFIT PAS, ET C'ÉTAIT LE BUG.** Montrer un écran ne le
+ * PEINT pas : chaque bouton de la barre fait `renderX(); show("x")`, et le
+ * démarrage n'appelait que la seconde moitié. Arriver directement sur `/solo`
+ * ou `/cartes` donnait donc un écran aux données vides — un cadre qui a l'air
+ * cassé, ce qui est exactement ce que le repli sur le parent existe pour
+ * éviter.
+ *
+ * Cette table dit, pour chaque adresse ouvrable à froid, ce que fait le bouton
+ * correspondant. Les écrans absents d'ici ne sont pas adressables : `route.ts`
+ * les a déjà fait retomber sur leur parent avant qu'on arrive.
+ */
+function ouvreAdresse(id: EcranId): void {
+  switch (id) {
+    case "solo":
+      renderSolo();
+      show("solo");
+      return;
+    case "codex":
+      renderCodex();
+      return;
+    case "classement":
+      renderClassement();
+      show("classement");
+      return;
+    case "compte":
+      renderCompte();
+      return;
+    case "reglages":
+      renderReglages();
+      show("reglages");
+      return;
+    case "multi-join":
+      // Le multi a sa propre porte : elle décide seule entre l'écran du nom et
+      // celui du code, selon que le joueur s'est déjà nommé.
+      $("btnMulti").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      return;
+    default:
+      // L'accueil est déjà peint par `renderHome()`, juste au-dessus.
+      return;
+  }
 }
 
 /*
@@ -5782,7 +5820,36 @@ const invite = readInvite();
 // Un lien de défi ouvre directement l'annonce de la règle : celui qui clique
 // vient pour affronter quelqu'un, pas pour lire un menu.
 const incoming = readChallenge();
+/*
+ * PAR OÙ L'ON ENTRE — et l'ordre EST la priorité.
+ *
+ * ⚠️ **CETTE LIGNE ÉCRASAIT L'ADRESSE, ET C'ÉTAIT LE BUG RAPPORTÉ** : « quand
+ * je tape ma propre url vers une page du site elle me ramène directement à la
+ * page principale ». Le `else show("home")` date d'avant le routeur, quand le
+ * site n'avait qu'une seule adresse. Le bloc qui ouvre l'écran demandé
+ * s'exécutait plus haut dans le fichier — donc AVANT celui-ci — et se faisait
+ * piétiner à chaque chargement, en silence.
+ *
+ * Mesuré côté serveur pour écarter la piste : `/solo` répond bien 200, sert
+ * l'application, et le bundle déployé contient le routage. Le défaut était
+ * entièrement ici.
+ *
+ * Les trois entrées, dans l'ordre où elles priment :
+ *
+ *   1. un lien de DÉFI ouvre directement l'annonce de la règle — celui qui
+ *      clique vient affronter quelqu'un, pas lire un menu ;
+ *   2. un lien d'INVITATION ouvre le salon, pour la même raison ;
+ *   3. sinon, l'ADRESSE décide. Elle ne vient pas d'un lien reçu mais de ce que
+ *      le joueur a tapé ou mis en favori : c'est un choix, et il passe après un
+ *      lien qu'on lui a envoyé mais avant le réglage par défaut.
+ *
+ * ⚠️ `poseArrivee` dans TOUS les cas, y compris les deux premiers : la première
+ * entrée de l'histoire doit être celle où l'on est, sinon le premier appui sur
+ * PRÉCÉDENT fait sortir du site alors qu'on vient d'arriver.
+ */
+const arrivee = ecranAuChargement(location.pathname);
+poseArrivee(arrivee);
 if (incoming) loadChallenge(incoming);
 else if (invite && multi.available) multi.openFromInvite(invite);
-else show("home");
+else ouvreAdresse(arrivee);
 requestAnimationFrame(loop);

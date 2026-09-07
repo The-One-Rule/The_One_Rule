@@ -96,6 +96,43 @@ const TABLE: Record<EcranId, Route> = {
   "multi-end": { chemin: "/salon/fin", adressable: false, parent: "multi-join" },
 };
 
+/**
+ * LES AUTRES ORTHOGRAPHES QU'ON PEUT TAPER.
+ *
+ * ⚠️ **RAPPORTÉ** : « quand je tape ma propre url vers une page du site elle me
+ * ramène directement à la page principale ». Et pour cause — la demande de
+ * départ disait « lelien/entrainement ou **lelien/home** », et `/home` n'était
+ * dans aucune table : l'accueil s'écrit `/`, donc `/home` tombait dans le cas
+ * « adresse inconnue » et rendait l'accueil. Le comportement était juste, la
+ * table était incomplète.
+ *
+ * ⚠️ **UN ALIAS N'EST PAS UNE SECONDE ADRESSE.** Il est LU, jamais ÉCRIT :
+ * `cheminDe` ne rend que la forme canonique, donc un lien copié depuis la barre
+ * porte toujours la même. C'est ce qui préserve la propriété qui compte — une
+ * adresse est un identifiant — tout en étant tolérant sur ce qu'on tape, comme
+ * `normalise` l'est déjà sur la casse et la barre finale.
+ *
+ * L'anglais est ici pour une raison précise : la moitié des joueurs jouent en
+ * anglais et devineront `/cards` ou `/settings` avant `/cartes`.
+ */
+const ALIAS: Record<string, EcranId> = {
+  "/home": "home",
+  "/accueil": "home",
+  "/index": "home",
+  "/play": "solo",
+  "/jouer": "solo",
+  "/cards": "codex",
+  "/carnet": "codex",
+  "/collection": "codex",
+  "/leaderboard": "classement",
+  "/settings": "reglages",
+  "/account": "compte",
+  "/training": "brief",
+  "/climb": "escalier",
+  "/room": "multi-lobby",
+  "/multiplayer": "multi-join",
+};
+
 /** Le chemin d'un écran. Toujours défini : la table les couvre tous. */
 export const cheminDe = (id: EcranId): string => TABLE[id].chemin;
 
@@ -117,7 +154,7 @@ export function ecranDe(chemin: string): EcranId | null {
   for (const [id, r] of Object.entries(TABLE) as [EcranId, Route][]) {
     if (normalise(r.chemin) === c) return id;
   }
-  return null;
+  return ALIAS[c] ?? null;
 }
 
 function normalise(chemin: string): string {
