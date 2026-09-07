@@ -4457,8 +4457,26 @@ window.visualViewport?.addEventListener("resize", () => {
   poseBarre();
 });
 syncField();
+/*
+ * ⚠️ QUITTER LA FENETRE RELACHE LA BARRE — et il faut le DIRE au run.
+ *
+ * On remettait le drapeau a faux sans envoyer d'action : la barre etait donc
+ * levee pour de bon, et comme aucun `keyup` ne surviendrait plus jamais, LA
+ * MAIN GAUCHE devenait inerte pour le reste du run. Meme trou que l'echauffement
+ * qui pardonnait, par un autre chemin.
+ *
+ * ⚠️ Ce n'est PAS la decision n°4 (« une coupure n'est pas une defaite ») : elle
+ * protege le joueur d'un incident RESEAU, pas de sa propre main. Changer
+ * d'onglet en pleine manche, c'est cesser de jouer — la manche serait perdue au
+ * chrono de toute facon. Et l'action part dans le journal, donc `verifyRun`
+ * juge exactement ce que l'ecran a montre.
+ */
 window.addEventListener("blur", () => {
+  const tenait = spaceDown;
   spaceDown = false;
+  if (!tenait) return;
+  if (session?.phase === "playing") send({ kind: "release", key: " " });
+  else if (multi.isPlayingMulti()) sendOrMulti({ kind: "release", key: " " });
 });
 
 /* ------------------------------------------------------------------ *

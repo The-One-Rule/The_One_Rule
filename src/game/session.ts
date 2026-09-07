@@ -1,4 +1,4 @@
-import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, tierOf } from "../engine/difficulty";
+import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, pardonnable, tierOf } from "../engine/difficulty";
 import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
@@ -253,9 +253,21 @@ export class Session {
     this.nextRound(now);
   }
 
-  private die(outcome: Extract<Outcome, { kind: "death" }>, now: number): void {
-    // échauffement : la manche est perdue mais le run continue
-    if (this.inGrace) {
+  private die(
+    outcome: Extract<Outcome, { kind: "death" }>,
+    now: number,
+    /**
+     * L'action fautive, quand il y en a une.
+     *
+     * ⚠️ Absente sur un dépassement de temps — et c'est juste : `pardonnable`
+     * ne refuse le pardon qu'à un relâchement, jamais à l'horloge.
+     */
+    action?: Action,
+  ): void {
+    // échauffement : la manche est perdue mais le run continue — sauf pour une
+    // violation de MAINTIEN, qui décrit un état et non un geste (voir
+    // `pardonnable`, engine/difficulty.ts).
+    if (this.inGrace && (!action || pardonnable(this.rule, action))) {
       this.marks.push("🟨");
       this.level++;
       this.nextRound(now);
@@ -297,7 +309,7 @@ export class Session {
     this.progress = progress;
 
     if (outcome.kind === "survive") this.survive(now);
-    else if (outcome.kind === "death") this.die(outcome, now);
+    else if (outcome.kind === "death") this.die(outcome, now, action);
     return outcome;
   }
 

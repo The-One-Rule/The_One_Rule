@@ -16,7 +16,7 @@ import {
   SPEED_CHOICES,
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
-import { buildMultiRound, poolMulti } from "./engine/multiround";
+import { buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -1686,10 +1686,24 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     rebuildViewRound();
-    // La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
-    // sinon elle promet du temps que le serveur ne donne pas.
-    const base = windowMs(match.idx);
-    match.spanFactor = match.round && base > 0 ? match.round.durationMs / base : 1;
+    /*
+     * La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
+     * sinon elle promet du temps que le serveur ne donne pas.
+     *
+     * ⚠️ LE DÉNOMINATEUR EST LA MANCHE COMMUNE, PAS `windowMs(idx)`.
+     *
+     * C'est `windowMs` qu'on lisait, c'est-à-dire la courbe NUE. Or la manche
+     * commune vaut `windowForSteps` : elle ajoute 280 ms par geste
+     * SUPPLÉMENTAIRE. Sur une consigne à deux gestes et sans déformation, le
+     * rapport valait donc (fenêtre + 280) / fenêtre — soit 1,14 au lieu de 1, et
+     * la barre du client promettait 14 % de temps que le serveur ne donnait pas.
+     *
+     * Un aperçu qui contredit le verdict est le seul défaut que ce dépôt tient
+     * pour fatal (décision n°3). Le serveur, lui, rapporte bien la fenêtre
+     * personnelle à la manche COMMUNE ; on lit donc la même chose que lui.
+     */
+    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier)).durationMs;
+    match.spanFactor = match.round && commune > 0 ? match.round.durationMs / commune : 1;
     renderPlates();
     syncFooter();
   }
