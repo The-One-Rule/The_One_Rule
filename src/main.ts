@@ -49,6 +49,8 @@ import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
 import { creeDemo } from "./render/demo";
+import { ecranAuChargement, ecranDe } from "./route";
+import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
 import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
@@ -392,7 +394,59 @@ function show(id: ScreenId): void {
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
+  // `null` est l'écran de PARTIE : il a une adresse lui aussi, sans quoi le
+  // bouton précédent sauterait par-dessus la partie comme si elle n'avait pas
+  // eu lieu.
+  poseAdresse(id ?? "partie");
 }
+
+/* ------------------------------------------------------------------ *
+ * L'ADRESSE SUIT L'ÉCRAN
+ *
+ * Demandé par Pierre : « chaque partie du site a une page différente ». Et,
+ * dans le même message : « pas de bouton pour revenir en arrière pour taper le
+ * code d'un salon, juste direct au menu ».
+ *
+ * ⚠️ CE SONT DEUX SYMPTÔMES DU MÊME MANQUE : l'application ne savait pas d'où
+ * l'on venait. Chaque RETOUR portait une destination écrite en dur —
+ * `btnMultiJoinBack` faisait `exitToMenu(); show("home")`, donc il ne revenait
+ * pas, il éjectait. Une histoire de navigation répond aux deux d'un coup.
+ *
+ * La table des adresses est dans `route.ts`, pure et testée ; le compteur de
+ * pas et le dialogue avec `history` sont dans `histoire.ts`, parce que le
+ * multijoueur en a besoin lui aussi et qu'un compteur par module se
+ * désynchroniserait au premier écran de salon.
+ * ------------------------------------------------------------------ */
+
+window.addEventListener("popstate", () => {
+  const cible = ecranDe(location.pathname) ?? "home";
+  pendantRetour(() => {
+    /*
+     * ⚠️ REVENIR EN ARRIÈRE PENDANT UNE PARTIE, C'EST L'ABANDONNER.
+     *
+     * C'est déjà ce que fait ÉCHAP, et c'est la seule lecture honnête : le
+     * joueur a demandé à quitter cet écran. Laisser la session tourner derrière
+     * un menu produirait un run fantôme qui finirait par écrire un score que
+     * personne n'a joué.
+     */
+    if (session) {
+      abandon();
+      return;
+    }
+    /*
+     * ⚠️ ET QUITTER LE SALON EN PARTANT, SINON ON Y RESTE ASSIS.
+     *
+     * Le salon est un état RÉSEAU, pas seulement un écran : sortir sans
+     * prévenir laisserait un siège occupé par quelqu'un qui n'est plus là, et
+     * les autres attendraient un joueur fantôme au lancement.
+     */
+    if ((screen === "multi-lobby" || screen === "multi-end") && cible !== "multi-lobby") {
+      multi.exitToMenu();
+    }
+    show(cible === "partie" ? "home" : cible);
+  });
+});
+
 
 /*
  * Revenir du multijoueur repeint l'accueil.
@@ -5655,6 +5709,27 @@ async function demarreCompte(): Promise<void> {
 }
 
 renderHome();
+
+/*
+ * L'ADRESSE DÉCIDE DE L'ÉCRAN D'ARRIVÉE.
+ *
+ * ⚠️ Les écrans CONTEXTUELS retombent sur leur parent, et une adresse inconnue
+ * sur l'accueil — voir `route.ts`. Un salon sans code, une fiche sans règle ou
+ * un écran de fin sans run sont des cadres vides ; les montrer se lirait comme
+ * un chargement raté, et le joueur n'aurait rien à réparer.
+ *
+ * `replaceState` et non `pushState` : la première entrée de l'histoire doit
+ * être celle où l'on est, sinon le tout premier appui sur PRÉCÉDENT ferait
+ * sortir du site alors qu'on vient d'arriver.
+ */
+{
+  const arrivee = ecranAuChargement(location.pathname);
+  poseArrivee(arrivee);
+  // `ecranAuChargement` ne rend jamais « partie » — elle n'est pas adressable
+  // et retombe sur son parent — mais le type de `show` ne le sait pas.
+  if (arrivee !== "home" && arrivee !== "partie") show(arrivee);
+}
+
 /*
  * Et le multi PAR-DESSUS, une fois seulement.
  *

@@ -119,7 +119,12 @@ export const ghostDone = (r: Replay, ms: number): boolean =>
   r.splits.length === 0 || ms > r.splits[r.splits.length - 1]!;
 
 export function challengeUrl(r: Replay): string {
-  const base = typeof location !== "undefined" ? location.origin + location.pathname : "";
+  /*
+   * ⚠️ LA RACINE, PAS L'ÉCRAN COURANT — voir `inviteUrl`. Un défi se copie
+   * depuis l'écran de FIN, dont l'adresse est « /fin » : le lien aurait
+   * emmené l'ami sur un écran de fin sans run, c'est-à-dire un cadre vide.
+   */
+  const base = typeof location !== "undefined" ? location.origin + "/" : "";
   return `${base}#d=${encodeReplay(r)}`;
 }
 
