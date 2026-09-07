@@ -476,12 +476,41 @@ export class MatchLogic {
    *
    * On rejoue la même formule que `openRound`, mais sur la durée personnelle.
    */
+  /**
+   * La fenêtre PERSONNELLE d'un joueur — celle que le serveur juge.
+   *
+   * ⚠️ **UN PLAFOND APPLIQUÉ APRÈS UN MULTIPLICATEUR DÉTRUIT LE MULTIPLICATEUR**,
+   * et c'est ce qui se passait. La fenêtre personnelle se calculait comme la
+   * partagée — courbe × vitesse × tension — puis se faisait borner par le même
+   * plafond. Dès que les DEUX dépassaient ce plafond, elles en ressortaient
+   * ÉGALES, et la déformation de la règle disparaissait.
+   *
+   * Mesuré au moment où la courbe solo est passée de 1500 à 4000 ms : à la
+   * manche 0, la fenêtre partagée valait 5800 et celle du porteur de
+   * L'ACCÉLÉRATION 4060 — les deux plafonnées à 4000. Le porteur disposait donc
+   * de la fenêtre pleine, c'est-à-dire qu'il ne portait plus rien. Une règle
+   * inerte est un avantage gratuit et invisible : décision n°1, quatre bugs au
+   * compteur.
+   *
+   * L'ordre juste est : **on borne le RYTHME, puis on applique la RÈGLE.** Le
+   * plafond dit combien de temps une table peut attendre, ce qui est une
+   * décision de match ; la déformation dit ce que cette règle coûte à celui qui
+   * la porte, ce qui est une décision d'équité. La seconde ne doit pas se faire
+   * manger par la première. On garde donc le RAPPORT entre la fenêtre du joueur
+   * et la fenêtre commune, et on l'applique à la commune une fois bornée.
+   *
+   * ⚠️ Le plancher, lui, reste dur : « 0,7 s minimum tout mode confondu ». Une
+   * conséquence assumée — en toute fin de très long match, quand la fenêtre
+   * commune touche déjà le plancher, L'ACCÉLÉRATION cesse de mordre.
+   */
   private durationFor(st: PlayerRoundState): number {
+    const commune = this.shared?.durationMs ?? 0;
+    const rapport = commune > 0 ? st.round.durationMs / commune : 1;
     return Math.min(
       MAX_ROUND_MS,
       Math.max(
         MIN_ROUND_MS,
-        Math.round(st.round.durationMs * this.settings.speed * this.tensionAt(this.roundIdx)),
+        Math.round(this.roundDurationMs * rapport),
       ),
     );
   }

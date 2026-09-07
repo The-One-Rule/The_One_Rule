@@ -16,7 +16,8 @@ import {
   SPEED_CHOICES,
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
-import { buildMultiRound, poolMulti } from "./engine/multiround";
+import { buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
+import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -222,7 +223,15 @@ export function readInvite(): string | null {
 }
 
 function inviteUrl(code: string): string {
-  const base = typeof location !== "undefined" ? location.origin + location.pathname : "";
+  /*
+   * ⚠️ LA RACINE, PAS L'ÉCRAN COURANT.
+   *
+   * `location.pathname` valait toujours « / » tant que le site n'avait qu'une
+   * adresse. Depuis que chaque écran a la sienne, copier le lien depuis le
+   * salon aurait produit « https://site/salon#j=ABCD » : l'invité serait
+   * arrivé sur un salon qui n'est pas le sien, avant que le code ne soit lu.
+   */
+  const base = typeof location !== "undefined" ? location.origin + "/" : "";
   return `${base}#j=${code}`;
 }
 
@@ -1686,10 +1695,24 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     rebuildViewRound();
-    // La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
-    // sinon elle promet du temps que le serveur ne donne pas.
-    const base = windowMs(match.idx);
-    match.spanFactor = match.round && base > 0 ? match.round.durationMs / base : 1;
+    /*
+     * La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
+     * sinon elle promet du temps que le serveur ne donne pas.
+     *
+     * ⚠️ LE DÉNOMINATEUR EST LA MANCHE COMMUNE, PAS `windowMs(idx)`.
+     *
+     * C'est `windowMs` qu'on lisait, c'est-à-dire la courbe NUE. Or la manche
+     * commune vaut `windowForSteps` : elle ajoute 280 ms par geste
+     * SUPPLÉMENTAIRE. Sur une consigne à deux gestes et sans déformation, le
+     * rapport valait donc (fenêtre + 280) / fenêtre — soit 1,14 au lieu de 1, et
+     * la barre du client promettait 14 % de temps que le serveur ne donnait pas.
+     *
+     * Un aperçu qui contredit le verdict est le seul défaut que ce dépôt tient
+     * pour fatal (décision n°3). Le serveur, lui, rapporte bien la fenêtre
+     * personnelle à la manche COMMUNE ; on lit donc la même chose que lui.
+     */
+    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier)).durationMs;
+    match.spanFactor = match.round && commune > 0 ? match.round.durationMs / commune : 1;
     renderPlates();
     syncFooter();
   }
@@ -3102,8 +3125,29 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   $("btnMultiJoinBack").addEventListener("click", () => {
     sfx.ui();
-    exitToMenu();
-    show("home");
+    /*
+     * ⚠️ IL FAISAIT `exitToMenu(); show("home")` — donc il n'était pas un
+     * RETOUR, c'était une éjection.
+     *
+     * Rapporté en playtest : « pas de bouton pour revenir en arrière pour taper
+     * le code d'un salon, juste direct au menu ». Le bouton existait bel et
+     * bien et portait le mot RETOUR ; c'est sa destination qui était écrite en
+     * dur, comme celle des six autres RETOUR du jeu.
+     *
+     * `history.back()` remonte d'un cran RÉEL — l'écran d'identité si l'on
+     * vient de s'y nommer, l'accueil si l'on vient de l'accueil. La table des
+     * adresses est dans `route.ts` ; ici on ne fait que revenir.
+     *
+     * Pas d'`exitToMenu()` : à ce stade on n'est dans AUCUN salon, il n'y a
+     * rien à quitter. Le seul écran qui doive prévenir le serveur en partant
+     * est le salon lui-même, et `popstate` s'en charge.
+     *
+     * ⚠️ `retour()` et non `history.back()` NU : `/multi` est une adresse
+     * ADRESSABLE, donc quelqu'un peut y arriver directement — un lien partagé,
+     * un favori. Il n'aurait alors rien derrière lui dans NOTRE histoire, et un
+     * retour sec l'aurait renvoyé hors du site.
+     */
+    retour(() => show("home"));
   });
 
   $("btnMultiNom").addEventListener("click", () => {

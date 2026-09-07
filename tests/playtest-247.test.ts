@@ -17,6 +17,19 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import type { Round } from "../src/engine/types";
+import { actionsDeFin } from "../src/render/finactions";
+import type { EtatFin } from "../src/render/finactions";
+
+/** Un run du jour ordinaire — seul `essaisRestants` varie dans les cas ci-dessous. */
+const FIN_JOUR: EtatFin = {
+  mode: "daily",
+  duel: false,
+  surPalier: false,
+  palierFranchi: false,
+  palierSuivant: false,
+  essaisRestants: 3,
+  duelPossible: true,
+};
 
 let nowMs = 0;
 
@@ -239,8 +252,31 @@ describe("REJOUER — le run du jour se rejoue tant qu'il reste un essai", () =>
      * L'autre moitié du contrat. Si celle-ci changeait sans l'autre, on
      * retomberait exactement dans la panne : un bouton qui promet ce que la
      * fonction refuse.
+     *
+     * ⚠️ CETTE ASSERTION LISAIT LA SOURCE, ELLE MESURE DÉSORMAIS LE COMPORTEMENT.
+     *
+     * Elle exigeait le motif `mode === "daily" && !challenge && essaisRestants
+     * === 0` dans `main.ts`. La décision est sortie dans `render/finactions.ts`
+     * — sixième module de priorité pure du dépôt — et le motif a disparu :
+     * l'assertion est tombée en décrivant du code qui n'existait plus, alors
+     * que la RÈGLE, elle, n'avait pas bougé.
+     *
+     * Un filet qui surveille une forme d'écriture se casse à chaque
+     * réorganisation et ne dit rien sur le fond. Celui-ci interroge maintenant
+     * la fonction : il survivra au prochain déplacement, et il tombera si la
+     * règle change vraiment.
      */
-    expect(source).toMatch(/DAILY_ESSAIS - P\.essaisDuJour\(s\)/);
-    expect(source).toMatch(/mode === "daily" && !challenge && essaisRestants === 0/);
+    expect(
+      actionsDeFin({ ...FIN_JOUR, essaisRestants: 2 }).bloquee,
+      "il reste deux essais et le bouton est bloqué",
+    ).toBe(false);
+    expect(
+      actionsDeFin({ ...FIN_JOUR, essaisRestants: 0 }).bloquee,
+      "plus aucun essai et le bouton lance quand même",
+    ).toBe(true);
+    expect(
+      actionsDeFin({ ...FIN_JOUR, essaisRestants: 0 }).principale,
+      "un refus muet se lit comme un jeu cassé : le bouton doit DIRE la règle",
+    ).toBe("demain");
   });
 });

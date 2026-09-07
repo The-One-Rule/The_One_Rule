@@ -27,13 +27,37 @@ export const INPUT_TOLERANCE_MS = 120;
 export const MIN_ROUND_MS = 700;
 
 /**
- * Plafond d'une manche. Le solo a été recalibré de 2400 à 1500 ms parce que
- * l'ouverture lente produisait de l'ennui mesuré — mais en multijoueur
- * l'attente n'est pas vide : on voit les autres se figer, on lit le chat.
- * 2400 ms reste donc tenable ici, et rien ne doit aller au-delà : l'empilement
- * réglage × tension ne réintroduira pas le défaut par la bande.
+ * Plafond d'une manche.
+ *
+ * ⚠️ **REMONTÉ DE 2400 À 4000 AVEC LA COURBE SOLO, ET IL LE FALLAIT.** La
+ * courbe de `windowMs` ouvre désormais à 4000 ms au lieu de 1500 (directive de
+ * Pierre : « diminue vraiment la vitesse en général … 0,7 minimum tout mode
+ * confondu »). Laisser le plafond à 2400 aurait ÉCRASÉ toute la première moitié
+ * d'un match contre lui.
+ *
+ * Et ce n'était pas qu'une question de rythme : **deux mécaniques devenaient
+ * inertes**, toutes deux attrapées par `tests/multi.test.ts`.
+ *
+ *   · la GRÂCE DE ROTATION (× 1,5) ne se voyait plus — la manche qui suit un
+ *     changement de règle doit respirer, or elle butait au même plafond que la
+ *     précédente : 2400 contre 2400 ;
+ *   · L'ACCÉLÉRATION (× 0,7 sur la fenêtre personnelle) ne se voyait plus non
+ *     plus, pour la même raison. Une règle inerte est un avantage gratuit et
+ *     invisible — c'est la décision n°1, et elle a déjà coûté trois bugs.
+ *
+ * L'argument d'origine tient toujours, il change seulement d'échelle : en
+ * multijoueur l'attente n'est pas vide — on voit les autres se figer, on lit le
+ * chat. Et la tension resserre vite : mesurée, la manche dure 4000 ms à
+ * l'ouverture, 2750 à la dixième, 1869 à la vingtième et 700 au-delà de la
+ * soixantième.
+ *
+ * ⚠️ **LE FRONT ET LES SALONS DOIVENT ÊTRE DÉPLOYÉS ENSEMBLE.** C'est la dette
+ * du §9, et ce changement la rend aiguë : `windowMs` sert au client à
+ * reconstruire les scènes et au serveur à borner les manches. Un client resté
+ * sur le bundle de la veille lirait des fenêtres qui ne sont plus celles que le
+ * serveur applique.
  */
-export const MAX_ROUND_MS = 2400;
+export const MAX_ROUND_MS = 4000;
 
 /** Pause normale (rien de dramatique). */
 export const INTERLUDE_MS = 1100;

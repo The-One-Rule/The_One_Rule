@@ -18,6 +18,7 @@ import type { Action, OneRule, Outcome, Round } from "./engine/types";
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as ESC from "./game/escalier";
 import { exploitDuRun } from "./render/exploit";
+import { actionsDeFin } from "./render/finactions";
 import { dessineCarte, donneesCarte } from "./render/partage";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
@@ -48,6 +49,8 @@ import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueAccueil, vueBut } from "./render/but";
 import { creeDemo } from "./render/demo";
+import { ecranAuChargement, ecranDe } from "./route";
+import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
 import type { Demo, TextesDemo } from "./render/demo";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
@@ -55,7 +58,7 @@ import { SERIE_EPREUVE } from "./game/echelle";
 import type { CaseMaitrise } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
-import { cleEntrainement } from "./game/perfs";
+import { cleEntrainement, cleEscalade } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -391,7 +394,59 @@ function show(id: ScreenId): void {
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
+  // `null` est l'écran de PARTIE : il a une adresse lui aussi, sans quoi le
+  // bouton précédent sauterait par-dessus la partie comme si elle n'avait pas
+  // eu lieu.
+  poseAdresse(id ?? "partie");
 }
+
+/* ------------------------------------------------------------------ *
+ * L'ADRESSE SUIT L'ÉCRAN
+ *
+ * Demandé par Pierre : « chaque partie du site a une page différente ». Et,
+ * dans le même message : « pas de bouton pour revenir en arrière pour taper le
+ * code d'un salon, juste direct au menu ».
+ *
+ * ⚠️ CE SONT DEUX SYMPTÔMES DU MÊME MANQUE : l'application ne savait pas d'où
+ * l'on venait. Chaque RETOUR portait une destination écrite en dur —
+ * `btnMultiJoinBack` faisait `exitToMenu(); show("home")`, donc il ne revenait
+ * pas, il éjectait. Une histoire de navigation répond aux deux d'un coup.
+ *
+ * La table des adresses est dans `route.ts`, pure et testée ; le compteur de
+ * pas et le dialogue avec `history` sont dans `histoire.ts`, parce que le
+ * multijoueur en a besoin lui aussi et qu'un compteur par module se
+ * désynchroniserait au premier écran de salon.
+ * ------------------------------------------------------------------ */
+
+window.addEventListener("popstate", () => {
+  const cible = ecranDe(location.pathname) ?? "home";
+  pendantRetour(() => {
+    /*
+     * ⚠️ REVENIR EN ARRIÈRE PENDANT UNE PARTIE, C'EST L'ABANDONNER.
+     *
+     * C'est déjà ce que fait ÉCHAP, et c'est la seule lecture honnête : le
+     * joueur a demandé à quitter cet écran. Laisser la session tourner derrière
+     * un menu produirait un run fantôme qui finirait par écrire un score que
+     * personne n'a joué.
+     */
+    if (session) {
+      abandon();
+      return;
+    }
+    /*
+     * ⚠️ ET QUITTER LE SALON EN PARTANT, SINON ON Y RESTE ASSIS.
+     *
+     * Le salon est un état RÉSEAU, pas seulement un écran : sortir sans
+     * prévenir laisserait un siège occupé par quelqu'un qui n'est plus là, et
+     * les autres attendraient un joueur fantôme au lancement.
+     */
+    if ((screen === "multi-lobby" || screen === "multi-end") && cible !== "multi-lobby") {
+      multi.exitToMenu();
+    }
+    show(cible === "partie" ? "home" : cible);
+  });
+});
+
 
 /*
  * Revenir du multijoueur repeint l'accueil.
@@ -2064,6 +2119,30 @@ function majLecture(now: number): void {
     const b = $<HTMLButtonElement>("btnGo");
     b.disabled = false;
     b.classList.remove("btn--lecture");
+    /*
+     * ⚠️ ON REND SON LIBELLE AU BOUTON — LA FIN NORMALE L'OUBLIAIT.
+     *
+     * Seul `annuleLecture` le restituait, c'est-a-dire seulement sur une sortie
+     * PREMATUREE. Un rebours mene a son terme laissait donc « 1 » sur le
+     * bouton, pour de bon. Releve en deroulant la boucle image par image :
+     *
+     *     brief:START | +800ms:3 | +1600ms:2 | +2400ms:1 | +3200ms:1 (en jeu)
+     *
+     * Invisible pendant la partie — le brief est masque — et efface au brief
+     * suivant, puisque `openBrief` reecrit le libelle. D'ou une panne qui ne se
+     * declenche que par un chemin : lancer, laisser le rebours finir, revenir
+     * au brief, relancer, puis ECHAP pendant CE rebours-la. `startRun` avait
+     * memorise `bouton.textContent` — qui valait « 1 » — et `annuleLecture`
+     * le restituait fidelement. Bouton bloque sur un chiffre.
+     *
+     * C'est la meme racine que le bug deja documente sur ESPACE : celui-la
+     * avait ete ferme du cote de l'appel en trop, pas du cote de la cause. La
+     * regle du depot le disait pourtant — « une valeur memorisee doit l'etre a
+     * un instant ou l'on sait ce qu'elle vaut ». On garantit donc qu'au repos
+     * le bouton ne porte JAMAIS un chiffre, ce qui rend la memorisation
+     * toujours vraie.
+     */
+    b.textContent = lecture.libelle;
     lecture = null;
     lanceRun();
     return;
@@ -3460,6 +3539,8 @@ function finishRun(): void {
   const { end, rule, mode } = session;
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
+  // Les VRAIES règles de la pile, avant que la session ne soit libérée.
+  const reglesTenues = session.reglesTenues;
   palierDuDernierRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
@@ -3508,7 +3589,45 @@ function finishRun(): void {
      * `majCarnet` n'écrit ces quatre champs QUE s'il le reçoit. Un jour où un
      * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
      */
+    /*
+     * ⚠️ **L'ESCALADE N'ÉCRIT PAS SA COMPOSÉE AU CARNET.**
+     *
+     * `session.rule` y rend la composée de la pile, dont l'identifiant est
+     * « azur+pointe+voyelle+colosse ». Écrite telle quelle, elle créait une
+     * entrée FANTÔME : absente du catalogue, donc invisible dans la collection,
+     * mais bien comptée dans `Object.keys(s.encountered)` — le nombre de règles
+     * rencontrées, la jauge du compte, le seuil « ce joueur connaît le jeu » de
+     * l'accueil — et expédiée au compte, où elle occupait une place sur les 64
+     * que `api/moi.ts` accepte. Une seule partie d'escalade suffisait.
+     *
+     * Ce qu'un run d'escalade prouve VRAIMENT, c'est qu'on a rencontré chacune
+     * des règles tenues. On les inscrit donc une par une, sans rien d'autre :
+     * ni `best` — un score d'escalade se compte en RÈGLES tenues, pas en
+     * manches, et le poser sous une règle le rendrait incomparable au reste —
+     * ni les pièges, qu'on ne saurait pas attribuer entre quatre règles.
+     */
+    if (mode === "escalade") {
+      for (const r of reglesTenues) {
+        st.encountered[r.id] = P.majCarnet(st.encountered[r.id], 0, false, 0, undefined);
+      }
+    }
+
     const surPalier = palierEnCours !== null;
+    /*
+     * ⚠️ ET ON S'ARRÊTE LÀ POUR L'ESCALADE.
+     *
+     * Sans ce retour, la ligne d'en dessous réécrirait `st.encountered` sous
+     * l'identifiant de la COMPOSÉE, et le fantôme reviendrait par la porte
+     * qu'on vient de fermer. Le reste de la mutation — `recent`, les records
+     * d'entraînement — ne la concerne pas davantage : un score d'escalade se
+     * compte en RÈGLES tenues, pas en manches, et sa clé de comparabilité est
+     * `cleEscalade`, jamais celle d'une règle.
+     */
+    if (mode === "escalade") {
+      st.recent = [...st.recent, end.score].slice(-5);
+      P.inscritRecord(st, cleEscalade(), session!.paliers);
+      return;
+    }
     /*
      * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
      *
@@ -3559,6 +3678,9 @@ function finishRun(): void {
        * même jour.
        */
       st.daily = P.majJour(st.daily, day, end.score, end.cleared);
+      // AVOIR JOUÉ suffit à la quête de présence ; TERMINER reste un exploit et
+      // se compte à part. Voir la note de `game/quests.ts`.
+      bump(st, "dailyPlayed", 1);
       if (end.cleared) bump(st, "dailyCleared", 1);
       // Idempotent par jour : `touchStreak` sort sans rien faire quand
       // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
@@ -3862,20 +3984,47 @@ function finishRun(): void {
    * demain juste après un run raté à quatre manches était la fin de partie la
    * plus fréquente du jeu, et la plus décourageante.
    */
+  /*
+   * CE QUE L'ÉCRAN PROPOSE — décidé une fois, dans `render/finactions.ts`.
+   *
+   * Cinq boutons s'affichaient en toutes circonstances, et seuls deux
+   * changeaient d'état. Après un palier, quatre n'avaient aucun sens et le
+   * cinquième portait un mot faux : « REJOUER » lançait le palier SUIVANT.
+   */
   const essaisRestants = mode === "daily" ? Math.max(0, DAILY_ESSAIS - P.essaisDuJour(s)) : 0;
-  $<HTMLButtonElement>("btnAgain").disabled =
-    mode === "daily" && !challenge && essaisRestants === 0;
-  $<HTMLButtonElement>("btnAgain").textContent =
-    mode === "ranked"
+  const suiteMontee = palFini
+    ? ESC.palierCourant(P.escalierDe(s, rule.id))
+    : undefined;
+  const actes = actionsDeFin({
+    mode,
+    duel: !!challenge,
+    surPalier: palFini !== undefined,
+    palierFranchi: end.cleared,
+    palierSuivant: suiteMontee !== undefined,
+    essaisRestants,
+    duelPossible: end.splits.length >= 3,
+  });
+
+  const again = $<HTMLButtonElement>("btnAgain");
+  again.disabled = actes.bloquee;
+  again.textContent =
+    actes.principale === "matchSuivant"
       ? t("goMatchSuivant")
-      : challenge
+      : actes.principale === "revanche"
         ? t("goRevanche")
-        : mode === "daily"
-          ? essaisRestants > 0
-            ? t("goRejouer")
-            : t("goReviensDemain")
-          : t("goRejouer");
-  $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
+        : actes.principale === "suivant"
+          ? t("finPalierSuivant")(suiteMontee?.n ?? 0)
+          : actes.principale === "reprendre"
+            ? t("finPalierReprendre")(palFini?.n ?? 0)
+            : actes.principale === "demain"
+              ? t("goReviensDemain")
+              : t("goRejouer");
+
+  $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
+  $("btnVersEscalier").textContent = t("finVersEscalier");
+  $("btnShare").classList.toggle("hidden", !actes.partage);
+  $("btnShareCarte").classList.toggle("hidden", !actes.partage);
+  $("btnDuel").classList.toggle("hidden", !actes.duel);
   $("btnShareCarte").textContent = t("finCarte");
 
   /*
@@ -3890,7 +4039,21 @@ function finishRun(): void {
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
   renderPodium(mode);
-  peintAvance(rule, avant, s, pace, end.score);
+  /*
+   * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
+   *
+   * Les deux blocs décrivent l'échelle de maîtrise d'UNE règle. L'escalade en
+   * tient jusqu'à quatre : en désigner une serait arbitraire, et leur passer la
+   * composée revenait à afficher une carte qui n'existe pas — l'image morte
+   * rapportée au playtest. Ils se taisent, comme le podium se tait plutôt que
+   * de montrer un cadre vide.
+   */
+  if (mode === "escalade") {
+    $("avance").classList.add("hidden");
+    $("decouverte").classList.add("hidden");
+  } else {
+    peintAvance(rule, avant, s, pace, end.score);
+  }
 
   hud.hideStamp();
   hud.setRule(null);
@@ -4001,6 +4164,20 @@ function objectifExercice(): number | null {
  * il n'y aura qu'un endroit à corriger.
  */
 function carteVignette(ruleId: string): string {
+  /*
+   * ⚠️ UNE PILE D'ESCALADE N'A PAS DE CARTE — et elle en demandait une.
+   *
+   * Rapporté en playtest : « dans l'escalade, lorsqu'il y a le récap, les
+   * cartes qui s'affichent sont buguées à la fin ». `combineRules` fabrique
+   * l'identifiant de la composée en collant les autres avec des `+`, donc
+   * l'écran allait chercher `/cartes/azur+pointe+voyelle+colosse.png` : 404, et
+   * un rectangle mort à la place de l'illustration.
+   *
+   * On ne rend RIEN plutôt qu'une image cassée. Le bloc qui l'entoure a déjà
+   * son texte, et un cadre vide se lit comme un chargement raté — c'est
+   * exactement pourquoi le podium se tait quand il n'a rien à montrer.
+   */
+  if (!ONE_RULES.some((r) => r.id === ruleId)) return "";
   return `<img class="vignette" src="/cartes/${ruleId}.png" width="64" height="64" alt="" decoding="async" />`;
 }
 
@@ -4457,8 +4634,26 @@ window.visualViewport?.addEventListener("resize", () => {
   poseBarre();
 });
 syncField();
+/*
+ * ⚠️ QUITTER LA FENETRE RELACHE LA BARRE — et il faut le DIRE au run.
+ *
+ * On remettait le drapeau a faux sans envoyer d'action : la barre etait donc
+ * levee pour de bon, et comme aucun `keyup` ne surviendrait plus jamais, LA
+ * MAIN GAUCHE devenait inerte pour le reste du run. Meme trou que l'echauffement
+ * qui pardonnait, par un autre chemin.
+ *
+ * ⚠️ Ce n'est PAS la decision n°4 (« une coupure n'est pas une defaite ») : elle
+ * protege le joueur d'un incident RESEAU, pas de sa propre main. Changer
+ * d'onglet en pleine manche, c'est cesser de jouer — la manche serait perdue au
+ * chrono de toute facon. Et l'action part dans le journal, donc `verifyRun`
+ * juge exactement ce que l'ecran a montre.
+ */
 window.addEventListener("blur", () => {
+  const tenait = spaceDown;
   spaceDown = false;
+  if (!tenait) return;
+  if (session?.phase === "playing") send({ kind: "release", key: " " });
+  else if (multi.isPlayingMulti()) sendOrMulti({ kind: "release", key: " " });
 });
 
 /* ------------------------------------------------------------------ *
@@ -5048,6 +5243,12 @@ async function partageCarte(): Promise<void> {
   }
 }
 
+$("btnVersEscalier").addEventListener("click", () => {
+  if (!escalierRegle) return;
+  sfx.ui();
+  ouvreEscalier(escalierRegle);
+});
+
 $("btnShareCarte").addEventListener("click", () => {
   sfx.ui();
   void partageCarte();
@@ -5508,6 +5709,27 @@ async function demarreCompte(): Promise<void> {
 }
 
 renderHome();
+
+/*
+ * L'ADRESSE DÉCIDE DE L'ÉCRAN D'ARRIVÉE.
+ *
+ * ⚠️ Les écrans CONTEXTUELS retombent sur leur parent, et une adresse inconnue
+ * sur l'accueil — voir `route.ts`. Un salon sans code, une fiche sans règle ou
+ * un écran de fin sans run sont des cadres vides ; les montrer se lirait comme
+ * un chargement raté, et le joueur n'aurait rien à réparer.
+ *
+ * `replaceState` et non `pushState` : la première entrée de l'histoire doit
+ * être celle où l'on est, sinon le tout premier appui sur PRÉCÉDENT ferait
+ * sortir du site alors qu'on vient d'arriver.
+ */
+{
+  const arrivee = ecranAuChargement(location.pathname);
+  poseArrivee(arrivee);
+  // `ecranAuChargement` ne rend jamais « partie » — elle n'est pas adressable
+  // et retombe sur son parent — mais le type de `show` ne le sait pas.
+  if (arrivee !== "home" && arrivee !== "partie") show(arrivee);
+}
+
 /*
  * Et le multi PAR-DESSUS, une fois seulement.
  *

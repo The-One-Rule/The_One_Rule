@@ -1,4 +1,4 @@
-import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, tierOf } from "../engine/difficulty";
+import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, pardonnable, tierOf } from "../engine/difficulty";
 import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
@@ -101,6 +101,24 @@ export class Session {
   /** Nombre de règles tenues à cette manche — c'est le score de l'escalade. */
   get paliers(): number {
     return pileA(this.pile, this.level).length;
+  }
+
+  /**
+   * Les règles RÉELLEMENT tenues, une par une.
+   *
+   * ⚠️ `rule` rend leur COMPOSÉE, dont l'identifiant est fabriqué par
+   * `combineRules` en collant les autres avec des `+` — « azur+pointe+voyelle
+   * +colosse ». C'est un identifiant de calcul, pas une règle du catalogue, et
+   * tout ce qui le traite comme tel se casse : une carte cherchée à
+   * `/cartes/azur+pointe+voyelle+colosse.png` rend une image morte, et une
+   * entrée de carnet écrite sous ce nom est un fantôme qui compte dans les
+   * totaux et voyage jusqu'au compte.
+   *
+   * Cet accesseur existe pour que l'appelant puisse toujours redescendre aux
+   * VRAIES règles.
+   */
+  get reglesTenues(): readonly OneRule[] {
+    return pileA(this.pile, this.level);
   }
 
   constructor(opts: {
@@ -253,9 +271,21 @@ export class Session {
     this.nextRound(now);
   }
 
-  private die(outcome: Extract<Outcome, { kind: "death" }>, now: number): void {
-    // échauffement : la manche est perdue mais le run continue
-    if (this.inGrace) {
+  private die(
+    outcome: Extract<Outcome, { kind: "death" }>,
+    now: number,
+    /**
+     * L'action fautive, quand il y en a une.
+     *
+     * ⚠️ Absente sur un dépassement de temps — et c'est juste : `pardonnable`
+     * ne refuse le pardon qu'à un relâchement, jamais à l'horloge.
+     */
+    action?: Action,
+  ): void {
+    // échauffement : la manche est perdue mais le run continue — sauf pour une
+    // violation de MAINTIEN, qui décrit un état et non un geste (voir
+    // `pardonnable`, engine/difficulty.ts).
+    if (this.inGrace && (!action || pardonnable(this.rule, action))) {
       this.marks.push("🟨");
       this.level++;
       this.nextRound(now);
@@ -297,7 +327,7 @@ export class Session {
     this.progress = progress;
 
     if (outcome.kind === "survive") this.survive(now);
-    else if (outcome.kind === "death") this.die(outcome, now);
+    else if (outcome.kind === "death") this.die(outcome, now, action);
     return outcome;
   }
 

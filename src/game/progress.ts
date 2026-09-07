@@ -543,6 +543,21 @@ export function agregatsDe(s: Save): Agregats {
     carnet: { ...s.encountered },
     serie: { count: s.streak.count, lastDay: s.streak.lastDay },
     records,
+    /*
+     * ⚠️ LE RUN DU JOUR MONTE AUSSI — il ne montait NULLE PART.
+     *
+     * `s.daily` restait strictement local à l'appareil : la fiche du compte
+     * lisait `s.daily.score`, donc changer de téléphone remettait le run du
+     * jour à rien. Et le compteur `essais` avec lui, ce qui donnait SIX
+     * tentatives à qui possède deux appareils, sur le seul mode dont les
+     * résultats se comparent entre joueurs.
+     */
+    jour: {
+      jour: s.daily.day,
+      score: s.daily.score,
+      cleared: s.daily.cleared,
+      essais: essaisDuJour(s),
+    },
   };
 }
 
@@ -559,6 +574,24 @@ export function appliqueAgregats(s: Save, a: Agregats): void {
   s.streak.count = fusionnes.serie.count;
   s.streak.lastDay = fusionnes.serie.lastDay;
   s.records = fusionnes.records;
+  /*
+   * ⚠️ ON NE REDESCEND QUE LA JOURNÉE EN COURS.
+   *
+   * `fusionneJour` a déjà tranché entre les deux dates ; si celle qui gagne
+   * n'est pas celle de cet appareil, l'écrire écraserait la sienne par une
+   * autre — c'est-à-dire poser le score d'un autre jour sur la graine
+   * d'aujourd'hui. `ensureDay` remettra les compteurs à zéro à l'ouverture,
+   * mais il ne doit pas avoir à réparer ce qu'on vient d'écrire.
+   */
+  if (fusionnes.jour && fusionnes.jour.jour === s.daily.day) {
+    s.daily = {
+      day: s.daily.day,
+      played: fusionnes.jour.essais > 0 || s.daily.played,
+      score: Math.max(s.daily.score, fusionnes.jour.score),
+      cleared: s.daily.cleared || fusionnes.jour.cleared,
+      essais: Math.max(essaisDuJour(s), fusionnes.jour.essais),
+    };
+  }
   s.bestTraining = Math.max(
     s.bestTraining,
     fusionnes.records[cleEntrainement(PACE_DEFAULT)] ?? 0,

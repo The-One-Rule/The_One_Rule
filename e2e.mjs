@@ -26,7 +26,7 @@ await import("./server/index.ts");
 const { buildMultiRound, poolMulti } = await import("./src/engine/multiround.ts");
 const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
-const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
+const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
 
 /*
  * Attendre le DÉPART d'un match, pas une durée devinée.
@@ -37,6 +37,22 @@ const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
  * mesuraient une constante qu'elles ne nommaient pas.
  */
 const APRES_DEPART = COUNTDOWN_MS + 600;
+
+/*
+ * UNE MANCHE ENTIÈRE, PAUSE COMPRISE — et c'est la SEPTIÈME attente de ce
+ * fichier à avoir été écrite en dur.
+ *
+ * `sleep(3000)` attendait qu'un spectateur voie passer un verdict. Ça tenait
+ * tant qu'une manche plafonnait à 2400 ms. La courbe de difficulté a été
+ * redescendue sur directive de Pierre — le plafond multi passe de 2400 à
+ * 4000 — et l'attente est devenue trop courte du jour au lendemain : plus aucun
+ * verdict dans la fenêtre, assertion rouge, et rien dans le code de match qui
+ * ait changé.
+ *
+ * Exactement le défaut que le commentaire du dessus décrit déjà : une attente
+ * qui MESURE une constante sans la nommer. On la nomme.
+ */
+const UNE_MANCHE = MAX_ROUND_MS + INTERLUDE_MS + 600;
 
 /*
  * Journal bavard.
@@ -657,7 +673,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   ok(vu?.spectator === true, "il est bien marque spectateur");
 
   const avant = curieux.verdicts.length;
-  await sleep(3000);
+  await sleep(UNE_MANCHE);
   ok(curieux.verdicts.length > avant, "il suit les verdicts des manches en direct");
 
   for (const c of [joueur, curieux]) c.ws.close();
