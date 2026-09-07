@@ -27,6 +27,7 @@ import {
 } from "../shared/compte";
 import type { Agregats, CarnetEntree, EscalierEntree } from "../shared/compte";
 import { PALIER_SOMMET } from "../src/game/escalier";
+import { DAILY_ESSAIS } from "../src/engine/difficulty";
 import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
 import type { Depot, Utilisateur } from "./_depot";
@@ -140,6 +141,23 @@ export function litAgregats(brut: unknown): Agregats {
         }
       }
     }
+  }
+
+  /*
+   * LE RUN DU JOUR. Comme le reste, il est RECONSTRUIT et non recopié — on ne
+   * fait pas confiance au client. `essais` est borné par la limite du mode
+   * plutôt que par `MAX_VALEUR` : un compteur qui dépasse sa propre limite rend
+   * faux tout ce qui en dérive, et « restants » passerait négatif.
+   */
+  if (o.jour && typeof o.jour === "object") {
+    const j = o.jour as Record<string, unknown>;
+    const journee = {
+      jour: entier(j.jour, MAX_SERIE * 10),
+      score: entier(j.score, MAX_VALEUR),
+      cleared: j.cleared === true,
+      essais: entier(j.essais, DAILY_ESSAIS),
+    };
+    if (journee.jour > 0) a.jour = journee;
   }
 
   if (o.serie && typeof o.serie === "object") {

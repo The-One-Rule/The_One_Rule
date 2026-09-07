@@ -254,6 +254,11 @@ export interface Agregats {
   carnet: Record<string, CarnetEntree>;
   serie: Serie;
   records: Record<string, number>;
+  /**
+   * Le run du jour de cet appareil. Optionnel : les agrégats déjà stockés ne
+   * le portent pas, et « absent vaut rien joué » — la doctrine habituelle.
+   */
+  jour?: JourEntree;
 }
 
 export const agregatsVides = (): Agregats => ({
@@ -261,6 +266,56 @@ export const agregatsVides = (): Agregats => ({
   serie: { count: 0, lastDay: -99 },
   records: {},
 });
+
+/**
+ * LE RUN DU JOUR — ce que l'appareil en sait, et qui doit suivre le compte.
+ *
+ * ⚠️ **RAPPORTÉ EN PLAYTEST** : « les records de la run du jour ne se
+ * synchronisent pas avec le compte ». C'était exact, et complet : `s.daily`
+ * n'entrait dans AUCUN agrégat. La fiche du compte lisait `s.daily.score`,
+ * c'est-à-dire une valeur strictement locale à l'appareil. On changeait de
+ * téléphone, et le run du jour repartait de rien.
+ *
+ * ⚠️ **ET LE VRAI COÛT N'ÉTAIT PAS L'AFFICHAGE, C'ÉTAIT `essais`.** Le compteur
+ * des trois tentatives quotidiennes vivait lui aussi sur l'appareil : deux
+ * appareils donnaient donc SIX essais sur le seul mode dont les résultats se
+ * comparent entre joueurs. Le faire voyager referme ça — imparfaitement, puisque
+ * tout ça reste des affirmations du client (décision n°14), mais le serveur
+ * garde déjà le maximum de son côté (`posePerf` améliore et ne remplace pas).
+ */
+export interface JourEntree {
+  jour: number;
+  score: number;
+  cleared: boolean;
+  essais: number;
+}
+
+/**
+ * La fusion de deux journées.
+ *
+ * ⚠️ **LE JOUR LE PLUS RÉCENT GAGNE, AVEC SON ESCORTE** — jamais un maximum
+ * champ par champ. C'est la même loi que `fusionneEscalier`, et pour la même
+ * raison : `score`, `cleared` et `essais` décrivent UN jour précis. Prendre le
+ * maximum de chacun collerait le score d'hier sur la graine d'aujourd'hui,
+ * c'est-à-dire un chiffre que le joueur n'a jamais fait sur cette épreuve-là.
+ *
+ * À jour égal seulement : maximum, OU, maximum. Le treillis tient donc sur
+ * `jour` d'abord, ce qui le rend idempotent, commutatif et monotone.
+ */
+export function fusionneJour(
+  x: JourEntree | undefined,
+  y: JourEntree | undefined,
+): JourEntree | undefined {
+  if (!x) return y;
+  if (!y) return x;
+  if (x.jour !== y.jour) return x.jour > y.jour ? x : y;
+  return {
+    jour: x.jour,
+    score: Math.max(x.score, y.score),
+    cleared: x.cleared || y.cleared,
+    essais: Math.max(x.essais, y.essais),
+  };
+}
 
 /**
  * LA fusion.
@@ -312,12 +367,16 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
     };
   }
 
+  const jour = fusionneJour(a.jour, b.jour);
+
   const records: Record<string, number> = {};
   for (const cle of new Set([...Object.keys(a.records), ...Object.keys(b.records)])) {
     records[cle] = Math.max(a.records[cle] ?? 0, b.records[cle] ?? 0);
   }
 
   return {
+    // « absent vaut rien joué » : on n'écrit la journée que si elle existe.
+    ...(jour ? { jour } : {}),
     carnet,
     serie: {
       count: Math.max(a.serie.count, b.serie.count),

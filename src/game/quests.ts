@@ -2,7 +2,14 @@ import { mulberry32, rPick } from "../engine/rng";
 import { recentAverage } from "./progress";
 import type { Save } from "./progress";
 
-export type Metric = "runs" | "traps" | "best" | "dailyCleared" | "rounds" | "noKey";
+export type Metric =
+  | "runs"
+  | "traps"
+  | "best"
+  | "dailyPlayed"
+  | "dailyCleared"
+  | "rounds"
+  | "noKey";
 
 export interface Quest {
   id: string;
@@ -19,8 +26,22 @@ export interface QuestView extends Quest {
 }
 
 /* --- quête 1 : présence. Toujours faisable, quel que soit le niveau. --- */
+/*
+ * ⚠️ « TERMINE LE RUN DU JOUR » N'AVAIT RIEN D'UNE QUÊTE DE PRÉSENCE.
+ *
+ * Rapporté en playtest, deux fois : « encore la run du jour qui ne se valide pas
+ * dans la to-do list ». Elle se validait pourtant exactement comme écrit —
+ * `dailyCleared` ne monte que sur un run TERMINÉ, c'est-à-dire quarante manches
+ * d'affilée. Or la médiane du premier run d'un joueur est de QUATRE manches.
+ *
+ * La faute n'est donc pas dans le câblage mais dans le rangement : cette liste
+ * promet « toujours faisable, quel que soit le niveau », et celle-là ne l'était
+ * pour presque personne. La présence, c'est d'AVOIR JOUÉ. Terminer les quarante
+ * manches est un exploit, et il a rejoint la liste EXPLORATION, où il est payé
+ * à son prix.
+ */
 const PRESENCE: Array<(rng: () => number) => Quest> = [
-  () => ({ id: "p_daily", label: "Termine le run du jour", metric: "dailyCleared", target: 1, reward: 10 }),
+  () => ({ id: "p_daily", label: "Fais ton run du jour", metric: "dailyPlayed", target: 1, reward: 10 }),
   () => ({ id: "p_runs3", label: "Joue 3 parties", metric: "runs", target: 3, reward: 10 }),
   () => ({ id: "p_rounds40", label: "Survis à 40 manches en tout", metric: "rounds", target: 40, reward: 10 }),
 ];
@@ -31,6 +52,9 @@ const EXPLORATION: Array<(rng: () => number) => Quest> = [
   () => ({ id: "e_traps6", label: "Déjoue 6 pièges", metric: "traps", target: 6, reward: 20 }),
   () => ({ id: "e_nokey", label: "Atteins la manche 8 sans toucher au clavier", metric: "noKey", target: 8, reward: 15 }),
   () => ({ id: "e_rounds80", label: "Survis à 80 manches en tout", metric: "rounds", target: 80, reward: 15 }),
+  // Quarante manches d'affilée sur la graine du jour : c'est le seul exploit
+  // du lot, et la seule quête qui ne dépende pas du nombre de parties jouées.
+  () => ({ id: "e_dailyClear", label: "Termine le run du jour (40 manches)", metric: "dailyCleared", target: 1, reward: 25 }),
 ];
 
 /**

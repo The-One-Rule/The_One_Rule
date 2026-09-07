@@ -56,7 +56,7 @@ import { SERIE_EPREUVE } from "./game/echelle";
 import type { CaseMaitrise } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
-import { cleEntrainement } from "./game/perfs";
+import { cleEntrainement, cleEscalade } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -3485,6 +3485,8 @@ function finishRun(): void {
   const { end, rule, mode } = session;
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
+  // Les VRAIES règles de la pile, avant que la session ne soit libérée.
+  const reglesTenues = session.reglesTenues;
   palierDuDernierRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
@@ -3533,7 +3535,45 @@ function finishRun(): void {
      * `majCarnet` n'écrit ces quatre champs QUE s'il le reçoit. Un jour où un
      * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
      */
+    /*
+     * ⚠️ **L'ESCALADE N'ÉCRIT PAS SA COMPOSÉE AU CARNET.**
+     *
+     * `session.rule` y rend la composée de la pile, dont l'identifiant est
+     * « azur+pointe+voyelle+colosse ». Écrite telle quelle, elle créait une
+     * entrée FANTÔME : absente du catalogue, donc invisible dans la collection,
+     * mais bien comptée dans `Object.keys(s.encountered)` — le nombre de règles
+     * rencontrées, la jauge du compte, le seuil « ce joueur connaît le jeu » de
+     * l'accueil — et expédiée au compte, où elle occupait une place sur les 64
+     * que `api/moi.ts` accepte. Une seule partie d'escalade suffisait.
+     *
+     * Ce qu'un run d'escalade prouve VRAIMENT, c'est qu'on a rencontré chacune
+     * des règles tenues. On les inscrit donc une par une, sans rien d'autre :
+     * ni `best` — un score d'escalade se compte en RÈGLES tenues, pas en
+     * manches, et le poser sous une règle le rendrait incomparable au reste —
+     * ni les pièges, qu'on ne saurait pas attribuer entre quatre règles.
+     */
+    if (mode === "escalade") {
+      for (const r of reglesTenues) {
+        st.encountered[r.id] = P.majCarnet(st.encountered[r.id], 0, false, 0, undefined);
+      }
+    }
+
     const surPalier = palierEnCours !== null;
+    /*
+     * ⚠️ ET ON S'ARRÊTE LÀ POUR L'ESCALADE.
+     *
+     * Sans ce retour, la ligne d'en dessous réécrirait `st.encountered` sous
+     * l'identifiant de la COMPOSÉE, et le fantôme reviendrait par la porte
+     * qu'on vient de fermer. Le reste de la mutation — `recent`, les records
+     * d'entraînement — ne la concerne pas davantage : un score d'escalade se
+     * compte en RÈGLES tenues, pas en manches, et sa clé de comparabilité est
+     * `cleEscalade`, jamais celle d'une règle.
+     */
+    if (mode === "escalade") {
+      st.recent = [...st.recent, end.score].slice(-5);
+      P.inscritRecord(st, cleEscalade(), session!.paliers);
+      return;
+    }
     /*
      * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
      *
@@ -3584,6 +3624,9 @@ function finishRun(): void {
        * même jour.
        */
       st.daily = P.majJour(st.daily, day, end.score, end.cleared);
+      // AVOIR JOUÉ suffit à la quête de présence ; TERMINER reste un exploit et
+      // se compte à part. Voir la note de `game/quests.ts`.
+      bump(st, "dailyPlayed", 1);
       if (end.cleared) bump(st, "dailyCleared", 1);
       // Idempotent par jour : `touchStreak` sort sans rien faire quand
       // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
@@ -3942,7 +3985,21 @@ function finishRun(): void {
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
   renderPodium(mode);
-  peintAvance(rule, avant, s, pace, end.score);
+  /*
+   * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
+   *
+   * Les deux blocs décrivent l'échelle de maîtrise d'UNE règle. L'escalade en
+   * tient jusqu'à quatre : en désigner une serait arbitraire, et leur passer la
+   * composée revenait à afficher une carte qui n'existe pas — l'image morte
+   * rapportée au playtest. Ils se taisent, comme le podium se tait plutôt que
+   * de montrer un cadre vide.
+   */
+  if (mode === "escalade") {
+    $("avance").classList.add("hidden");
+    $("decouverte").classList.add("hidden");
+  } else {
+    peintAvance(rule, avant, s, pace, end.score);
+  }
 
   hud.hideStamp();
   hud.setRule(null);
@@ -4053,6 +4110,20 @@ function objectifExercice(): number | null {
  * il n'y aura qu'un endroit à corriger.
  */
 function carteVignette(ruleId: string): string {
+  /*
+   * ⚠️ UNE PILE D'ESCALADE N'A PAS DE CARTE — et elle en demandait une.
+   *
+   * Rapporté en playtest : « dans l'escalade, lorsqu'il y a le récap, les
+   * cartes qui s'affichent sont buguées à la fin ». `combineRules` fabrique
+   * l'identifiant de la composée en collant les autres avec des `+`, donc
+   * l'écran allait chercher `/cartes/azur+pointe+voyelle+colosse.png` : 404, et
+   * un rectangle mort à la place de l'illustration.
+   *
+   * On ne rend RIEN plutôt qu'une image cassée. Le bloc qui l'entoure a déjà
+   * son texte, et un cadre vide se lit comme un chargement raté — c'est
+   * exactement pourquoi le podium se tait quand il n'a rien à montrer.
+   */
+  if (!ONE_RULES.some((r) => r.id === ruleId)) return "";
   return `<img class="vignette" src="/cartes/${ruleId}.png" width="64" height="64" alt="" decoding="async" />`;
 }
 

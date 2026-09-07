@@ -103,6 +103,24 @@ export class Session {
     return pileA(this.pile, this.level).length;
   }
 
+  /**
+   * Les règles RÉELLEMENT tenues, une par une.
+   *
+   * ⚠️ `rule` rend leur COMPOSÉE, dont l'identifiant est fabriqué par
+   * `combineRules` en collant les autres avec des `+` — « azur+pointe+voyelle
+   * +colosse ». C'est un identifiant de calcul, pas une règle du catalogue, et
+   * tout ce qui le traite comme tel se casse : une carte cherchée à
+   * `/cartes/azur+pointe+voyelle+colosse.png` rend une image morte, et une
+   * entrée de carnet écrite sous ce nom est un fantôme qui compte dans les
+   * totaux et voyage jusqu'au compte.
+   *
+   * Cet accesseur existe pour que l'appelant puisse toujours redescendre aux
+   * VRAIES règles.
+   */
+  get reglesTenues(): readonly OneRule[] {
+    return pileA(this.pile, this.level);
+  }
+
   constructor(opts: {
     mode: Mode;
     rule: OneRule;

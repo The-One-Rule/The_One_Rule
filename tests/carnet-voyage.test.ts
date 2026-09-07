@@ -24,6 +24,7 @@ import type { RuleRecord, Save } from "../src/game/progress";
 import { agregatsVides, fusionne } from "../shared/compte";
 import { litAgregats } from "../api/moi";
 import { PALIER_SOMMET } from "../src/game/escalier";
+import { DAILY_ESSAIS } from "../src/engine/difficulty";
 
 /**
  * Une entrée de carnet où RIEN n'est laissé à sa valeur par défaut.
@@ -48,6 +49,10 @@ const sauve = (encountered: Record<string, RuleRecord>): Save =>
     streak: { count: 4, lastDay: 300, graceWeek: 0, graceLeft: 0 },
     records: {},
     bestTraining: 0,
+    // Le run du jour fait desormais le voyage lui aussi : il etait strictement
+    // local a l'appareil, et « les records de la run du jour ne se
+    // synchronisent pas avec le compte » etait rapporte en playtest.
+    daily: { day: 300, played: false, score: 0, cleared: false, essais: 0 },
   }) as unknown as Save;
 
 /** Le voyage complet : appareil → réseau → nettoyage serveur → retour. */
@@ -139,5 +144,80 @@ describe("un carnet qui change d'appareil", () => {
     expect(cote.carnet.sang!.escalier).toEqual({ palier: 12, essais: 1, meilleur: 3 });
     // Et le reste du carnet suit sa propre loi : le maximum, comme toujours.
     expect(cote.carnet.sang!.best).toBe(30);
+  });
+});
+
+describe("le RUN DU JOUR change d'appareil lui aussi", () => {
+  /*
+   * ⚠️ RAPPORTÉ EN PLAYTEST : « les records de la run du jour ne se
+   * synchronisent pas avec le compte ». C'était exact, et complet : `s.daily`
+   * n'entrait dans AUCUN agrégat. La fiche du compte lisait `s.daily.score`,
+   * strictement local — changer de téléphone remettait le run du jour à rien.
+   *
+   * ⚠️ Et le vrai coût n'était pas l'affichage, c'était `essais` : le compteur
+   * des trois tentatives vivait sur l'appareil, donc deux appareils donnaient
+   * SIX essais sur le seul mode dont les résultats se comparent entre joueurs.
+   */
+  const avecJour = (daily: Partial<Save["daily"]>): Save =>
+    ({
+      encountered: {},
+      streak: { count: 0, lastDay: -99, graceWeek: 0, graceLeft: 0 },
+      records: {},
+      bestTraining: 0,
+      daily: { day: 300, played: true, score: 0, cleared: false, essais: 0, ...daily },
+    }) as unknown as Save;
+
+  const cote = (...saves: Save[]) =>
+    saves
+      .map((s) => litAgregats(JSON.parse(JSON.stringify(agregatsDe(s)))))
+      .reduce((a, b) => fusionne(a, b));
+
+  it("⚠️ LE SCORE DU JOUR MONTE AU COMPTE", () => {
+    expect(cote(avecJour({ score: 28, essais: 1 })).jour).toEqual({
+      jour: 300,
+      score: 28,
+      cleared: false,
+      essais: 1,
+    });
+  });
+
+  it("⚠️ ET LES ESSAIS AUSSI — sinon deux appareils font six tentatives", () => {
+    const f = cote(avecJour({ score: 28, essais: 2 }), avecJour({ score: 9, essais: 1 }));
+    expect(f.jour!.essais, "le compteur d'essais ne se propage pas").toBe(2);
+    expect(f.jour!.score, "et le meilleur des deux gagne").toBe(28);
+  });
+
+  it("⚠️ LE JOUR LE PLUS RÉCENT GAGNE, AVEC SON ESCORTE", () => {
+    /*
+     * Jamais un maximum champ par champ — même loi que `fusionneEscalier`.
+     * Le prendre séparément collerait le score d'HIER sur la graine
+     * d'AUJOURD'HUI : un chiffre que le joueur n'a jamais fait sur cette
+     * épreuve-là, et qui partirait ensuite au classement.
+     */
+    const f = cote(avecJour({ day: 299, score: 40, cleared: true, essais: 3 }), avecJour({ day: 300, score: 6, essais: 1 }));
+    expect(f.jour).toEqual({ jour: 300, score: 6, cleared: false, essais: 1 });
+  });
+
+  it("le retour n'écrase une journée que si c'est la même", () => {
+    /*
+     * L'autre bout du pont. Si le compte rend une journée qui n'est pas celle
+     * de cet appareil, l'écrire poserait le score d'un autre jour sur la
+     * graine d'aujourd'hui.
+     */
+    const local = avecJour({ day: 300, score: 5, essais: 1 });
+    appliqueAgregats(local, { ...agregatsVides(), jour: { jour: 299, score: 40, cleared: true, essais: 3 } });
+    expect(local.daily.score, "un autre jour a écrasé celui-ci").toBe(5);
+
+    const meme = avecJour({ day: 300, score: 5, essais: 1 });
+    appliqueAgregats(meme, { ...agregatsVides(), jour: { jour: 300, score: 22, cleared: false, essais: 2 } });
+    expect(meme.daily.score, "le même jour doit remonter le meilleur").toBe(22);
+    expect(meme.daily.essais, "et le compteur d'essais le plus haut").toBe(2);
+  });
+
+  it("⚠️ un compteur d'essais trafiqué est borné par le mode", () => {
+    // Un compteur qui dépasse sa propre limite rend faux tout ce qui en dérive :
+    // « restants » passerait négatif et s'afficherait tel quel.
+    const f = cote(avecJour({ essais: 99 }));
+    expect(f.jour!.essais).toBe(DAILY_ESSAIS);
   });
 });
