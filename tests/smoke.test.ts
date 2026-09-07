@@ -106,9 +106,15 @@ describe("application", () => {
 
     await import("../src/main.ts");
 
-    // l'accueil est monté — DEUX portes, et rien d'autre
+    /*
+     * L'accueil est monté : le champ tourne derrière, PLAY est au centre, et la
+     * profondeur est en bas. C'est la composition de la maquette — « MODE
+     * ATTRACT · LA PARTIE TOURNE, PLAY EST AU CENTRE, LA PROFONDEUR EST EN
+     * BAS » — qui a remplacé l'objet fendu SOLO / MULTI.
+     */
     expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
-    expect(document.getElementById("btnSolo")).not.toBeNull();
+    expect(document.getElementById("btnPlay")).not.toBeNull();
+    expect(document.getElementById("attractCvs")).not.toBeNull();
     expect(document.getElementById("btnMulti")).not.toBeNull();
 
     /*
@@ -119,10 +125,10 @@ describe("application", () => {
      * et le carnet entièrement sous la ligne de flottaison. Le parcours passe
      * donc par SOLO — et ce test le suit, parce qu'un joueur le suit.
      */
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     /*
-     * ⚠️ UN JOUEUR NEUF NE VA PLUS SUR SOLO — il va sur la PREMIÈRE ARRIVÉE.
+     * ⚠️ UN JOUEUR NEUF NE VA PAS EN PARTIE — il va sur la PREMIÈRE ARRIVÉE.
      *
      * Ce test partait d'une sauvegarde vierge, donc il décrit exactement le
      * parcours d'un nouveau venu : c'est lui qui a changé. Rapporté par Pierre
@@ -138,8 +144,8 @@ describe("application", () => {
       "un joueur neuf qui clique JOUER arrive sur la première arrivée",
     ).toBe(false);
     expect(
-      document.getElementById("solo")!.classList.contains("hidden"),
-      "…et pas sur le menu SOLO",
+      document.getElementById("brief")!.classList.contains("hidden"),
+      "…et pas directement sur l'annonce de la règle",
     ).toBe(true);
     // Le premier temps montre la RÈGLE, et rien d'autre : c'est tout le sujet.
     expect(document.getElementById("onbT1")!.classList.contains("hidden")).toBe(false);
@@ -150,15 +156,10 @@ describe("application", () => {
     document.getElementById("btnOnbSkip")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
 
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(
-      document.getElementById("solo")!.classList.contains("hidden"),
-      "une fois l'arrivée vue, SOLO s'ouvre normalement",
-    ).toBe(false);
-    expect(document.querySelectorAll("#homeQuests .quest").length).toBe(3);
-
-    // entraînement → brief → run
-    document.getElementById("btnTraining")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // Une fois l'arrivée vue, PLAY mène droit au brief : c'est le chemin le
+    // plus court vers une manche, et le brief est l'endroit où l'on lit sa
+    // règle unique — le sauter a déjà été un bug.
+    document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("brief")!.classList.contains("hidden")).toBe(false);
     const name = document.getElementById("briefName")!.textContent!;
     expect(name.length).toBeGreaterThan(2);
@@ -219,7 +220,12 @@ describe("application", () => {
     expect(Object.keys(P.load().encountered).length).toBeGreaterThan(0);
 
     document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    // La carte DU JOUR de la profondeur ouvre directement l'annonce : l'écran
+    // SOLO n'est plus sur le chemin, la rangée nomme les cinq modes elle-même.
+    // La carte DU JOUR ouvre l'écran SOLO — il porte les essais restants, la
+    // série et les quêtes, c'est-à-dire tout ce qu'on veut savoir AVANT de
+    // brûler un des trois essais. L'annonce vient ensuite.
+    document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.getElementById("btnDaily")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -242,13 +248,15 @@ describe("application", () => {
      * PREMIER run d'un joueur est de 4 manches, donc un essai unique faisait de
      * toute sa relation au run du jour un échec à quatre manches.
      *
-     * Le verrou est posé par `renderSolo`, donc il faut repasser par SOLO —
-     * c'est aussi ce que fait un joueur. Le verrou à trois essais, lui, se
-     * teste sur `essaisDuJour` : `main.ts` ne s'évalue qu'une fois ici, on ne
-     * peut donc pas rejouer une journée entière dans ce fichier.
+     * Le verrou est posé par `renderSolo`, donc il faut repasser par l'écran
+     * SOLO — c'est aussi ce que fait un joueur qui veut voir ses essais. Depuis
+     * la refonte, l'accueil n'y mène plus directement : on y va par la barre du
+     * bas, comme lui. Le verrou à trois essais, lui, se teste sur
+     * `essaisDuJour` : `main.ts` ne s'évalue qu'une fois ici, on ne peut donc
+     * pas rejouer une journée entière dans ce fichier.
      */
     document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    document.getElementById("btnSolo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(
       (document.getElementById("btnDaily") as HTMLButtonElement).disabled,
       "un essai consommé sur trois : on doit pouvoir rejouer",

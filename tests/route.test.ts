@@ -125,3 +125,44 @@ describe("la réécriture Vercel", () => {
     }
   });
 });
+
+describe("les autres orthographes qu'on peut taper", () => {
+  /*
+   * ⚠️ RAPPORTÉ : « quand je tape ma propre url vers une page du site elle me
+   * ramène directement à la page principale ». La demande de départ nommait
+   * pourtant `/home` en toutes lettres — et `/home` n'était dans aucune table,
+   * puisque l'accueil s'écrit `/`. Le comportement était juste, la table était
+   * incomplète.
+   */
+  it("⚠️ /home OUVRE L'ACCUEIL — il avait été demandé par son nom", () => {
+    expect(ecranDe("/home")).toBe("home");
+    expect(ecranAuChargement("/home")).toBe("home");
+  });
+
+  it("l'anglais est compris, parce que la moitié des joueurs jouent en anglais", () => {
+    expect(ecranAuChargement("/cards")).toBe("codex");
+    expect(ecranAuChargement("/settings")).toBe("reglages");
+    expect(ecranAuChargement("/play")).toBe("solo");
+    expect(ecranAuChargement("/leaderboard")).toBe("classement");
+  });
+
+  it("⚠️ UN ALIAS SE LIT, IL NE S'ÉCRIT JAMAIS", () => {
+    /*
+     * C'est ce qui préserve la propriété qui compte : une adresse est un
+     * IDENTIFIANT. Si `cheminDe` pouvait rendre `/cards`, deux joueurs
+     * copieraient deux liens différents pour la même page, et le jour où l'on
+     * retirerait un alias les liens déjà partagés mourraient.
+     */
+    const canoniques = new Set(ECRANS.map(cheminDe));
+    for (const a of ["/home", "/cards", "/play", "/settings", "/climb"]) {
+      expect(canoniques.has(a), `${a} est devenu une adresse canonique`).toBe(false);
+    }
+  });
+
+  it("un alias contextuel retombe quand même sur son parent", () => {
+    // `/room` désigne le salon, qui n'est pas ouvrable à froid : la tolérance
+    // sur l'orthographe ne doit pas contourner la règle du repli.
+    expect(ecranAuChargement("/room")).toBe("multi-join");
+    expect(ecranAuChargement("/training")).toBe("solo");
+  });
+});

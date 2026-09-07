@@ -20,6 +20,28 @@
  * qu'on se mette en position. Deux durées, une seule donnée — celle qui existe
  * déjà — et aucun réglage de plus à comprendre pour le joueur.
  *
+ * ⚠️ **LE BATTEMENT SE COMPTE EN SECONDES ENTIÈRES, ET C'EST UN INVARIANT.**
+ *
+ * Rapporté deux fois : « le décompte avant un niveau est encore bugué ». Le
+ * premier correctif rendait son libellé au bouton ; celui-ci porte sur le
+ * chiffre lui-même, et la cause est arithmétique.
+ *
+ * `majLecture` affiche `ceil(reste / 1000)`. Avec 1200 ms, la séquence à
+ * l'écran est donc :
+ *
+ *     « 2 » pendant 200 ms · « 1 » pendant 1000 ms · départ
+ *
+ * Un décompte qui s'ouvre sur un chiffre qui clignote et disparaît n'est pas
+ * lisible comme un décompte — il est lu comme un défaut d'affichage, et c'est
+ * exactement le mot employé. Le cas frappe TOUJOURS un palier d'escalier : on
+ * n'y travaille qu'une règle déjà rencontrée, donc toujours par ce chemin-là.
+ *
+ * Le remède n'est pas de changer la formule mais la durée : **un décompte en
+ * secondes exige une durée en secondes entières.** 1000 ms donne un « 1 »
+ * plein, ce qui est plus court qu'avant ET lisible. `tests/rebours.test.ts`
+ * refuse toute durée qui ne serait pas un multiple de 1000 — sans quoi la
+ * prochaine valeur choisie à la main ramènerait le clignotement.
+ *
  * ⚠️ **Ce battement ne touche PAS le run.** La `Session` n'est construite qu'à
  * son terme : le journal, les temps de passage et donc `verifyRun` voient
  * exactement ce qu'ils voyaient avant. C'est aussi pour ça qu'il vit ici et
@@ -31,7 +53,7 @@ import type { Save } from "./progress";
 /** Règle inconnue : le temps de la lire pour de bon. */
 export const LECTURE_NEUVE_MS = 3000;
 /** Règle déjà au carnet : le temps de se mettre en position. */
-export const LECTURE_CONNUE_MS = 1200;
+export const LECTURE_CONNUE_MS = 1000;
 
 /**
  * On juge la règle AFFICHÉE sur le brief, pas la pile entière.
