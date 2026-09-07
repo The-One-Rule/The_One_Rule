@@ -348,6 +348,15 @@
           </span>
           <!-- La chaleur : le cadre bat, et il rougit quand ca tourne mal. -->
           <span class="attract__chaleur" id="attractChaleur"></span>
+
+          <!-- ⚠️ LE FOND DE NUIT — CE QUI REMPLACE LA DEMO SUR TELEPHONE.
+               Il ne s'affiche que sous `.attract--nuit`, et c'est le JS qui pose
+               cette classe : le seuil est decide a un seul endroit (voir
+               `SANS_DEMO` dans main.ts). Trois plans qui ne battent pas au meme
+               rythme, comme la fissure et comme `--heat` — une seule vitesse
+               donne une boucle qu'on reconnait, et ce qu'on reconnait on cesse
+               de le regarder. Rien que `transform` et `opacity`. -->
+          <span class="attract__nuit" id="attractNuit"></span>
         </div>
 
         <div class="screen__scroll home">
@@ -373,17 +382,28 @@
                croit que le jeu ne repond pas a sa souris. -->
           <p class="home__demo" id="attractMeta"></p>
 
-          <!-- ░ LE CENTRE DE GRAVITE ░ -->
+          <!-- ░ LE CENTRE DE GRAVITE ░
+
+               ⚠️ PLUS D'ENSEIGNE GEANTE ICI, ET C'EST DEMANDE : « supprime le
+               the one rule en gros sur l'ecran d'accueil, garde juste le reste
+               du texte ». Le nom n'est pas perdu — il tient la barre du haut,
+               centre, sur tous les ecrans de menu. Il etait donc ecrit DEUX
+               fois sur le meme ecran, et le plus gros des deux occupait la
+               place de ce qui devait convaincre : le champ qui tourne derriere.
+
+               ⚠️ UN SEUL BOUTON, ET C'EST PLAY. « ENTRER DANS LE JEU » menait
+               exactement ou mene PLAY — meme fonction, meme premiere arrivee —
+               a soixante pixels sous lui. Deux boutons du meme nom a trois
+               cents pixels l'un de l'autre, « ce n'est pas une insistance,
+               c'est une hesitation » ; a soixante, c'est une faute. C'est la
+               troisieme fois que le depot supprime un doublon de JOUER.
+               ░ -->
           <div class="home__centre">
-            <h1 class="logo">THE <br class="logo__saut" />ONE <em>RULE</em></h1>
             <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
 
             <button class="btn play" id="btnPlay" data-i18n="but.tenter">PLAY</button>
 
-            <div class="home__second">
-              <button class="chip home__entrer" id="btnEntrer" data-i18n="home.entrer">ENTER THE GAME ▸</button>
-              <p class="fineprint" id="homeFineprint">TRAINING · NO RISK · <b>SPACE</b></p>
-            </div>
+            <p class="fineprint home__second" id="homeFineprint">TRAINING · NO RISK · <b>SPACE</b></p>
           </div>
 
           <!-- ░ LA PROFONDEUR — une rangee, pas un tableau de bord ░

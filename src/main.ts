@@ -320,6 +320,22 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
 /** L'allure de la démo : la plus lente, pour qu'on ait le temps de LIRE. */
 const ATTRACT_ALLURE = 2;
 
+/**
+ * ⚠️ **LA DÉMO NE MONTE PAS EN DIFFICULTÉ, ET C'EST UN RÉGLAGE DE VITESSE.**
+ *
+ * Elle tournait jusqu'à la mort. Or c'est une VRAIE `Session` : sa fenêtre
+ * rétrécit manche après manche, et la main, qui parcourt son trajet dans une
+ * fraction de cette fenêtre, accélère avec elle. Un run qui tient bien finissait
+ * donc en curseur qui se téléporte — exactement ce qui a été rapporté.
+ *
+ * Dix manches gardent la fenêtre entre 8000 et 4400 ms (allure 2), c'est-à-dire
+ * lisible d'un bout à l'autre. Et `FORCED_TRAP_ROUNDS` pose ses pièges aux
+ * manches 2, 5 et 9 : la borne est APRÈS les trois, donc on ne coupe rien de ce
+ * que la démo existe pour montrer. Elle repart alors sur une autre règle, ce
+ * qui vaut mieux qu'une onzième manche de la même.
+ */
+const ATTRACT_MANCHES = 10;
+
 let attract: {
   session: Session;
   scene: SceneRenderer;
@@ -362,6 +378,7 @@ function lanceAttract(): void {
       seed: graine,
       touchOnly: TOUCH_ONLY,
       pace: ATTRACT_ALLURE,
+      longueur: ATTRACT_MANCHES,
     }),
     scene,
     main: null,
@@ -493,13 +510,51 @@ function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>):
 }
 
 /** La démo suit l'écran : elle ne tourne QUE sur l'accueil. */
+/*
+ * ⚠️ **SUR TÉLÉPHONE, LA DÉMO NE TOURNE PAS — ET C'EST UNE SEULE SOURCE DE
+ * VÉRITÉ QUI LE DIT, PAS DEUX.**
+ *
+ * Demandé : « sur téléphone supprime la démo en fond et garde juste un fond
+ * animé très beau ». La raison tient en deux mesures : une manche compte quinze
+ * pièces sur 1000 × 420, et un écran de 375 px de large les rend à un tiers de
+ * leur taille — on ne lit ni la consigne, ni ce que la main fait, donc la démo
+ * ne démontre rien. Et elle fait tourner une `Session` complète plus un canvas
+ * plein écran sur la batterie de quelqu'un qui n'a encore rien demandé.
+ *
+ * ⚠️ Le seuil est décidé **ici et nulle part ailleurs**, et la feuille de style
+ * se contente de suivre la classe. Écrire la même largeur des deux côtés
+ * marcherait aujourd'hui et divergerait au premier ajustement : on aurait alors
+ * soit un canvas invisible qui consomme, soit un fond de nuit sous une partie
+ * qui tourne. `matchMedia` est la seule mesure, et elle est écoutée — faire
+ * pivoter le téléphone bascule d'un monde à l'autre.
+ */
+/*
+ * ⚠️ `matchMedia` PEUT MANQUER, ET SON ABSENCE VAUT « GRAND ÉCRAN ».
+ *
+ * Aucun navigateur en service ne s'en passe, mais le harnais de test monte
+ * l'application dans un DOM simulé qui, lui, ne l'implémente pas — et un décor
+ * n'a jamais le droit d'empêcher le jeu de démarrer. C'est la même doctrine que
+ * le moteur sonore, qui reste jouable sur un WebAudio incomplet.
+ *
+ * Le repli est un objet inerte plutôt qu'un `if` à chaque usage : le reste du
+ * code lit `SANS_DEMO.matches` et s'abonne, sans jamais avoir à savoir.
+ */
+const SANS_DEMO: Pick<MediaQueryList, "matches" | "addEventListener"> =
+  typeof matchMedia === "function"
+    ? matchMedia("(max-width: 899px)")
+    : { matches: false, addEventListener: () => {} };
+
 function attractSuitEcran(id: ScreenId): void {
-  if (id !== "home") {
+  $("attract").classList.toggle("attract--nuit", SANS_DEMO.matches);
+  if (id !== "home" || SANS_DEMO.matches) {
     attract = null;
     return;
   }
   if (!attract) lanceAttract();
 }
+
+// Pivoter le téléphone, ou étirer la fenêtre : on repasse par le même chemin.
+SANS_DEMO.addEventListener("change", () => attractSuitEcran(screen));
 
 function show(id: ScreenId): void {
   /*
@@ -1739,7 +1794,27 @@ function peintPodium(quoi: string, ecran: ScreenId): void {
  */
 function renderClassement(): void {
   const s = P.load();
-  const mien = P.recordDeSonAllure(s);
+  /*
+   * ⚠️ **LES DEUX CHIFFRES DOIVENT VENIR DE LA MÊME ÉPREUVE.**
+   *
+   * Rapporté avec la capture : « LE MEILLEUR DU JOUR · 23 » au-dessus de « TON
+   * MIEUX · 7 », alors que le joueur venait justement de faire 23 au run du
+   * jour. Le mur opposait son record d'ENTRAÎNEMENT au meilleur du JOUR — deux
+   * épreuves qui ne se comparent pas : l'une se joue à l'allure qu'on choisit
+   * sur la règle qu'on choisit, l'autre sur la même graine pour tout le monde.
+   *
+   * C'est exactement le « chiffre faux » que `render/but.ts` existe pour
+   * interdire, et son commentaire le dit déjà en toutes lettres. Le mur, lui,
+   * ne l'appliquait pas.
+   *
+   * La cible décide donc de la source : quand elle vient du classement du
+   * JOUR, « ton mieux » est le score du jour ; quand elle retombe sur le
+   * meilleur connu en entraînement, c'est le record d'entraînement. Jamais un
+   * mélange.
+   */
+  const vueSource = vueBut(0, recordDuJour);
+  const mien =
+    vueSource.cible.source === "jour" ? (monScoreDuJour(s) ?? 0) : P.recordDeSonAllure(s);
   const vue = vueBut(mien, recordDuJour);
 
   $("murCibleQuoi").textContent =
@@ -3660,6 +3735,25 @@ function finishRun(): void {
       }
     }
 
+    /*
+     * ⚠️ **LES COMPTEURS DE QUÊTES PASSENT AVANT TOUTE SORTIE DE MODE.**
+     *
+     * Rapporté : « j'ai déjoué des pièges mais ma to-do list ne s'est pas mise
+     * à jour dans l'escalade, alors que ça me le valide en entraînement ». Bug
+     * introduit au commit précédent : le retour anticipé de l'escalade — posé
+     * pour empêcher sa règle COMPOSÉE d'entrer au carnet — sautait du même coup
+     * les cinq `bump`, qui sont plus bas dans la fonction.
+     *
+     * Or ils ne dépendent d'aucun mode : un piège déjoué est un piège déjoué,
+     * une manche tenue est une manche tenue. Les remonter ici les met hors de
+     * portée du prochain `return` qu'on ajoutera — et il y en aura un.
+     */
+    bump(st, "runs", 1);
+    bump(st, "traps", end.trapsSurvived);
+    bump(st, "rounds", end.score);
+    bump(st, "best", end.score, "max");
+    if (!end.usedKeyboard) bump(st, "noKey", end.score, "max");
+
     const surPalier = palierEnCours !== null;
     /*
      * ⚠️ ET ON S'ARRÊTE LÀ POUR L'ESCALADE.
@@ -3676,6 +3770,7 @@ function finishRun(): void {
       P.inscritRecord(st, cleEscalade(), session!.paliers);
       return;
     }
+
     /*
      * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
      *
@@ -3705,12 +3800,6 @@ function finishRun(): void {
       // et un palier de cinquante vers le haut.
       st.recent = [...st.recent, end.score].slice(-5);
     }
-
-    bump(st, "runs", 1);
-    bump(st, "traps", end.trapsSurvived);
-    bump(st, "rounds", end.score);
-    bump(st, "best", end.score, "max");
-    if (!end.usedKeyboard) bump(st, "noKey", end.score, "max");
 
     if (mode === "daily") {
       /*
@@ -3774,14 +3863,34 @@ function finishRun(): void {
    */
   if (mode === "daily" && !challenge) {
     enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
-    void vide();
     /*
-     * Le run qui vient de finir a pu prendre la tete du classement : la valeur
-     * en memoire n'est plus sure, on la jette. Sans cela, l'accueil continuait
-     * d'annoncer le record d'avant — y compris quand c'est le joueur lui-meme
+     * Le run qui vient de finir a pu prendre la tête du classement : la valeur
+     * en mémoire n'est plus sûre, on la jette. Sans cela, l'accueil continuait
+     * d'annoncer le record d'avant — y compris quand c'est le joueur lui-même
      * qui venait de le battre, ce qui est le pire moment pour se taire.
      */
     oublieRecordDuJour();
+    /*
+     * ⚠️ **LE PODIUM SE REPEINT UNE FOIS LE SCORE PARTI, PAS AVANT.**
+     *
+     * Rapporté deux fois : « le record ne s'actualise pas dans le classement
+     * exactement au moment où je termine la run ». C'était une COURSE, et elle
+     * était perdue d'avance : `vide()` envoie la performance au serveur, et
+     * `renderPodium` allait lire `?a=top` dans la foulée — donc presque
+     * toujours AVANT que le POST n'ait abouti. L'écran de fin affichait le
+     * classement d'il y a une seconde, celui qui ne contient pas encore le run
+     * qu'on vient de faire.
+     *
+     * On attend donc l'envoi. `vide()` rend une promesse ; on la suit, et on ne
+     * repeint que si le joueur est encore sur cet écran-là.
+     *
+     * ⚠️ Un échec ne repeint rien, et c'est juste : hors ligne ou sans compte,
+     * le score n'est PAS au classement, et l'y afficher serait un mensonge que
+     * le prochain chargement démentirait.
+     */
+    void vide().then(() => {
+      if (screen === "over") renderPodium("daily");
+    });
   }
 
   /*
@@ -4105,6 +4214,18 @@ function finishRun(): void {
 
   hud.hideStamp();
   hud.setRule(null);
+  /*
+   * ⚠️ **LA MUSIQUE S'ARRÊTE AVEC LE RUN, PAS AVEC L'ÉCRAN.**
+   *
+   * Rapporté : « la musique dans le mode escalier continue même lorsque le
+   * palier est fini ». Elle ne s'arrêtait que dans `backHome()`, c'est-à-dire
+   * quand on QUITTE — donc elle courait sur tout l'écran de fin, et sur le
+   * suivant si l'on relançait. Le défaut se voit surtout sur un palier, qui se
+   * termine net à sa cible au lieu de s'achever sur une mort.
+   *
+   * Elle accompagne une partie ; il n'y a plus de partie.
+   */
+  musicApi.stop();
   show("over");
 }
 
@@ -4965,17 +5086,6 @@ $("btnPlay").addEventListener("click", () => {
  * défaut, elles sont des détours qu'on prend en connaissance de cause.
  * ------------------------------------------------------------------ */
 
-$("btnEntrer").addEventListener("click", () => {
-  sfx.ui();
-  // La même porte que PLAY, première arrivée comprise : deux chemins vers la
-  // première partie finiraient par diverger.
-  if (estNouveau()) {
-    ouvreOnboarding();
-    return;
-  }
-  openBrief("training");
-});
-
 $("profJour").addEventListener("click", () => {
   sfx.ui();
   /*
@@ -5201,7 +5311,7 @@ $("btnDuel").addEventListener("click", async () => {
   });
   const text = t("partageTexte")(lastRun.end.score, nomDeRegle(lastRun.rule.id, lastRun.rule.name), url);
   try {
-    if (navigator.share) await navigator.share({ text });
+    if (TOUCH_ONLY && navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     // Après le partage, jamais avant : un `navigator.share` annulé lève, et
     // compter l'intention comme un envoi gonflerait le haut de l'entonnoir
@@ -5287,7 +5397,21 @@ async function partageCarte(): Promise<void> {
     }
     const fichier = new File([blob], `the-one-rule-${end.score}.png`, { type: "image/png" });
 
-    if (navigator.canShare?.({ files: [fichier] }) && navigator.share) {
+    /*
+     * ⚠️ **SUR ORDINATEUR, ON COPIE — ON N'OUVRE PAS LE PANNEAU DE WINDOWS.**
+     *
+     * Rapporté : « le bouton partager et carte à partager ouvrent des trucs sur
+     * Windows alors qu'il faut que ça soit juste copier-coller ». C'est exact et
+     * c'est le bon reproche : `navigator.share` ouvre la feuille système, qui
+     * demande de CHOISIR une application avant même de savoir ce qu'on partage.
+     * Sur un téléphone c'est le geste naturel — c'est comme ça qu'on envoie
+     * quoi que ce soit. Sur un ordinateur, c'est une boîte de dialogue de plus
+     * entre le joueur et son ami.
+     *
+     * Le partage natif est donc réservé au TACTILE. Ailleurs, l'image va dans
+     * le presse-papiers, et il n'y a plus qu'à coller.
+     */
+    if (TOUCH_ONLY && navigator.canShare?.({ files: [fichier] }) && navigator.share) {
       await navigator.share({ files: [fichier], text: `${d.slogan} · ${d.url}` });
       // Après coup, jamais avant : un partage annulé lève, et compter
       // l'intention comme un envoi gonflerait exactement le chiffre qu'on
@@ -5297,6 +5421,23 @@ async function partageCarte(): Promise<void> {
       return;
     }
 
+    /*
+     * L'IMAGE DANS LE PRESSE-PAPIERS. `ClipboardItem` accepte un blob PNG, et
+     * c'est exactement ce que le joueur veut : coller dans une conversation.
+     *
+     * ⚠️ Le téléchargement reste le REPLI, pas le chemin normal : il n'est
+     * atteint que si le navigateur refuse l'écriture d'image (Firefox, ou une
+     * page sans interaction récente). Un fichier dans « Téléchargements » est
+     * mieux que rien, mais c'est un détour.
+     */
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      track("share_carte", { mode, rule: rule.id, score: end.score, voie: "presse-papiers" });
+      rendre("finCartePrete");
+      return;
+    } catch {
+      /* le navigateur refuse l'image : on tombe sur le fichier */
+    }
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = fichier.name;
@@ -5336,7 +5477,9 @@ $("btnShare").addEventListener("click", async () => {
   const tail = end.cleared ? t("partageTenu")(DAILY_LENGTH) : t("partageRompu")(end.score);
   const text = `${head}\n${nomDeRegle(rule.id, rule.name)}\n${marksToString(end.marks)}\n${tail}`;
   try {
-    if (navigator.share) await navigator.share({ text });
+    // Même règle que la carte : le panneau système sur téléphone, le
+    // presse-papiers partout ailleurs.
+    if (TOUCH_ONLY && navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     track("share", { mode, rule: rule.id, score: end.score });
     $("btnShare").textContent = t("copieOk");

@@ -7,7 +7,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { LECTURE_NEUVE_MS } from "../src/game/lecture";
+import { LECTURE_CONNUE_MS, LECTURE_NEUVE_MS } from "../src/game/lecture";
 
 const ctxStub = new Proxy({}, { get: () => () => undefined }) as CanvasRenderingContext2D;
 
@@ -122,4 +122,56 @@ describe("LE REBOURS DU BRIEF — le bouton doit retrouver son mot", () => {
     ).toBe(motInitial);
     expect(btn().disabled, "et il doit être réactivé").toBe(false);
   });
+});
+
+/*
+ * ⚠️ UN DÉCOMPTE EN SECONDES EXIGE UNE DURÉE EN SECONDES ENTIÈRES.
+ *
+ * Rapporté deux fois — « le décompte avant un niveau est encore bugué ». Le
+ * premier correctif portait sur le LIBELLÉ rendu au bouton ; celui-ci porte sur
+ * le CHIFFRE, et la cause est arithmétique et non structurelle. À 1200 ms,
+ * `ceil(reste / 1000)` affiche « 2 » pendant deux dixièmes de seconde avant de
+ * passer à « 1 » : un chiffre qui clignote et disparaît ne se lit pas comme un
+ * décompte.
+ *
+ * Le cas frappait TOUJOURS un palier d'escalier, puisqu'on n'y travaille qu'une
+ * règle déjà rencontrée — donc toujours par la durée « connue ».
+ *
+ * Ce test rejoue la formule d'affichage plutôt que le DOM : c'est là que vit le
+ * défaut, et une simulation pure le dit sur les deux durées d'un coup. Éprouvé
+ * en remettant 1200 : il tombe en nommant le chiffre fautif.
+ */
+describe("le rebours compte des secondes pleines", () => {
+  /** La suite des chiffres affichés, avec le temps que chacun reste à l'écran. */
+  function affichage(total: number): { chiffre: number; duree: number }[] {
+    const vus: { chiffre: number; duree: number }[] = [];
+    // Une image toutes les 10 ms : bien plus fin que l'œil, donc la durée
+    // mesurée est celle du chiffre et non celle de l'échantillonnage.
+    for (let t = 0; t <= total; t += 10) {
+      const chiffre = Math.ceil((total - t) / 1000);
+      if (chiffre <= 0) break;
+      const dernier = vus[vus.length - 1];
+      if (dernier && dernier.chiffre === chiffre) dernier.duree += 10;
+      else vus.push({ chiffre, duree: 10 });
+    }
+    return vus;
+  }
+
+  for (const [nom, total] of [
+    ["une règle jamais rencontrée", LECTURE_NEUVE_MS],
+    ["une règle déjà au carnet", LECTURE_CONNUE_MS],
+  ] as const) {
+    it(`${nom} : aucun chiffre ne clignote`, () => {
+      expect(total % 1000, `${nom} : ${total} ms n'est pas un nombre entier de secondes`).toBe(0);
+      const vus = affichage(total);
+      expect(vus.length, "le décompte doit montrer au moins un chiffre").toBeGreaterThan(0);
+      for (const { chiffre, duree } of vus) {
+        expect(duree, `le chiffre « ${chiffre} » ne reste que ${duree} ms à l'écran`).toBe(1000);
+      }
+      // Et il descend bien jusqu'à 1, sans sauter de cran.
+      expect(vus.map((v) => v.chiffre)).toEqual(
+        Array.from({ length: total / 1000 }, (_, i) => total / 1000 - i),
+      );
+    });
+  }
 });

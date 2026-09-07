@@ -11039,8 +11039,9 @@ button.chip:active:not(:disabled) {
     display: none;
   }
 
-  /* L'enseigne s'aligne a gauche avec le reste de sa colonne. */
-  #home .logo,
+  /* La colonne s'aligne a gauche. (L'enseigne a quitte l'accueil : elle
+     tient la barre du haut, et l'ecrire deux fois sur le meme ecran prenait
+     la place du champ qui tourne derriere.) */
   #home .but,
   #home .but__plein,
   #home .but__vide {
@@ -11322,23 +11323,6 @@ button.chip:active:not(:disabled) {
   #home .etat {
     gap: 11px;
     min-width: 0;
-  }
-
-  /* --- Le logo : 86 px, UNE SEULE LIGNE -------------------------------- */
-  #home .logo {
-    font-size: 86px;
-    line-height: 0.86;
-    letter-spacing: -0.05em;
-    padding-left: 20px;
-    margin: 0;
-    /* Le filet hachure fait 8 px et court sur 4 a 96 % de la hauteur. */
-    text-shadow: 0 0 56px rgba(145, 132, 217, 0.3);
-  }
-
-  #home .logo::before {
-    top: 4%;
-    bottom: 4%;
-    width: 8px;
   }
 
   /* --- Le chapo : 26 px, deux lignes, la seconde en accent ------------- */
@@ -12688,23 +12672,57 @@ button.chip:active:not(:disabled) {
  * reconnaît ici.
  * ------------------------------------------------------------------ */
 
+/*
+ * ⚠️ **UN RECORD BATTU DOIT SE VOIR COMME UNE RÉCOMPENSE.**
+ *
+ * Première version : un rectangle rayé de 320 px, plus discret que la ligne de
+ * repères juste au-dessous. Rapporté : « le halo de tu as battu ton record doit
+ * être une vraie récompense, pas juste un petit carré comme ça ». C'est le
+ * seul instant du run qui vaut d'être fêté, et il valait moins qu'une légende.
+ *
+ * Ce qui change, et pourquoi ce n'est pas juste « plus gros » :
+ *
+ *   · il prend TOUTE la colonne et se pose SOUS le chiffre, là où l'œil est
+ *     déjà — pas à côté ;
+ *   · l'ambre devient un vrai aplat, avec sa lueur, au lieu d'une trame à 14 % ;
+ *   · l'écart (« +8 ») devient le second plus gros chiffre de l'écran, après le
+ *     score lui-même : c'est LUI la nouvelle, pas l'ancien record ;
+ *   · il ARRIVE. Un objet déjà en place quand l'écran s'ouvre n'est pas une
+ *     récompense, c'est une mention. L'animation est en `transform` et
+ *     `opacity` seulement, et `prefers-reduced-motion` la pose à son état final
+ *     plutôt que de la couper — le piège documenté du dépôt.
+ */
 .exploit {
-  margin: 10px auto 0;
-  max-width: 320px;
-  padding: 10px 14px;
-  border: var(--bd-hair) solid color-mix(in srgb, var(--ambre) 55%, var(--line));
-  /*
-   * La trame rayée de la maquette, en `repeating-linear-gradient` — la même
-   * matière que le cadre en marches de la couche pixel, et le même angle. Ce
-   * n'est pas un dégradé : deux couleurs franches, aucune transition.
-   */
+  margin: 14px auto 2px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 2px solid var(--ambre);
   background:
     repeating-linear-gradient(
       -45deg,
-      color-mix(in srgb, var(--ambre) 14%, transparent) 0 6px,
-      transparent 6px 12px
+      color-mix(in srgb, var(--ambre) 20%, transparent) 0 8px,
+      transparent 8px 16px
     ),
-    var(--ink-2);
+    color-mix(in srgb, var(--ambre) 12%, var(--ink-2));
+  box-shadow:
+    8px 8px 0 0 color-mix(in srgb, var(--ambre) 34%, transparent),
+    0 0 46px color-mix(in srgb, var(--ambre) 26%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  animation: exploitArrive 420ms cubic-bezier(0.16, 1.2, 0.3, 1) both;
+}
+
+@keyframes exploitArrive {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .exploit.hidden {
@@ -12714,17 +12732,19 @@ button.chip:active:not(:disabled) {
 .exploit__titre {
   margin: 0;
   font-family: var(--mono);
-  font-size: var(--t-micro);
+  font-weight: 600;
+  font-size: var(--t-base);
   letter-spacing: var(--ls-intitule);
   color: var(--ambre);
+  text-shadow: 0 0 22px color-mix(in srgb, var(--ambre) 55%, transparent);
 }
 
 .exploit__chiffres {
-  margin: 4px 0 0;
+  margin: 0;
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 10px;
+  gap: 14px;
   font-family: var(--mono);
   font-size: var(--t-petit);
   letter-spacing: var(--ls-petit);
@@ -12732,16 +12752,30 @@ button.chip:active:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * L'ÉCART EST LA NOUVELLE. « ANCIEN · 23 » est le contexte ; « +8 » est ce
+ * qu'on vient de gagner, et c'est lui qu'on doit lire d'abord.
+ */
 .exploit__chiffres b {
   font-family: var(--display);
-  font-size: 21px;
+  font-size: 40px;
   font-weight: 600;
+  line-height: 1;
   color: var(--ambre);
+  text-shadow: 0 0 30px color-mix(in srgb, var(--ambre) 50%, transparent);
 }
 
 /* Rien à montrer : l'écart est nul (record égalé), la case reste vide. */
 .exploit__chiffres b:empty {
   display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .exploit {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ==================================================================
@@ -13276,6 +13310,265 @@ button.chip:active:not(:disabled) {
     inset 0 0 0 3px color-mix(in srgb, var(--rouge) 70%, transparent);
 }
 
+/* ==================================================================
+ * LE FOND DE NUIT — CE QUI REMPLACE LA DÉMO SUR TÉLÉPHONE
+ *
+ * Demandé : « sur téléphone supprime la démo en fond et garde juste un fond
+ * animé très beau ». Deux mesures le justifient : une manche compte quinze
+ * pièces sur 1000 × 420, rendues à un tiers de leur taille sur 375 px de large
+ * — on ne lit ni la consigne ni ce que la main fait, donc la démo ne démontre
+ * rien ; et elle fait tourner une `Session` complète plus un canvas plein écran
+ * sur la batterie de quelqu'un qui n'a encore rien demandé.
+ *
+ * ⚠️ **C'EST LE JS QUI POSE `.attract--nuit`, PAS UNE MEDIA QUERY.** Le seuil
+ * est écrit une seule fois (`SANS_DEMO`, main.ts). Le répéter ici marcherait
+ * aujourd'hui et divergerait au premier ajustement : on aurait alors soit un
+ * canvas invisible qui consomme, soit un fond de nuit sous une partie qui
+ * tourne.
+ *
+ * ⚠️ **TROIS PLANS, TROIS PÉRIODES PREMIÈRES ENTRE ELLES** (13 s, 19 s, 29 s) :
+ * la composition ne se répète qu'au bout de plus d'une heure. Une seule vitesse
+ * donne une boucle, et ce qu'on reconnaît on cesse de le regarder — c'est déjà
+ * la leçon de la fissure et de `--heat`.
+ *
+ * ⚠️ **QUE `transform` ET `opacity`.** Même règle que partout : rien qui force
+ * une remise en page, donc rien qui puisse disputer une image au jeu.
+ * ================================================================== */
+
+.attract__nuit {
+  display: none;
+}
+
+/*
+ * ⚠️ LA DÉMO S'EN VA ENTIÈREMENT — Y COMPRIS CE QU'ELLE ÉCRIT.
+ *
+ * La carte de règle et la consigne sont peintes par la boucle de la démo. Sans
+ * elle, elles resteraient sur leur dernier texte, ou vides : deux cadres morts
+ * en haut de l'accueil. `.home__demo` était déjà masquée sur téléphone.
+ */
+#home .attract--nuit ~ .home .home__regle,
+#home .attract--nuit ~ .home .home__consigne,
+.attract--nuit .attract__cvs,
+.attract--nuit .attract__curseur,
+.attract--nuit .attract__chaleur {
+  display: none;
+}
+
+/*
+ * ⚠️ **TROIS ENFANTS EN MOINS, DONC LA GRILLE CHANGE DE FORME.**
+ *
+ * Demandé : « le bouton jouer au centre ». Il ne l'était pas, et la cause est
+ * mécanique. La grille de l'accueil est écrite `auto minmax(0, 1fr) auto` et
+ * ses enfants se placent AUTOMATIQUEMENT : avec la démo, le centre de gravité
+ * tombe en quatrième position, dans une rangée implicite, et c'est la consigne
+ * qui occupe la rangée souple au-dessus de lui. Sans la démo, trois enfants
+ * disparaissent d'un coup : le centre remonte en rangée 1 (`auto`, donc collée
+ * en haut) et c'est la PROFONDEUR qui hérite du `1fr`.
+ *
+ * Mesuré à 375 × 812 avant : PLAY de 173 à 270, pour un écran dont le milieu
+ * est à 406 — plus de deux cents pixels trop haut, et un trou sous lui.
+ *
+ * Deux rangées suffisent quand il ne reste que deux enfants, et l'ordre des
+ * tailles s'inverse : le souple d'abord, où `align-self: center` du centre de
+ * gravité fait enfin son travail ; l'automatique ensuite, pour la profondeur.
+ */
+#home .attract--nuit ~ .home {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/*
+ * ⚠️ **LA PROFONDEUR S'EN VA AUSSI, ET C'EST UN DOUBLON QU'ON RETIRE.**
+ *
+ * Demandé mot pour mot : « garde JUSTE un fond animé, l'ancienne barre de
+ * navigation au bas de la page, le bouton jouer au centre ».
+ *
+ * Ce n'est pas une amputation : la barre du bas porte CARTES · CLASSEMENT ·
+ * JOUER · DU JOUR · MULTI, c'est-à-dire exactement les cinq destinations de la
+ * profondeur, à trois centimètres en dessous d'elle. Le dépôt avait déjà retiré
+ * la cinquième carte pour ce motif — « sur un écran où la barre est présente,
+ * elle répétait un bouton situé à trois centimètres » ; l'argument vaut pour
+ * les quatre autres, et il n'y avait aucune raison de l'arrêter à une.
+ *
+ * En large la barre du bas remonte, et la profondeur redevient la seule porte
+ * vers les cinq modes : elle reste donc entière là-bas.
+ */
+#home .attract--nuit ~ .home .profondeur {
+  display: none;
+}
+
+/*
+ * ⚠️ LE RETRAIT DE 83 px RESTE, ET IL CHANGE DE RAISON.
+ *
+ * Il existait pour qu'aucune carte ne se glisse sous la barre du bas, qui vit
+ * hors flux. Il n'y a plus de carte — mais la barre occupe toujours 729 → 812,
+ * et sans ce retrait la boîte de l'accueil court jusqu'à 788 : le centre de
+ * gravité se centre alors dans une zone dont le dernier tiers est masqué, donc
+ * PLAY tombe trop bas. Mesuré : milieu de PLAY à 480 sans le retrait, pour une
+ * zone réellement libre dont le milieu est à 392.
+ *
+ * Le chiffre est le même parce que c'est la même hauteur de barre ; ce qu'il
+ * garantit n'est plus « rien ne passe dessous » mais « le centre est le centre
+ * de ce qu'on voit ».
+ */
+
+/*
+ * LE SOL. Plus profond que le terrain (`#111A28`) : ce n'est plus le champ,
+ * c'est la nuit autour. Le dégradé vertical seul suffit à donner un haut et un
+ * bas, ce qui empêche l'écran de se lire comme un aplat.
+ */
+.attract--nuit {
+  background: linear-gradient(176deg, #080d14 0%, #101a2b 38%, #16233a 62%, #0a1119 100%);
+}
+
+/*
+ * ⚠️ **LE VIGNETTAGE SE DESSERRE, IL NE DISPARAÎT PAS.**
+ *
+ * Celui de la démo va jusqu'à `rgba(8, 11, 17, 0.78)` : il existe pour rendre
+ * PLAY lisible par-dessus une scène de jeu qui bouge et qui est claire. Sur un
+ * fond de nuit, il ne recouvre plus rien — il éteint. Relevé à l'écran : les
+ * deux braises tombaient entièrement dans la zone assombrie et ne se voyaient
+ * pas du tout, exactement la faute déjà payée au §7 (« un abîme trop sombre est
+ * invisible »).
+ *
+ * Il reste, parce qu'un bouton posé sur un dégradé sans creux flotte : il perd
+ * seulement un tiers de sa force, et son bord franc recule de 30 % à 46 %.
+ */
+.attract--nuit::after {
+  background: radial-gradient(125% 84% at 50% 44%, transparent 46%, rgba(6, 9, 14, 0.52) 100%);
+}
+
+/*
+ * PLAN 1 — LA TRAME. La même grille de points que le terrain de jeu, au même
+ * pas de 50 px : c'est ce qui rattache ce fond au jeu plutôt qu'à un écran de
+ * veille générique. Elle dérive en diagonale, très lentement.
+ *
+ * ⚠️ Elle est SURDIMENSIONNÉE (`inset: -60px`) : une trame qu'on translate
+ * découvrirait son bord sur deux côtés.
+ */
+.attract--nuit::before {
+  content: "";
+  position: absolute;
+  inset: -60px;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--signal-pale) 19%, transparent) 0 2px,
+      transparent 2px 50px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--signal-pale) 19%, transparent) 0 2px,
+      transparent 2px 50px
+    );
+  animation: nuitTrame 29s linear infinite;
+}
+
+@keyframes nuitTrame {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(50px, 50px, 0);
+  }
+}
+
+/*
+ * PLAN 2 — LES BRAISES. Deux poches de lumière qui respirent, dans l'accent du
+ * jeu et dans le jade des pièces. Elles sont RADIALES alors que l'identité
+ * proscrit les arrondis : une lueur n'a pas de forme, donc pas d'angle à
+ * couper — c'est le même arbitrage que le halo de bord de `--heat`.
+ */
+.attract--nuit .attract__nuit {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background:
+    /*
+     * ⚠️ ELLES SONT RAMENÉES VERS LE CENTRE (22 % → 30 %, 82 % → 72 %). Aux
+     * anciennes positions elles tombaient dans le quart assombri par le
+     * vignettage, donc invisibles : c'est le halo de bord du §7 qui avait déjà
+     * enseigné qu'un décor placé là ne se voit pas.
+     */
+    radial-gradient(
+      58% 36% at 30% 30%,
+      color-mix(in srgb, var(--signal) 46%, transparent) 0%,
+      transparent 72%
+    ),
+    /*
+     * ⚠️ `var(--jade, …)` AVEC SON REPLI, ET C'EST OBLIGATOIRE ICI.
+     *
+     * `--jade` n'est PAS déclarée dans la feuille : les couleurs des pièces
+     * vivent dans le canvas, et les deux autres usages CSS portent déjà ce
+     * repli pour cette raison. Sans lui, `color-mix` devient invalide au calcul
+     * et le dégradé entier disparaît — sans erreur, sans avertissement, et sans
+     * qu'aucun test ne puisse le voir. La famille de pannes que ce dépôt
+     * attrape le plus mal.
+     */
+    radial-gradient(
+      50% 34% at 72% 68%,
+      color-mix(in srgb, var(--jade, #40f7c0) 24%, transparent) 0%,
+      transparent 70%
+    );
+  opacity: 0.85;
+  animation: nuitBraises 19s ease-in-out infinite;
+}
+
+@keyframes nuitBraises {
+  0%,
+  100% {
+    opacity: 0.62;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.13);
+  }
+}
+
+/*
+ * PLAN 3 — LE BALAYAGE. Une bande claire traverse l'écran de bas en haut, en
+ * `steps()` : une lueur lissée jurerait avec des angles droits, une lueur en
+ * crans est du même monde que la couche pixel (§7).
+ */
+.attract--nuit .attract__nuit::before {
+  content: "";
+  position: absolute;
+  inset: -30% 0;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in srgb, var(--signal-pale) 22%, transparent) 46%,
+    color-mix(in srgb, var(--paper) 14%, transparent) 50%,
+    color-mix(in srgb, var(--signal-pale) 22%, transparent) 54%,
+    transparent 100%
+  );
+  animation: nuitBalayage 13s steps(26, end) infinite;
+}
+
+@keyframes nuitBalayage {
+  from {
+    transform: translate3d(0, 60%, 0);
+  }
+  to {
+    transform: translate3d(0, -160%, 0);
+  }
+}
+
+/*
+ * ⚠️ LE MOUVEMENT SE FIGE, LE FOND RESTE.
+ *
+ * Neutraliser une animation sans rien laisser à sa place est le piège
+ * documenté du dépôt (`animation-fill-mode: backwards`). Les trois plans
+ * gardent donc leur état, et seul le mouvement s'arrête.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .attract--nuit::before,
+  .attract--nuit .attract__nuit,
+  .attract--nuit .attract__nuit::before {
+    animation: none;
+  }
+}
+
 /* ------------------------------------------------------------------
  * CE QUI SE POSE SUR LE CHAMP
  * ------------------------------------------------------------------ */
@@ -13489,15 +13782,10 @@ button.chip:active:not(:disabled) {
   box-shadow: 4px 4px 0 0 color-mix(in srgb, var(--signal) 42%, transparent);
 }
 
+/* La mention sous PLAY. Elle portait un bouton au-dessus d'elle ; il menait
+   au meme endroit que PLAY, donc il est parti. */
 .home__second {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-}
-
-.home__entrer {
-  cursor: pointer;
+  margin: 0;
 }
 
 /* --- la profondeur --- */

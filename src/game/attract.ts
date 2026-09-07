@@ -41,17 +41,26 @@ export interface Geste {
  * la démo devient un clignotement. Trop tard, la barre de temps arrive au bout
  * et le spectateur croit voir un joueur en difficulté — or on montre quelqu'un
  * qui maîtrise.
+ *
+ * ⚠️ **C'EST AUSSI LE RÉGLAGE DE VITESSE DU CURSEUR**, et c'est ce qui l'a fait
+ * monter de 0,42 à 0,55. Demandé : « diminue grandement la vitesse de la souris
+ * à l'écran ». La main parcourt tout son trajet AVANT d'agir, donc sa vitesse
+ * est la distance divisée par cette fraction de fenêtre : la retarder, c'est
+ * l'étaler. Il reste 45 % de barre après le clic — largement de quoi lire qu'il
+ * était en avance.
  */
-const AGIT_A = 0.42;
+const AGIT_A = 0.55;
 
 /**
  * Quand la main renonce, sur une manche piégée.
  *
  * Plus tard que `AGIT_A` : c'est ce qui fait lire l'hésitation. La main part
  * vers la pièce interdite — c'est le réflexe qu'on montre — puis recule, et le
- * chrono s'écoule sans clic.
+ * chrono s'écoule sans clic. L'écart avec `AGIT_A` est conservé en montant
+ * celui-ci : sans quoi le renoncement tomberait presque en même temps que le
+ * clic ordinaire et cesserait de se lire comme une hésitation.
  */
-const RENONCE_A = 0.62;
+const RENONCE_A = 0.78;
 
 /** La pièce que la consigne désigne, ou `null` quand elle n'en désigne aucune. */
 export function cibleDe(round: Round): Entity | null {
@@ -127,12 +136,26 @@ export function pilote(
   };
 }
 
-/** Interpolation, avec un freinage à l'arrivée — une main ne s'arrête pas net. */
+/**
+ * Interpolation, avec un départ ET un freinage — une main ne part pas net et ne
+ * s'arrête pas net.
+ *
+ * ⚠️ **LE POINTE DE VITESSE VIT ICI, PAS DANS LA DISTANCE.** L'ancienne courbe
+ * était un freinage seul (`1 − (1 − t)²`) : sa dérivée vaut **2** à l'origine,
+ * donc la main démarrait à deux fois sa vitesse moyenne, et c'est ce départ en
+ * fouet qu'on lisait comme « trop rapide ». La courbe en S (`3t² − 2t³`)
+ * plafonne à **1,5**, et à l'instant du départ elle vaut zéro.
+ *
+ * Cumulé avec `AGIT_A` (0,42 → 0,55) et le nombre de manches borné de la démo,
+ * la pointe passe d'environ 4,8 fois la distance par fenêtre à 2,7 — et la
+ * fenêtre elle-même ne rétrécit plus. Mesuré au pire cas de la démo : ~1830
+ * px/s avant, ~620 après.
+ */
 function entre(
   a: { x: number; y: number },
   b: { x: number; y: number },
   t: number,
 ): { x: number; y: number } {
-  const e = 1 - (1 - t) * (1 - t);
+  const e = t * t * (3 - 2 * t);
   return { x: a.x + (b.x - a.x) * e, y: a.y + (b.y - a.y) * e };
 }

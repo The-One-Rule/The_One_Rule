@@ -92,10 +92,25 @@ describe("ce que le code s'interdit désormais", () => {
     expect(source, "les règles tenues ne sont plus inscrites une par une").toMatch(
       /for \(const r of reglesTenues\)/,
     );
-    const i = source.indexOf("for (const r of reglesTenues)");
+    /*
+     * ⚠️ ON MESURE UN ORDRE, PAS UNE DISTANCE.
+     *
+     * Première version : « un `return` dans les 400 caractères qui suivent ».
+     * Elle est tombée en ajoutant un commentaire, ce qui ne prouve rien du
+     * tout — la distance en caractères entre deux instructions n'est pas une
+     * propriété du programme. Ce qui compte est que la sortie de l'escalade
+     * arrive AVANT l'écriture générique du carnet, et cette question-là a une
+     * réponse exacte.
+     */
+    const iTenues = source.indexOf("for (const r of reglesTenues)");
+    const iEsc = source.indexOf('if (mode === "escalade") {', iTenues);
+    const iSortie = source.indexOf("return;", iEsc);
+    const iGenerique = source.indexOf("st.encountered[rule.id] = P.majCarnet(", iTenues);
+    expect(iEsc, "la branche escalade a disparu").toBeGreaterThan(iTenues);
+    expect(iGenerique, "l'écriture générique du carnet a disparu").toBeGreaterThan(iTenues);
     expect(
-      source.slice(i, i + 1400),
+      iSortie > 0 && iSortie < iGenerique,
       "l'escalade retombe dans l'écriture de la composée",
-    ).toMatch(/if \(mode === "escalade"\) \{[\s\S]{0,400}?return;/);
+    ).toBe(true);
   });
 });
