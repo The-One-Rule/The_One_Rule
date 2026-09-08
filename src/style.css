@@ -154,6 +154,15 @@
    * exactement celui qu'on vient de corriger — un bouton sous une barre.
    */
   --nav-h: 84px;
+
+  /*
+   * LA HAUTEUR DU PIED DE JEU, ecrite UNE fois, comme celle de la barre.
+   *
+   * Elle est posee en `min-height` sur `#foot` ET sert d'ancrage au toast, qui
+   * doit s'arreter au-dessus de lui : le pied porte le score et le record,
+   * c'est-a-dire ce qu'on consulte justement en pleine manche.
+   */
+  --foot-h: 54px;
   --sp-5: 36px;
   --sp-6: 56px;
 
@@ -11989,6 +11998,8 @@ button.chip:active:not(:disabled) {
 
 #foot {
   padding: 9px 14px;
+  /* Le meme jeton que l'ancrage du toast : ecrit une fois, lu deux. */
+  min-height: var(--foot-h);
 }
 
 .foot__value {
@@ -13285,6 +13296,26 @@ button.chip:active:not(:disabled) {
 
 #app.has-topbar .toast {
   bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+/*
+ * ⚠️ EN PARTIE, LE TOAST S'ARRETE AU-DESSUS DU PIED.
+ *
+ * Le pied porte le score, le record et le mode — ce qu'on consulte justement
+ * en pleine manche. Un toast pose dessus cacherait l'information pendant les
+ * deux secondes ou l'on vient d'apprendre qu'une erreur coute une vie.
+ *
+ * ⚠️ IL NE S'ACCROCHE PAS A `--field-top` / `--field-h`, ET C'EST MESURE : en
+ * solo a 375, ces deux reperes valaient 398 et 137 alors que le terrain etait
+ * a 174 sur 584. Ils ne sont tenus a jour que pour les GOUTTIERES, qui
+ * n'existent qu'en large — s'y fier ici posait le toast en plein milieu du
+ * champ (mesure : y=483, soit exactement 398 + 137 - 52).
+ *
+ * `--foot-h` est en revanche pose sur le pied LUI-MEME : les deux ne peuvent
+ * pas diverger.
+ */
+#app:not(.has-topbar) .toast {
+  bottom: calc(var(--foot-h) + var(--sp-2) + env(safe-area-inset-bottom));
 }
 
 .toast.is-vu {

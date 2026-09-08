@@ -4375,16 +4375,26 @@ function loop(now: number): void {
         session.tierJustCrossed = false;
         hud.announce(TIER_NAMES[session.tier] ?? "");
       } else if (session.graceJustEnded && !finEchauffementDite) {
-        // Une seule fois par run : `announce` relance son animation à chaque
-        // appel, et la boucle passe ici soixante fois par seconde.
+        // Une seule fois par run : la boucle passe ici soixante fois par
+        // seconde, et relancer l'annonce à chaque image la figerait.
         finEchauffementDite = true;
-        montreMicro({
-          kind: "echauffement",
-          eyebrow: t("microEchauffement"),
-          nom: t("echauffementFini"),
-          quoi: t("microEchauffementQuoi"),
-          ms: 1600,
-        });
+        /*
+         * ⚠️ UN TOAST, PAS UN PLEIN CADRE.
+         *
+         * Rapporté par Pierre : « l'image qui apparaît quand l'échauffement
+         * est fini, supprime-la ou fais quelque chose de différent, ce n'est
+         * pas agréable ». Il avait raison, et pour une raison mesurable : le
+         * plein cadre arrivait PENDANT une manche — la seule annonce du jeu à
+         * le faire. Les autres micro-états tombent dans un interlude, où il
+         * n'y a rien à regarder. Celle-ci couvrait la scène au moment précis
+         * où le joueur venait d'apprendre qu'une erreur coûte désormais une
+         * vie, c'est-à-dire au pire moment pour lui prendre les yeux.
+         *
+         * Le toast dit la même chose : deux secondes, en bas, hors du champ,
+         * et `pointer-events: none` — il ne peut ni cacher le terrain ni
+         * intercepter un clic.
+         */
+        montreToast(t("echauffementFini"), t("microEchauffementQuoi"), 2000);
       }
       // L'urgence s'entend avant d'être lue : on ne quitte pas la consigne
       // des yeux pour vérifier une barre.
