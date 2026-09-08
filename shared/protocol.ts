@@ -35,8 +35,30 @@ export const MIN_ROUND_MS = 700;
  */
 export const MAX_ROUND_MS = 2400;
 
-/** Pause normale (rien de dramatique). */
-export const INTERLUDE_MS = 1100;
+/**
+ * Pause apres une manche ORDINAIRE — personne n'est mort.
+ *
+ * ⚠️ ELLE ETAIT A 1100, ET C'ETAIT DU TEMPS MORT PUR.
+ *
+ * RAPPORTE : « dans le multijoueur il y a un delai avant chaque manche, c'est
+ * desagreable ». Verifie dans le client : il ne montre quelque chose que
+ * `si pauseMs > 1800` — kill-cam et panneau de mort — ou en duel a
+ * `pauseMs <= 800`. Entre les deux, c'est-a-dire exactement a 1100, l'ecran
+ * n'affiche RIEN. Le joueur attendait 1,1 s devant une scene vide, apres
+ * chaque manche ou personne n'etait tombe, soit la grande majorite d'entre
+ * elles.
+ *
+ * 700, pour trois raisons qui tiennent ensemble : c'est sous le seuil de 800
+ * du client, donc le silence est voulu et non subi ; les plaques suffisent a
+ * dire ce qui vient de se passer, exactement comme en duel ; et c'est la
+ * valeur de `MIN_ROUND_MS`, que ce depot tient deja pour le plus court delai
+ * qu'un humain enregistre.
+ *
+ * Les pauses qui PORTENT quelque chose ne bougent pas : une vie perdue garde
+ * ses 2400, une elimination ses 4200, une rotation ses 3400. Elles ne sont pas
+ * du temps mort, elles sont le spectacle.
+ */
+export const INTERLUDE_MS = 700;
 /** Vie perdue, pas d'élimination — kill-cam courte. */
 export const INTERLUDE_LIFE_MS = 2400;
 /** Élimination (lives → 0) — arrêt complet. */
