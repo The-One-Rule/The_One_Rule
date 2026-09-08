@@ -2272,7 +2272,19 @@ body {
  * sur téléphone, et elle vient d'être réglée.
  */
 .screen__scroll--wide {
-  max-width: 1080px;
+  /*
+   * ⚠️ 1080 LAISSAIT 180 PX MORTS DE CHAQUE COTE A 1440.
+   *
+   * Rapporte : « l'ecran de fin ne prend pas la largeur de sa fenetre sur
+   * PC ». Mesure a 1440 : la zone tenait 1080 px, centree a x=180, pendant
+   * que l'accueil, lui, va d'un bord a l'autre. La difference se voit d'autant
+   * plus qu'on passe de l'un a l'autre en un clic.
+   *
+   * Le plafond ne disparait pas pour autant — c'est lui qui empeche deux
+   * colonnes de 900 px sur un ecran de 2560, ou l'oeil ne suit plus une ligne.
+   * Il monte a 1400, ce qui remplit un 1440 courant et borne au-dela.
+   */
+  max-width: 1400px;
   display: grid;
   /*
    * `minmax(0, 1fr)` et non `1fr` : le minimum d'une piste `1fr` est `auto`,
@@ -15153,10 +15165,54 @@ button.chip:active:not(:disabled) {
    ce qu'elle etait (decision n°10).
    ================================================================== */
 
-.nav {
+/*
+ * ⚠️ LA HAUTEUR MINIMALE NE VAUT QUE POUR LA BARRE BASSE.
+ *
+ * Posee sur `.nav` tout court, elle suivait la barre quand elle REMONTE dans
+ * le bandeau du haut : mesure a 1440, la rangee passait a 113 px de haut —
+ * 14 de retrait, 84 de barre, 14 — au lieu des 72 du dessin. C'est le
+ * « header devenu plus grand, pas ergonomique » qui a ete rapporte.
+ *
+ * En haut, la barre reprend la hauteur de ses boutons.
+ */
+#app:not(.barre-haute) .nav {
   min-height: var(--nav-h);
 }
 
 #app.has-topbar:not(.barre-haute) .screen {
   bottom: var(--nav-h);
+}
+
+/*
+ * ⚠️ LES EQUERRES DU TERRAIN NE DOIVENT PAS PEINDRE SUR UN MENU.
+ *
+ * Elles doublent le cadre de temps du canvas et vivent dans `#stage`, hors
+ * flux. Mais `#stage` est un frere des ecrans, pas leur parent : sur un ecran
+ * de menu, elles continuaient de dessiner leurs quatre coins PAR-DESSUS le
+ * contenu, a 0,35 d'opacite sur 1438 x 632 — c'est la « barre qui traverse
+ * l'ecran et donne un mauvais look » de la capture des reglages.
+ *
+ * Meme remede et meme raison que `#band`, `#head` et `#foot` : `visibility`
+ * et jamais `display`. Les retirer du flux ferait remonter `#stage`, donc
+ * redimensionner le canvas, donc changer `fieldRect()` — et la taille du
+ * champ EST du gameplay (decision n°10).
+ */
+#app.has-topbar .equerres {
+  visibility: hidden;
+}
+
+/*
+ * LE BANDEAU DU HAUT TIENT SA PLACE PENDANT LE DEFILEMENT.
+ *
+ * Rapporte : « certains elements descendent avec le header au moment du
+ * scroll, c'est desagreable ». Il vit DANS l'ecran qui defile — c'est ce qui
+ * avait corrige le defaut inverse, ou pose en absolu dans `#app` il restait
+ * colle en haut pendant que le contenu glissait dessous. `sticky` tient les
+ * deux bouts : il appartient au flux de l'ecran, et il s'arrete en haut du
+ * cadre de defilement au lieu de s'en aller avec lui.
+ */
+#app.barre-haute #topbar {
+  position: sticky;
+  top: 0;
+  background: var(--ink);
 }
