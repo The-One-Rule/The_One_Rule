@@ -1588,10 +1588,11 @@
 
       <!-- MULTI — REJOINDRE -->
       <!-- MULTI — REJOINDRE OU OUVRIR
-           TROIS intentions, plus deux : rejoindre le salon de quelqu'un, ou
-           ouvrir le sien dans l'un des DEUX modes. DUO était un réglage caché
-           dans le salon — un mode qu'il fallait connaître pour trouver. Il est
-           désormais une porte, à égalité avec l'autre.
+           Cinq intentions, une grille : rejoindre le salon de quelqu'un, ou
+           ouvrir le sien dans l'un des QUATRE modes. IMPOSTEUR et COOP
+           n'existaient que dans la barre MODE du salon — un mode qu'il
+           fallait connaître pour trouver. Ils sont désormais des portes, à
+           égalité avec DUO. Le défaut reste SEUL CONTRE TOUS.
 
            REJOINDRE occupe toute la largeur et vient en premier : c'est ce que
            font la plupart des gens, et le code est déjà dans leur presse-papier
@@ -1683,6 +1684,26 @@
             <p class="panel__text" data-i18n="multi.duo.desc">Two players, one shared pool of lives. Up to 5 teams.</p>
             <div class="btnrow">
               <button class="btn" id="btnMultiCreateDuo" data-i18n="multi.ouvrir">OPEN A ROOM</button>
+            </div>
+          </div>
+
+          <!-- IMPOSTEUR / COOP : mêmes portes que DUO, même geste. Le mode
+               se pose à l'ouverture ; la barre MODE du salon reste. -->
+          <div class="col panel">
+            <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
+            <h3 class="panel__title" data-i18n="multi.imposteur">IMPOSTOR</h3>
+            <p class="panel__text" data-i18n="multi.imposteur.desc">One rule for everyone. One liar. Ten rounds, one vote. 4 to 8.</p>
+            <div class="btnrow">
+              <button class="btn" id="btnMultiCreateImposteur" data-i18n="multi.ouvrir">OPEN A ROOM</button>
+            </div>
+          </div>
+
+          <div class="col panel">
+            <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
+            <h3 class="panel__title" data-i18n="multi.coop">COOP</h3>
+            <p class="panel__text" data-i18n="multi.coop.desc">One shared life. Each player a forbid. Twelve waves. 4 to 6.</p>
+            <div class="btnrow">
+              <button class="btn" id="btnMultiCreateCoop" data-i18n="multi.ouvrir">OPEN A ROOM</button>
             </div>
           </div>
 

@@ -93,37 +93,70 @@ describe("le verrou d'identité reste là où il a un sens", () => {
   });
 });
 
-describe("deux modes d'ouverture, separes et nommes", () => {
-  it("SEUL CONTRE TOUS et DUO sont deux portes, pas un reglage cache", () => {
-    // DUO existait comme reglage `ÉQUIPES` DANS le salon : il fallait
-    // connaitre le mode pour le trouver. Il est desormais une intention
-    // annoncee a l'entree, a egalite avec l'autre.
+describe("quatre portes d'ouverture, separees et nommees", () => {
+  it("SEUL CONTRE TOUS, DUO, IMPOSTEUR et COOP sont quatre portes, pas un reglage cache", () => {
+    // IMPOSTEUR et COOP n'existaient que dans la barre MODE du salon : il
+    // fallait connaitre le mode pour le trouver. Ils sont desormais une
+    // intention annoncee a l'entree, a egalite avec DUO.
     const html = readFileSync("index.html", "utf8");
-    expect(html).toContain('id="btnMultiCreate"');
-    expect(html).toContain('id="btnMultiCreateDuo"');
+    const iJoin = html.indexOf('id="btnMultiJoin"');
+    const iClassique = html.indexOf('id="btnMultiCreate"');
+    const iDuo = html.indexOf('id="btnMultiCreateDuo"');
+    const iImp = html.indexOf('id="btnMultiCreateImposteur"');
+    const iCoop = html.indexOf('id="btnMultiCreateCoop"');
+    expect(iJoin).toBeGreaterThan(0);
+    expect(iClassique).toBeGreaterThan(iJoin);
+    expect(iDuo).toBeGreaterThan(iClassique);
+    expect(iImp).toBeGreaterThan(iDuo);
+    expect(iCoop).toBeGreaterThan(iImp);
     // Le document est servi en ANGLAIS ; le français vit dans le
     // dictionnaire et revient à l'affichage pour un navigateur français.
     expect(html).toContain("FREE FOR ALL");
+    expect(html).toContain("IMPOSTOR");
   });
 
-  it("ouvrir en DUO pose le reglage, et seulement dans ce cas", () => {
-    const f = corps("async function ouvreSalon(duo: boolean)");
+  it("ouvrir pose le mode, et seulement si on l'a demande", () => {
+    const f = corps("async function ouvreSalon(mode: ModeSalon)");
     expect(f).toContain("createRoom()");
-    expect(f).toContain("setSettings({ duo: true })");
-    // Le reglage ne part que si on l'a demande : ouvrir en SEUL CONTRE TOUS
-    // ne doit rien envoyer de plus qu'avant.
-    expect(f).toMatch(/if \(duo\)\s*client\.setSettings/);
+    expect(f).toContain("setSettings({ mode })");
+    // SEUL CONTRE TOUS ne doit rien envoyer de plus qu'avant : le defaut
+    // du salon EST classique, un settings inutile ferait clignoter l'UI.
+    expect(f).toMatch(/if \(mode !== ["']classique["']\)\s*client\.setSettings/);
+    expect(f).not.toContain("{ duo: true }");
   });
 
-  it("les deux boutons passent par le meme chemin", () => {
-    // Deux implementations de « ouvrir un salon » finiraient par diverger, et
-    // le symptome serait un mode qui marche et l'autre non.
-    expect(src).toContain('$("btnMultiCreate").addEventListener("click", () => void ouvreSalon(false))');
-    expect(src).toContain('$("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon(true))');
+  it("les quatre boutons passent par le meme chemin", () => {
+    // Quatre implementations de « ouvrir un salon » finiraient par diverger,
+    // et le symptome serait un mode qui marche et l'autre non.
+    expect(src).toContain('$("btnMultiCreate").addEventListener("click", () => void ouvreSalon("classique"))');
+    expect(src).toContain('$("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon("duo"))');
+    expect(src).toContain('$("btnMultiCreateImposteur").addEventListener("click", () => void ouvreSalon("imposteur"))');
+    expect(src).toContain('$("btnMultiCreateCoop").addEventListener("click", () => void ouvreSalon("coop"))');
+    expect(src).toContain('fait: () => void ouvreSalon("classique")');
+  });
+
+  it("l'accent primaire reste sur SEUL CONTRE TOUS, pas sur les quatre portes", () => {
+    const accent = corps("function syncJoinAccent(): void {");
+    expect(accent).toContain('$("btnMultiCreate").classList.toggle("btn--primary"');
+    expect(accent).not.toContain("btnMultiCreateDuo");
+    expect(accent).not.toContain("btnMultiCreateImposteur");
+    expect(accent).not.toContain("btnMultiCreateCoop");
+  });
+
+  it("la grille reste 2×2, sans order", () => {
+    const css = readFileSync("src/style.css", "utf8");
+    const debut = css.indexOf(".join__head,");
+    const fin = css.indexOf(".room__title");
+    expect(debut).toBeGreaterThan(0);
+    expect(fin).toBeGreaterThan(debut);
+    const bloc = css.slice(debut, fin).replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(bloc).toMatch(/grid-template-columns:\s*repeat\(2,/);
+    expect(bloc).not.toMatch(/repeat\(4/);
+    expect(bloc).not.toMatch(/\border\s*:/);
   });
 
   it("l'hote peut encore changer d'avis dans le salon", () => {
-    // Ouvrir en DUO est un depart, pas un verrou : le reglage ÉQUIPES reste.
+    // Ouvrir par une porte est un depart, pas un verrou : la barre MODE reste.
     expect(readFileSync("index.html", "utf8")).toContain('id="optDuo"');
   });
 });

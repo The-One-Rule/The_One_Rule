@@ -3596,25 +3596,26 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   });
 
   /**
-   * Ouvrir un salon dans un mode donne.
+   * Ouvrir un salon dans un mode donné.
    *
-   * DUO n'est pas un mecanisme separe : c'est le reglage de salon `duo`, pose
-   * d'emblee au lieu d'etre cherche dans les reglages. Le mode existant reste
-   * donc un cas particulier du nouveau — meme astuce que la pile d'une regle
-   * pour l'escalade et l'equipe d'un joueur pour le duo lui-meme.
+   * Les quatre modes sont des réglages de SALON, pas des mécaniques
+   * séparées. Les poser d'emblée à la création, plutôt que de les
+   * chercher dans la barre MODE, c'est ce qui les rend trouvables.
+   * L'hôte peut encore changer d'avis dans le salon — ouvrir par une
+   * porte est un départ, pas un verrou.
    *
-   * Le reglage part JUSTE APRES la creation, sur la meme socket : les messages
-   * y sont ordonnes, et le serveur nous reconnait comme hote puisque c'est
-   * nous qui venons d'ouvrir. L'hote peut encore le changer dans le salon —
-   * ouvrir en DUO est un depart, pas un verrou.
+   * Le réglage part JUSTE APRÈS la création, sur la même socket : les
+   * messages y sont ordonnés, et le serveur nous reconnaît comme hôte
+   * puisque c'est nous qui venons d'ouvrir. Le protocole `create` ne
+   * porte pas de mode : `{ t: "create" }` puis `setSettings`.
    */
   /** OUVRIR LE MIEN — la seule issue qui ne dépend de personne d'autre. */
   const sortieOuvrir = (): Sortie => ({
     quoi: tr("sortieOuvrir"),
-    fait: () => void ouvreSalon(false),
+    fait: () => void ouvreSalon("classique"),
   });
 
-  async function ouvreSalon(duo: boolean): Promise<void> {
+  async function ouvreSalon(mode: ModeSalon): Promise<void> {
     sfx.ui();
     setJoinErr(null);
     // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
@@ -3624,11 +3625,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!client) return;
     entreeSalon = "cree";
     client.createRoom();
-    if (duo) client.setSettings({ duo: true });
+    if (mode !== "classique") client.setSettings({ mode });
   }
 
-  $("btnMultiCreate").addEventListener("click", () => void ouvreSalon(false));
-  $("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon(true));
+  $("btnMultiCreate").addEventListener("click", () => void ouvreSalon("classique"));
+  $("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon("duo"));
+  $("btnMultiCreateImposteur").addEventListener("click", () => void ouvreSalon("imposteur"));
+  $("btnMultiCreateCoop").addEventListener("click", () => void ouvreSalon("coop"));
 
   $("btnMultiJoin").addEventListener("click", () => {
     void (async () => {

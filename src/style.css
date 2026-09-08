@@ -2685,17 +2685,18 @@ body {
 }
 
 /*
- * REJOINDRE : deux intentions, deux panneaux.
+ * REJOINDRE : une intention pleine largeur, puis quatre portes d'ouverture.
  *
  * Ouvrir un salon et entrer dans celui d'un autre étaient quatre boutons dans
  * la même rangée, sous un champ de code unique — donc personne ne savait s'il
  * fallait remplir le code AVANT de cliquer CRÉER. Deux panneaux encadrés, un
- * bouton chacun, rien entre les deux.
+ * bouton chacun, rien entre les deux. IMPOSTEUR et COOP s'ajoutent sur le
+ * MÊME composant : une grille 2×2, pas une rangée de 4, pas un `order`.
  */
-/* Pas d'`order` ici : l'ordre du document — titre, les deux panneaux, le pied —
-   est déjà celui qu'il faut une fois empilé. En poser sur une partie seulement
-   des enfants d'une grille renvoie les autres (`order: 0`) devant : le titre
-   se retrouvait sous les deux panneaux. */
+/* Pas d'`order` ici : l'ordre du document — titre, REJOINDRE, les quatre
+   portes, le pied — est déjà celui qu'il faut une fois empilé. En poser
+   sur une partie seulement des enfants d'une grille renvoie les autres
+   (`order: 0`) devant : le titre se retrouvait sous les panneaux. */
 .join__head,
 .join__foot {
   text-align: center;
@@ -2709,7 +2710,7 @@ body {
     inset 0 0 0 1px color-mix(in srgb, var(--signal) 8%, transparent);
   padding: var(--sp-4) var(--sp-3) var(--sp-4);
   text-align: center;
-  /* Les deux panneaux gardent la même hauteur : côte à côte, deux cadres
+  /* Les quatre portes gardent la même hauteur : côte à côte, deux cadres
      inégaux se lisent comme une hiérarchie qui n'existe pas. */
   height: 100%;
   display: flex;
@@ -2749,13 +2750,13 @@ body {
 }
 
 /*
- * En bande etroite, les DEUX panneaux d'ouverture tiennent cote a cote.
+ * En bande etroite, les QUATRE portes d'ouverture tiennent en 2×2.
  *
  * Mesure : a trois panneaux empiles, `multi-join` passait de 88 a 239 px de
  * defilement sur 375x812 — l'ajout du mode DUO avait empire l'ecran qu'on
- * venait corriger. Leurs contenus sont courts (un titre, une ligne, un
- * bouton), donc la colonne les accueille sans les ecraser ; REJOINDRE, lui,
- * garde toute la largeur puisqu'il porte un champ de saisie.
+ * venait corriger. Une rangée de 4 ferait déborder les libellés (leçon
+ * « TA RÈGLE T'ATTEND »). REJOINDRE, lui, garde toute la largeur puisqu'il
+ * porte un champ de saisie.
  */
 @media (max-width: 899px) {
   .join {
@@ -2780,9 +2781,10 @@ body {
 
 @media (min-width: 900px) {
   /*
-   * Deux colonnes pour les DEUX modes d'ouverture, et toute la largeur pour
+   * Deux colonnes pour les QUATRE portes (2×2), et toute la largeur pour
    * REJOINDRE — qui vient en premier parce que c'est ce que font la plupart
    * des gens : le code est déjà dans leur presse-papier ou dans leur oreille.
+   * Pas une rangée de 4 : les libellés débordent, leçon « TA RÈGLE T'ATTEND ».
    */
   .join {
     grid-template-columns: repeat(2, minmax(0, 1fr));
