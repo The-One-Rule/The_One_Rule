@@ -113,9 +113,32 @@ export async function traite(
    * ------------------------------------------------------------------ */
   if (req.method === "GET" && new URL(req.url).searchParams.get("a") === "top") {
     const url = new URL(req.url);
-    const jour = Number(url.searchParams.get("jour") ?? jourDe(maintenant));
+    /*
+     * ⚠️ `Number("")` VAUT ZERO, ET `??` NE LE VOIT PAS.
+     *
+     * `searchParams.get` rend la chaine VIDE pour `?jour=`, pas `null` : le
+     * `??` ne se declenche donc pas, et `Number("")` donne 0 — un entier
+     * valide. La route servait alors le classement du jour 0 (le 1er janvier
+     * 2026), c'est-a-dire un tableau vide, sans jamais signaler d'erreur. Une
+     * mauvaise reponse silencieuse est pire qu'un 400.
+     */
+    const brutJour = url.searchParams.get("jour");
+    const jour = brutJour === null || brutJour === "" ? jourDe(maintenant) : Number(brutJour);
     if (!Number.isInteger(jour)) return json({ error: "jour" }, 400);
-    const limite = Math.max(1, Math.min(TOP_MAX, Number(url.searchParams.get("n") ?? TOP_DEFAUT)));
+
+    /*
+     * ⚠️ ET `Math.max(1, Math.min(N, NaN))` VAUT NaN.
+     *
+     * `?n=abc` donnait NaN, que les deux bornes laissent passer telles quelles
+     * — `Math.min` et `Math.max` propagent NaN. La limite partait donc NaN
+     * jusqu'au depot : `LIMIT NaN` cote Supabase, `slice(0, NaN)` en memoire,
+     * soit un classement vide dans un cas et une requete refusee dans l'autre.
+     * On borne donc APRES avoir verifie que c'est un nombre.
+     */
+    const brutN = Number(url.searchParams.get("n") ?? TOP_DEFAUT);
+    const limite = Number.isFinite(brutN)
+      ? Math.max(1, Math.min(TOP_MAX, Math.trunc(brutN)))
+      : TOP_DEFAUT;
     const cle = cleDuJour(jour);
 
     // Un jeton illisible ou périmé ne fait PAS échouer la lecture : il rend

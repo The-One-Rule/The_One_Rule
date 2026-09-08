@@ -12,7 +12,7 @@ import {
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
-import { PALIER, PALIER_MAX, pileEscalade } from "./engine/escalade";
+import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
@@ -43,7 +43,8 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { vueBut } from "./render/but";
+import { MEILLEUR_CONNU, MEDIANE_CONNUE, vueBut } from "./render/but";
+import { cacheMicro, cachePastille, montreMicro, montrePastille, montreToast } from "./render/micro";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -81,9 +82,11 @@ import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
 import {
   appliqueLangue,
+  CHAINES,
   estLang,
   etatSolo,
   jetons,
+  langue,
   libelleCompte,
   accrocheDuJour,
   briefDeRegle,
@@ -279,6 +282,8 @@ function show(id: ScreenId): void {
    */
   if (lecture && id !== null) annuleLecture();
   cachePiege();
+  cacheMicro();
+  cachePastille();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   /*
@@ -461,6 +466,7 @@ function choisitLangue(lang: Lang): void {
   renderHome();
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
+  if (screen === "codex") renderCodex();
 }
 
 /**
@@ -767,11 +773,18 @@ function renderPace(): void {
   for (const btn of Array.from(opts.children)) {
     btn.addEventListener("click", () => {
       const v = Number((btn as HTMLElement).dataset.value);
+      const avant = nomAllure(current, PACE_LABELS[current] ?? String(current));
       sfx.ui();
       P.mutate((st) => {
         st.trainingPace = v;
       });
       renderPace();
+      if (v !== current) {
+        montreToast(
+          t("toastAllure"),
+          `${avant} → ${nomAllure(v, PACE_LABELS[v] ?? String(v))}`,
+        );
+      }
     });
   }
 
@@ -803,6 +816,20 @@ function renderCodex(): void {
    */
   const vues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
   const maitrisees = ONE_RULES.filter((r) => estMaitrisee(r, s.encountered[r.id])).length;
+  /*
+   * DEUX ENTRÉES, UNE GRILLE. La maquette dessinait un écran TRAINING séparé.
+   * Deux listes de règles se contrediraient : on change le CADRE, pas la
+   * collection. CARTES lit « COLLECTION · 5 / 16 » ; TRAINING lit
+   * « MAÎTRISE TES RÈGLES » et pose le filtre À MATER.
+   */
+  const stat = CHAINES[langue()];
+  if (codexVue === "training") {
+    $("codexEyebrow").textContent = stat["nav.training"];
+    $("codexTitre").textContent = t("salleTitre");
+  } else {
+    $("codexEyebrow").textContent = stat["carnet.collection"];
+    $("codexTitre").textContent = `${vues} / ${ONE_RULES.length}`;
+  }
   $("codexProgress").textContent = t("carnetProgres")(vues, ONE_RULES.length, maitrisees);
 
   /* ---------------------------------------------------------------- *
@@ -940,9 +967,12 @@ function renderCodex(): void {
 
   // Le mur de cartes verrouillées devient une invitation quand il est TOTAL.
   $("codexVide").textContent = t("codexVide");
-  $("codexVide").classList.toggle("hidden", vues > 0);
+  $("codexVideBox").classList.toggle("hidden", vues > 0);
+  /* À zéro règle, le mur de seize barres se lit comme une fonctionnalité
+     cassée. L'invitation suffit — une carte se débloque en jouant. */
+  list.classList.toggle("hidden", vues === 0);
 
-  for (const r of visibles) {
+  for (const r of vues === 0 ? [] : visibles) {
     const rec = s.encountered[r.id];
     const cases = echelleMaitrise(r, rec);
     const n = franchies(cases);
@@ -1412,8 +1442,18 @@ function peintPodium(quoi: string, ecran: ScreenId): void {
  */
 function renderClassement(): void {
   const s = P.load();
-  const mien = P.recordDeSonAllure(s);
-  const vue = vueBut(mien, recordDuJour);
+  /*
+   * ⚠️ LES DEUX CHIFFRES, ET C'EST LE MODULE QUI CHOISIT.
+   *
+   * Le mur passait ici `recordDeSonAllure` — le record d'ENTRAINEMENT — alors
+   * que sa cible vient du classement du JOUR des que celui-ci repond. Il
+   * comparait donc un record fait a une allure choisie sur une regle choisie
+   * au meilleur du jour, ou tout le monde joue la meme graine et la meme
+   * regle : « il te manque 170 manches » ne voulait rien dire.
+   */
+  const siennes = { jour: monScoreDuJour(s), entrainement: P.recordDeSonAllure(s) };
+  const vue = vueBut(siennes, recordDuJour);
+  const mien = vue.sien ?? 0;
 
   $("murCibleQuoi").textContent =
     vue.cible.source === "jour" ? t("murDuJour") : t("murEntrainement");
@@ -1756,6 +1796,7 @@ function openBrief(mode: Mode): void {
     derniereEntrainement = pendingRule.id;
   }
 
+  $("briefMeme").classList.toggle("hidden", mode !== "daily");
   $("briefEyebrow").textContent =
     mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
   $("briefName").textContent =
@@ -1972,7 +2013,9 @@ function lanceRun(): void {
    * dépendre l'annonce d'un détail d'ordonnancement qui peut changer. Une
    * photo dit ce qu'on compare.
    */
-  recordAvantRun = P.recordDeSonAllure(s);
+  recordAvantRun =
+    pendingMode === "daily" ? (s.daily.score ?? 0) : P.recordDeSonAllure(s);
+  pastilleDite = false;
   /*
    * La pile de l'escalade est tirée d'un RNG À PART.
    *
@@ -2000,6 +2043,7 @@ function lanceRun(): void {
   });
   finEchauffementDite = false;
   hud.setRule(session.rule);
+  peintPuces(session);
   hud.hideStamp();
   hud.setFooter(
     0,
@@ -2139,11 +2183,29 @@ function majNav(): void {
   // à zéro, il n'y a rien qui attende, et la phrase promettrait du vide.
   const aUneRegle = ONE_RULES.some((r) => !!s.encountered[r.id]);
   $("navAttend").textContent = aUneRegle ? t("navAttend") : "";
+
+  // La destination courante se lit, comme dans la maquette. FICHE reste
+  // sous CARTES ou TRAINING selon le cadre qui l'a ouverte.
+  const sousCodex = screen === "codex" || screen === "fiche";
+  $("navCartes").classList.toggle("is-on", sousCodex && codexVue === "collection");
+  $("navTraining").classList.toggle("is-on", sousCodex && codexVue === "training");
+  $("navDaily").classList.toggle(
+    "is-on",
+    (screen === "brief" || screen === "over") && pendingMode === "daily",
+  );
+  $("navMulti").classList.toggle(
+    "is-on",
+    screen === "multi-join" ||
+      screen === "multi-id" ||
+      screen === "multi-lobby" ||
+      screen === "multi-end",
+  );
+  $("navClassement").classList.toggle("is-on", screen === "classement");
 }
 
 $("navCartes").addEventListener("click", () => {
   sfx.ui();
-  renderCodex();
+  ouvreCodex("collection", "nav");
 });
 
 $("navClassement").addEventListener("click", () => {
@@ -2154,7 +2216,9 @@ $("navClassement").addEventListener("click", () => {
 
 $("navTraining").addEventListener("click", () => {
   sfx.ui();
-  openBrief("training");
+  // La salle de travail, pas une partie : PLAY lance, TRAINING désigne
+  // quoi travailler. Deux boutons vers le brief, c'est une hésitation.
+  ouvreCodex("training", "nav");
 });
 
 $("navJouer").addEventListener("click", () => {
@@ -2327,7 +2391,7 @@ function peintEtat(s: P.Save): void {
  * les jours — c'est donc l'état que la plupart des visiteurs verront.
  */
 function peintBut(sien: number | null, duJour: number | null): void {
-  const but = vueBut(sien ?? 0, duJour, "aucun");
+  const but = vueBut({ jour: sien, entrainement: 0 }, duJour, "aucun");
   /*
    * ⚠️ LE CHAPO CÈDE SA PLACE — SUR TÉLÉPHONE SEULEMENT.
    *
@@ -2341,7 +2405,11 @@ function peintBut(sien: number | null, duJour: number | null): void {
    * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
    * la place, il n'y a aucune raison de choisir.
    */
-  $("ledeHome").classList.toggle("hidden", !(LARGE?.matches ?? false));
+  /* Le chapo et la bande de record PARAISSENT ENSEMBLE : c'est la
+     composition de la maquette (vues A et dhome). L'exclusivite telephone
+     datait d'un budget de hauteur que le trio compact + la faille a 186 px
+     rendent caduc. */
+  $("ledeHome").classList.remove("hidden");
   $("but").classList.remove("hidden");
   $("butPlein").classList.toggle("hidden", but.cible === null);
   $("butVide").classList.toggle("hidden", but.cible !== null);
@@ -2395,6 +2463,32 @@ type Filtre =
   | "maitrisees"
   | "verrouillees";
 let filtre: Filtre = "toutes";
+
+/**
+ * D'où l'on ouvre la collection, et sous quel cadre.
+ *
+ * TRAINING et CARTES partagent la même grille (une seule liste de règles).
+ * Le cadre change, le RETOUR aussi : depuis la barre on rentre à l'accueil,
+ * depuis SOLO on y retourne. Un RETOUR unique mentirait une fois sur deux.
+ */
+type CodexVue = "collection" | "training";
+let codexVue: CodexVue = "collection";
+let codexDepuis: "nav" | "solo" = "nav";
+
+function ouvreCodex(vue: CodexVue, depuis: "nav" | "solo" = "nav"): void {
+  codexVue = vue;
+  codexDepuis = depuis;
+  if (vue === "training") {
+    const s = P.load();
+    const aMater = ONE_RULES.filter(
+      (r) => !!s.encountered[r.id] && !estMaitrisee(r, s.encountered[r.id]),
+    );
+    filtre = aMater.length ? "amater" : "toutes";
+  } else {
+    filtre = "toutes";
+  }
+  renderCodex();
+}
 
 /** Une règle passe-t-elle le filtre courant ? */
 function passeFiltre(r: OneRule, s: P.Save, f: Filtre): boolean {
@@ -2632,9 +2726,13 @@ function poseTemps(n: Temps): void {
     $(`onbT${k}`).classList.toggle("hidden", k !== n);
   }
 
+  const crans = $("onbJauge").querySelectorAll("i");
+  crans.forEach((cran, i) => cran.classList.toggle("is-on", i < n));
+
   if (n === 1) {
     $("onbT1Nom").textContent = nomDeRegle(regle.id, regle.name);
     $("onbT1Brief").textContent = briefDeRegle(regle.id, regle.brief);
+    $("onbT1Embleme").innerHTML = emblemeSvg(emblemeDe(regle), { verrouille: false });
   }
   if (n === 2) {
     // Les deux consignes d'exemple sont COMPOSÉES comme celles du jeu : elles
@@ -3034,16 +3132,21 @@ function finishRun(): void {
    * réussi. La classe porte l'issue jusqu'à la feuille de style, qui colore la
    * tête entière — le mot reste le même, il n'est plus seul à le dire.
    */
+  const ancien = recordAvantRun;
+  const battu = !challenge && mode !== "ranked" && ancien > 0 && end.score > ancien;
   const verdict = $("verdict");
   $("over").classList.toggle("is-win", end.cleared);
+  $("over").classList.toggle("is-record", battu);
   verdict.classList.toggle("is-win", end.cleared);
-  verdict.textContent = end.cleared
-    ? t("finTenu")
-    : end.cause === "macro"
-      ? t("finRegleEnfreinte")
-      : mode === "daily"
-        ? t("finRompu")
-        : t("finElimine");
+  verdict.textContent = battu
+    ? t("finBattu")
+    : end.cleared
+      ? t("finTenu")
+      : end.cause === "macro"
+        ? t("finRegleEnfreinte")
+        : mode === "daily"
+          ? t("finRompu")
+          : t("finElimine");
   // Le motif vient du moteur, donc en français canonique : c'est ici, au
   // dernier moment, qu'il passe dans la langue du joueur.
   $("because").textContent = traduisMotif(end.reason);
@@ -3066,6 +3169,47 @@ function finishRun(): void {
         : mode === "daily"
           ? t("finSurTotal")(DAILY_LENGTH)
           : t("finManchesTenues");
+  /*
+   * Situer le score, pas le juger. TON RECORD est le sien (cette epreuve),
+   * la mediane et le 201 sont des mesures GELEES — le 201 n'est PAS un
+   * record du jour, et l'etiquette ne le dit pas.
+   */
+  const comparables = mode !== "ranked" && !challenge && !battu;
+  $("overComp").classList.toggle("hidden", !comparables);
+  if (comparables) {
+    const sien =
+      mode === "daily" ? s.daily.score : (s.encountered[rule.id]?.best ?? end.score);
+    $("overCompRecord").textContent = t("overCompRecord")(sien);
+    $("overCompMediane").textContent = t("overCompMediane")(MEDIANE_CONNUE);
+    $("overCompAbsolu").textContent = t("overCompAbsolu")(MEILLEUR_CONNU.score);
+  }
+  $("overRecord").classList.toggle("hidden", !battu);
+  $("overCarte").classList.toggle("hidden", !battu);
+  $("overManque").classList.toggle("hidden", !battu);
+  if (battu) {
+    $("overAncien").textContent = t("overAncien")(ancien);
+    $("overDelta").textContent = `+${end.score - ancien}`;
+    $("overCarteMode").textContent =
+      mode === "daily" ? t("piedDaily")(day) : t("modeTraining");
+    $("overCarteScore").textContent = String(end.score);
+    $("overCarteRegle").textContent = t("overCarteRegle")(
+      nomDeRegle(rule.id, rule.name),
+      end.trapsSurvived,
+    );
+    const manque = MEILLEUR_CONNU.score - end.score;
+    $("overManque").textContent = manque > 0 ? t("overManque")(manque) : t("overManquePas");
+    $("btnShare").textContent = t("finPartagerCarte");
+    $("btnShare").classList.add("btn--primary");
+    $("btnAgain").classList.remove("btn--primary");
+  } else {
+    $("btnShare").textContent = t("partager");
+    $("btnShare").classList.remove("btn--primary");
+    $("btnAgain").classList.add("btn--primary");
+  }
+  const quetesDuJour = viewQuests(s, day);
+  $("overChQuetes").textContent = `${quetesDuJour.filter((q) => q.claimed).length} / ${quetesDuJour.length}`;
+  $("overChSerie").textContent = t("cptEnJours")(s.streak.count);
+  $("overChCarnet").textContent = `${Object.keys(s.encountered).length} / ${ONE_RULES.length}`;
   renderMarks($("marks"), end.marks);
 
   const reward = $("reward");
@@ -3131,17 +3275,26 @@ function finishRun(): void {
    * Posée APRÈS les boutons, donc après `btnAgain` : elle ne doit ni décaler
    * ni retarder l'action évidente de cet écran, qui est de relancer.
    */
-  const recordBattu =
-    mode !== "daily" && end.score > 0 && end.score >= (s.encountered[rule.id]?.best ?? 0);
+  const recordBattu = battu;
   // Le bandeau de mesure d'abord, une seule fois dans la vie du joueur ; il
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
   renderPodium(mode);
-  peintAvance(rule, avant, s, pace, end.score);
+  const avance = peintAvance(rule, avant, s, pace, end.score);
 
   hud.hideStamp();
   hud.setRule(null);
   show("over");
+  if (avance.franchi) {
+    montreMicro({
+      kind: "maitrise",
+      eyebrow: t("microMaitrisee"),
+      nom: avance.nom,
+      quoi: t("microMaitriseQuoi"),
+      stop: true,
+      ms: 2400,
+    });
+  }
 }
 
 function claimGains(): number {
@@ -3229,6 +3382,20 @@ function marksToString(marks: string[]): string {
  * (par la fiche ou la salle de travail), et c'est bien celle qu'on joue. Un
  * entraînement au hasard n'a pas de but — il sert à découvrir, pas à valider.
  */
+/**
+ * Puces d'interdit — seulement dès que l'escalade en tient DEUX.
+ *
+ * Une seule règle tient dans le bandeau. Deux deviennent des puces sous
+ * la consigne, fusionnées à `#sub` : zéro pixel de terrain.
+ */
+function peintPuces(s: Session): void {
+  if (s.mode !== "escalade" || s.paliers < 2) {
+    hud.setPuces([]);
+    return;
+  }
+  hud.setPuces(pileA(s.pile, s.level).map((r) => t("puceDe")(r.id)));
+}
+
 function objectifExercice(): number | null {
   if (!session || session.mode !== "training") return null;
   const choisie = P.load().trainingRegle;
@@ -3306,7 +3473,7 @@ function peintAvance(
   apres: P.Save,
   allure: number,
   score: number,
-): void {
+): { franchi: boolean; nom: string } {
   const rec = apres.encountered[regle.id];
   const casesAvant = franchies(echelleMaitrise(regle, avant));
   const casesApres = franchies(echelleMaitrise(regle, rec));
@@ -3359,16 +3526,24 @@ function peintAvance(
   const franchi =
     etatApres !== etatAvant && (etatApres === "maitrisee" || etatApres === "parfaite");
   bloc.classList.toggle("is-franchi", montre && franchi);
-  if (!montre) return;
+  const nom = nomDeRegle(regle.id, regle.name);
+  if (!montre) return { franchi: false, nom };
+  $<HTMLImageElement>("avanceImg").src = `/cartes/${regle.id}.png`;
+  const jaugeAv = $("avanceJauge");
+  jaugeAv.innerHTML = "";
+  for (let i = 0; i < 6; i++) {
+    const bar = document.createElement("i");
+    if (i < casesApres) bar.className = "is-on";
+    jaugeAv.appendChild(bar);
+  }
   $("avanceRegle").textContent = franchi
-    ? t(etatApres === "parfaite" ? "avanceParfaite" : "avanceMaitrisee")(
-        nomDeRegle(regle.id, regle.name),
-      )
-    : t("avanceRegle")(nomDeRegle(regle.id, regle.name), casesApres);
+    ? t(etatApres === "parfaite" ? "avanceParfaite" : "avanceMaitrisee")(nom)
+    : t("avanceRegle")(nom, casesApres);
   $("avanceQuoi").textContent = morceaux.join(" ");
   const btn = $("btnAvanceTrain");
-  btn.textContent = t("avanceTravailler")(nomDeRegle(regle.id, regle.name));
+  btn.textContent = t("avanceTravailler")(nom);
   btn.dataset.regle = regle.id;
+  return { franchi, nom };
 }
 
 $("btnAvanceTrain").addEventListener("click", () => {
@@ -3848,7 +4023,15 @@ $("btnResteTravailler").addEventListener("click", () => {
   ouvreFiche(ruleOfDay(day));
 });
 
-$("btnCodex").addEventListener("click", () => renderCodex());
+$("btnCodex").addEventListener("click", () => ouvreCodex("collection", "solo"));
+$("btnCodexVide").addEventListener("click", () => {
+  sfx.ui();
+  if (estNouveau()) {
+    ouvreOnboarding();
+    return;
+  }
+  openBrief("training");
+});
 
 /*
  * LE MUR s'ouvre depuis SOLO — c'est-a-dire la ou l'on decide de jouer.
@@ -3875,11 +4058,14 @@ $("btnMurJouer").addEventListener("click", () => {
   openBrief("daily");
 });
 $("btnCodexBack").addEventListener("click", () => {
-  // Le carnet s'ouvre depuis SOLO : RETOUR doit y ramener, pas remonter d'un
-  // cran de plus que celui qu'on a descendu.
   sfx.ui();
-  renderSolo();
-  show("solo");
+  if (codexDepuis === "solo") {
+    renderSolo();
+    show("solo");
+    return;
+  }
+  renderHome();
+  show("home");
 });
 
 $("btnTopCompte").addEventListener("click", () => {
@@ -4037,8 +4223,7 @@ $("btnDuel").addEventListener("click", async () => {
     // compter l'intention comme un envoi gonflerait le haut de l'entonnoir
     // exactement là où on cherche à savoir si le bas se remplit.
     track("duel_sent", { rule: lastRun.rule.id, score: lastRun.end.score });
-    $("btnDuel").textContent = t("lienCopie");
-    setTimeout(() => ($("btnDuel").textContent = t("defierAmi")), 1600);
+    montreToast(t("toastLien"), url);
   } catch {
     /* partage annulé */
   }
@@ -4055,8 +4240,7 @@ $("btnShare").addEventListener("click", async () => {
     if (navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     track("share", { mode, rule: rule.id, score: end.score });
-    $("btnShare").textContent = t("copieOk");
-    setTimeout(() => ($("btnShare").textContent = t("partager")), 1500);
+    montreToast(t("toastLien"), text.split("\n")[0] ?? "");
   } catch {
     /* partage annulé */
   }
@@ -4067,8 +4251,10 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
-/** Le record du joueur AVANT le run en cours — voir `lanceRun`. */
+/** Le record du joueur AVANT le run en cours — photographié au lancement. */
 let recordAvantRun = 0;
+/** La pastille de dépassement ne flash qu'une fois par run. */
+let pastilleDite = false;
 let urgentDone = false;
 
 /* ------------------------------------------------------------------ *
@@ -4174,9 +4360,15 @@ function loop(now: number): void {
        */
       if (session.regleAjoutee) {
         hud.setRule(regleAffichee(session));
-        hud.announce(
-          t("regleAjoutee")(nomDeRegle(session.regleAjoutee.id, session.regleAjoutee.name)),
-        );
+        peintPuces(session);
+        const ajoutee = session.regleAjoutee;
+        montreMicro({
+          kind: "decouverte",
+          eyebrow: t("microDecouverte"),
+          nom: nomDeRegle(ajoutee.id, ajoutee.name),
+          quoi: `${briefDeRegle(ajoutee.id, ajoutee.brief)}\n${t("microCarnet")(session.paliers, PALIER_MAX)}`,
+          ms: 1600,
+        });
         session.regleAjoutee = null;
         session.tierJustCrossed = false;
       } else if (session.tierJustCrossed) {
@@ -4186,7 +4378,13 @@ function loop(now: number): void {
         // Une seule fois par run : `announce` relance son animation à chaque
         // appel, et la boucle passe ici soixante fois par seconde.
         finEchauffementDite = true;
-        hud.announce(t("echauffementFini"));
+        montreMicro({
+          kind: "echauffement",
+          eyebrow: t("microEchauffement"),
+          nom: t("echauffementFini"),
+          quoi: t("microEchauffementQuoi"),
+          ms: 1600,
+        });
       }
       // L'urgence s'entend avant d'être lue : on ne quitte pas la consigne
       // des yeux pour vérifier une barre.
@@ -4216,6 +4414,10 @@ function loop(now: number): void {
       const recAv = recordAvantRun;
       if (session.mode !== "daily" && recAv > 0 && session.level > recAv) {
         hud.setFooterRecord(session.level, session.level - recAv, t("modeTraining"));
+        if (!pastilleDite) {
+          pastilleDite = true;
+          montrePastille(t("pastilleRecord")(session.level), t("pastilleSur")(session.level - recAv));
+        }
       } else {
         hud.setFooter(
           session.level,
@@ -4239,12 +4441,16 @@ function loop(now: number): void {
        * dire qu'une erreur ne coûte rien prime sur lui dire où il en est.
        */
       const cible = objectifExercice();
+      const pieges =
+        window.innerWidth >= 900 && session.trapsSurvived > 0
+          ? t("hudPieges")(session.trapsSurvived)
+          : "";
       hud.setMeta(
         session.inGrace
           ? t("echauffement")
           : cible !== null && session.level < cible
             ? t("objectifReste")(cible - session.level)
-            : "",
+            : pieges,
       );
     }
   } else if (multi.isPlayingMulti()) {

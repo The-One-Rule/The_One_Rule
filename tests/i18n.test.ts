@@ -83,7 +83,7 @@ describe("appliqueLangue", () => {
      * ligne en `<span>`, qui est le seul morceau que le style colore.
      */
     expect(document.getElementById("ledeHome")!.innerHTML).toBe(TEXTES.en.ledeHtml);
-    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(1);
+    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(2);
     expect(document.getElementById("failleSoloDesc")!.textContent).toBe(TEXTES.en.soloDesc);
     expect(document.getElementById("failleMultiDesc")!.textContent).toBe(TEXTES.en.multiDesc);
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("SETTINGS");

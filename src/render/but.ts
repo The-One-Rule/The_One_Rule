@@ -37,8 +37,12 @@
 export const MEILLEUR_CONNU = { score: 201, jour: 245 } as const;
 
 /**
- * D'où vient le chiffre affiché. L'écran en fait une étiquette, jamais l'inverse.
+ * Médiane de tous les runs, gelée sur le relevé de 572 runs (jours 238-245).
+ * L'écran de fin s'en sert pour situer le score, pas pour le juger.
  */
+export const MEDIANE_CONNUE = 12;
+
+/** D'où vient le chiffre affiché. L'écran en fait une étiquette, jamais l'inverse. */
 export type SourceRecord = "jour" | "entrainement";
 
 /**
@@ -59,6 +63,29 @@ export type SourceRecord = "jour" | "entrainement";
  */
 export type Repli = "entrainement" | "aucun";
 
+/**
+ * Les deux chiffres du joueur, un par EPREUVE.
+ *
+ * ⚠️ C'EST LA CORRECTION D'UN VRAI DEFAUT, et il touchait le mur des records.
+ *
+ * `vueBut` recevait UN seul nombre, et l'appelant devait deviner lequel. Le
+ * mur passait `recordDeSonAllure` — le record d'ENTRAINEMENT — pendant que la
+ * cible, elle, venait du classement du JOUR des que celui-ci repondait. On
+ * comparait donc un record fait a une allure choisie sur une regle choisie au
+ * meilleur du jour, ou tout le monde joue la meme graine et la meme regle :
+ * « il te manque 170 manches » ne voulait rien dire.
+ *
+ * En prenant les DEUX, le module choisit celui qui correspond a la cible qu'il
+ * vient lui-meme d'elire. L'appelant ne peut plus se tromper — c'est la seule
+ * facon de rendre l'invariant structurel plutot que de compter dessus.
+ */
+export interface SiennesDuJoueur {
+  /** Son score au RUN DU JOUR d'aujourd'hui, `null` s'il n'a pas joue. */
+  jour: number | null;
+  /** Son record en ENTRAINEMENT, a son allure. `0` s'il n'en a pas. */
+  entrainement: number;
+}
+
 export interface VueBut {
   /**
    * Le record à battre, et de quelle épreuve il vient.
@@ -67,7 +94,12 @@ export interface VueBut {
    * l'écran a choisi de ne pas en emprunter un ailleurs.
    */
   cible: { score: number; source: SourceRecord } | null;
-  /** Le chiffre du joueur, quand il en a un. */
+  /**
+   * Le chiffre du joueur DANS L'EPREUVE DE LA CIBLE, quand il en a un.
+   *
+   * Jamais celui de l'autre epreuve : un score sans son mode est un chiffre
+   * faux, et deux chiffres de deux epreuves cote a cote le sont deux fois.
+   */
   sien: number | null;
   /**
    * Le joueur a-t-il DÉPASSÉ la cible ? Lui opposer un record qu'il bat serait
@@ -89,20 +121,24 @@ export interface VueBut {
  */
 export type VueButSure = VueBut & { cible: NonNullable<VueBut["cible"]> };
 
-export function vueBut(record: number, recordDuJour: number | null): VueButSure;
+export function vueBut(siennes: SiennesDuJoueur, recordDuJour: number | null): VueButSure;
 export function vueBut(
-  record: number,
+  siennes: SiennesDuJoueur,
   recordDuJour: number | null,
   repli: "entrainement",
 ): VueButSure;
-export function vueBut(record: number, recordDuJour: number | null, repli: "aucun"): VueBut;
+export function vueBut(
+  siennes: SiennesDuJoueur,
+  recordDuJour: number | null,
+  repli: "aucun",
+): VueBut;
 /**
- * @param record le chiffre du joueur, DANS LA MÊME ÉPREUVE que la cible
+ * @param siennes ses deux chiffres — le module prend celui de la bonne épreuve
  * @param recordDuJour le premier du classement du jour, `null` s'il se tait
  * @param repli ce que l'écran fait quand le classement se tait
  */
 export function vueBut(
-  record: number,
+  siennes: SiennesDuJoueur,
   recordDuJour: number | null,
   repli: Repli = "entrainement",
 ): VueBut {
@@ -121,9 +157,14 @@ export function vueBut(
         ? { score: MEILLEUR_CONNU.score, source: "entrainement" as const }
         : null;
 
+  // Le chiffre du joueur SUIT la cible : c'est tout l'objet de ce module.
+  const brut =
+    cible === null ? null : cible.source === "jour" ? siennes.jour : siennes.entrainement;
+  const sien = brut !== null && brut > 0 ? brut : null;
+
   return {
     cible,
-    sien: record > 0 ? record : null,
-    depasse: cible !== null && record > 0 && record >= cible.score,
+    sien,
+    depasse: cible !== null && sien !== null && sien >= cible.score,
   };
 }

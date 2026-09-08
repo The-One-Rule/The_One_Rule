@@ -119,6 +119,58 @@ describe("le podium", () => {
   });
 });
 
+describe("⚠️ les paramètres MALFORMÉS ne rendent jamais un classement faux", () => {
+  /*
+   * DEUX MAUVAISES RÉPONSES SILENCIEUSES, et c'est ce qui les rendait graves :
+   * la route répondait 200 avec un tableau vide, donc l'écran se taisait comme
+   * il se tait quand personne n'a joué. Le joueur n'avait rien à réparer et
+   * rien à signaler — le podium avait simplement disparu.
+   *
+   * Une URL est écrite à la main, parce que l'aide `lis` sérialise des
+   * nombres et ne peut donc pas produire ces cas-là.
+   */
+  const brut = (q: string): Promise<Response> =>
+    traite(
+      new Request(`https://www.theonerule.party/api/perf?a=top&${q}`, { method: "GET" }),
+      ENV,
+      depot,
+      MAINTENANT,
+    );
+
+  it("`?jour=` vide ne sert PAS le jour zéro", async () => {
+    /*
+     * `searchParams.get` rend la chaîne VIDE, pas `null` : le `??` ne se
+     * déclenchait donc pas, et `Number("")` vaut 0 — un entier valide. La
+     * route servait le classement du 1er janvier 2026, forcément vide.
+     */
+    await pose("PIERRE", 1, 40);
+    const r = await (await brut("jour=")).json();
+    expect(r.jour, "un jour vide doit retomber sur AUJOURD'HUI").toBe(JOUR);
+    expect(r.top).toHaveLength(1);
+  });
+
+  it("`?jour=abc` reste un 400, il ne devine rien", async () => {
+    expect((await brut("jour=abc")).status).toBe(400);
+  });
+
+  it("`?n=abc` ne vide pas le podium", async () => {
+    /*
+     * `Math.min` et `Math.max` PROPAGENT NaN : la limite partait telle quelle
+     * jusqu'au dépôt — `LIMIT NaN` côté Supabase, `slice(0, NaN)` en mémoire,
+     * donc zéro ligne. On retombe sur le défaut plutôt que sur le vide.
+     */
+    for (let i = 0; i < 5; i++) await pose(`J${i}`, i, 40 - i);
+    const r = await (await brut(`jour=${JOUR}&n=abc`)).json();
+    expect(r.top).toHaveLength(3);
+  });
+
+  it("`?n=2.7` ne demande pas deux virgule sept lignes au dépôt", async () => {
+    for (let i = 0; i < 5; i++) await pose(`J${i}`, i, 40 - i);
+    const r = await (await brut(`jour=${JOUR}&n=2.7`)).json();
+    expect(r.top).toHaveLength(2);
+  });
+});
+
 describe("ce que le classement PUBLIE", () => {
   it("⚠️ ne laisse fuiter aucun identifiant de compte", async () => {
     /*

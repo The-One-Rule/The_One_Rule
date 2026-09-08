@@ -29,6 +29,7 @@ import { NetClient } from "./net/client";
 import { GLYPH_COUNT, glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
+import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
 import type { PlateFlash } from "./render/plate";
@@ -193,6 +194,8 @@ type MatchState = {
   musicNeedsRestart: boolean;
   /** Règle qui prend effet à la manche suivante, à annoncer pendant la pause. */
   rotationRule: OneRule | null;
+  /** L'ancienne, à barrer — deux tiers des pertes venaient d'une rotation non vue. */
+  ancienneRegle: OneRule | null;
   /**
    * Rapport entre MA fenêtre et celle diffusée à tout le salon.
    *
@@ -265,6 +268,19 @@ interface Sortie {
   readonly fait: () => void;
 }
 
+function peintJoinMort(montre: boolean): void {
+  const el = $("joinMort");
+  const brut = $<HTMLInputElement>("multiCode")
+    .value.toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 4);
+  const cases = el.querySelectorAll("i");
+  for (let i = 0; i < cases.length; i++) {
+    cases[i]!.textContent = brut[i] ?? "";
+  }
+  el.classList.toggle("hidden", !montre || brut.length === 0);
+}
+
 function setJoinErr(msg: string | null, sorties: readonly Sortie[] = []): void {
   const el = $("multiJoinErr");
   const actes = $("multiJoinSorties");
@@ -273,8 +289,10 @@ function setJoinErr(msg: string | null, sorties: readonly Sortie[] = []): void {
     el.textContent = "";
     el.classList.add("hidden");
     actes.classList.add("hidden");
+    peintJoinMort(false);
     return;
   }
+  peintJoinMort(true);
   el.textContent = msg;
   el.classList.remove("hidden");
   for (const s of sorties) {
@@ -422,6 +440,10 @@ function renderLobby(
     ? new Set<string>()
     : new Set([...ici].filter((id) => !connusDuSalon!.has(id)));
   connusDuSalon = ici;
+  if (neufs.size > 0) {
+    const premier = players.find((p) => neufs.has(p.id));
+    if (premier) montreToast(tr("toastEntre")(premier.name, players.length, MAX_PLAYERS));
+  }
 
   for (const p of players) {
     const etat = seatState(p, inMatch, myId);
@@ -825,6 +847,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let endScreenOpen = false;
   const dramaEl = $("drama");
   const dramaEyebrow = $("dramaEyebrow");
+  const dramaOld = $("dramaOld");
   const dramaNames = $("dramaNames");
   const dramaRule = $("dramaRule");
   const dramaReason = $("dramaReason");
@@ -855,6 +878,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     );
     dramaEl.setAttribute("aria-hidden", "true");
     dramaEyebrow.textContent = "";
+    dramaOld.textContent = "";
+    dramaOld.classList.add("hidden");
     dramaNames.textContent = "";
     dramaRule.textContent = "";
     dramaReason.textContent = "";
@@ -910,6 +935,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const jeSuisElimine = victimeMoi && tete.eliminated;
     dramaEl.classList.toggle("drama--me", victimeMoi);
     dramaEl.classList.toggle("drama--dead-me", jeSuisElimine);
+    dramaOld.textContent = "";
+    dramaOld.classList.add("hidden");
     dramaEyebrow.textContent = victimeMoi
       ? jeSuisElimine
         ? tr("tuEsElimine")
@@ -951,6 +978,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
     dramaEyebrow.textContent = rotation ? tr("regleChange") : tr("regleUnique");
+    if (rotation && match.ancienneRegle && match.ancienneRegle.id !== rule.id) {
+      dramaOld.textContent = nomDeRegle(match.ancienneRegle.id, match.ancienneRegle.name);
+      dramaOld.classList.remove("hidden");
+    } else {
+      dramaOld.textContent = "";
+      dramaOld.classList.add("hidden");
+    }
     dramaNames.textContent = nomDeRegle(rule.id, rule.name);
     // Le brief EN CLAIR, pas seulement le nom : « LE DALTONIEN » ne dit rien
     // à qui ne l'a jamais rencontré, et c'est justement le cas d'un invité.
@@ -969,6 +1003,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.remove("hidden", "drama--kill", "drama--elim");
     dramaEl.classList.add("drama--duel");
     dramaEl.setAttribute("aria-hidden", "false");
+    dramaOld.textContent = "";
+    dramaOld.classList.add("hidden");
     dramaEyebrow.textContent = tr("duel");
     dramaNames.textContent = `${a.name}  ·  ${b.name}`;
     dramaRule.textContent = "";
@@ -1594,6 +1630,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       camRule: null,
       musicNeedsRestart: false,
       rotationRule: null,
+      ancienneRegle: null,
       spanFactor: 1,
     };
 
@@ -1704,11 +1741,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * l'interlude et joint les règles à venir : on a le temps de lire.
      */
     if (msg.nextRules && net) {
+      const ancienne = ruleById(match.rules[net.myId] ?? "");
       match.rules = { ...msg.nextRules };
       const mienne = ruleById(msg.nextRules[net.myId] ?? "");
       // On MÉMORISE, on n'affiche pas encore : une kill-cam peut occuper le
       // centre. syncFrame passera de l'une à l'autre au bon moment.
       match.rotationRule = mienne && !isSpectating() ? mienne : null;
+      match.ancienneRegle =
+        ancienne && mienne && ancienne.id !== mienne.id ? ancienne : null;
     }
 
     // Pas d'interlude UI si le match se termine (nextRoundAt null).
@@ -2091,6 +2131,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // l'envoi que gonfler le haut d'un entonnoir dont on lit le bas.
       track("invite_sent", { players: lastPlayers.length });
       $(hintId).textContent = tr("lienCopie");
+      montreToast(tr("toastLien"), link);
     } catch {
       $(hintId).textContent = link;
     }

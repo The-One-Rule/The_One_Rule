@@ -136,7 +136,7 @@
         <div class="band__droite">
           <span class="band__vies lifedots" id="bandVies"></span>
           <span class="band__viesLabel" id="bandViesLabel"></span>
-          <span class="band__meta" id="bandMeta"></span>
+          <span class="band__meta" id="bandMeta"><b id="bandMetaVal"></b><span id="bandMetaLab"></span></span>
         </div>
       </header>
 
@@ -202,6 +202,7 @@
              prend pas un pixel au terrain. -->
         <div id="coupure" class="coupure hidden" aria-live="assertive">
           <div class="coupure__panel">
+            <div class="coupure__dots" aria-hidden="true"><i></i><i></i><i></i></div>
             <p class="coupure__titre" data-i18n="coupure.titre">PUTTING YOU BACK IN</p>
             <p class="coupure__quoi" data-i18n="coupure.quoi">Your seat is held for 25 seconds and you play no round during that time. A cut is not a defeat.</p>
             <div class="coupure__jauge" aria-hidden="true"><i id="coupureJauge"></i></div>
@@ -218,6 +219,7 @@
       <div id="drama" class="drama hidden" aria-live="assertive" aria-hidden="true">
         <div class="drama__panel">
           <p class="drama__eyebrow" id="dramaEyebrow"></p>
+          <p class="drama__old hidden" id="dramaOld"></p>
           <p class="drama__names" id="dramaNames"></p>
           <p class="drama__rule" id="dramaRule"></p>
           <p class="drama__reason" id="dramaReason"></p>
@@ -335,12 +337,41 @@
       <section class="screen" id="home">
         <div class="screen__scroll home">
           <div class="home__brand">
-            <h1 class="logo">THE<br class="logo__saut" />ONE <em>RULE</em></h1>
+            <h1 class="logo">THE <br class="logo__saut" />ONE <em>RULE</em></h1>
             <!-- Une ligne, pas un paragraphe. L'ancienne faisait 39 mots et
                  262 px : elle expliquait le jeu a qui ne l'a pas encore vu,
                  sur un ecran qu'on revoit vingt fois. Le brief et
                  l'entrainement font ce travail mieux qu'elle. -->
-            <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
+            <p class="lede lede--court" id="ledeHome"><span class="lede__avant">One rule. The orders keep changing.</span><br class="lede__saut" /><span>Sometimes, obeying is the mistake.</span></p>
+
+            <!-- LE TRIO DIDACTIQUE — vue A de la maquette, mobile ET desktop.
+                 Trois tuiles, pas un paragraphe : c'est ce qui fait lire le
+                 concept avant le premier scroll. Le chapo dit la phrase, les
+                 tuiles disent les TROIS TEMPS. La troisieme porte l'accent :
+                 c'est le piege, le seul element non copiable. -->
+            <div class="trio" id="trio">
+              <div class="trio__carte">
+                <svg class="trio__ico" viewBox="0 0 40 26" shape-rendering="crispEdges" aria-hidden="true"><rect x="2" y="4" width="4" height="18" fill="#9184d9"/><rect x="10" y="8" width="26" height="3" fill="#cfc9f2"/><rect x="10" y="15" width="16" height="3" fill="#3c4658"/></svg>
+                <p class="trio__titre trio__titre--court" data-i18n="trio.regle">1 RULE</p>
+                <p class="trio__titre trio__titre--long" data-i18n="trio.regleLong">ONE SINGLE RULE</p>
+                <p class="trio__quoi trio__quoi--court" data-i18n="trio.regleQuoi">the whole run</p>
+                <p class="trio__quoi trio__quoi--long" data-i18n="trio.regleLongQuoi">Drawn for the whole run, shown at the top.</p>
+              </div>
+              <div class="trio__carte">
+                <svg class="trio__ico" viewBox="0 0 40 26" shape-rendering="crispEdges" aria-hidden="true"><rect x="4" y="3" width="32" height="3" fill="#3c4658"/><rect x="4" y="11" width="32" height="4" fill="#efeae0"/><rect x="4" y="20" width="32" height="3" fill="#3c4658"/></svg>
+                <p class="trio__titre trio__titre--court" data-i18n="trio.sec">2 SEC.</p>
+                <p class="trio__titre trio__titre--long" data-i18n="trio.secLong">ONE ORDER / 2 S</p>
+                <p class="trio__quoi trio__quoi--court" data-i18n="trio.secQuoi">per order</p>
+                <p class="trio__quoi trio__quoi--long" data-i18n="trio.secLongQuoi">Obey fast. The window tightens.</p>
+              </div>
+              <div class="trio__carte trio__carte--signal">
+                <svg class="trio__ico" viewBox="0 0 40 26" shape-rendering="crispEdges" aria-hidden="true"><rect x="13" y="6" width="14" height="14" fill="#f74058"/><g stroke="#efeae0" stroke-width="3" stroke-linecap="square"><line x1="9" y1="4" x2="31" y2="22"/><line x1="31" y1="4" x2="9" y2="22"/></g></svg>
+                <p class="trio__titre trio__titre--court" data-i18n="trio.rien">DO NOTHING</p>
+                <p class="trio__titre trio__titre--long" data-i18n="trio.rienLong">SOMETIMES: NOTHING</p>
+                <p class="trio__quoi trio__quoi--court" data-i18n="trio.rienQuoi">when it's a trap</p>
+                <p class="trio__quoi trio__quoi--long" data-i18n="trio.rienLongQuoi">When the order breaks your rule, do nothing.</p>
+              </div>
+            </div>
 
             <!-- LA CARTE DE RECORD — celle du RUN DU JOUR, et de rien d'autre.
                  Elle PREND LA PLACE du chapo, elle ne s'y ajoute pas : mesure
@@ -366,7 +397,7 @@
                 </div>
                 <span class="but__filet" aria-hidden="true"></span>
                 <div class="but__milieu">
-                  <p class="but__quoi" data-i18n="but.aBattre">TODAY'S RECORD</p>
+                  <p class="but__quoi" data-i18n="but.aBattre">THE RECORD TO BEAT</p>
                   <p class="but__pousse" id="butPousse"></p>
                 </div>
                 <div class="but__droite" id="butDroite">
@@ -492,7 +523,7 @@
             <button class="faille__zone faille__zone--solo" id="btnSolo">
               <span class="faille__corps">
                 <span class="faille__titre" data-i18n="solo.eyebrow">SOLO</span>
-                <span class="faille__desc" id="failleSoloDesc">Daily run, climb, training.</span>
+                <span class="faille__desc" id="failleSoloDesc">The daily run, the climb, your rule.</span>
                 <span class="faille__etat" id="soloEtat"></span>
               </span>
             </button>
@@ -500,7 +531,7 @@
             <button class="faille__zone faille__zone--multi" id="btnMulti">
               <span class="faille__corps">
                 <span class="faille__titre">MULTI</span>
-                <span class="faille__desc" id="failleMultiDesc">Your code, your friends, one rule each.</span>
+                <span class="faille__desc" id="failleMultiDesc">Your code. One rule each. 2 to 10.</span>
                 <span class="faille__etat" id="cardMultiState"></span>
               </span>
             </button>
@@ -608,7 +639,7 @@
         <div class="screen__scroll screen__scroll--wide home">
           <div class="home__brand">
             <p class="eyebrow" data-i18n="solo.eyebrow">SOLO</p>
-            <h2 class="rulename" data-i18n="solo.titre">YOU AGAINST YOURSELF</h2>
+            <h2 class="rulename" data-i18n="solo.titre">YOU VS YOU</h2>
           </div>
 
           <div class="col home__cards">
@@ -631,7 +662,7 @@
 
               <button class="card" id="btnTraining">
                 <span class="card__title" data-i18n="carte.training.titre">TRAINING</span>
-                <span class="card__desc" data-i18n="carte.training.desc">A quick warm-up?</span>
+                <span class="card__desc" data-i18n="carte.training.desc">No risk. Just to get it.</span>
                 <span class="card__state" id="cardTrainingState"></span>
               </button>
 
@@ -682,15 +713,25 @@
            apprend doit être ce qu'on retrouvera. -->
       <section class="screen hidden" id="onb">
         <div class="screen__scroll onb">
+          <!-- Six crans, un par temps. Decorative : l'etape est deja dite
+               par l'intitule. Les temps 3 et 5 se jouent sur le terrain,
+               donc la jauge ne les voit pas — c'est voulu. -->
+          <div class="onb__jauge" id="onbJauge" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
           <p class="eyebrow" id="onbEtape"></p>
 
           <!-- 1 · LA RÈGLE, AVANT TOUT LE RESTE -->
           <div class="onb__temps hidden" id="onbT1">
-            <h2 class="onb__titre" data-i18n="onb.t1.titre">The game gives you one single rule.</h2>
-            <p class="lede" data-i18n="onb.t1.lede">It holds for the whole run, and it stays on screen.</p>
+            <h2 class="onb__titre">
+              <span data-i18n="onb.t1.avant">The game gives you</span>
+              <span class="onb__sujet" data-i18n="onb.t1.sujet">one single rule</span>
+            </h2>
+            <p class="lede" data-i18n="onb.t1.lede">It stays on screen. The whole run.</p>
             <div class="onb__regle">
               <p class="onb__kicker" data-i18n="onb.regleUnique">YOUR ONE RULE</p>
               <p class="onb__nom" id="onbT1Nom"></p>
+              <div class="onb__embleme" id="onbT1Embleme" aria-hidden="true"></div>
               <p class="onb__brief" id="onbT1Brief"></p>
             </div>
             <p class="onb__pied" data-i18n="onb.t1.pied">NO CLOCK HAS STARTED YET</p>
@@ -698,16 +739,36 @@
 
           <!-- 2 · CE QU'ON VA TE DEMANDER -->
           <div class="onb__temps hidden" id="onbT2">
-            <h2 class="onb__titre" data-i18n="onb.t2.titre">On top of it, an order arrives every two seconds.</h2>
+            <h2 class="onb__titre">
+              <span data-i18n="onb.t2.avant">On top of it, an</span>
+              <span class="onb__sujet" data-i18n="onb.t2.sujet">order</span>
+              <span data-i18n="onb.t2.apres">arrives every two seconds.</span>
+            </h2>
             <div class="onb__cas">
               <div class="onb__cas1">
                 <p class="onb__kicker" data-i18n="onb.t2.cas1">CASE 1 · THE ORDER FITS YOUR RULE</p>
                 <p class="onb__consigne" id="onbT2Ordre1"></p>
+                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
+                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
+                  <rect x="8" y="10" width="28" height="4" fill="#7bb4ff"/>
+                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
+                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
+                  <rect x="3" y="5" width="38" height="38" fill="none" stroke="#efeae0" stroke-width="2"/>
+                </svg>
                 <p class="onb__verdict" data-i18n="onb.t2.rep1">You click. The blue square breaks no rule.</p>
               </div>
               <div class="onb__cas2">
                 <p class="onb__kicker" data-i18n="onb.t2.cas2">CASE 2 · THE ORDER BREAKS YOUR RULE</p>
                 <p class="onb__consigne onb__consigne--piege" id="onbT2Ordre2"></p>
+                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
+                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
+                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
+                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
+                  <g stroke="#efeae0" stroke-width="4" stroke-linecap="square">
+                    <line x1="64" y1="8" x2="96" y2="40"/>
+                    <line x1="96" y1="8" x2="64" y2="40"/>
+                  </g>
+                </svg>
                 <p class="onb__verdict" data-i18n="onb.t2.rep2">You do NOTHING. Obeying would be the mistake.</p>
               </div>
             </div>
@@ -728,7 +789,7 @@
           <!-- 6 · LE JEU COMMENCE VRAIMENT -->
           <div class="onb__temps hidden" id="onbT6">
             <p class="onb__oui" data-i18n="onb.t6.rien">YOU DID NOTHING.</p>
-            <h2 class="onb__titre" data-i18n="onb.t6.titre">That is exactly the game.</h2>
+            <h2 class="onb__titre" data-i18n="onb.t6.titre">That is the game.</h2>
             <div class="onb__carte">
               <p class="onb__kicker" data-i18n="onb.t6.debloquee">FIRST CARD UNLOCKED</p>
               <div class="onb__embleme" id="onbT6Embleme" aria-hidden="true"></div>
@@ -779,6 +840,7 @@
              écrans : c'est une annonce, pas un tableau de bord. Le nom de la
              règle est la seule chose que le joueur doit emporter en partie. -->
         <div class="screen__scroll brief">
+          <p class="brief__meme hidden" id="briefMeme" data-i18n="brief.meme">SAME RUN FOR EVERYONE</p>
           <p class="eyebrow" id="briefEyebrow">YOUR ONE RULE</p>
           <h2 class="rulename rulename--hero" id="briefName"></h2>
           <p class="lede" id="briefText"></p>
@@ -881,7 +943,7 @@
           </details>
 
           <div class="btnrow">
-            <button class="btn btn--primary" id="btnGo" data-i18n="brief.go">START</button>
+            <button class="btn btn--primary" id="btnGo" data-i18n="brief.go">I'M IN</button>
             <!-- Proposé uniquement à qui n'a jamais joué et choisit le run du
                  jour : on offre le chemin qui pardonne, on ne bloque pas. -->
             <button class="btn hidden" id="btnBriefTraining" data-i18n="brief.training">TRAIN FIRST</button>
@@ -962,7 +1024,28 @@
           <div class="col over__result">
             <div class="tally" id="tally">0</div>
             <p class="eyebrow" id="tallyLabel">ROUNDS HELD</p>
+            <div class="over__comp" id="overComp">
+              <p id="overCompRecord"></p>
+              <p id="overCompMediane"></p>
+              <p id="overCompAbsolu"></p>
+            </div>
+            <div class="over__record hidden" id="overRecord">
+              <p class="over__ancien" id="overAncien"></p>
+              <b class="over__delta" id="overDelta"></b>
+            </div>
+            <div class="over__carte hidden" id="overCarte">
+              <p class="over__carteMode" id="overCarteMode"></p>
+              <b class="over__carteScore" id="overCarteScore"></b>
+              <p class="over__carteRegle" id="overCarteRegle"></p>
+              <p class="over__carteSite" data-i18n="fin.site">THEONERULE.PARTY</p>
+            </div>
+            <p class="over__manque hidden" id="overManque"></p>
             <div class="marks" id="marks"></div>
+            <p class="over__legende" id="overLegende">
+              <span data-i18n="fin.legendeOk">HELD</span>
+              <span data-i18n="fin.legendePiege">TRAP DODGED</span>
+              <span data-i18n="fin.legendeChute">FALL</span>
+            </p>
             <div class="reward hidden" id="reward"></div>
             <div class="rank hidden" id="rankResult"></div>
 
@@ -991,10 +1074,14 @@
                  Masque quand le run n'a rien fait avancer — un bloc qui annonce
                  une progression nulle est pire que pas de bloc. -->
             <div class="avance hidden" id="avance">
-              <p class="eyebrow" data-i18n="fin.avance">WHAT THIS RUN ADVANCED</p>
-              <p class="avance__regle" id="avanceRegle"></p>
-              <p class="avance__quoi" id="avanceQuoi"></p>
-              <button class="btn" id="btnAvanceTrain"></button>
+              <img class="avance__img" id="avanceImg" width="60" height="48" alt="" />
+              <div class="avance__corps">
+                <p class="eyebrow" data-i18n="fin.avance">WHAT THIS RUN ADVANCED</p>
+                <p class="avance__regle" id="avanceRegle"></p>
+                <div class="avance__jauge" id="avanceJauge" aria-hidden="true"></div>
+                <p class="avance__quoi" id="avanceQuoi"></p>
+                <button class="btn" id="btnAvanceTrain"></button>
+              </div>
             </div>
 
             <!-- UNE REGLE DECOUVERTE est un evenement : c'est une carte de plus
@@ -1009,6 +1096,20 @@
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
                  seule page qui les montrait était l'accueil, qu'on ne revoit
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->
+            <div class="over__chiffres" id="overChiffres">
+              <div class="over__cel">
+                <b id="overChQuetes"></b>
+                <span data-i18n="fin.labQuetes">QUESTS</span>
+              </div>
+              <div class="over__cel">
+                <b id="overChSerie"></b>
+                <span data-i18n="fin.labSerie">STREAK</span>
+              </div>
+              <div class="over__cel">
+                <b id="overChCarnet"></b>
+                <span data-i18n="fin.labCarnet">CODEX</span>
+              </div>
+            </div>
             <p class="eyebrow" data-i18n="fin.quetes">TODAY'S QUESTS</p>
             <div class="quests" id="overQuests"></div>
             <div class="teaser" id="teaser"></div>
@@ -1030,7 +1131,7 @@
 
           <div class="over__foot">
             <div class="btnrow">
-              <button class="btn btn--primary" id="btnAgain" data-i18n="fin.rejouer">PLAY AGAIN · R</button>
+              <button class="btn btn--primary" id="btnAgain" data-i18n="fin.rejouer">AGAIN · R</button>
               <button class="btn" id="btnShare" data-i18n="fin.partager">SHARE</button>
               <button class="btn" id="btnDuel" data-i18n="fin.defier">CHALLENGE A FRIEND</button>
               <button class="btn btn--ghost" id="btnHome" data-i18n="commun.menu">MENU</button>
@@ -1042,8 +1143,8 @@
       <!-- CARNET -->
       <section class="screen hidden" id="codex">
         <div class="screen__scroll">
-          <p class="eyebrow" data-i18n="carnet.titre">RULE BOOK</p>
-          <h2 class="rulename" data-i18n="carnet.palmares">YOUR RECORD</h2>
+          <p class="eyebrow" id="codexEyebrow" data-i18n="carnet.collection">COLLECTION</p>
+          <h2 class="rulename" id="codexTitre">0 / 16</h2>
           <!-- Combien en reste-t-il : la question qu'on vient poser ici, et
                qu'il fallait résoudre en comptant les lignes soi-même. -->
           <p class="codexprogress" id="codexProgress"></p>
@@ -1088,7 +1189,12 @@
             </div>
           </aside>
 
-          <p class="codexvide hidden" id="codexVide"></p>
+          <div class="codexvide hidden" id="codexVideBox">
+            <div class="codexvide__murs" aria-hidden="true"><i>?</i><i>?</i><i>?</i></div>
+            <p class="codexvide__titre" data-i18n="vide.titre">Sixteen rules are waiting.</p>
+            <p id="codexVide"></p>
+            <button class="btn btn--primary" id="btnCodexVide" type="button" data-i18n="vide.trouver">FIND ONE</button>
+          </div>
           <!-- Ce qu'il reste a rencontrer, et comment : « elles n'arrivent
                qu'en jouant » est la seule facon d'en debloquer. -->
           <p class="codexjamais hidden" id="codexJamais"></p>
@@ -1527,6 +1633,9 @@
                 data-i18n-aria="aria.codeSalon"
               />
             </div>
+            <div class="joinmort hidden" id="joinMort" aria-hidden="true">
+              <i></i><i></i><i></i><i></i>
+            </div>
             <p class="warn hidden" id="multiJoinErr"></p>
             <!-- ⚠️ UNE ERREUR PROPOSE UNE SORTIE.
                  « AUCUN SALON À CE CODE » laissait le joueur devant un mur
@@ -1710,6 +1819,25 @@
         </div>
         <aside class="chatdock" id="chatSlotEnd" aria-label="Room chat" data-i18n-aria="aria.discussion"></aside>
       </section>
+
+      <!-- MICRO-ÉTATS — hors flux, pointer-events none sauf la maîtrise.
+           La découverte se cale sur le terrain ; la maîtrise couvre la fin
+           de run. Le toast et la pastille ne prennent aucun pixel au champ. -->
+      <div id="micro" class="micro hidden" aria-live="polite" aria-hidden="true" aria-label="Announcement" data-i18n-aria="aria.micro">
+        <div class="micro__panel">
+          <p class="micro__eyebrow" id="microEyebrow"></p>
+          <p class="micro__nom" id="microNom"></p>
+          <p class="micro__quoi" id="microQuoi"></p>
+        </div>
+      </div>
+      <div id="toast" class="toast hidden" aria-live="polite" aria-label="Notice" data-i18n-aria="aria.toast">
+        <p class="toast__titre" id="toastTitre"></p>
+        <p class="toast__quoi hidden" id="toastQuoi"></p>
+      </div>
+      <div id="pastille" class="pastille hidden" aria-hidden="true">
+        <b id="pastilleScore"></b>
+        <span id="pastilleNote"></span>
+      </div>
     </div>
 
     <script type="module" src="/src/main.ts"></script>

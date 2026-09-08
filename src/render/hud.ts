@@ -33,8 +33,10 @@ export class Hud {
 
   private lastText = "";
   private lastRuleName = "";
+  private lastLigne = "";
   private urgentShown = false;
   private announceTimer: ReturnType<typeof setTimeout> | null = null;
+  private puces: string[] = [];
 
   /**
    * Pose la règle unique — et l'ANNONCE quand elle change.
@@ -73,7 +75,33 @@ export class Hud {
   }
 
   setMeta(text: string): void {
-    this.bandMeta.textContent = text;
+    const val = document.getElementById("bandMetaVal");
+    const lab = document.getElementById("bandMetaLab");
+    const chiffre = /^(\d+)\s+(.+)$/.exec(text);
+    if (val && lab) {
+      if (chiffre) {
+        val.textContent = chiffre[1];
+        lab.textContent = chiffre[2];
+        this.bandMeta.classList.add("is-stat");
+      } else {
+        val.textContent = "";
+        lab.textContent = text;
+        this.bandMeta.classList.remove("is-stat");
+      }
+    } else {
+      this.bandMeta.textContent = text;
+    }
+    this.bandMeta.classList.toggle("is-on", !!text);
+  }
+
+  /**
+   * Puces d'interdit — escalade à deux règles et plus.
+   *
+   * Elles se fusionnent à `#sub` (une ligne, zéro pixel de terrain). Le
+   * bandeau ne tient qu'un brief : deux interdits n'y rentrent pas.
+   */
+  setPuces(labels: string[]): void {
+    this.puces = labels.filter(Boolean);
   }
 
   /**
@@ -151,6 +179,7 @@ export class Hud {
     this.instr.className = "";
     this.instr.style.color = "";
     this.sub.textContent = "";
+    this.lastLigne = "";
     this.fill.style.transform = "scaleX(0)";
     this.fill.classList.remove("is-urgent");
     this.urgentShown = false;
@@ -205,8 +234,14 @@ export class Hud {
     const subText = hidden ? "" : round.glyph ? text : composeSous(round.sousPhrase, round.sub ?? "");
     const n = round.steps.length;
     const compte = n > 1 ? t("hudGestes")(n) : t("hudGeste");
-    const ligne = hidden ? "" : subText ? `${subText}  ·  ${compte}` : compte;
-    if (this.sub.textContent !== ligne) this.sub.textContent = ligne;
+    const critique = document.getElementById("app")?.classList.contains("is-critical");
+    const vite = !hidden && !!critique && n > 0 ? t("hudVite") : "";
+    const puces = !hidden && this.puces.length > 1 ? this.puces : [];
+    const ligne = hidden ? "" : [subText, compte, puces.join("|"), vite].join("\0");
+    if (ligne !== this.lastLigne) {
+      this.lastLigne = ligne;
+      this.peintSub(hidden, subText, n > 0 ? compte : "", vite, puces);
+    }
 
     /*
      * La barre est le seul élément écrit à chaque image : elle ne change donc
@@ -220,6 +255,48 @@ export class Hud {
     if (urgent !== this.urgentShown) {
       this.urgentShown = urgent;
       this.fill.classList.toggle("is-urgent", urgent);
+    }
+  }
+
+  /**
+   * Une ligne sous la consigne, et une seule.
+   *
+   * Les puces d'escalade sont des chips, pas un second bloc : un rang de plus
+   * coûtait 21 px de terrain. `nowrap` tient tout sur la hauteur déjà prévue.
+   */
+  private peintSub(
+    hidden: boolean,
+    subText: string,
+    compte: string,
+    vite: string,
+    puces: string[],
+  ): void {
+    this.sub.replaceChildren();
+    if (hidden) return;
+    const sep = () => {
+      if (this.sub.childNodes.length) this.sub.append(" · ");
+    };
+    if (subText) {
+      sep();
+      this.sub.append(subText);
+    }
+    if (compte) {
+      sep();
+      this.sub.append(compte);
+    }
+    for (const p of puces) {
+      sep();
+      const chip = document.createElement("i");
+      chip.className = "puce";
+      chip.textContent = p;
+      this.sub.append(chip);
+    }
+    if (vite) {
+      sep();
+      const urgent = document.createElement("i");
+      urgent.className = "sub__vite";
+      urgent.textContent = vite;
+      this.sub.append(urgent);
     }
   }
 

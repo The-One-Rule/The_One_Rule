@@ -78,10 +78,10 @@ type Textes = {
 
 export const TEXTES: Record<Lang, Textes> = {
   fr: {
-    ledeHtml: "Une règle unique. Les consignes changent.<br><span>Parfois, obéir est la faute.</span>",
+    ledeHtml: "<span class=\"lede__avant\">Une règle unique. Les consignes changent.</span><br class=\"lede__saut\"><span>Parfois, obéir est la faute.</span>",
     failleLabel: "Modes de jeu",
-    soloDesc: "Run du jour, escalade, entraînement.",
-    multiDesc: "Ton code, tes potes, une règle chacun.",
+    soloDesc: "Le run du jour, l'escalade, ta règle.",
+    multiDesc: "Ton code. Une règle chacun. 2 à 10.",
     fineprintHtml:
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
@@ -98,10 +98,10 @@ export const TEXTES: Record<Lang, Textes> = {
     titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
-    ledeHtml: "One rule. The orders keep changing.<br><span>Sometimes, obeying is the mistake.</span>",
+    ledeHtml: "<span class=\"lede__avant\">One rule. The orders keep changing.</span><br class=\"lede__saut\"><span>Sometimes, obeying is the mistake.</span>",
     failleLabel: "Game modes",
-    soloDesc: "Daily run, climb, training.",
-    multiDesc: "Your code, your friends, one rule each.",
+    soloDesc: "The daily run, the climb, your rule.",
+    multiDesc: "Your code. One rule each. 2 to 10.",
     fineprintHtml:
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
@@ -143,11 +143,26 @@ export const TEXTES: Record<Lang, Textes> = {
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
     "home.play": "JOUER",
+    "trio.regle": "1 RÈGLE",
+    "trio.regleQuoi": "toute la partie",
+    "trio.sec": "2 SEC.",
+    "trio.secQuoi": "par consigne",
+    "trio.rien": "NE RIEN FAIRE",
+    "trio.rienQuoi": "quand ça piège",
+    "trio.regleLong": "UNE SEULE RÈGLE",
+    "trio.regleLongQuoi": "Tirée pour toute la partie, affichée en haut.",
+    "trio.secLong": "UNE CONSIGNE / 2 S",
+    "trio.secLongQuoi": "Obéis vite. La fenêtre se resserre.",
+    "trio.rienLong": "PARFOIS : RIEN",
+    "trio.rienLongQuoi": "Quand la consigne enfreint ta règle, ne fais rien.",
     "onb.regleUnique": "TA RÈGLE UNIQUE",
-    "onb.t1.titre": "Le jeu te donne une seule règle.",
-    "onb.t1.lede": "Elle vaut pour toute la partie, et elle reste affichée.",
+    "onb.t1.avant": "Le jeu te donne",
+    "onb.t1.sujet": "une seule règle",
+    "onb.t1.lede": "Elle reste affichée. Toute la partie.",
     "onb.t1.pied": "AUCUN CHRONO N'A ENCORE DÉMARRÉ",
-    "onb.t2.titre": "Par-dessus, une consigne arrive toutes les deux secondes.",
+    "onb.t2.avant": "Par-dessus, une",
+    "onb.t2.sujet": "consigne",
+    "onb.t2.apres": "arrive toutes les deux secondes.",
     "onb.t2.cas1": "CAS 1 · LA CONSIGNE EST COMPATIBLE",
     "onb.t2.rep1": "Tu cliques. Le carré bleu n'enfreint pas ta règle.",
     "onb.t2.cas2": "CAS 2 · LA CONSIGNE ENFREINT TA RÈGLE",
@@ -159,7 +174,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "onb.t4.geste": "Lire la consigne · la confronter à ta règle · cliquer.",
     "onb.t4.pied": "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. CERTAINES SONT DES PIÈGES — ET ELLES ARRIVENT VITE.",
     "onb.t6.rien": "TU N'AS RIEN FAIT.",
-    "onb.t6.titre": "C'est exactement ça, le jeu.",
+    "onb.t6.titre": "C'est ça, le jeu.",
     "onb.t6.debloquee": "PREMIÈRE CARTE DÉBLOQUÉE",
     "onb.passer": "PASSER",
     "piege.court": "Si une consigne enfreint ta règle, NE FAIS RIEN.",
@@ -183,24 +198,30 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "mesure.refuser": "REFUSER",
     "mesure.accord": "D'ACCORD",
     "solo.eyebrow": "SOLO",
-    "solo.titre": "TU JOUES CONTRE TOI",
+    "solo.titre": "TOI CONTRE TOI",
     "carte.daily.titre": "RUN DU JOUR",
     "carte.escalade.titre": "ESCALADE",
     "carte.escalade.desc": "Une règle. Puis deux. Puis trois.",
     "carte.training.titre": "ENTRAÎNEMENT",
-    "carte.training.desc": "Un petit échauffement ?",
+    "carte.training.desc": "Sans risque. Pour comprendre.",
     "carte.ranked.titre": "CLASSÉ",
     "carte.ranked.desc": "Quelqu'un de ton niveau. La même partie que lui.",
     "carnet.titre": "CARNET DES RÈGLES",
-    "carnet.palmares": "TON PALMARÈS",
-    "brief.go": "COMMENCER",
+    "brief.meme": "MÊME PARTIE POUR TOUT LE MONDE",
+    "fin.legendeOk": "TENUE",
+    "fin.legendePiege": "PIÈGE DÉJOUÉ",
+    "fin.legendeChute": "CHUTE",
+    "fin.labQuetes": "QUÊTES",
+    "fin.labSerie": "SÉRIE",
+    "fin.labCarnet": "CARNET",
+    "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
     "commun.retour": "RETOUR",
     "commun.menu": "MENU",
     "fin.quetes": "QUÊTES DU JOUR",
     "fin.enregistrer": "ENREGISTRER",
-    "fin.rejouer": "REJOUER · R",
+    "fin.rejouer": "ENCORE · R",
     "fin.partager": "PARTAGER",
     "fin.defier": "DÉFIER UN AMI",
     "fin.titres": "TITRES DU MATCH",
@@ -241,7 +262,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
     "piege.rien": "TU N'AS RIEN FAIT",
     "piege.dejoue": "PIÈGE DÉJOUÉ",
-    "but.aBattre": "LE RECORD DU JOUR",
+    "but.aBattre": "LE RECORD À BATTRE",
     "nav.classement": "CLASSEMENT",
     "etat.collection": "TA COLLECTION",
     "etat.mater": "À MATER",
@@ -254,10 +275,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "but.premier": "Sois le premier.",
     "but.tenter": "TENTER LA RUN DU JOUR",
     "nav.cartes": "CARTES",
-    "nav.training": "ENTRAÎNEMENT",
+    "nav.training": "TRAINING",
     "nav.jouer": "JOUER",
-    "nav.daily": "DU JOUR",
+    "nav.daily": "DAILY",
     "nav.multi": "MULTI",
+    "carnet.collection": "COLLECTION",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
     "fiche.retour": "◂ LA COLLECTION",
     "compte.nom": "CHANGER DE NOM",
@@ -313,14 +335,34 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.lancer": "LANCER LA PARTIE",
     "salon.nom": "CHOISIR TON NOM",
     "salon.quitter": "QUITTER LE SALON",
+    "fin.site": "THEONERULE.PARTY",
+    "vide.titre": "Seize règles t'attendent.",
+    "vide.trouver": "EN TROUVER UNE",
+    "aria.micro": "Annonce",
+    "aria.toast": "Notification",
   },
   en: {
     "home.play": "PLAY",
+    "trio.regle": "1 RULE",
+    "trio.regleQuoi": "the whole run",
+    "trio.sec": "2 SEC.",
+    "trio.secQuoi": "per order",
+    "trio.rien": "DO NOTHING",
+    "trio.rienQuoi": "when it's a trap",
+    "trio.regleLong": "ONE SINGLE RULE",
+    "trio.regleLongQuoi": "Drawn for the whole run, shown at the top.",
+    "trio.secLong": "ONE ORDER / 2 S",
+    "trio.secLongQuoi": "Obey fast. The window tightens.",
+    "trio.rienLong": "SOMETIMES: NOTHING",
+    "trio.rienLongQuoi": "When the order breaks your rule, do nothing.",
     "onb.regleUnique": "YOUR ONE RULE",
-    "onb.t1.titre": "The game gives you one single rule.",
-    "onb.t1.lede": "It holds for the whole run, and it stays on screen.",
+    "onb.t1.avant": "The game gives you",
+    "onb.t1.sujet": "one single rule",
+    "onb.t1.lede": "It stays on screen. The whole run.",
     "onb.t1.pied": "NO CLOCK HAS STARTED YET",
-    "onb.t2.titre": "On top of it, an order arrives every two seconds.",
+    "onb.t2.avant": "On top of it, an",
+    "onb.t2.sujet": "order",
+    "onb.t2.apres": "arrives every two seconds.",
     "onb.t2.cas1": "CASE 1 · THE ORDER FITS YOUR RULE",
     "onb.t2.rep1": "You click. The blue square breaks no rule.",
     "onb.t2.cas2": "CASE 2 · THE ORDER BREAKS YOUR RULE",
@@ -332,7 +374,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "onb.t4.geste": "Read the order · check it against your rule · click.",
     "onb.t4.pied": "MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.",
     "onb.t6.rien": "YOU DID NOTHING.",
-    "onb.t6.titre": "That is exactly the game.",
+    "onb.t6.titre": "That is the game.",
     "onb.t6.debloquee": "FIRST CARD UNLOCKED",
     "onb.passer": "SKIP",
     "piege.court": "If an order breaks your rule, do NOTHING.",
@@ -356,24 +398,30 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "mesure.refuser": "DECLINE",
     "mesure.accord": "GOT IT",
     "solo.eyebrow": "SOLO",
-    "solo.titre": "YOU AGAINST YOURSELF",
+    "solo.titre": "YOU VS YOU",
     "carte.daily.titre": "DAILY RUN",
     "carte.escalade.titre": "CLIMB",
     "carte.escalade.desc": "One rule. Then two. Then three.",
     "carte.training.titre": "TRAINING",
-    "carte.training.desc": "A quick warm-up?",
+    "carte.training.desc": "No risk. Just to get it.",
     "carte.ranked.titre": "RANKED",
     "carte.ranked.desc": "Someone at your level. The very same run.",
     "carnet.titre": "RULE BOOK",
-    "carnet.palmares": "YOUR RECORD",
-    "brief.go": "START",
+    "brief.meme": "SAME RUN FOR EVERYONE",
+    "fin.legendeOk": "HELD",
+    "fin.legendePiege": "TRAP DODGED",
+    "fin.legendeChute": "FALL",
+    "fin.labQuetes": "QUESTS",
+    "fin.labSerie": "STREAK",
+    "fin.labCarnet": "CODEX",
+    "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
     "commun.retour": "BACK",
     "commun.menu": "MENU",
     "fin.quetes": "TODAY'S QUESTS",
     "fin.enregistrer": "SAVE THIS",
-    "fin.rejouer": "PLAY AGAIN · R",
+    "fin.rejouer": "AGAIN · R",
     "fin.partager": "SHARE",
     "fin.defier": "CHALLENGE A FRIEND",
     "fin.titres": "MATCH TITLES",
@@ -414,7 +462,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.decouverte": "RULE DISCOVERED",
     "piege.rien": "YOU DID NOTHING",
     "piege.dejoue": "TRAP DEFUSED",
-    "but.aBattre": "TODAY'S RECORD",
+    "but.aBattre": "THE RECORD TO BEAT",
     "nav.classement": "RANKING",
     "etat.collection": "YOUR COLLECTION",
     "etat.mater": "TO MASTER",
@@ -431,6 +479,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "nav.jouer": "PLAY",
     "nav.daily": "DAILY",
     "nav.multi": "MULTI",
+    "carnet.collection": "COLLECTION",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
     "fiche.retour": "◂ COLLECTION",
     "compte.nom": "CHANGE NAME",
@@ -486,6 +535,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.lancer": "START THE MATCH",
     "salon.nom": "PICK YOUR NAME",
     "salon.quitter": "LEAVE THE ROOM",
+    "fin.site": "THEONERULE.PARTY",
+    "vide.titre": "Sixteen rules are waiting.",
+    "vide.trouver": "FIND ONE",
+    "aria.micro": "Announcement",
+    "aria.toast": "Notice",
   },
 };
 
@@ -521,6 +575,7 @@ type Dyn = {
   carteMaitrisee: string;
   carteNouvelle: string;
   codexVide: string;
+  salleTitre: string;
   /* --- la salle de travail --- */
   filtreAMater: (n: number) => string;
   filtreMaitrisees: (n: number) => string;
@@ -748,6 +803,29 @@ type Dyn = {
   finSansFaute: string;
   finSurTotal: (total: number) => string;
   finManchesTenues: string;
+  overCompRecord: (n: number) => string;
+  overCompMediane: (n: number) => string;
+  overCompAbsolu: (n: number) => string;
+  finBattu: string;
+  overAncien: (n: number) => string;
+  overCarteRegle: (regle: string, pieges: number) => string;
+  overManque: (n: number) => string;
+  overManquePas: string;
+  finPartagerCarte: string;
+  microDecouverte: string;
+  microMaitrisee: string;
+  microEchauffement: string;
+  microEchauffementQuoi: string;
+  microMaitriseQuoi: string;
+  microCarnet: (vues: number, total: number) => string;
+  toastLien: string;
+  toastEntre: (nom: string, n: number, max: number) => string;
+  toastAllure: string;
+  pastilleSur: (n: number) => string;
+  pastilleRecord: (n: number) => string;
+  hudVite: string;
+  hudPieges: (n: number) => string;
+  puceDe: (id: string) => string;
   allureRef: string;
   alluurePlus: (ref: string) => string;
   allureMoins: (ref: string) => string;
@@ -899,6 +977,51 @@ type Dyn = {
  * à dix joueurs, donc le cas ne se pose pas aujourd'hui — mais une table de
  * traduction qui a raison par accident finit par avoir tort.
  */
+/**
+ * Puces d'interdit sous la consigne — escalade à deux règles et plus.
+ *
+ * Le bandeau ne tient qu'UNE ligne de brief. Deux interdits deviennent
+ * deux puces, fusionnées à `#sub` pour ne pas rogner le champ.
+ */
+const PUCES: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "PAS DE ROUGE",
+    azur: "PAS DE BLEU",
+    pointe: "PAS DE TRIANGLE",
+    roue: "PAS DE ROND",
+    voyelle: "PAS DE VOYELLE",
+    colosse: "PAS LE PLUS GROS",
+    gaucher: "PAS À GAUCHE",
+    solitaire: "PAS DE SEUL",
+    angles: "PAS LES COINS",
+    seconde: "PAS TROP TÔT",
+    eclair: "ÇA DISPARAÎT",
+    menteur: "MÉFIE-TOI",
+    daltonien: "PAS LE MOT",
+    jumeau: "DEUX FOIS",
+    acceleration: "PLUS VITE",
+    mainGauche: "MAIN GAUCHE",
+  },
+  en: {
+    sang: "NO RED",
+    azur: "NO BLUE",
+    pointe: "NO TRIANGLE",
+    roue: "NO CIRCLE",
+    voyelle: "NO VOWEL",
+    colosse: "NOT THE BIGGEST",
+    gaucher: "NOT LEFT",
+    solitaire: "NOT ALONE",
+    angles: "NO CORNERS",
+    seconde: "NOT TOO SOON",
+    eclair: "IT VANISHES",
+    menteur: "DON'T TRUST",
+    daltonien: "NOT THE WORD",
+    jumeau: "TWICE",
+    acceleration: "FASTER",
+    mainGauche: "LEFT HAND",
+  },
+};
+
 function rangSuffixe(n: number): string {
   const d = n % 10;
   const c = n % 100;
@@ -919,6 +1042,7 @@ const DYN: Record<Lang, Dyn> = {
     carteEnCours: "EN COURS",
     carteMaitrisee: "MAÎTRISÉE",
     carteNouvelle: "NOUVELLE",
+    salleTitre: "MAÎTRISE TES RÈGLES",
     codexVide:
       "Aucune règle rencontrée pour l'instant. Lance une partie : une carte se débloque en JOUANT, jamais en lisant.",
     filtreAMater: (n) => `À MATER · ${n}`,
@@ -1146,6 +1270,33 @@ const DYN: Record<Lang, Dyn> = {
     finSansFaute: "MANCHES · SANS FAUTE",
     finSurTotal: (t) => `MANCHES SUR ${t}`,
     finManchesTenues: "MANCHES TENUES",
+    overCompRecord: (n) => `TON RECORD · ${n}`,
+    overCompMediane: (n) => `MÉDIANE · ${n}`,
+    overCompAbsolu: (n) => `RECORD · ${n}`,
+    finBattu: "TU AS BATTU TON RECORD",
+    overAncien: (n) => `ANCIEN · ${n}`,
+    overCarteRegle: (regle, pieges) =>
+      `${regle} · ${pieges} PIÈGE${pieges > 1 ? "S" : ""} DÉJOUÉ${pieges > 1 ? "S" : ""}`,
+    overManque: (n) =>
+      `IL TE MANQUE ${n} MANCHE${n > 1 ? "S" : ""} POUR LE RECORD`,
+    overManquePas: "TU FAIS MIEUX QUE LE RECORD CONNU",
+    finPartagerCarte: "PARTAGER LA CARTE",
+    microDecouverte: "RÈGLE DÉCOUVERTE",
+    microMaitrisee: "RÈGLE MAÎTRISÉE",
+    microEchauffement: "L'ÉCHAUFFEMENT EST FINI",
+    microEchauffementQuoi: "À partir de maintenant, une erreur coûte une vie.",
+    microMaitriseQuoi:
+      "Tu as tenu 15 manches ET déjoué ses pièges. C'est ça, maîtriser une règle.",
+    microCarnet: (vues, total) => `ELLE ENTRE AU CARNET · ${vues} / ${total}`,
+    toastLien: "LIEN COPIÉ",
+    toastEntre: (nom, n, max) => `${nom} ENTRE · ${n} / ${max}`,
+    toastAllure: "ALLURE",
+    pastilleSur: (n) => `+${n} SUR TON MIEUX`,
+    pastilleRecord: (n) => `RECORD DÉPASSÉ · ${n}`,
+    hudVite: "VITE",
+    hudPieges: (n) =>
+      `${n} PIÈGE${n > 1 ? "S" : ""} DÉJOUÉ${n > 1 ? "S" : ""}`,
+    puceDe: (id) => PUCES.fr[id] ?? "",
     allureRef: "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD",
     alluurePlus: (r) => `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
     allureMoins: (r) => `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
@@ -1289,7 +1440,7 @@ const DYN: Record<Lang, Dyn> = {
     goMatchSuivant: "MATCH SUIVANT · R",
     goRevanche: "REVANCHE · R",
     goReviensDemain: "REVIENS DEMAIN",
-    goRejouer: "REJOUER · R",
+    goRejouer: "ENCORE · R",
     regleAjoutee: (r) => `+ ${r}`,
     partageTexte: (sc, r, url) =>
       `Je tiens ${sc} manches sur ${r}. Même partie, même ordre. ${url}`,
@@ -1321,6 +1472,7 @@ const DYN: Record<Lang, Dyn> = {
     carteEnCours: "IN PROGRESS",
     carteMaitrisee: "MASTERED",
     carteNouvelle: "NEW",
+    salleTitre: "MASTER YOUR RULES",
     codexVide:
       "No rule met yet. Start a run: a card unlocks by PLAYING, never by reading.",
     filtreAMater: (n) => `TO MASTER · ${n}`,
@@ -1538,6 +1690,32 @@ const DYN: Record<Lang, Dyn> = {
     finSansFaute: "ROUNDS · FLAWLESS",
     finSurTotal: (t) => `ROUNDS OUT OF ${t}`,
     finManchesTenues: "ROUNDS HELD",
+    overCompRecord: (n) => `YOUR BEST · ${n}`,
+    overCompMediane: (n) => `MEDIAN · ${n}`,
+    overCompAbsolu: (n) => `RECORD · ${n}`,
+    finBattu: "YOU BEAT YOUR RECORD",
+    overAncien: (n) => `PREVIOUS · ${n}`,
+    overCarteRegle: (regle, pieges) =>
+      `${regle} · ${pieges} TRAP${pieges === 1 ? "" : "S"} DEFUSED`,
+    overManque: (n) =>
+      `YOU NEED ${n} MORE ROUND${n === 1 ? "" : "S"} TO MATCH THE RECORD`,
+    overManquePas: "YOU ARE PAST THE KNOWN RECORD",
+    finPartagerCarte: "SHARE THE CARD",
+    microDecouverte: "RULE DISCOVERED",
+    microMaitrisee: "RULE MASTERED",
+    microEchauffement: "WARM-UP IS OVER",
+    microEchauffementQuoi: "From now on, a mistake costs a life.",
+    microMaitriseQuoi:
+      "You held 15 rounds AND defused its traps. That is what mastering a rule means.",
+    microCarnet: (vues, total) => `IT ENTERS THE CODEX · ${vues} / ${total}`,
+    toastLien: "LINK COPIED",
+    toastEntre: (nom, n, max) => `${nom} JUST IN · ${n} / ${max}`,
+    toastAllure: "PACE",
+    pastilleSur: (n) => `+${n} OVER YOUR BEST`,
+    pastilleRecord: (n) => `RECORD BEATEN · ${n}`,
+    hudVite: "FAST",
+    hudPieges: (n) => `${n} TRAP${n === 1 ? "" : "S"} DEFUSED`,
+    puceDe: (id) => PUCES.en[id] ?? "",
     allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",
     alluurePlus: (r) => `MORE TIME TO LEARN · ONLY ${r} SETS YOUR BEST`,
     allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
@@ -1654,7 +1832,7 @@ const DYN: Record<Lang, Dyn> = {
     goMatchSuivant: "NEXT MATCH · R",
     goRevanche: "REMATCH · R",
     goReviensDemain: "COME BACK TOMORROW",
-    goRejouer: "PLAY AGAIN · R",
+    goRejouer: "AGAIN · R",
     regleAjoutee: (r) => `+ ${r}`,
     partageTexte: (sc, r, url) => `I held ${sc} rounds under ${r}. Same run, same order. ${url}`,
     partageTitreJour: (j) => `THE ONE RULE #${j}`,

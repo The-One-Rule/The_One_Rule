@@ -1,5 +1,5 @@
 /**
- * L'OBJECTIF DE L'ACCUEIL.
+ * L'OBJECTIF DE L'ACCUEIL, ET LE MUR DES RECORDS.
  *
  * Demandé par Pierre : « le record doit devenir une motivation naturelle à
  * lancer une partie », et « uniquement des données réelles ».
@@ -12,23 +12,32 @@
  */
 import { describe, expect, it } from "vitest";
 import { MEILLEUR_CONNU, vueBut } from "../src/render/but";
+import type { SiennesDuJoueur } from "../src/render/but";
 import { PACE_CHOICES, PACE_DEFAULT } from "../src/engine/difficulty";
 import { cleEntrainement } from "../src/game/perfs";
 import { recordDeSonAllure } from "../src/game/progress";
 import type { Save } from "../src/game/progress";
 
+/** Un joueur qui n'a rien fait dans aucune des deux épreuves. */
+const RIEN: SiennesDuJoueur = { jour: null, entrainement: 0 };
+
+const siennes = (jour: number | null, entrainement = 0): SiennesDuJoueur => ({
+  jour,
+  entrainement,
+});
+
 describe("la cible à battre", () => {
-  it("⚠️ le RUN DU JOUR l'emporte des qu'il existe", () => {
+  it("⚠️ le RUN DU JOUR l'emporte dès qu'il existe", () => {
     /*
-     * C'est la meilleure cible qu'on puisse donner : verifiee par le serveur
-     * (`verifyRun` a rejoue le journal), VIVANTE — elle change chaque jour — et
+     * C'est la meilleure cible qu'on puisse donner : vérifiée par le serveur
+     * (`verifyRun` a rejoué le journal), VIVANTE — elle change chaque jour — et
      * bien plus atteignable qu'un record de tous les temps.
      *
-     * La mediane du PREMIER run d'un joueur est de 4 manches. Lui opposer 201
-     * ne dit pas « essaie de me battre », ca dit « tu ne seras jamais bon a ce
-     * jeu ». Le score du jour, lui, est a sa portee.
+     * La médiane du PREMIER run d'un joueur est de 4 manches. Lui opposer 201
+     * ne dit pas « essaie de me battre », ça dit « tu ne seras jamais bon à ce
+     * jeu ». Le score du jour, lui, est à sa portée.
      */
-    const v = vueBut(0, 34);
+    const v = vueBut(RIEN, 34);
     expect(v.cible.score).toBe(34);
     expect(v.cible.source).toBe("jour");
   });
@@ -36,9 +45,9 @@ describe("la cible à battre", () => {
   it("se rabat sur l'ENTRAÎNEMENT quand le classement se tait — SUR LE MUR", () => {
     // Le mur des records l'étiquette, et un mur sans record n'est plus un mur.
     for (const muet of [null, 0]) {
-      const v = vueBut(0, muet, "entrainement");
-      expect(v.cible!.score).toBe(MEILLEUR_CONNU.score);
-      expect(v.cible!.source).toBe("entrainement");
+      const v = vueBut(RIEN, muet, "entrainement");
+      expect(v.cible.score).toBe(MEILLEUR_CONNU.score);
+      expect(v.cible.source).toBe("entrainement");
     }
   });
 
@@ -47,66 +56,83 @@ describe("la cible à battre", () => {
      * LA CARTE DE L'ACCUEIL PARLE DU RUN DU JOUR, ET DE RIEN D'AUTRE.
      *
      * Y glisser le meilleur connu en entraînement mettrait deux épreuves sous
-     * un même cadre — une graine et une règle communes à tous d'un côté, une
-     * allure choisie sur une règle choisie de l'autre. C'est le chiffre faux
-     * que tout ce module existe pour interdire.
-     *
-     * ⚠️ Et ce n'est pas un cas rare : tant que le déploiement n'a ni Supabase
-     * ni fournisseur OAuth, `classementDuJour` rend `null` pour tout le monde,
-     * tous les jours. C'est l'état que la plupart des visiteurs voient.
+     * un même cadre. ⚠️ Et ce n'est pas un cas rare : tant que le déploiement
+     * n'a ni Supabase ni fournisseur OAuth, `classementDuJour` rend `null`
+     * pour tout le monde, tous les jours.
      */
     for (const muet of [null, 0]) {
-      expect(vueBut(0, muet, "aucun").cible).toBeNull();
-      expect(vueBut(37, muet, "aucun").cible).toBeNull();
+      expect(vueBut(RIEN, muet, "aucun").cible).toBeNull();
+      expect(vueBut(siennes(37), muet, "aucun").cible).toBeNull();
     }
   });
 
-  it("⚠️ sans cible, on ne DÉPASSE rien", () => {
-    // Un joueur à 37 face à personne n'a battu personne : « tu fais mieux que
-    // ça » n'aurait aucun antécédent.
-    expect(vueBut(37, null, "aucun").depasse).toBe(false);
-    // Mais son chiffre reste affichable — il a bien joué.
-    expect(vueBut(37, null, "aucun").sien).toBe(37);
-  });
-
   it("⚠️ le 201 n'est JAMAIS étiqueté run du jour", () => {
-    /*
-     * LE point du module. Le 201 a été fait en ENTRAÎNEMENT, à une allure
-     * choisie, sur une règle choisie. La table `performance` ne contient que
-     * des runs du jour vérifiés, donc son maximum n'est pas celui-ci et ne le
-     * sera jamais.
-     *
-     * L'étiqueter « run du jour » serait une fausse statistique — exactement ce
-     * que la consigne interdit.
-     */
-    const v = vueBut(0, null);
+    const v = vueBut(RIEN, null);
     expect(v.cible.score).toBe(MEILLEUR_CONNU.score);
     expect(v.cible.source).not.toBe("jour");
   });
 
   it("le mode est toujours l'un des deux, jamais vide", () => {
     for (const duJour of [null, 0, 1, 34, 500]) {
-      expect(["jour", "entrainement"]).toContain(vueBut(12, duJour).cible.source);
+      expect(["jour", "entrainement"]).toContain(
+        vueBut(siennes(12, 12), duJour).cible.source,
+      );
     }
   });
 });
 
-describe("le chiffre du joueur", () => {
+describe("le chiffre du joueur SUIT l'épreuve de la cible", () => {
+  it("⚠️ LE DÉFAUT QUE CE MODULE EXISTE POUR RENDRE IMPOSSIBLE", () => {
+    /*
+     * Le mur des records passait `recordDeSonAllure` — le record
+     * d'ENTRAÎNEMENT — pendant que sa cible venait du classement du JOUR dès
+     * que celui-ci répondait. Il comparait donc un record fait à une allure
+     * choisie, sur une règle choisie, au meilleur du jour où tout le monde joue
+     * la même graine et la même règle. « Il te manque 170 manches » ne voulait
+     * rien dire.
+     *
+     * En prenant les DEUX chiffres, le module choisit celui qui correspond à la
+     * cible qu'il vient lui-même d'élire : l'appelant ne peut plus se tromper.
+     * C'est ce qui rend l'invariant structurel au lieu de compter sur la
+     * vigilance de chaque écran.
+     */
+    const j = siennes(27, 201);
+    // Cible du JOUR → on lit son score DU JOUR, jamais son record d'entraînement.
+    expect(vueBut(j, 34).sien).toBe(27);
+    // Cible d'ENTRAÎNEMENT → on lit son record d'entraînement.
+    expect(vueBut(j, null).sien).toBe(201);
+  });
+
+  it("un joueur qui n'a pas joué aujourd'hui n'oppose rien à la cible du jour", () => {
+    const j = siennes(null, 201);
+    expect(vueBut(j, 34).sien, "son 201 d'entraînement n'a rien à faire ici").toBeNull();
+    expect(vueBut(j, 34).depasse).toBe(false);
+  });
+
   it("apparaît À CÔTÉ de la cible dès qu'il existe", () => {
-    // À côté, jamais à la place : c'est ce qui rend la cible comparable au lieu
-    // de l'opposer.
-    expect(vueBut(23, 34).sien).toBe(23);
-    expect(vueBut(0, 34).sien, "un joueur sans record n'en montre pas").toBeNull();
+    expect(vueBut(siennes(23), 34).sien).toBe(23);
+    expect(vueBut(RIEN, 34).sien, "un joueur sans score n'en montre pas").toBeNull();
   });
 
   it("⚠️ le jeu ne dit pas à quelqu'un qu'il est moins bon que ce qu'il fait", () => {
     // Sans ça, un joueur à 240 lirait « le record à battre : 201 » — le jeu lui
     // dirait qu'il est moins bon que quelqu'un qu'il vient de dépasser.
-    expect(vueBut(MEILLEUR_CONNU.score + 39, null).depasse).toBe(true);
-    expect(vueBut(MEILLEUR_CONNU.score, null).depasse, "à égalité aussi").toBe(true);
-    expect(vueBut(MEILLEUR_CONNU.score - 1, null).depasse).toBe(false);
+    expect(vueBut(siennes(null, MEILLEUR_CONNU.score + 39), null).depasse).toBe(true);
+    expect(
+      vueBut(siennes(null, MEILLEUR_CONNU.score), null).depasse,
+      "à égalité aussi",
+    ).toBe(true);
+    expect(vueBut(siennes(null, MEILLEUR_CONNU.score - 1), null).depasse).toBe(false);
     // Et ça vaut aussi contre le record du jour, qui est bien plus battable.
-    expect(vueBut(40, 34).depasse).toBe(true);
+    expect(vueBut(siennes(40), 34).depasse).toBe(true);
+  });
+
+  it("⚠️ sans cible, on ne DÉPASSE rien", () => {
+    // Un joueur à 37 face à personne n'a battu personne : « tu fais mieux que
+    // ça » n'aurait aucun antécédent — et son chiffre n'a rien à quoi se
+    // comparer, donc il ne s'affiche pas non plus.
+    expect(vueBut(siennes(37), null, "aucun").depasse).toBe(false);
+    expect(vueBut(siennes(37), null, "aucun").sien).toBeNull();
   });
 });
 
@@ -123,7 +149,7 @@ describe("le record lu sur l'accueil", () => {
      */
     const s = sauve({ trainingPace: 2, records: { [cleEntrainement(2)]: 23 }, bestTraining: 0 });
     expect(recordDeSonAllure(s)).toBe(23);
-    expect(vueBut(recordDeSonAllure(s), null).sien).toBe(23);
+    expect(vueBut(siennes(null, recordDeSonAllure(s)), null).sien).toBe(23);
   });
 
   it("ne mélange jamais deux allures", () => {

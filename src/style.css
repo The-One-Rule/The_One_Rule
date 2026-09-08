@@ -514,7 +514,7 @@ body {
   white-space: nowrap;
 }
 
-.band__meta:not(:empty) {
+.band__meta.is-on:not(.is-stat) {
   border: var(--bd-hair) solid var(--signal);
   padding: 4px var(--sp-2);
 }
@@ -2314,6 +2314,11 @@ body {
 #home .coupe,
 #home .faille {
   order: 0;
+}
+
+/* La source n'a pas de fineprint sous la faille, ni en 375 ni en 1280. */
+#home .home__foot {
+  display: none;
 }
 
 @media (min-width: 900px) {
@@ -5039,31 +5044,18 @@ button.chip:active:not(:disabled) {
  * se resserre : ses trois valeurs restent lisibles à 17 px.
  */
 @media (max-width: 680px) {
+  /* Maquette isJeu (375) : le brief reste, le pied reste à 22 px.
+     Les cacher/réduire faisait un autre écran que celui de la source. */
   #band {
-    padding: var(--sp-1) var(--sp-2) var(--sp-1) 0;
-  }
-
-  /* Le brief est déjà donné en plein cadre au départ ; sur un écran de cette
-     taille, il coûte plus de terrain qu'il ne rend de service. */
-  .band__brief {
-    display: none;
+    padding: 9px 14px 9px 0;
   }
 
   .band__mark {
-    width: 9px;
+    width: 14px;
   }
 
   #foot {
-    padding: var(--sp-1) var(--sp-2);
-  }
-
-  .foot__value {
-    font-size: 17px;
-  }
-
-  .foot__value.lifedots i {
-    width: 9px;
-    height: 9px;
+    padding: 9px 14px;
   }
 
   /* Le fil des chutes ne doit pas couvrir la moitié d'un écran de téléphone. */
@@ -5152,21 +5144,22 @@ button.chip:active:not(:disabled) {
 
 @media (max-width: 680px) {
   #head {
-    padding-top: 16px;
+    padding: 22px 16px 0;
   }
   .band__meta {
     display: none;
   }
   .band__brief {
     font-size: 10px;
+    letter-spacing: 0.08em;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
   #instr {
-    font-size: 34px;
-    line-height: 1.02;
+    font-size: 36px;
+    line-height: 0.96;
   }
 }
 
@@ -5197,6 +5190,8 @@ button.chip:active:not(:disabled) {
   --px: 4px;
   /** Le grain : presque invisible seul, structurant sur une grande surface. */
   --grain: color-mix(in srgb, var(--paper) 4%, transparent);
+  /** L'ombre d'un objet qu'on peut presser. Sans flou : des angles droits. */
+  --relief: 4px 4px 0 color-mix(in srgb, var(--signal) 40%, transparent);
 }
 
 /*
@@ -5373,12 +5368,24 @@ button.chip:active:not(:disabled) {
 #home.screen {
   padding-left: 0;
   padding-right: 0;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* La barre est prepend dans l'ecran : `min-height: 100%` sur le corps
+   additionnait sa hauteur a celle de la barre (mesure : 868 pour 812). */
+#home.screen > .topbar {
+  flex: none;
+  margin: 0;
+  width: 100%;
 }
 
 #home .screen__scroll {
   max-width: none;
   width: 100%;
-  min-height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin: 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -6663,6 +6670,111 @@ button.chip:active:not(:disabled) {
 }
 
 /* ==================================================================
+   LE TRIO DIDACTIQUE — vues A (375) et dhome (1280)
+
+   Trois tuiles, pas un paragraphe. La maquette les pose AVANT le record
+   et la faille : c'est ce qui fait lire le concept sans defiler.
+   La troisieme porte `--signal` : c'est le piege.
+
+   Deux libelles par tuile (court / long) : a 375 les mots longs
+   (« UNE SEULE REGLE ») ne tiennent pas, a 1280 les courts ont l'air
+   d'un telegramme. Le CSS en montre un seul a la fois.
+   ================================================================== */
+.trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.trio__carte {
+  padding: 9px 8px;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  text-align: center;
+}
+
+.trio__carte--signal {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 10%, transparent);
+}
+
+.trio__ico {
+  display: block;
+  width: 100%;
+  height: 24px;
+  color: var(--signal);
+}
+
+.trio__titre {
+  margin: 7px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--signal-pale);
+}
+
+.trio__quoi {
+  margin: 3px 0 0;
+  font-family: var(--display);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--paper-dim);
+}
+
+.trio__carte--signal .trio__quoi--long {
+  color: var(--paper);
+}
+
+.trio__titre--long,
+.trio__quoi--long {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  #home .trio {
+    display: flex;
+    gap: 10px;
+    margin-top: 26px;
+  }
+
+  #home .trio__carte {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 13px 14px;
+    text-align: left;
+  }
+
+  #home .trio__ico {
+    width: 44px;
+    height: 24px;
+  }
+
+  #home .trio__titre {
+    margin-top: 9px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+
+  #home .trio__quoi {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  #home .trio__titre--court,
+  #home .trio__quoi--court {
+    display: none;
+  }
+
+  #home .trio__titre--long,
+  #home .trio__quoi--long {
+    display: block;
+  }
+}
+
+/* ==================================================================
  * BARRE HAUTE
  *
  * Hors flux, collée au haut de `#app`. L'écran défile dessous ; elle
@@ -6887,6 +6999,10 @@ button.chip:active:not(:disabled) {
 /* Le contenu reprend le centrage horizontal que la barre ne doit pas avoir. */
 #app.has-topbar .screen > .screen__scroll {
   margin: auto;
+}
+
+#app.has-topbar #home > .screen__scroll {
+  margin: 0;
 }
 
 /*
@@ -7876,6 +7992,21 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
+.onb__jauge {
+  display: flex;
+  gap: 4px;
+  height: 5px;
+}
+
+.onb__jauge i {
+  flex: 1;
+  background: var(--line);
+}
+
+.onb__jauge i.is-on {
+  background: var(--signal);
+}
+
 .onb__titre {
   margin: 0;
   font-family: var(--display);
@@ -7885,6 +8016,10 @@ button.chip:active:not(:disabled) {
   letter-spacing: -0.01em;
   text-wrap: balance;
   color: var(--paper);
+}
+
+.onb__sujet {
+  color: var(--signal-pale);
 }
 
 /* Le grand OUI / TU N'AS RIEN FAIT : le verdict avant l'explication. */
@@ -7909,15 +8044,25 @@ button.chip:active:not(:disabled) {
 /* Le cadre de la regle : le meme objet aux temps 1 et 4. */
 .onb__regle,
 .onb__carte {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 16px;
+  padding: 14px 16px 14px 28px;
   background: var(--ink-2);
   border: 1px solid var(--line);
-  /* Le filet d'accent a GAUCHE : --signal est reserve a la regle unique et a
-     l'action evidente, et ici c'est bien la regle unique. */
-  border-left: 3px solid var(--signal);
+}
+
+/* La barre hachuree de la maquette — meme vocabulaire que le logo. */
+.onb__regle::before,
+.onb__carte::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 6px, transparent 6px 12px);
 }
 
 .onb__nom {
@@ -8106,13 +8251,8 @@ button.chip:active:not(:disabled) {
  */
 @media (min-width: 900px) {
   /*
-   * ⚠️ ELLE PREND LA PLACE DES TROIS CARTES, elle ne s'y glisse pas.
-   *
-   * Demande de Pierre sur la vue 22/27 : les trois cartes explicatives ne se
-   * font pas, et leur espace revient a la carte de record. Mesure a
-   * 1280 x 860 : sans elle, la colonne de gauche laissait 170 px de vide entre
-   * la carte et la vitrine. Un chiffre qui occupe la place d'un bloc doit en
-   * avoir la taille — sinon la colonne a l'air inachevee, pas aeree.
+   * La bande de record VIT AVEC le trio, elle ne le remplace plus.
+   * Ces valeurs sont ecrasees plus bas par le bloc releve sur dhome.
    */
   #home .but {
     margin-top: 22px;
@@ -8351,13 +8491,21 @@ button.chip:active:not(:disabled) {
   inset: 0;
   z-index: 2;
   pointer-events: none;
-  /* Quatre traits par coin, en dur : deux gradients suffisent, un par axe. */
+  /* Quatre coins, deux traits chacun — la maquette desktop les pose tous. */
   background-image:
     linear-gradient(to right, var(--signal) 0 34px, transparent 34px),
     linear-gradient(to bottom, var(--signal) 0 34px, transparent 34px),
     linear-gradient(to left, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to bottom, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to right, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to top, var(--signal) 0 34px, transparent 34px),
+    linear-gradient(to left, var(--signal) 0 34px, transparent 34px),
     linear-gradient(to top, var(--signal) 0 34px, transparent 34px);
   background-size:
+    100% 3px,
+    3px 100%,
+    100% 3px,
+    3px 100%,
     100% 3px,
     3px 100%,
     100% 3px,
@@ -8365,6 +8513,10 @@ button.chip:active:not(:disabled) {
   background-position:
     left top,
     left top,
+    right top,
+    right top,
+    left bottom,
+    left bottom,
     right bottom,
     right bottom;
   background-repeat: no-repeat;
@@ -8690,7 +8842,8 @@ button.chip:active:not(:disabled) {
   max-width: 46ch;
 }
 
-.codexvide.hidden {
+.codexvide.hidden,
+.codexlist.hidden {
   display: none;
 }
 
@@ -8946,7 +9099,8 @@ button.chip:active:not(:disabled) {
 }
 
 .nav__item:hover,
-.nav__item:focus-visible {
+.nav__item:focus-visible,
+.nav__item.is-on {
   color: var(--paper);
 }
 
@@ -9219,6 +9373,46 @@ button.chip:active:not(:disabled) {
   border: var(--bd-hair) solid var(--line);
   border-left: 3px solid var(--signal);
   text-align: left;
+}
+
+.avance {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 12px;
+}
+
+.avance__img {
+  flex: none;
+  width: 60px;
+  height: 48px;
+  object-fit: cover;
+  image-rendering: pixelated;
+  border: 2px solid var(--signal);
+  background: var(--ink);
+}
+
+.avance__corps {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.avance__jauge {
+  display: flex;
+  gap: 3px;
+}
+
+.avance__jauge i {
+  flex: 1;
+  height: 7px;
+  background: var(--line);
+}
+
+.avance__jauge i.is-on {
+  background: var(--signal);
 }
 
 .avance.hidden,
@@ -10719,8 +10913,8 @@ button.chip:active:not(:disabled) {
      * milieu, et c'est mesure a 98,8 % de la largeur. Le retrait des colonnes
      * ne doit pas la rogner.
      */
-    width: calc(100% + 50px);
-    margin-left: -25px;
+    width: calc(100% + 56px);
+    margin-left: -28px;
     min-height: 0;
     /*
      * ⚠️ 25 vh et pas moins : a 181 px le mot SOLO etait coupe par le cadre de
@@ -11034,6 +11228,8 @@ button.chip:active:not(:disabled) {
   /* --- La grille : 1,55 / 1, gouttiere 40, retrait 28 ------------------ */
   #home .home {
     grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    min-height: 100%;
     gap: 0 40px;
     padding: 34px 28px 0;
   }
@@ -11078,8 +11274,11 @@ button.chip:active:not(:disabled) {
   }
 
   /* --- Le chapo : 26 px, deux lignes, la seconde en accent ------------- */
-  #home .lede--court {
+  #home .lede--court,
+  #home .home__brand .lede {
     margin: 20px 0 0;
+    padding: 0;
+    background: none;
     font-family: var(--display);
     font-weight: 600;
     font-size: 26px;
@@ -11088,6 +11287,7 @@ button.chip:active:not(:disabled) {
     color: var(--paper);
     max-width: 26ch;
     text-align: left;
+    width: auto;
   }
 
   #home .lede--court span {
@@ -11619,6 +11819,98 @@ button.chip:active:not(:disabled) {
   .logo::before {
     width: 6px;
   }
+
+  /*
+   * ACCUEIL MOBILE — vue A, 375 x 812.
+   *
+   * Logo 44 + slogan 16 + trio + bande record + faille flex (min 186).
+   * Pas de PLAY dans le corps (il est dans la barre), pas de coupe, pas
+   * de fineprint : aucun de ces trois n'est dans la source.
+   */
+  #home .screen__scroll {
+    gap: 0;
+    padding-bottom: 70px;
+  }
+
+  #home .home__brand {
+    padding: 22px 16px 0;
+  }
+
+  #home .lede__avant,
+  #home .lede__saut {
+    display: none;
+  }
+
+  #home .lede--court,
+  #home .home__brand .lede {
+    width: auto;
+    max-width: none;
+    margin: 12px 0 0;
+    padding: 0;
+    background: none;
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+    text-align: center;
+  }
+
+  #home .coupe,
+  #home .home__foot {
+    display: none;
+  }
+
+  #home .but {
+    margin-top: 18px;
+    width: 100%;
+  }
+
+  #home .but__plein,
+  #home .but__vide {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 13px;
+    border: var(--bd-hair) solid var(--line);
+    border-left: 4px solid var(--ambre);
+    background: var(--ink-2);
+    text-align: left;
+  }
+
+  #home .but__chiffre {
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--ambre);
+  }
+
+  #home .but__unite {
+    margin: 2px 0 0;
+    font-size: 9px;
+    letter-spacing: 0.16em;
+  }
+
+  #home .but__milieu {
+    text-align: left;
+  }
+
+  #home .but__premier {
+    margin: 4px 0 0;
+    font-size: 14px;
+  }
+
+  /* Le bouton TENTER double DAILY dans la barre : a 375 il mange
+     la hauteur que le trio vient de prendre. */
+  #home .but__vide .btn {
+    display: none;
+  }
+
+  #home .faille {
+    min-height: 186px;
+    margin-top: 18px;
+  }
 }
 
 /* ==================================================================
@@ -11794,7 +12086,8 @@ button.chip:active:not(:disabled) {
    badge 7,5px .14em padding 3px 5px · pied 7px 8px 8px, nom 13px lh 1
    ================================================================== */
 
-#codex .codexbar__total {
+#codex .codexbar__total,
+#codex #codexTitre {
   font-size: 28px;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -12335,4 +12628,2160 @@ button.chip:active:not(:disabled) {
   font-size: 13px;
   line-height: 1.45;
   letter-spacing: 0;
+}
+
+/* ==================================================================
+   PAGES RESTANTES — onboarding, brief du jour, fin de run, hub solo
+   ================================================================== */
+
+.onb__demo {
+  display: block;
+  width: 100%;
+  max-width: 200px;
+  height: 46px;
+  margin: 8px 0 0;
+}
+
+#onb .btnrow {
+  flex-direction: column;
+}
+
+#onb #btnOnbNext {
+  width: 100%;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  padding: 15px;
+}
+
+.brief__meme {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: var(--signal-pale);
+}
+
+.brief__meme.hidden {
+  display: none;
+}
+
+.over__comp {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 14px;
+  margin: 12px 0 0;
+}
+
+.over__comp p {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.over__comp.hidden {
+  display: none;
+}
+
+.over__legende {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 14px;
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+
+.over__chiffres {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 0 16px;
+}
+
+.over__cel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--ink-2);
+  text-align: center;
+}
+
+.over__cel b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--paper);
+}
+
+.over__cel span {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+#solo .screen__scroll {
+  padding: 20px 16px;
+}
+
+#solo .rulename {
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+#solo .card__title {
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+/* ==================================================================
+   LA SALLE — une seule peau pour tout le site
+
+   Carte blanche, une contrainte : la logique de jeu ne bouge pas.
+   Le terrain garde sa taille. Les menus deviennent une SALLE de nuit —
+   des objets qu'on presse, un premier passage qui enseigne le piege,
+   et le plaisir d'un objet physique plutot que d'une page.
+
+   Identite tenue : pas de degrade, pas d'arrondi hors pieces, capitales,
+   --signal reserve a la regle et a l'action evidente.
+   ================================================================== */
+
+#app {
+  border-left-color: color-mix(in srgb, var(--signal) 22%, var(--line));
+  border-right-color: color-mix(in srgb, var(--signal) 22%, var(--line));
+}
+
+#app::before {
+  opacity: 1;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 8% -10%, rgba(145, 132, 217, 0.14), transparent),
+    radial-gradient(ellipse 55% 38% at 96% 0%, rgba(247, 64, 88, 0.05), transparent),
+    radial-gradient(circle at center, var(--line) 1px, transparent 1.35px);
+  background-size: auto, auto, 22px 22px;
+}
+
+/* Chaque ecran de menu est une piece : un cadre interieur, des coins haches. */
+#app.has-topbar .screen:not(#home)::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  border: var(--bd-hair) solid color-mix(in srgb, var(--signal) 16%, transparent);
+  box-shadow:
+    8px 0 0 -7px var(--signal),
+    0 8px 0 -7px var(--signal),
+    -8px 0 0 -7px var(--signal),
+    0 -8px 0 -7px var(--signal);
+  z-index: 1;
+}
+
+.btn {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    3px 3px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+.btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.btn--primary {
+  box-shadow: var(--relief);
+}
+
+.btn--ghost {
+  box-shadow: none;
+}
+
+.btn--ghost:active {
+  transform: none;
+}
+
+.card,
+.panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.card:hover:not(:disabled),
+.card:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    5px 5px 0 color-mix(in srgb, var(--signal) 35%, transparent);
+}
+
+.card--primary {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    var(--relief);
+}
+
+.nav {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    ),
+    var(--ink);
+  border-top-width: var(--bd-thin);
+  border-top-color: color-mix(in srgb, var(--signal) 35%, var(--line));
+  box-shadow: 0 -8px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.nav__jouer {
+  box-shadow: var(--relief);
+}
+
+.nav__lab {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.topbar__row {
+  min-height: 48px;
+  border-bottom: var(--bd-hair) solid color-mix(in srgb, var(--signal) 22%, var(--line));
+}
+
+.eyebrow {
+  color: var(--signal-pale);
+}
+
+.rulename {
+  text-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+/* --- ACCUEIL : la faille est l'objet, le trio enseigne --- */
+
+#home .logo {
+  text-shadow:
+    4px 4px 0 color-mix(in srgb, var(--ink) 85%, transparent),
+    0 0 46px rgba(145, 132, 217, 0.28);
+}
+
+#home .trio__carte {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+#home .trio__carte--signal {
+  box-shadow: var(--relief);
+}
+
+#home .trio__titre {
+  color: var(--signal-pale);
+}
+
+#home .trio__carte--signal .trio__titre {
+  color: var(--paper);
+}
+
+.faille {
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+/* --- ONBOARDING : une ceremonie, pas un manuel --- */
+
+#onb {
+  background:
+    radial-gradient(ellipse 80% 40% at 50% 0%, rgba(145, 132, 217, 0.12), transparent 60%),
+    var(--ink);
+}
+
+#onb .screen__scroll {
+  max-width: 440px;
+}
+
+.onb__jauge {
+  height: 6px;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+
+.onb__jauge i {
+  background: color-mix(in srgb, var(--line) 80%, transparent);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.onb__jauge i.is-on {
+  background: var(--signal);
+  box-shadow: none;
+}
+
+.onb__titre {
+  font-size: clamp(22px, 6vw, 30px);
+}
+
+.onb__regle,
+.onb__carte {
+  box-shadow: var(--relief);
+}
+
+.onb__nom {
+  font-size: clamp(28px, 8vw, 40px);
+}
+
+.onb__cas1,
+.onb__cas2 {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+.onb__cas2 {
+  box-shadow: var(--relief);
+}
+
+.onb__oui {
+  font-size: clamp(36px, 10vw, 52px);
+  color: var(--signal);
+}
+
+/* --- BRIEF : la regle arrive comme une affiche --- */
+
+#brief .rulename--hero,
+#briefName {
+  text-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+#briefPiege,
+.piege {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--signal) 25%, transparent);
+}
+
+.briefstats__cel {
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* --- FIN DE RUN : le chiffre est un trophee --- */
+
+#over .tally {
+  text-shadow: 5px 5px 0 color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+#over.is-win .tally {
+  color: var(--ok);
+  text-shadow: 5px 5px 0 color-mix(in srgb, var(--ok) 22%, transparent);
+}
+
+#over.is-win .over__head {
+  border-bottom-width: var(--bd-frame);
+}
+
+.over__cel {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.over__comp p {
+  padding: 4px 8px;
+  background: var(--ink-2);
+  border: var(--bd-hair) solid var(--line);
+}
+
+/* --- SOLO : trois portes, une salle --- */
+
+#solo .card {
+  padding: 18px 16px;
+}
+
+#solo .card__title {
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+/* --- COLLECTION : des objets qu'on collectionne --- */
+
+.carte {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+  transition: transform var(--d-fast) var(--e-out), box-shadow var(--d-fast) linear;
+}
+
+.carte:hover,
+.carte:focus-visible {
+  transform: translate(-2px, -2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    var(--relief);
+}
+
+.fiche__vue {
+  box-shadow: var(--relief);
+}
+
+.fiche__case {
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* --- COMPTE, REGLAGES, MUR --- */
+
+.cpt__cel,
+.rgl__ligne,
+.mur__cible,
+.mur__moi {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.cpt__signe {
+  box-shadow: var(--relief);
+}
+
+/* --- MULTI : une table ou l'on s'assoit --- */
+
+.join .panel {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    var(--relief);
+}
+
+.join .panel--large {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    5px 5px 0 color-mix(in srgb, var(--signal) 35%, transparent);
+}
+
+.codein__cases i {
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.roomcode i,
+.roomcode span {
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.seat {
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+.btn--launch {
+  box-shadow: var(--relief);
+}
+
+/* --- HUD : matiere seulement, AUCUNE taille --- */
+
+#band {
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+}
+
+#foot {
+  background-image:
+    repeating-linear-gradient(
+      -45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+}
+
+/* --- PIEGE DEJOUE : le seul retour qui doit faire plaisir --- */
+
+.piegefx__titre {
+  text-shadow: 4px 4px 0 color-mix(in srgb, var(--signal) 35%, transparent);
+}
+
+.piegefx__carte {
+  box-shadow: var(--relief);
+}
+
+.drama__panel {
+  box-shadow: var(--relief);
+}
+
+/* --- DESKTOP : plus d'air, les memes objets --- */
+
+@media (min-width: 900px) {
+  #home .trio {
+    margin-top: 18px;
+  }
+
+  #home .trio__carte {
+    padding: 16px 16px;
+  }
+
+  #home .but {
+    margin-top: 16px;
+    padding: 18px 22px;
+  }
+
+  /* 43 px de trop : la jauge et les quetes de la colonne d'etat. */
+  #home #etatCollJauge i {
+    height: 16px;
+  }
+
+  #home .etat__bloc {
+    padding: 11px 14px;
+  }
+
+  #home #etatQuetes .quest {
+    margin-top: 4px;
+  }
+
+  .nav {
+    box-shadow:
+      0 -8px 0 color-mix(in srgb, var(--ink) 70%, transparent),
+      4px 0 0 color-mix(in srgb, var(--signal) 20%, transparent),
+      -4px 0 0 color-mix(in srgb, var(--signal) 20%, transparent);
+  }
+
+  #onb .screen__scroll {
+    max-width: 560px;
+  }
+
+  .onb__cas {
+    flex-wrap: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carte:hover,
+  .carte:focus-visible,
+  .card:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ==================================================================
+   MICRO-ÉTATS, TOAST, PASTILLE, FIN RECORD
+
+   Hors flux. Seuls `transform` et `opacity` sont animés. La maîtrise
+   (`is-stop`) est le seul calque qui interrompt — elle couvre l'écran
+   de fin, jamais une manche en cours.
+   ================================================================== */
+
+.micro {
+  position: absolute;
+  top: var(--field-top, 120px);
+  left: 0;
+  right: 0;
+  height: var(--field-h, 60%);
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: var(--sp-4);
+  pointer-events: none;
+  background: color-mix(in srgb, var(--signal) 22%, var(--ink) 78%);
+  text-align: center;
+}
+
+.micro.hidden {
+  display: none;
+}
+
+.micro.is-stop {
+  inset: 0;
+  height: auto;
+  z-index: 25;
+  pointer-events: auto;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--signal) 28%, var(--ink) 72%);
+}
+
+.micro.is-echauffement,
+.micro.is-allure {
+  background: color-mix(in srgb, var(--ambre) 18%, var(--ink) 82%);
+}
+
+.micro.is-maitrise {
+  background: color-mix(in srgb, var(--signal) 32%, var(--ink) 68%);
+}
+
+.micro.is-vu {
+  animation: microIn 420ms var(--e-punch);
+}
+
+.micro__eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-etiquette);
+  letter-spacing: var(--ls-etiquette);
+  color: var(--signal-pale);
+}
+
+.micro.is-echauffement .micro__eyebrow,
+.micro.is-allure .micro__eyebrow {
+  color: var(--ambre);
+}
+
+.micro__nom {
+  margin: 10px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(28px, 6vw, 52px);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--paper);
+}
+
+.micro__quoi {
+  margin: 12px 0 0;
+  max-width: 36ch;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.45;
+  color: var(--paper-dim);
+  white-space: pre-line;
+}
+
+@keyframes microIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--sp-5) + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 30;
+  min-width: min(72vw, 320px);
+  max-width: min(92vw, 440px);
+  padding: 14px 18px;
+  background: var(--ink-2);
+  border: var(--bd-thin) solid var(--paper);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+  text-align: center;
+  pointer-events: none;
+}
+
+.toast.hidden {
+  display: none;
+}
+
+#app.has-topbar .toast {
+  bottom: calc(96px + env(safe-area-inset-bottom));
+}
+
+.toast.is-vu {
+  animation: toastIn 260ms var(--e-out);
+}
+
+.toast__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+}
+
+.toast__quoi {
+  margin: 6px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  word-break: break-all;
+}
+
+.toast__quoi.hidden {
+  display: none;
+}
+
+@keyframes toastIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+.pastille {
+  position: absolute;
+  left: 50%;
+  bottom: 72px;
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  background: var(--ink-2);
+  border: var(--bd-thin) solid var(--ambre);
+  pointer-events: none;
+}
+
+.pastille.hidden {
+  display: none;
+}
+
+.pastille.is-vu {
+  animation: pastilleIn 280ms var(--e-punch);
+}
+
+#app.has-gutters .pastille {
+  left: auto;
+  right: 8px;
+  bottom: auto;
+  top: calc(var(--field-top) + 12px);
+  transform: none;
+}
+
+.pastille b {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ambre);
+}
+
+.pastille span {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--ambre);
+}
+
+@keyframes pastilleIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+#app.has-gutters .pastille.is-vu {
+  animation-name: pastilleInGout;
+}
+
+@keyframes pastilleInGout {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.drama__old {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(18px, 3.2vw, 28px);
+  letter-spacing: -0.02em;
+  color: var(--paper-dim);
+  text-decoration: line-through;
+  text-decoration-thickness: 2px;
+}
+
+.drama__old.hidden {
+  display: none;
+}
+
+/* --- FIN : NOUVEAU RECORD — ambre, jamais l'accent --- */
+
+#over.is-record .over__head {
+  border-bottom-color: var(--ambre);
+  border-bottom-width: var(--bd-frame);
+}
+
+#over.is-record .verdict {
+  color: var(--ambre);
+}
+
+#over.is-record .tally {
+  color: var(--ambre);
+  text-shadow: 5px 5px 0 color-mix(in srgb, var(--ambre) 22%, transparent);
+}
+
+.over__record {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.over__record.hidden {
+  display: none;
+}
+
+.over__ancien {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-intitule);
+  letter-spacing: var(--ls-intitule);
+  color: var(--paper-dim);
+}
+
+.over__delta {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(36px, 8vw, 64px);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--ambre);
+}
+
+.over__carte {
+  margin: 18px auto 0;
+  max-width: 280px;
+  padding: 18px 16px 14px;
+  background: var(--ink-2);
+  border: var(--bd-thin) solid var(--ambre);
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--ambre) 28%, transparent);
+  text-align: center;
+}
+
+.over__carte.hidden {
+  display: none;
+}
+
+.over__carteMode {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--ambre);
+}
+
+.over__carteScore {
+  display: block;
+  margin: 8px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 56px;
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  color: var(--paper);
+}
+
+.over__carteRegle {
+  margin: 10px 0 0;
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper-dim);
+}
+
+.over__carteSite {
+  margin: 14px 0 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  color: var(--paper-dim);
+}
+
+.over__manque {
+  margin: 12px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+.over__manque.hidden {
+  display: none;
+}
+
+.decouverte {
+  animation: decouverteUp 420ms var(--e-punch);
+}
+
+@keyframes decouverteUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* --- ÉTATS PAUVRES --- */
+
+.codexvide {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin: var(--sp-5) 0 0;
+  padding: 22px 18px;
+  border: var(--bd-thin) solid var(--signal);
+  background: color-mix(in srgb, var(--signal) 8%, var(--ink-2));
+}
+
+.codexvide p {
+  margin: 0;
+  font-size: var(--t-lire);
+  letter-spacing: var(--ls-lire);
+  line-height: 1.5;
+  color: var(--signal-pale);
+  max-width: 36ch;
+}
+
+.warn {
+  padding: 14px 16px;
+  border: var(--bd-thin) solid var(--dead);
+  border-left-width: var(--bd-alert);
+  background: color-mix(in srgb, var(--dead) 10%, var(--ink-2));
+}
+
+.coupure__panel {
+  box-shadow: 6px 6px 0 color-mix(in srgb, var(--ambre) 30%, transparent);
+}
+
+.reste {
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ok) 18%, transparent);
+}
+
+/* --- HUD : dernière vie, chaleur, gouttières --- */
+
+.band__droite.is-last .band__viesLabel {
+  color: var(--dead);
+}
+
+#app.is-critical #instr {
+  text-shadow:
+    0 0 calc(22px + var(--heat, 0) * 30px)
+    rgba(247, 64, 88, calc(0.2 + var(--heat, 0) * 0.35));
+}
+
+.gout__col {
+  padding: 12px 12px;
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+  border: var(--bd-hair) solid var(--line);
+}
+
+.gout__nom {
+  font-size: 15px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micro.is-vu,
+  .toast.is-vu,
+  .pastille.is-vu,
+  .decouverte {
+    animation: none;
+  }
+}
+
+/* ==================================================================
+   HUD TEL + PC — la même scène que la maquette (isJeu / isDjeu)
+
+   Téléphone : valeurs déjà posées plus haut (bandeau 21, consigne 36,
+   pied 22). Bureau : dès que les gouttières existent — c'est le même
+   seuil que TA CARTE / CE RUN, donc le champ a déjà la place.
+   ================================================================== */
+
+#sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.puce {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 0 5px;
+  border: 1px solid var(--signal);
+  color: var(--signal-pale);
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 9px;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+}
+
+.sub__vite {
+  font-style: normal;
+  color: var(--dead);
+}
+
+#bandMetaVal:empty {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  /*
+   * Typo de isDjeu, PAS un retrécissement du champ.
+   *
+   * Les gouttières de 186 px de la maquette sont une grille qui mangerait
+   * le terrain. Ici elles restent hors flux, et n'apparaissent que quand
+   * le letterbox les offre. La typo, elle, suit l'écran large même quand
+   * le champ occupe toute la largeur — sinon 1280 px garde les 21 / 36
+   * du téléphone.
+   */
+  #bandRule {
+    margin-top: 4px;
+    font-size: 34px;
+  }
+
+  .band__tag {
+    font-size: 10px;
+  }
+
+  .band__brief {
+    margin-top: 5px;
+    font-size: 11px;
+  }
+
+  .band__droite {
+    flex-direction: row;
+    align-items: center;
+    gap: 22px;
+  }
+
+  .band__meta.is-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    border: 0;
+    padding: 0;
+  }
+
+  .band__meta.is-stat #bandMetaVal {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 22px;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--signal-pale);
+  }
+
+  .band__meta.is-stat #bandMetaLab {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    color: var(--paper-dim);
+  }
+
+  .lifedots i,
+  .band__vies i {
+    width: 12px;
+    height: 12px;
+  }
+
+  #instr {
+    font-size: 54px;
+  }
+
+  #sub {
+    margin-top: 11px;
+    font-size: 11px;
+  }
+
+  .foot__value {
+    font-size: 26px;
+  }
+
+  .foot__value--mode {
+    font-size: 13px;
+  }
+}
+
+#app.has-gutters #band {
+  padding: 12px 24px 12px 0;
+  gap: 0 20px;
+}
+
+#app.has-gutters .band__mark {
+  width: 16px;
+}
+
+#app.has-gutters #head {
+  padding: 26px 24px 0;
+}
+
+#app.has-gutters #foot {
+  padding: 12px 24px;
+}
+
+#app.has-gutters .equerres {
+  background-size:
+    100% 4px,
+    4px 100%,
+    100% 4px,
+    4px 100%,
+    100% 4px,
+    4px 100%,
+    100% 4px,
+    4px 100%;
+}
+
+/* --- MICRO : un panneau, pas un voile --- */
+
+.micro {
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.micro__panel {
+  position: relative;
+  max-width: 38ch;
+  padding: 20px 16px;
+  background: #262a60;
+  border: 3px solid var(--signal);
+  overflow: hidden;
+}
+
+.micro.is-echauffement .micro__panel,
+.micro.is-allure .micro__panel {
+  background: color-mix(in srgb, var(--ambre) 18%, var(--ink) 82%);
+  border-color: var(--ambre);
+}
+
+.micro.is-maitrise .micro__panel,
+.micro.is-stop .micro__panel {
+  background: #100e1e;
+  border-width: 4px;
+  box-shadow: 5px 5px 0 color-mix(in srgb, var(--signal) 30%, transparent);
+}
+
+.micro.is-vie .micro__panel {
+  background: color-mix(in srgb, var(--dead) 22%, var(--ink) 78%);
+  border-color: var(--dead);
+}
+
+.micro__panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28%;
+  background: color-mix(in srgb, var(--paper) 14%, transparent);
+  transform: translateX(-140%) skewX(-18deg);
+  pointer-events: none;
+}
+
+.micro.is-vu .micro__panel::after {
+  animation: microSweep 1.4s var(--e-out);
+}
+
+@keyframes microSweep {
+  0% {
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  100% {
+    transform: translateX(420%) skewX(-18deg);
+  }
+}
+
+/* --- PASTILLE : ambre franc, 900 ms --- */
+
+.pastille {
+  background: var(--ambre);
+  border-color: var(--ambre);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+  padding: 7px 13px;
+}
+
+.pastille b,
+.pastille span {
+  color: var(--ink);
+}
+
+.pastille b {
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.pastille span {
+  letter-spacing: 0.14em;
+}
+
+/* --- FIN RECORD : ambre, jamais l'accent --- */
+
+#over.is-record .over {
+  position: relative;
+}
+
+#over.is-record .over::before {
+  content: "";
+  display: block;
+  height: 14px;
+  margin: 0 0 18px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--ambre) 0 6px,
+    transparent 6px 12px
+  );
+  background-size: 17px 17px;
+  animation: markDrift 1.4s linear infinite;
+}
+
+#over.is-record .screen__scroll {
+  box-shadow: inset 0 90px 70px color-mix(in srgb, var(--ambre) 10%, transparent);
+}
+
+#over.is-record .marks,
+#over.is-record .over__legende,
+#over.is-record .over__chiffres,
+#over.is-record .teaser,
+#over.is-record .podium,
+#over.is-record #overQuests,
+#over.is-record .eyebrow[data-i18n="fin.quetes"] {
+  display: none;
+}
+
+#over.is-record .over__record {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 7px 12px;
+  border: 1px solid var(--ambre);
+}
+
+#over.is-record .over__delta {
+  font-size: 15px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+#over.is-record .over__carte {
+  position: relative;
+  overflow: hidden;
+  border-width: 4px;
+}
+
+#over.is-record .over__carte::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  background: color-mix(in srgb, var(--paper) 16%, transparent);
+  transform: translateX(-140%) skewX(-20deg);
+  pointer-events: none;
+  animation: carteSweep 2.4s ease-in-out infinite;
+}
+
+@keyframes carteSweep {
+  0%,
+  55% {
+    transform: translateX(-140%) skewX(-20deg);
+  }
+  100% {
+    transform: translateX(420%) skewX(-20deg);
+  }
+}
+
+#over.is-record .over__manque {
+  letter-spacing: 0.16em;
+  color: var(--signal-pale);
+}
+
+#over.is-record .over__foot .btnrow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#over.is-record #btnShare {
+  grid-column: 1 / -1;
+  order: -1;
+  background: var(--ambre);
+  border-color: var(--ambre);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 color-mix(in srgb, var(--ambre) 40%, transparent);
+}
+
+#over.is-record #btnShare:hover,
+#over.is-record #btnShare:focus-visible {
+  background: color-mix(in srgb, var(--ambre) 82%, var(--paper));
+}
+
+/* --- ÉTATS PAUVRES --- */
+
+.codexvide {
+  align-items: stretch;
+  text-align: center;
+  border-width: 3px;
+  background: var(--ink-2);
+}
+
+.codexvide__murs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+
+.codexvide__murs i {
+  aspect-ratio: 0.78;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--line);
+  background: var(--ink);
+  font-family: var(--display);
+  font-style: normal;
+  font-size: 17px;
+  color: var(--line);
+}
+
+.codexvide__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+}
+
+.codexvide p#codexVide {
+  color: var(--paper-dim);
+  max-width: 40ch;
+  margin-inline: auto;
+}
+
+.joinmort {
+  display: flex;
+  gap: 7px;
+  justify-content: center;
+  margin: 0 0 12px;
+}
+
+.joinmort.hidden {
+  display: none;
+}
+
+.joinmort i {
+  width: 44px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  border: 2px solid var(--dead);
+  font-family: var(--display);
+  font-weight: 600;
+  font-style: normal;
+  font-size: 24px;
+  color: var(--dead);
+}
+
+.warn {
+  background: color-mix(in srgb, var(--dead) 14%, var(--ink) 86%);
+}
+
+.coupure__panel {
+  background: #191307;
+  border-width: 3px;
+}
+
+.coupure__dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+
+.coupure__dots i {
+  width: 9px;
+  height: 9px;
+  background: var(--ambre);
+  animation: viePulse 0.9s steps(2, end) infinite;
+}
+
+.coupure__dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.coupure__dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+.coupure__jauge {
+  height: 8px;
+  background: var(--ink);
+  border: 1px solid var(--line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .micro.is-vu .micro__panel::after,
+  #over.is-record .over__carte::after,
+  #over.is-record .over::before,
+  .coupure__dots i {
+    animation: none;
+  }
+}
+
+/* ==================================================================
+   ACCUEIL — REFONTE, PISTE A
+
+   La faille reste le cœur. Un seul JOUER, celui de la barre. Le concept
+   se lit en trois tuiles, le record donne l'objectif, la vitrine prend
+   le reste.
+
+   Ce bloc est la source de vérité de `#home`. Les couches précédentes
+   se contredisaient (flex puis grille, chapo hachuré puis nu, titre de
+   faille à 38 px dans une face de 80). Tout ce qui suit les écrase,
+   à dessein, et ne vise QUE `#home` — l'écran SOLO porte aussi `.home`.
+
+   ⚠️ Budget 375 × 812 : topbar + enseigne + trio + bande + faille ≥ 186
+   + barre 92. Toute addition casse la vitrine. Pas de `justify-content:
+   center` dans le défilement (décision n°6).
+   ================================================================== */
+
+#home.screen {
+  padding: 0;
+  overflow-x: clip;
+  background: var(--ink);
+}
+
+/*
+ * L'ambiance de la source : deux poches, signal à gauche, azur à droite.
+ * Décoratif, hors flux, `pointer-events: none`. Un abîme trop sombre
+ * rendait la faille illisible ; trop de lumière, une lampe. Ces deux
+ * radiaux restent SOUS le contenu.
+ */
+#home.screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 70% at 10% 0%, rgba(145, 132, 217, 0.13), transparent 62%),
+    radial-gradient(90% 60% at 95% 6%, rgba(35, 126, 246, 0.07), transparent 60%);
+}
+
+#home.screen > .topbar,
+#home .screen__scroll {
+  position: relative;
+  z-index: 1;
+}
+
+#home .screen__scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 0;
+}
+
+#home .coupe,
+#home .home__foot,
+#home .btnrow--play {
+  display: none;
+}
+
+/* --- Enseigne : logo, slogan, trio, record -------------------------------- */
+
+#home .home__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  flex: none;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 18px 16px 0;
+  background: none;
+}
+
+#home .logo {
+  margin: 0;
+  padding-left: 15px;
+  font-size: 44px;
+  line-height: 0.86;
+  letter-spacing: -0.05em;
+  text-align: left;
+  text-shadow:
+    3px 3px 0 color-mix(in srgb, var(--ink) 85%, transparent),
+    0 0 46px rgba(145, 132, 217, 0.32);
+}
+
+#home .logo::before {
+  top: 4%;
+  bottom: 4%;
+  width: 6px;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px);
+}
+
+#home .lede--court,
+#home .home__brand .lede {
+  width: auto;
+  max-width: 22ch;
+  margin: 12px 0 0;
+  padding: 0;
+  background: none;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--paper);
+  text-align: center;
+  text-wrap: pretty;
+}
+
+/* Téléphone : une ligne. « Parfois, obéir est la faute. » C'est le jeu. */
+#home .lede__avant,
+#home .lede__saut {
+  display: none;
+}
+
+#home .trio {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+  width: 100%;
+  margin-top: 18px;
+}
+
+#home .trio__carte {
+  padding: 9px 7px 10px;
+  border: var(--bd-hair) solid var(--line);
+  background: var(--ink-2);
+  text-align: center;
+  box-shadow: 3px 3px 0 color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+#home .trio__carte--signal {
+  border-color: var(--signal);
+  background: color-mix(in srgb, var(--signal) 10%, var(--ink-2));
+  box-shadow: var(--relief);
+}
+
+#home .trio__ico {
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 0 auto;
+}
+
+#home .trio__titre {
+  margin: 7px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  color: var(--signal-pale);
+}
+
+#home .trio__carte--signal .trio__titre {
+  color: var(--paper);
+}
+
+#home .trio__quoi {
+  margin: 3px 0 0;
+  font-family: var(--display);
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--paper-dim);
+}
+
+#home .trio__titre--long,
+#home .trio__quoi--long {
+  display: none;
+}
+
+#home .trio__titre--court,
+#home .trio__quoi--court {
+  display: block;
+}
+
+/* Bande de record : chiffre | filet | phrase | le tien. Toujours en rangée. */
+#home .but {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin-top: 16px;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+
+#home .but.hidden,
+#home .but__plein.hidden,
+#home .but__vide.hidden,
+#home .but__droite.hidden {
+  display: none;
+}
+
+#home .but__plein,
+#home .but__vide {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+  border: var(--bd-hair) solid var(--line);
+  border-left: 4px solid var(--ambre);
+  background: var(--ink-2);
+  text-align: left;
+}
+
+#home .but__gros {
+  flex: none;
+  text-align: center;
+}
+
+#home .but__chiffre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--ambre);
+}
+
+#home .but__unite {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--paper-dim);
+}
+
+#home .but__filet {
+  flex: none;
+  width: 1px;
+  align-self: stretch;
+  background: var(--line);
+}
+
+#home .but__milieu {
+  flex: 1 1 auto;
+  min-width: 0;
+  text-align: left;
+}
+
+#home .but__quoi {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  color: var(--paper-dim);
+}
+
+#home .but__pousse {
+  margin: 4px 0 0;
+  max-width: none;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--paper);
+  text-wrap: pretty;
+}
+
+#home .but__droite {
+  flex: none;
+  text-align: right;
+}
+
+#home .but__sien {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--paper);
+}
+
+#home .but__premier {
+  margin: 4px 0 0;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+#home .but__vide .btn {
+  display: none;
+}
+
+/* --- La faille : l'objet, pas deux zones au milieu ----------------------- */
+
+#home .faille {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 186px;
+  margin: 16px 0 0;
+  isolation: isolate;
+  box-shadow: 0 6px 0 color-mix(in srgb, var(--ink) 80%, transparent);
+}
+
+/*
+ * ⚠️ 27 px, pas le clamp(38px) du composant.
+ *
+ * Face de 186, ruban entre 45 et 61 % : SOLO n'a que ~80 px au-dessus
+ * de la cassure. Un titre à 38 + description + état traversait le ruban
+ * — le mot SOLO se coupait en deux. La source écrit 27.
+ */
+#home .faille__titre {
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+#home .faille__desc {
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  color: var(--paper-dim);
+  max-width: 28ch;
+}
+
+#home .faille__etat {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+#home .faille__corps {
+  gap: 5px;
+  max-width: min(36ch, 88%);
+}
+
+#home .faille__zone--solo .faille__corps {
+  left: 18px;
+  top: 14px;
+}
+
+#home .faille__zone--multi .faille__corps {
+  right: 18px;
+  bottom: 14px;
+}
+
+/* Quatre équerres : le même vocabulaire que le terrain, hors flux. */
+#home .faille::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 0 0 / 12px 2px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 0 0 / 2px 12px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 100% 0 / 12px 2px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 100% 0 / 2px 12px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 0 100% / 12px 2px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 0 100% / 2px 12px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 100% 100% / 12px 2px no-repeat,
+    linear-gradient(var(--signal-pale), var(--signal-pale)) 100% 100% / 2px 12px no-repeat;
+}
+
+/* ==================================================================
+   ACCUEIL LARGE — vue dhome, 1280
+
+   Deux colonnes (enseigne | état), faille pleine largeur en dessous.
+   JOUER vit dans la barre haute : plus de 92 px de vide sous la vitrine.
+   ================================================================== */
+
+@media (min-width: 900px) {
+  #home.screen {
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+
+  #home .screen__scroll.home {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    /*
+     * Rangée 1 = l'enseigne, rangée 2 = la vitrine qui MANGE le vide.
+     * Coller la faille en bas (`1fr auto`) laissait un trou d'encre
+     * entre le record et SOLO — mesuré, et vu. C'est la faille qui
+     * doit grandir, pas le fond.
+     */
+    grid-template-rows: auto minmax(220px, 1fr);
+    align-items: stretch;
+    gap: 22px 40px;
+    padding: 28px 28px 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  #app.barre-haute #home .screen__scroll {
+    padding-bottom: 0;
+  }
+
+  #home .home__brand {
+    grid-column: 1;
+    grid-row: 1;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0;
+    min-width: 0;
+  }
+
+  #home .etat {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  #home .faille {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    flex: none;
+    align-self: stretch;
+    width: calc(100% + 56px);
+    height: auto;
+    min-height: 220px;
+    margin: 0 0 0 -28px;
+    overflow: clip;
+  }
+
+  /* Logo : UNE ligne, 72 → 86. Le saut reste masqué. */
+  #home .logo {
+    font-size: clamp(56px, 6.6vw, 86px);
+    padding-left: 20px;
+    text-shadow:
+      4px 4px 0 color-mix(in srgb, var(--ink) 85%, transparent),
+      0 0 56px rgba(145, 132, 217, 0.3);
+  }
+
+  #home .logo::before {
+    width: 8px;
+    background: repeating-linear-gradient(-45deg, var(--signal) 0 6px, transparent 6px 12px);
+  }
+
+  #home .lede__avant,
+  #home .lede__saut {
+    display: revert;
+  }
+
+  #home .lede--court,
+  #home .home__brand .lede {
+    margin: 18px 0 0;
+    /* 26ch cassait la première phrase en deux — mesuré, 98 px et trois
+       lignes, 43 px de défilement. La source l'écrit sur DEUX lignes,
+       la seconde en accent. `nowrap` sur l'avant tient la phrase. */
+    max-width: none;
+    font-size: 26px;
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    text-align: left;
+  }
+
+  /* La SECONDE ligne porte l'accent. Colorer tous les `span` peignait
+     aussi « Une règle unique. », et les deux phrases disaient la même
+     chose. */
+  #home .lede--court .lede__avant {
+    color: var(--paper);
+    white-space: nowrap;
+  }
+
+  #home .lede--court span:not(.lede__avant) {
+    color: var(--signal);
+  }
+
+  #home .trio {
+    display: flex;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  #home .trio__carte {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 13px 14px;
+    text-align: left;
+  }
+
+  #home .trio__ico {
+    width: 44px;
+    height: 24px;
+    margin: 0;
+  }
+
+  #home .trio__titre {
+    margin-top: 9px;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+  }
+
+  #home .trio__quoi {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  #home .trio__titre--court,
+  #home .trio__quoi--court {
+    display: none;
+  }
+
+  #home .trio__titre--long,
+  #home .trio__quoi--long {
+    display: block;
+  }
+
+  #home .trio__carte--signal .trio__quoi--long {
+    color: var(--paper);
+  }
+
+  #home .but {
+    margin-top: 20px;
+  }
+
+  #home .but__plein,
+  #home .but__vide {
+    gap: 20px;
+    padding: 16px 18px;
+  }
+
+  #home .but__chiffre {
+    font-size: 44px;
+    letter-spacing: -0.04em;
+  }
+
+  #home .but__unite {
+    margin-top: 4px;
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+  }
+
+  #home .but__quoi {
+    letter-spacing: 0.18em;
+  }
+
+  #home .but__pousse {
+    margin-top: 7px;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  #home .but__sien {
+    margin-top: 5px;
+    font-size: 24px;
+  }
+
+  #home .but__premier {
+    margin-top: 7px;
+    font-size: 20px;
+  }
+
+  #home .faille__titre {
+    font-size: clamp(40px, 4.2vw, 64px);
+    letter-spacing: -0.03em;
+  }
+
+  #home .faille__desc {
+    font-size: 14px;
+    max-width: 42ch;
+  }
+
+  #home .faille__etat {
+    display: none;
+  }
+
+  #home .faille__corps {
+    gap: 8px;
+  }
+
+  #home .faille__zone--solo .faille__corps {
+    left: 28px;
+    top: 18px;
+  }
+
+  #home .faille__zone--multi .faille__corps {
+    right: 28px;
+    bottom: 18px;
+  }
+
+  #home .etat__bloc {
+    padding: 12px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home.screen::before {
+    background: none;
+  }
+}
+
+/*
+ * LE MENU BAS, AU-DESSUS DE L'ÉCRAN.
+ *
+ * `.screen` et `.nav` portaient tous les deux `z-index: 10`. `poseBarre`
+ * remet la barre en premier enfant de `#app` : l'accueil, plus tard dans
+ * l'arbre, la recouvrait. Sur téléphone on voyait 92 px d'encre, pas
+ * CARTES / JOUER / DAILY. 20 gagne, et ne change rien en `barre-haute`
+ * où la barre est dans le flux du bandeau.
+ */
+#app.has-topbar:not(.barre-haute) .nav {
+  z-index: 20;
+}
+
+/* ==================================================================
+   ACCUEIL — MATIÈRE
+
+   La structure tient. Ce qui manquait est une hiérarchie d'épaisseurs :
+   le slogan comme thèse, le trio comme pièces, la faille comme objet
+   qu'on a envie de toucher. Aucune boîte n'est agrandie — 375 × 812
+   n'a pas de réserve. Seuls `transform` et `opacity` bougent.
+   ================================================================== */
+
+#home.screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      var(--grain) 0,
+      var(--grain) 1px,
+      transparent 1px,
+      transparent var(--px)
+    );
+}
+
+#home .logo em {
+  text-shadow:
+    3px 3px 0 color-mix(in srgb, var(--ink) 80%, transparent),
+    0 0 34px rgba(145, 132, 217, 0.6);
+}
+
+/*
+ * L'ACCROCHE. Sur téléphone c'est LA phrase — le jeu en une ligne.
+ * Un filet hachuré la signe comme le logo, sans second bloc.
+ */
+#home .lede--court,
+#home .home__brand .lede {
+  position: relative;
+  padding-left: 11px;
+  font-size: 17px;
+}
+
+#home .lede--court::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 3px, transparent 3px 6px);
+}
+
+#home .lede--court span:not(.lede__avant) {
+  color: color-mix(in srgb, var(--paper) 88%, var(--signal));
+}
+
+#home .trio__carte {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    3px 3px 0 color-mix(in srgb, var(--ink) 75%, transparent);
+}
+
+#home .trio__carte--signal {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--signal-pale) 28%, transparent),
+    var(--relief);
+}
+
+#home .trio__carte--signal::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--signal) 0 4px, transparent 4px 8px);
+}
+
+#home .but__plein,
+#home .but__vide {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+#home .but__chiffre {
+  text-shadow: 0 0 22px color-mix(in srgb, var(--ambre) 45%, transparent);
+}
+
+#home .faille__titre {
+  text-shadow:
+    3px 3px 0 color-mix(in srgb, var(--ink) 82%, transparent),
+    0 0 32px color-mix(in srgb, var(--signal) 42%, transparent);
+}
+
+#home .faille__desc {
+  color: color-mix(in srgb, var(--paper) 82%, var(--paper-dim));
+}
+
+#home .etat__bloc {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    3px 3px 0 color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+#home .etat__bloc--vedette {
+  box-shadow: var(--relief);
+}
+
+@media (min-width: 900px) {
+  #home .lede--court,
+  #home .home__brand .lede {
+    padding-left: 0;
+    font-size: 26px;
+  }
+
+  #home .lede--court::before {
+    display: none;
+  }
+
+  #home .lede--court span:not(.lede__avant) {
+    color: var(--signal);
+    text-shadow: 0 0 28px rgba(145, 132, 217, 0.45);
+  }
+
+  #home .faille__titre {
+    text-shadow:
+      4px 4px 0 color-mix(in srgb, var(--ink) 80%, transparent),
+      0 0 40px color-mix(in srgb, var(--signal) 40%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #home.screen::after {
+    opacity: 0.25;
+  }
 }
