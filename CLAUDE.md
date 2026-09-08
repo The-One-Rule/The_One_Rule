@@ -721,27 +721,27 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · 618 tests ·
-e2e 78 assertions (~2 min 30) · `vite build`.
+**Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
-### Mode imposteur — vit sur `mode/imposteur`, pas master
+### Modes imposteur et coop — livrés sur master
 
-Le mode n'est pas mergé. Il force cinq pièges locaux (`IMPOSTEUR_PIEGES`,
-indices pairs) — **`FORCED_TRAP_ROUNDS` du run du jour n'a pas bougé**.
-Le secret est public/privé (même `ruleId` pour tous, `{ t: "role" }`
-seulement à l'imposteur). Le live `{ t: "acted" }` peint AGI / RIEN.
-Après les dix manches : journal, observation, **un seul vote**, puis
-l'écran de fin existant. `VERSION_CONTENU` inchangée (`hdblrb`).
+Les deux modes sont des réglages de salon exclusifs (`settings.mode`,
+absent = classique). `duo: boolean` reste pour les clients anciens.
 
-### Mode coop — vit sur `mode/coop`, pas master
+**Imposteur** : cinq pièges locaux (`IMPOSTEUR_PIEGES`, indices pairs) —
+**`FORCED_TRAP_ROUNDS` du run du jour n'a pas bougé**. Secret public/privé
+(même `ruleId` pour tous, `{ t: "role" }` seulement à l'imposteur). Live
+`{ t: "acted" }` peint AGI / RIEN. Après les dix manches : journal,
+observation, **un seul vote**, puis l'écran de fin existant.
 
-`MatchCoop` est un chemin séparé : `MatchLogic.input` fige le siège, le
-coop demande plusieurs clics. Le `need` (1–3) est un **second signe**
-(badge cranté, `--paper` / `--line` / `--signal`), jamais une ColorId
-jouable. Le canal `{ t: "cursor" }` / `{ t: "cursors" }` est purement
-décoratif : le verdict reconstruit x/y depuis l'entité, jamais depuis
-le curseur (décision n°3). `VERSION_CONTENU` inchangée (`5m4fgw`).
-`PROTOCOL_VERSION` = 1.
+**Coop** : `MatchCoop` est un chemin séparé — `MatchLogic.input` fige le
+siège, le coop demande plusieurs clics. Vie commune `3 × joueurs`, 12
+vagues de 20–40 s, `need` 1–3 en **second signe** (badge cranté, jamais
+une ColorId). Curseurs `{ t: "cursor" }` / `{ t: "cursors" }` hors
+verdict (décision n°3). `winnerId` null n'est **pas** une égalité : le
+score du groupe est le titre, TENU / À SEC l'issue.
+
+`VERSION_CONTENU` inchangée (`5m4fgw`). `PROTOCOL_VERSION` = 1.
 
 ### Le bandeau de mesure a quitté l'accueil
 

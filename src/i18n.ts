@@ -923,7 +923,10 @@ type Dyn = {
   sortieRecharger: string;
   errSalonInconnu: string;
   errSalonComplet: (max: number) => string;
-  errNeedPlayers: string;
+  errNeedPlayers: (min: number, max: number) => string;
+  coopFinRang: (vagues: number, score: number) => string;
+  coopTenu: string;
+  coopKo: string;
   errPasHote: string;
   errEnMatch: string;
   errVersion: string;
@@ -1459,7 +1462,7 @@ const DYN: Record<Lang, Dyn> = {
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS À LA MANCHE 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS À LA MANCHE 20`,
     rythmeImposteur: "LE RYTHME APPARTIENT AU MODE · DÉCOUVERTE",
-    rythmeCoop: "LE RYTHME APPARTIENT AU MODE · VAGUES DE 20 À 40 S",
+    rythmeCoop: "LE RYTHME APPARTIENT AU MODE · 12 VAGUES DE 20 À 40 S",
     optJamais: "JAMAIS",
     optDuos: "DUOS",
     optChacun: "CHACUN",
@@ -1469,7 +1472,7 @@ const DYN: Record<Lang, Dyn> = {
     plaqueRien: "RIEN",
     observeTour: (n, sur) => `${n} / ${sur}`,
     modeImposteurQuoi: "DIX MANCHES · PERSONNE N'EST ÉLIMINÉ · UN IMPOSTEUR · UN VOTE",
-    modeCoopQuoi: "UNE VIE COMMUNE · CHACUN SON INTERDIT · 4 À 6 JOUEURS",
+    modeCoopQuoi: "UNE VIE COMMUNE · CHACUN SON INTERDIT · 12 VAGUES · 4 À 6",
     issueVillage: "LE VILLAGE A TROUVÉ",
     issueImposteur: "L'IMPOSTEUR S'EN TIRE",
     imposteurEtait: (nom) => `L'IMPOSTEUR ÉTAIT ${nom}`,
@@ -1481,7 +1484,7 @@ const DYN: Record<Lang, Dyn> = {
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
     ariaChacun: "Chacun pour soi",
     ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
-    ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 4 à 6 joueurs",
+    ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 12 vagues, 4 à 6 joueurs",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
@@ -1570,7 +1573,11 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "CE SALON N'EXISTE PLUS — SOIT LE CODE EST MAL RECOPIÉ (LE 2 ET LE Z SE RESSEMBLENT), SOIT L'HÔTE A FERMÉ",
     errSalonComplet: (max) => `SALON COMPLET · ${max} JOUEURS`,
-    errNeedPlayers: "IL FAUT ENTRE 4 ET 8 JOUEURS POUR LANCER",
+    errNeedPlayers: (min, max) => `IL FAUT ENTRE ${min} ET ${max} JOUEURS POUR LANCER`,
+    coopFinRang: (vagues, score) =>
+      `${vagues} VAGUE${vagues > 1 ? "S" : ""} · SCORE ${score}`,
+    coopTenu: "TENU",
+    coopKo: "À SEC",
     errPasHote: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI",
     errEnMatch: "MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE",
     errVersion: "VERSION INCOMPATIBLE — RECHARGE LA PAGE",
@@ -2005,7 +2012,7 @@ const DYN: Record<Lang, Dyn> = {
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS ON ROUND 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS ON ROUND 20`,
     rythmeImposteur: "THE PACE BELONGS TO THE MODE · DISCOVERY",
-    rythmeCoop: "THE PACE BELONGS TO THE MODE · WAVES OF 20 TO 40 S",
+    rythmeCoop: "THE PACE BELONGS TO THE MODE · 12 WAVES OF 20 TO 40 S",
     optJamais: "NEVER",
     optDuos: "DUOS",
     optChacun: "EACH",
@@ -2015,7 +2022,7 @@ const DYN: Record<Lang, Dyn> = {
     plaqueRien: "WAIT",
     observeTour: (n, sur) => `${n} / ${sur}`,
     modeImposteurQuoi: "TEN ROUNDS · NOBODY IS ELIMINATED · ONE IMPOSTOR · ONE VOTE",
-    modeCoopQuoi: "ONE SHARED LIFE · EACH PLAYER A FORBID · 4 TO 6 PLAYERS",
+    modeCoopQuoi: "ONE SHARED LIFE · EACH PLAYER A FORBID · 12 WAVES · 4 TO 6",
     issueVillage: "THE VILLAGE FOUND THEM",
     issueImposteur: "THE IMPOSTOR WALKS FREE",
     imposteurEtait: (nom) => `THE IMPOSTOR WAS ${nom}`,
@@ -2027,7 +2034,7 @@ const DYN: Record<Lang, Dyn> = {
     ariaDuos: "Duos: two players per team, one shared pool of lives",
     ariaChacun: "Every player for themselves",
     ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
-    ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 4 to 6 players",
+    ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 12 waves, 4 to 6 players",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,
@@ -2090,7 +2097,11 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
     errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
-    errNeedPlayers: "YOU NEED 4 TO 8 PLAYERS TO START",
+    errNeedPlayers: (min, max) => `YOU NEED ${min} TO ${max} PLAYERS TO START`,
+    coopFinRang: (vagues, score) =>
+      vagues === 1 ? `1 WAVE · SCORE ${score}` : `${vagues} WAVES · SCORE ${score}`,
+    coopTenu: "HELD",
+    coopKo: "DRAINED",
     errPasHote: "ONLY WHOEVER CREATED THE ROOM CAN START — ASK THEM",
     errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
     errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",

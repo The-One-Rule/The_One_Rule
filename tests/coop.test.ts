@@ -26,6 +26,7 @@ import {
   viesInitialesCoop,
   COOP_MAX_ASIS,
   COOP_MIN_JOUEURS,
+  COOP_MAX_VAGUES,
   COOP_RASSEMBLEMENT_MS,
   COOP_VAGUE_MAX,
   COOP_VAGUE_MIN,
@@ -203,6 +204,12 @@ describe("pool et attribution publiques", () => {
     expect(peutLancerCoop(COOP_MAX_ASIS)).toBe(true);
     expect(peutLancerCoop(7)).toBe(false);
   });
+
+  it("errNeedPlayers prend min et max — pas 4–8 en dur", () => {
+    const src = readFileSync("src/i18n.ts", "utf8");
+    expect(src).toMatch(/errNeedPlayers: \(min, max\) =>/);
+    expect(src).not.toMatch(/errNeedPlayers: "IL FAUT ENTRE 4 ET 8/);
+  });
 });
 
 describe("scène commune, pas un piège solo", () => {
@@ -310,6 +317,38 @@ describe("MatchCoop — vie, score, plusieurs clics", () => {
         m.durationMs,
       ),
     ).toBe("licite");
+  });
+
+  it("le plafond de vagues clôt le match sans KO", () => {
+    const m = new MatchCoop(7, QUATRE);
+    for (let i = 0; i < COOP_MAX_VAGUES; i++) {
+      m.openVague();
+      const r = m.closeVague();
+      if (i < COOP_MAX_VAGUES - 1) {
+        expect(r.matchOver).toBe(false);
+        expect(r.tenu).toBe(false);
+      } else {
+        expect(r.matchOver).toBe(true);
+        expect(r.tenu).toBe(true);
+        expect(m.vies).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("à sec, le match se clôt sans tenu", () => {
+    for (let seed = 0; seed < 80; seed++) {
+      const m = coop(seed);
+      const cible = m.ents.find((e) => pred(m, "a", true)(e));
+      if (!cible) continue;
+      while (m.vies > 0) {
+        expect(clicSur(m, "a", cible, 200)?.kind).toBe("interdit");
+      }
+      const fin = m.closeVague();
+      expect(fin.matchOver).toBe(true);
+      expect(fin.tenu).toBe(false);
+      return;
+    }
+    throw new Error("aucune graine n'a d'interdit pour a");
   });
 });
 
@@ -509,5 +548,15 @@ describe("curseurs — canal hors verdict", () => {
     for (const hex of GLYPH_COLORS) {
       expect(COLOR_IDS.some((id) => colorHex(id) === hex)).toBe(false);
     }
+  });
+
+  it("l'écran de fin coop ne lit pas winnerId null comme une égalité", () => {
+    const src = readFileSync("src/multi.ts", "utf8");
+    expect(src).toMatch(/etaitCoop \|\| msg\.score !== undefined/);
+    expect(src).toMatch(/tr\("coopTenu"\)/);
+    expect(src).toMatch(/tr\("coopKo"\)/);
+    const proto = readFileSync("shared/protocol.ts", "utf8");
+    expect(proto).toMatch(/score\?: number/);
+    expect(proto).toMatch(/tenu\?: boolean/);
   });
 });

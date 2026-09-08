@@ -614,6 +614,17 @@ export type ServerMsg =
       t: "match_end";
       winnerId: string | null;
       players: PlayerPublic[];
+      /**
+       * Coop : le score du groupe. FACULTATIF — absent hors coop, et
+       * un client ancien l'ignore. N'INCRÉMENTE PAS PROTOCOL_VERSION.
+       */
+      score?: number;
+      /**
+       * Coop : le groupe a tenu les 12 vagues. Absent = KO ou pas coop.
+       * `winnerId` reste null : il n'y a pas de vainqueur individuel,
+       * et le client ne doit PAS lire ça comme une égalité.
+       */
+      tenu?: boolean;
     }
   | { t: "emote"; playerId: string; k: number }
   | { t: "chat"; playerId: string; name: string; text: string }

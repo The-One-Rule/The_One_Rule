@@ -512,7 +512,8 @@ function closeVagueCoop(room: Room): void {
   if (!coop || !room.roundOpen) return;
   room.roundOpen = false;
   clearChargeTimers(room);
-  const { matchOver } = coop.closeVague();
+  const { matchOver, tenu } = coop.closeVague();
+  const score = coop.score;
   const out: Record<string, RoundOutcome> = {};
   for (const s of coop.seats) out[s.id] = { kind: "idle" };
   const nextRoundAt = matchOver ? null : now() + INTERLUDE_MS;
@@ -528,6 +529,8 @@ function closeVagueCoop(room: Room): void {
       t: "match_end",
       winnerId: null,
       players: publicPlayers(room),
+      score,
+      tenu,
     });
     room.coop = null;
     room.cursorPos.clear();

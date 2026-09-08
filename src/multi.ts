@@ -19,8 +19,8 @@ import {
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
-import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
-import { peutLancerCoop, needsDeVague, roundCoop, viesInitialesCoop } from "./engine/coop";
+import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, IMPOSTEUR_MAX_ASIS, IMPOSTEUR_MIN_JOUEURS, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
+import { COOP_MAX_ASIS, COOP_MIN_JOUEURS, peutLancerCoop, needsDeVague, roundCoop, viesInitialesCoop } from "./engine/coop";
 import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
@@ -1817,6 +1817,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     $("coopViesVal").textContent = String(match.lives);
     $("coopScoreVal").textContent = String(match.score);
+    $("coophud").classList.toggle("is-critical", match.lives > 0 && match.lives <= 3);
     $("coophud").classList.remove("hidden");
     $("cursors").classList.remove("hidden");
   }
@@ -1834,6 +1835,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     );
     lastPlayers = mergePlayers(lastPlayers, match.players);
     if (!msg.pris) sfx.fail();
+    else sfx.success(0);
     rebuildViewRound();
     peintCoopHud();
     renderPlates();
@@ -1844,6 +1846,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (msg.idx !== undefined && msg.idx !== match.idx) return;
     if (msg.n <= 0) match.charges.delete(msg.i);
     else match.charges.set(msg.i, { n: msg.n });
+    rebuildViewRound();
   }
 
   function applyCursors(msg: Extract<ServerMsg, { t: "cursors" }>): void {
@@ -1869,6 +1872,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     clearPlateCols();
     watchBar.classList.add("hidden");
     $("coophud").classList.add("hidden");
+    $("coophud").classList.remove("is-critical");
     $("cursors").classList.add("hidden");
     curseursCible.clear();
     curseursAffiches.clear();
@@ -2489,6 +2493,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const vivants = msg.players.filter((p) => p.lives > 0).length;
     /* Lu avant `clearMatch()`, et reutilise plus bas par la ligne de rang. */
     const manchesTenues = match?.idx ?? 0;
+    const etaitCoop = match?.modeCoop === true;
+    const scoreCoop = msg.score ?? match?.score ?? 0;
+    const tenuCoop = msg.tenu === true;
+    const vaguesCoop = etaitCoop ? manchesTenues + 1 : 0;
     track("match_fin", {
       manches: manchesTenues,
       joueurs: msg.players.length,
@@ -2543,6 +2551,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       title.classList.toggle("is-win", jeGagne);
       issueEl.textContent = tr("imposteurEtait")(imposteur?.name ?? "");
       if (jeGagne) sfx.win();
+    } else if (etaitCoop || msg.score !== undefined) {
+      /*
+       * Coop : winnerId est toujours null — il n'y a pas de vainqueur
+       * individuel. Le lire comme une égalité affichait ÉGALITÉ à chaque
+       * KO, et taisait le score, seule grandeur du mode.
+       */
+      ecran.classList.toggle("is-victory", tenuCoop);
+      kicker.textContent = tr("matchTermine") + suffixeCode;
+      title.textContent = String(scoreCoop);
+      title.classList.toggle("is-win", tenuCoop);
+      issueEl.textContent = tenuCoop ? tr("coopTenu") : tr("coopKo");
+      if (tenuCoop) sfx.win();
     } else {
       issueEl.textContent = "";
       const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
@@ -2596,8 +2616,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       .filter((p) => !p.spectator)
       .sort((a, b) => b.lives - a.lives || b.score - a.score);
     const maPlace = classes.findIndex((p) => p.id === net!.myId);
-    rang.textContent =
-      maPlace >= 0 ? tr("finTonRang")(maPlace + 1, classes.length, manchesTenues) : "";
+    rang.textContent = etaitCoop
+      ? tr("coopFinRang")(vaguesCoop, scoreCoop)
+      : maPlace >= 0
+        ? tr("finTonRang")(maPlace + 1, classes.length, manchesTenues)
+        : "";
 
     renderTitles(msg.players);
     renderPodium(msg.players);
@@ -2797,7 +2820,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         show("multi-join");
       } else if (msg.code === "need_players") {
         const el = $("multiStartErr");
-        el.textContent = tr("errNeedPlayers");
+        const mode = lireMode(roomSettings);
+        const min = mode === "coop" ? COOP_MIN_JOUEURS : IMPOSTEUR_MIN_JOUEURS;
+        const max = mode === "coop" ? COOP_MAX_ASIS : IMPOSTEUR_MAX_ASIS;
+        el.textContent = tr("errNeedPlayers")(min, max);
         el.classList.remove("hidden");
       }
       // Code inconnu : un client ancien ne plante pas.

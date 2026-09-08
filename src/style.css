@@ -779,6 +779,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.coophud.is-critical .coophud__val {
+  color: var(--dead);
+}
+
 /* ------------------------------------------------------------------
    Curseurs coop — hors flux dans `#stage`
    ------------------------------------------------------------------ */
@@ -821,13 +825,15 @@ body {
   position: absolute;
   left: 10px;
   top: -6px;
-  font-family: var(--sans);
+  font-family: var(--display);
   font-size: var(--t-micro);
   letter-spacing: var(--ls-micro);
   color: var(--paper);
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
+  background: var(--ink);
+  padding: 1px 4px;
 }
 
 .curseur__trace {

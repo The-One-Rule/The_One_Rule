@@ -14,6 +14,7 @@
 import type { Action, Entity, OneRule } from "../src/engine/types";
 import {
   attribueReglesCoop,
+  COOP_MAX_VAGUES,
   COOP_RASSEMBLEMENT_MS,
   draftCoop,
   dureeVague,
@@ -205,10 +206,12 @@ export class MatchCoop {
     return this.ents.find((e) => e.idx === entIdx) ?? null;
   }
 
-  closeVague(): { matchOver: boolean } {
+  closeVague(): { matchOver: boolean; tenu: boolean } {
     this.ouvert = false;
     this.charges.clear();
-    return { matchOver: this.vies <= 0 };
+    const ko = this.vies <= 0;
+    const plafond = this.roundIdx + 1 >= COOP_MAX_VAGUES;
+    return { matchOver: ko || plafond, tenu: !ko && plafond };
   }
 
   setAway(playerId: string, away: boolean): void {

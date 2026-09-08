@@ -19,9 +19,14 @@ import type { Action, Entity, EntitySpec, JudgeContext, OneRule, Round, SizeId }
 export const COOP_MIN_JOUEURS = 4;
 export const COOP_MAX_ASIS = 6;
 export const COOP_VIES_PAR_JOUEUR = 3;
-export const COOP_VAGUE_MS = 30000;
 export const COOP_VAGUE_MIN = 20000;
 export const COOP_VAGUE_MAX = 40000;
+/**
+ * Plafond de vagues. Sans lui un groupe qui ne se trompe pas n'a aucune
+ * issue — et un salon dont tout le monde est away continuerait à tourner
+ * en mémoire jusqu'au redémarrage Fly.
+ */
+export const COOP_MAX_VAGUES = 12;
 
 /**
  * Fenêtre de rassemblement : 400 ms après le PREMIER clic licite
