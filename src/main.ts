@@ -430,15 +430,7 @@ function renderHome(): void {
    * et s'il ne répond jamais (comptes non configurés, réseau coupé, personne
    * n'a encore joué aujourd'hui), le repli d'entraînement reste à l'écran.
    */
-  if (recordDuJour === null && !recordDuJourDemande) {
-    recordDuJourDemande = true;
-    void classementDuJour(day).then((c) => {
-      const top = c?.top?.[0]?.valeur ?? null;
-      if (top === null || top <= 0) return;
-      recordDuJour = top;
-      if (screen === "home") peintBut(monScoreDuJour(P.load()), recordDuJour);
-    });
-  }
+  void rafraichitClassement();
 
   const vjm = vueDuJour(s, day);
   const versMulti = (vjm.acquis || vjm.verrouille) && multi.available;
@@ -1451,6 +1443,9 @@ function renderClassement(): void {
    * au meilleur du jour, ou tout le monde joue la meme graine et la meme
    * regle : « il te manque 170 manches » ne voulait rien dire.
    */
+  // Il DEMANDE, au lieu de lire un cache que lui-meme ne remplissait jamais.
+  // On peint tout de suite avec ce qu'on a, on repeint quand la reponse arrive.
+  void rafraichitClassement();
   const siennes = { jour: monScoreDuJour(s), entrainement: P.recordDeSonAllure(s) };
   const vue = vueBut(siennes, recordDuJour);
   const mien = vue.sien ?? 0;
@@ -2259,7 +2254,76 @@ $("navMulti").addEventListener("click", () => {
  * les temps.
  */
 let recordDuJour: number | null = null;
-let recordDuJourDemande = false;
+/** Horodatage du dernier appel ABOUTI — voir `rafraichitClassement`. */
+let recordDuJourVu = 0;
+/** La demande EN VOL, partagee — voir `rafraichitClassement`. */
+let demandeClassement: Promise<void> | null = null;
+
+/**
+ * Au-dela de ce delai, le classement est redemande a l'ouverture d'un ecran
+ * qui l'affiche. Trente secondes : assez court pour qu'un run qu'on vient de
+ * poser apparaisse en revenant, assez long pour qu'aller-retourner entre deux
+ * ecrans ne fasse pas une requete par clic.
+ */
+const FRAICHEUR_CLASSEMENT_MS = 30_000;
+
+/**
+ * ⚠️ LE CLASSEMENT SE REDEMANDE. IL NE SE DEMANDAIT QU'UNE FOIS.
+ *
+ * SYMPTOME RAPPORTE : « le classement ne se met pas a jour, ni pour le compte
+ * ni pour le classement ».
+ *
+ * LA CAUSE, exactement : l'ancien code posait un drapeau
+ * `recordDuJourDemande` a la PREMIERE peinture de l'accueil et ne le levait
+ * jamais. Or la condition etait `recordDuJour === null && !demande` — donc
+ * quand la reponse revenait VIDE, ce qui est le cas tous les matins avant que
+ * quiconque ait joue, le cache restait nul ET le drapeau restait pose. Plus
+ * aucune demande de toute la session.
+ *
+ * Enchainement vecu : on ouvre le jeu le matin, personne n'a joue, on joue son
+ * run du jour, il part au serveur, il est accepte — et l'accueil continue
+ * d'afficher « PERSONNE N'A ENCORE JOUE » et le mur son repli d'entrainement,
+ * jusqu'au rechargement de la page.
+ *
+ * Et le MUR ne demandait rien du tout : il lisait ce cache sans jamais le
+ * remplir, donc il n'affichait le classement que si l'accueil l'avait obtenu
+ * avant lui.
+ *
+ * `force` sert aux evenements qui RENDENT le cache faux : une performance
+ * acceptee, une connexion. La fraicheur sert au reste.
+ */
+async function rafraichitClassement(force = false): Promise<void> {
+  if (!force && Date.now() - recordDuJourVu < FRAICHEUR_CLASSEMENT_MS) return;
+  /*
+   * ⚠️ ON PARTAGE LA PROMESSE EN VOL, on ne pose pas un booleen.
+   *
+   * Mesure : avec un simple drapeau, trois ouvertures du mur produisaient
+   * CINQ requetes, par paires a 1 et 3 ms d'ecart. Un booleen leve dans un
+   * `finally` ne protege pas de deux entrees dans le meme lot de
+   * microtaches — et repeindre l'ecran rappelle la fonction, donc les
+   * occasions ne manquent pas.
+   *
+   * Rendre la promesse elle-meme fait attendre le second appelant au lieu de
+   * lancer une seconde requete, et la fraicheur mesure alors quelque chose de
+   * vrai.
+   */
+  if (demandeClassement) return demandeClassement;
+  demandeClassement = (async () => {
+    const c = await classementDuJour(day);
+    // ⚠️ On note l'heure meme quand la reponse est VIDE : sans compte
+    // configure elle le sera toujours, et redemander a chaque peinture
+    // enverrait une requete par changement d'ecran pour rien.
+    recordDuJourVu = Date.now();
+    const top = c?.top?.[0]?.valeur ?? null;
+    recordDuJour = top !== null && top > 0 ? top : null;
+    // On repeint l'ecran qui l'affiche, et lui seul.
+    if (screen === "home") peintBut(monScoreDuJour(P.load()), recordDuJour);
+    else if (screen === "classement") renderClassement();
+  })().finally(() => {
+    demandeClassement = null;
+  });
+  return demandeClassement;
+}
 
 /**
  * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
@@ -3092,7 +3156,19 @@ function finishRun(): void {
    */
   if (mode === "daily" && !challenge) {
     enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
-    void vide();
+    /*
+     * ⚠️ ET ON REDEMANDE LE CLASSEMENT DES QUE LE SERVEUR A PRIS LE RUN.
+     *
+     * C'est l'evenement qui rend le cache faux, et c'est exactement celui
+     * qu'on ratait : le joueur venait de poser son score, l'accueil et le mur
+     * continuaient d'afficher l'etat d'avant.
+     *
+     * `force`, parce que la fraicheur de trente secondes n'a pas a s'appliquer
+     * ici : on SAIT que la table a change.
+     */
+    void vide().then((r) => {
+      if (r.length) void rafraichitClassement(true);
+    });
   }
 
   /*
@@ -4672,6 +4748,10 @@ async function demarreCompte(): Promise<void> {
   // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
   // ou joué avant que le compte n'existe.
   await vide();
+  // Se connecter change ce que le classement peut nous dire — ne serait-ce que
+  // pour marquer notre propre ligne — et un run en attente vient peut-etre
+  // d'entrer dans la table.
+  await rafraichitClassement(true);
   if (screen === "home") renderHome();
 }
 
