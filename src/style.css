@@ -144,6 +144,16 @@
   --sp-2: 10px;
   --sp-3: 16px;
   --sp-4: 24px;
+
+  /*
+   * LA HAUTEUR DE LA BARRE BASSE, ecrite UNE fois.
+   *
+   * Elle sert a deux endroits qui doivent s'accorder : la barre elle-meme, et
+   * le fond des ecrans qui doivent s'arreter au-dessus d'elle. Deux nombres
+   * ecrits separement finiraient par diverger, et le symptome serait
+   * exactement celui qu'on vient de corriger — un bouton sous une barre.
+   */
+  --nav-h: 84px;
   --sp-5: 36px;
   --sp-6: 56px;
 
@@ -15059,4 +15069,42 @@ button.chip:active:not(:disabled) {
 
 .lobbyrow__glyph {
   font-size: 15px;
+}
+
+/* ==================================================================
+   ⚠️ UN ECRAN NE DOIT JAMAIS PEINDRE SOUS LA BARRE BASSE
+
+   SYMPTOME RAPPORTE : « les boutons ont ENCORE cesse de fonctionner, surtout
+   ceux pour rejouer ».
+
+   MESURE, ecran de fin a 375 x 812 : le contenu fait 1103 px, la barre occupe
+   728-812 avec un `z-index` de 20 contre 10 pour l'ecran. A l'ouverture —
+   defilement a zero — REJOUER tombe a y=766, PARTAGER a 714 et MENU a 818,
+   c'est-a-dire HORS de la fenetre. `elementFromPoint` sur chacun rendait une
+   icone de la barre ou `navJouer`, jamais le bouton. Ils redevenaient
+   cliquables apres 291 px de defilement, ce que rien n'indiquait.
+
+   La cause n'est pas l'ecran de fin : `.screen` est en `inset: 0`, donc TOUT
+   ecran plus haut que la fenetre peint ses 84 derniers pixels sous la barre.
+   Le `padding-bottom` de 92 px qui existait ne servait qu'une fois defile a
+   fond — il repousse le contenu dans le flux, il n'empeche pas de le PEINDRE
+   sous la barre quand on est en haut.
+
+   Le remede est geometrique : quand la barre basse est la, le fond de l'ecran
+   s'arrete au-dessus d'elle. Rien ne peut plus s'y glisser, sur aucun ecran,
+   quelle que soit la hauteur du contenu.
+
+   ⚠️ La condition est `has-topbar` SANS `barre-haute` : c'est exactement le
+   cas « barre en bas ». En large elle a demenage en haut, et l'ecran doit
+   reprendre toute la hauteur. L'ecran de JEU, lui, ne porte aucune des deux
+   classes — sa geometrie ne bouge pas d'un pixel, et la taille du champ reste
+   ce qu'elle etait (decision n°10).
+   ================================================================== */
+
+.nav {
+  min-height: var(--nav-h);
+}
+
+#app.has-topbar:not(.barre-haute) .screen {
+  bottom: var(--nav-h);
 }
