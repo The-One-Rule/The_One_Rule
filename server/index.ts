@@ -21,6 +21,10 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
+import {
+  IMPOSTEUR_MAX_ASIS,
+  IMPOSTEUR_MIN_JOUEURS,
+} from "../src/engine/imposteur";
 import { originAllowed, parseOrigins } from "./origin";
 import { verifieJeton } from "./jeton";
 import { cleanEnv } from "../src/env";
@@ -218,13 +222,20 @@ function parseGlyph(raw: unknown, fallbackId: string): Glyph {
 }
 
 function publicPlayers(room: Room): PlayerPublic[] {
-  const rules = room.match ? room.match.rulesAt(Math.max(0, room.match.roundIdx)) : null;
+  const idx = room.match ? Math.max(0, room.match.roundIdx) : 0;
+  const rules = room.match ? room.match.reglesPubliques(idx) : null;
+  const ordre = [...room.clients.keys()];
   return [...room.clients.values()].map((c) => {
     const seat = room.match?.seats.find((s) => s.id === c.id);
+    const rang = ordre.indexOf(c.id);
+    const spectateurLobby =
+      room.settings.mode === "imposteur" &&
+      room.match === null &&
+      rang >= 8;
     return {
       id: c.id,
       name: c.name,
-      ruleId: rules?.get(c.id)?.id ?? "",
+      ruleId: rules?.[c.id] ?? "",
       /*
        * Sans siège PENDANT un match, on n'a pas de vies : on ne joue pas.
        *
@@ -240,7 +251,7 @@ function publicPlayers(room: Room): PlayerPublic[] {
       lives: seat ? seat.lives : room.match ? 0 : room.settings.lives,
       score: seat?.score ?? 0,
       host: c.id === room.hostId,
-      spectator: room.match !== null && !seat,
+      spectator: (room.match !== null && !seat) || spectateurLobby,
       connected: c.ws.readyState === WebSocket.OPEN,
       glyph: c.glyph,
       // Hors match, on montre son intention ; en match, ce que le siège porte
@@ -271,8 +282,21 @@ const roomState = (room: Room): ServerMsg => ({
  * Déroulement d'un match
  * ------------------------------------------------------------------ */
 
-function startMatch(room: Room): void {
+function idsAssis(room: Room): string[] {
   const ids = [...room.clients.keys()];
+  if (room.settings.mode === "imposteur") return ids.slice(0, IMPOSTEUR_MAX_ASIS);
+  return ids;
+}
+
+function chuchoteRole(room: Room): void {
+  const m = room.match;
+  if (!m?.imposteur || !m.imposteurId) return;
+  const cible = room.clients.get(m.imposteurId);
+  if (cible) send(cible, { t: "role", imposteur: true });
+}
+
+function startMatch(room: Room): void {
+  const ids = idsAssis(room);
   const seed = (Math.random() * 2 ** 31) | 0;
   /*
    * Accueil du débutant. Le serveur n'a aucune mémoire entre les salons : il
@@ -282,7 +306,7 @@ function startMatch(room: Room): void {
    * suffit ; et le jour où un classement comptera, il ne passera pas par ici.
    */
   const rookies = new Set(
-    [...room.clients.values()].filter((c) => c.rookie).map((c) => c.id),
+    ids.filter((id) => room.clients.get(id)?.rookie).map((id) => id),
   );
   /*
    * Le pool clavier n'est ouvert que si TOUT LE MONDE l'a annoncé.
@@ -297,11 +321,10 @@ function startMatch(room: Room): void {
    * exactement ce que cet ancien client sait reconstruire.
    */
   const clavier =
-    ids.length > 0 && [...room.clients.values()].every((c) => c.clavier === true);
+    ids.length > 0 && ids.every((id) => room.clients.get(id)?.clavier === true);
   room.match = new MatchLogic(seed, ids, room.settings, rookies, clavier, room.settings.duo);
 
-  const rules: Record<string, string> = {};
-  for (const [id, rule] of room.match.rulesAt(0)) rules[id] = rule.id;
+  const rules = room.match.reglesPubliques(0);
 
   /*
    * État du salon AVANT match_start, et l'ordre compte.
@@ -323,6 +346,7 @@ function startMatch(room: Room): void {
     settings: room.settings,
     clavier: room.match.clavier,
   });
+  chuchoteRole(room);
 
   room.timer = setTimeout(() => openRound(room), COUNTDOWN_MS);
 }
@@ -343,9 +367,7 @@ function openRound(room: Room): void {
     deadline: room.roundDeadline,
   };
   if (match.rotationJustHappened(idx)) {
-    const rules: Record<string, string> = {};
-    for (const [id, rule] of match.rulesAt(idx)) rules[id] = rule.id;
-    msg.rules = rules;
+    msg.rules = match.reglesPubliques(idx);
   }
   broadcast(room, msg);
 
@@ -392,9 +414,7 @@ function closeRound(room: Room): void {
     nextRoundAt,
   };
   if (rotation) {
-    const suivantes: Record<string, string> = {};
-    for (const [id, rule] of match.rulesAt(prochaineIdx)) suivantes[id] = rule.id;
-    verdict.nextRules = suivantes;
+    verdict.nextRules = match.reglesPubliques(prochaineIdx);
   }
   broadcast(room, verdict);
 
@@ -638,12 +658,10 @@ wss.on("connection", (ws) => {
          */
         const m = room.match;
         if (m) {
-          const rules: Record<string, string> = {};
-          for (const [id, rule] of m.rulesAt(Math.max(0, m.roundIdx))) rules[id] = rule.id;
           send(client, {
             t: "match_start",
             seed: m.seed,
-            rules,
+            rules: m.reglesPubliques(Math.max(0, m.roundIdx)),
             // La manche en cours ne lui est pas ouverte : il reprend à la
             // suivante, et le message `round` fixera les vraies dates.
             firstRoundAt: now(),
@@ -653,6 +671,9 @@ wss.on("connection", (ws) => {
             // il doit reconstruire exactement ce que les autres voient.
             clavier: m.clavier,
           });
+          if (m.imposteur && m.imposteurId === client.id) {
+            send(client, { t: "role", imposteur: true });
+          }
         }
         return;
       }
@@ -667,6 +688,13 @@ wss.on("connection", (ws) => {
         if (room.match) {
           send(client, { t: "error", code: "in_match" });
           return;
+        }
+        if (room.settings.mode === "imposteur") {
+          const n = idsAssis(room).length;
+          if (n < IMPOSTEUR_MIN_JOUEURS || n > IMPOSTEUR_MAX_ASIS) {
+            send(client, { t: "error", code: "need_players" });
+            return;
+          }
         }
         if (room.clients.size < 1) return;
         startMatch(room);

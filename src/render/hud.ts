@@ -47,8 +47,8 @@ export class Hud {
    * retirant puis reposant la classe — sans quoi deux rotations consécutives
    * n'en produiraient qu'une.
    */
-  setRule(rule: OneRule | null): void {
-    const nom = rule ? nomDeRegle(rule.id, rule.name) : "—";
+  setRule(rule: OneRule | null, opts?: { vide?: boolean }): void {
+    const nom = opts?.vide ? "" : rule ? nomDeRegle(rule.id, rule.name) : "—";
     const change = nom !== this.lastRuleName && !!rule;
     this.lastRuleName = nom;
     this.bandRule.textContent = nom;
@@ -63,8 +63,8 @@ export class Hud {
      * de la table : elle retombe donc sur le `brief` qu'on lui passe, que
      * `regleAffichee()` a déjà traduit. Rien n'est traduit deux fois.
      */
-    this.bandBrief.textContent = rule ? briefDeRegle(rule.id, rule.brief) : "";
-    this.band.classList.toggle("is-armed", !!rule);
+    this.bandBrief.textContent = opts?.vide ? "" : rule ? briefDeRegle(rule.id, rule.brief) : "";
+    this.band.classList.toggle("is-armed", !!rule && !opts?.vide);
     if (change) {
       this.band.classList.remove("is-new");
       void this.band.offsetWidth;

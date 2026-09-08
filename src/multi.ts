@@ -3,7 +3,7 @@
  * Aucune scène sur le fil : reconstruction locale via buildMultiRound.
  */
 
-import type { Glyph, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg } from "../shared/protocol";
+import type { Glyph, ModeSalon, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg } from "../shared/protocol";
 import {
   CHAT_MAX_LEN,
   DEFAULT_SETTINGS,
@@ -16,7 +16,8 @@ import {
   SPEED_CHOICES,
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
-import { buildMultiRound, poolMulti } from "./engine/multiround";
+import { applyRule, buildMultiRound, poolMulti } from "./engine/multiround";
+import { draftImposteur, SANS_REGLE } from "./engine/imposteur";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -206,6 +207,10 @@ type MatchState = {
    * rien ne se validait.
    */
   spanFactor: number;
+  /** Cette partie est en mode imposteur — même scène que le serveur. */
+  modeImposteur: boolean;
+  /** J'ai reçu le rôle. Les autres ne le savent pas. */
+  imposteur: boolean;
 };
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
@@ -566,6 +571,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
       /** Crans allumés pour cette valeur, à son rang `i` dans la liste. */
       level: (n: number, i: number) => number;
       steps: number;
+      disabled?: boolean;
     },
   ): void => {
     fillOptions(
@@ -577,13 +583,16 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
         steps: opts.steps,
         icon: opts.icon,
         selected: v === current,
-        disabled: locked || !isHost,
+        disabled: opts.disabled ?? (locked || !isHost),
         aria: opts.aria(v),
         // Le salon est le seul groupe en barre segmentée : voir `compact`.
         compact: true,
       })),
     );
   };
+
+  const imposteur = (settings.mode ?? (settings.duo ? "duo" : "classique")) === "imposteur";
+  const fige = locked || !isHost || imposteur;
 
   const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
   /*
@@ -601,17 +610,19 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   const base = windowMs(MANCHE_TEMOIN);
   const mien = Math.round(base * settings.speed);
   const nom = nomVitesseEntier(settings.speed).toUpperCase();
-  $("speedQuoi").textContent =
-    settings.speed === 1
+  $("speedQuoi").textContent = imposteur
+    ? tr("rythmeImposteur")
+    : settings.speed === 1
       ? tr("vitesseQuoiRef")(nom, mien)
       : tr("vitesseQuoi")(nom, mien - Math.round(base));
 
-  fill("optSpeed", vitesses, settings.speed, {
+  fill("optSpeed", vitesses, imposteur ? SPEED_CHOICES[0] : settings.speed, {
     label: (n) => nomVitesse(n),
     aria: (n) => tr("ariaVitesse")(nomVitesseEntier(n)),
     icon: "bars",
     level: (_n, i) => i + 1,
     steps: vitesses.length,
+    disabled: fige,
   });
 
   /*
@@ -628,6 +639,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     icon: "dots",
     level: (n) => n,
     steps: maxVies,
+    disabled: fige,
   });
 
   /*
@@ -641,22 +653,27 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     icon: "bars",
     level: (_n, i) => i,
     steps: rotations.length - 1,
+    disabled: fige,
   });
 
+  $("optSpeed").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
+  $("optLives").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
+  $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
+
   /*
-   * ÉQUIPES : un choix binaire, donc deux boutons plutôt qu'une bascule.
+   * MODE : trois valeurs exclusives, pas un second booléen.
    *
-   * `fill` travaille sur des nombres — 0 et 1 font l'affaire, et le réglage
-   * repart en booléen dans `onSetting`. Une bascule aurait été plus courte,
-   * mais les trois autres réglages sont des barres segmentées : un composant
-   * différent pour le quatrième se lirait comme un réglage d'une autre nature.
+   * CHACUN / DUOS / IMPOSTEUR. `fill` travaille sur des nombres — 0, 1, 2.
+   * Un client ancien n'envoyait que `duo` ; le sanitizer en déduit le mode.
    */
-  fill("optDuo", [0, 1], settings.duo ? 1 : 0, {
-    label: (n) => (n === 1 ? tr("optDuos") : tr("optChacun")),
-    aria: (n) => (n === 1 ? tr("ariaDuos") : tr("ariaChacun")),
+  const modes: ModeSalon[] = ["classique", "duo", "imposteur"];
+  const modeActuel: ModeSalon = settings.mode ?? (settings.duo ? "duo" : "classique");
+  fill("optDuo", [0, 1, 2], modes.indexOf(modeActuel), {
+    label: (n) => (n === 2 ? tr("optImposteur") : n === 1 ? tr("optDuos") : tr("optChacun")),
+    aria: (n) => (n === 2 ? tr("ariaImposteur") : n === 1 ? tr("ariaDuos") : tr("ariaChacun")),
     icon: "dots",
     level: (n) => n + 1,
-    steps: 2,
+    steps: 3,
   });
 }
 
@@ -832,6 +849,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let rejoining = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
+  /** Reçu en privé. Absent = villageois. Remis à zéro à chaque match. */
+  let jeSuisImposteur = false;
   /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -1050,6 +1069,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function rebuildViewRound(): void {
     if (!match || !net || match.idx < 0) return;
     const viewId = viewTargetId();
+    if (match.modeImposteur) {
+      const communeId = Object.values(match.rules)[0];
+      const commune = communeId ? ruleById(communeId) : match.rule;
+      if (!commune) {
+        match.round = null;
+        return;
+      }
+      const shared = draftImposteur(match.seed, match.idx, commune, poolMulti(match.clavier));
+      const moi = viewId === net.myId && !isSpectating();
+      const perso = match.imposteur && moi ? SANS_REGLE : commune;
+      match.rule = commune;
+      match.round = applyRule(shared, perso, match.seed);
+      if (match.imposteur && moi) hud.setRule(null, { vide: true });
+      else hud.setRule(commune);
+      return;
+    }
     const rid = match.rules[viewId] ?? match.rules[net.myId];
     const rule = rid ? ruleById(rid) : match.rule;
     if (!rule) {
@@ -1325,6 +1360,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function paintLobby(): void {
     if (!roomCode) return;
+    const startErr = $("multiStartErr");
+    startErr.textContent = "";
+    startErr.classList.add("hidden");
     /*
      * « CHOISIR TON NOM » n'apparait que pour qui n'en a pas — donc pour qui
      * vient d'entrer par un lien. C'est le nommage deplace APRES l'entree :
@@ -1545,6 +1583,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function clearMatch(): void {
     hideDrama();
     match = null;
+    jeSuisImposteur = false;
     lobbyInMatch = false;
     platePulse.clear();
     clearEmoteTimers();
@@ -1632,6 +1671,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       rotationRule: null,
       ancienneRegle: null,
       spanFactor: 1,
+      modeImposteur: msg.settings?.mode === "imposteur",
+      imposteur: jeSuisImposteur,
     };
 
     if (match.watchingId) net.watch(match.watchingId);
@@ -1640,7 +1681,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     unlock();
     hud.hideStamp();
     hud.clearRound();
-    hud.setRule(rule);
+    if (jeSuisImposteur) hud.setRule(null, { vide: true });
+    else hud.setRule(rule);
     syncFooter();
     hud.setMeta("");
     $("head").classList.remove("is-preview");
@@ -2161,6 +2203,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       beginMatch(msg);
       return;
     }
+    if (msg.t === "role") {
+      if (msg.imposteur === true) {
+        jeSuisImposteur = true;
+        if (match) {
+          match.imposteur = true;
+          match.modeImposteur = true;
+          if (!isSpectating()) hud.setRule(null, { vide: true });
+        }
+      }
+      return;
+    }
     if (msg.t === "round") {
       beginRound(msg);
       return;
@@ -2256,7 +2309,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           clearPlateCols();
         }
         show("multi-join");
+      } else if (msg.code === "need_players") {
+        const el = $("multiStartErr");
+        el.textContent = tr("errNeedPlayers");
+        el.classList.remove("hidden");
       }
+      // Code inconnu : un client ancien ne plante pas.
     }
   };
 
@@ -3017,16 +3075,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const chip = (ev.target as HTMLElement).closest("button.opt") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const row = chip.closest(".settings__row") as HTMLElement | null;
-    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "duo" | undefined;
+    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "mode" | undefined;
     if (!key) return;
     const value = Number(chip.dataset.value);
     if (!Number.isFinite(value)) return;
     const me = lastPlayers.find((p) => p.id === net!.myId);
     if (!me?.host || lobbyInMatch) return;
     sfx.ui();
-    // `duo` voyage en booléen : le protocole le sanitise avec `=== true`, donc
-    // un nombre y vaudrait « non » en silence.
-    net.setSettings(key === "duo" ? { duo: value === 1 } : { [key]: value });
+    if (key === "mode") {
+      const modes: ModeSalon[] = ["classique", "duo", "imposteur"];
+      const mode = modes[value];
+      if (!mode) return;
+      net.setSettings({ mode });
+      return;
+    }
+    net.setSettings({ [key]: value });
   });
 
   watchTargets.addEventListener("click", (ev) => {

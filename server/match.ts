@@ -12,6 +12,12 @@ import { ONE_RULES } from "../src/engine/rules";
 import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
+import {
+  draftImposteur,
+  dureeImposteur,
+  IMPOSTEUR_MANCHES,
+  SANS_REGLE,
+} from "../src/engine/imposteur";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import type { SharedRound } from "../src/engine/multiround";
 import type { Action, OneRule, Round, RoundProgress } from "../src/engine/types";
@@ -69,6 +75,8 @@ export const multiRulesFor = (clavier: boolean): OneRule[] =>
  * plus tard. Une constante suffit à les séparer.
  */
 const SEL_REGLES = 0x9e3779b9 | 0;
+/** Séparé du tirage des règles : même graine, autre usage, sans corrélation. */
+const SEL_IMPOSTEUR = 0x51edbeef | 0;
 
 export interface SeatStats {
   /** Première réaction de chaque manche réussie. On garde les mesures, pas
@@ -202,6 +210,23 @@ export class MatchLogic {
   readonly teams: Team[];
   /** Duo : les sièges sont appariés deux à deux et partagent tout. */
   readonly duo: boolean;
+  /**
+   * Mode imposteur, lu UNE FOIS au constructeur et figé.
+   *
+   * Une mutation de `settings.mode` après coup ne doit rien changer : le
+   * rythme, le secret et l'absence d'élimination appartiennent au match, pas
+   * au salon qui survit après.
+   */
+  readonly imposteur: boolean;
+  /** Siège sans règle. Null hors imposteur. Ne voyage JAMAIS en public. */
+  readonly imposteurId: string | null;
+  /** La règle commune — traps: true, une pour tout le monde. */
+  readonly regleCommune: OneRule | null;
+  /**
+   * Journal des dix manches. Lot 3 s'en servira ; ici on stocke, on ne
+   * rejoue rien à l'écran.
+   */
+  readonly journal: Record<string, RoundOutcome>[] = [];
 
   constructor(
     seed: number,
@@ -217,8 +242,26 @@ export class MatchLogic {
     this.seed = seed;
     this.settings = settings;
     this.clavier = clavier;
-    this.duo = duo;
-    this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier));
+    this.imposteur = settings.mode === "imposteur";
+    this.duo = this.imposteur ? false : duo;
+    this.imposteurId = null;
+    this.regleCommune = null;
+    if (this.imposteur) {
+      /*
+       * UNE règle, tirée SEULEMENT parmi celles qui piègent.
+       *
+       * Le pool salon (clavier / tactile) reste le filtre d'appareil : LA
+       * VOYELLE n'entre que si tout le monde a un clavier, sinon elle serait
+       * inerte — décision n°1. `SANS_REGLE` n'est pas dans ce pool.
+       */
+      const piegeuses = multiRulesFor(clavier).filter((r) => r.traps);
+      this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), piegeuses);
+      this.regleCommune = this.pool[0]!;
+      const rngImp = mulberry32(seed ^ SEL_IMPOSTEUR);
+      this.imposteurId = playerIds[Math.floor(rngImp() * playerIds.length)] ?? null;
+    } else {
+      this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier));
+    }
 
     /*
      * Appariement : deux sièges consécutifs par équipe.
@@ -229,8 +272,8 @@ export class MatchLogic {
      * deux amis qui rejoignent l'un après l'autre se retrouvent ensemble.
      */
     this.teams = [];
-    for (let i = 0; i < playerIds.length; i += duo ? 2 : 1) {
-      const membres = playerIds.slice(i, i + (duo ? 2 : 1));
+    for (let i = 0; i < playerIds.length; i += this.duo ? 2 : 1) {
+      const membres = playerIds.slice(i, i + (this.duo ? 2 : 1));
       const bonus = membres.some((id) => rookies.has(id)) ? ROOKIE_BONUS_LIVES : 0;
       /*
        * Un impair joue SEUL, avec une réserve réduite.
@@ -245,7 +288,7 @@ export class MatchLogic {
        * exactement deux fois plus de fautes qu'un seul. C'est un point à
        * regarder en soirée, pas un calcul à raffiner sur le papier.
        */
-      const seul = duo && membres.length === 1;
+      const seul = this.duo && membres.length === 1;
       const base = seul ? Math.ceil(settings.lives / 2) : settings.lives;
       this.teams.push({
         id: this.teams.length,
@@ -318,6 +361,13 @@ export class MatchLogic {
    * défaut tenu pour fatal.
    */
   rulesAt(idx: number): Map<string, OneRule> {
+    if (this.imposteur && this.regleCommune) {
+      const out = new Map<string, OneRule>();
+      for (const s of this.seats) {
+        out.set(s.id, s.id === this.imposteurId ? SANS_REGLE : this.regleCommune);
+      }
+      return out;
+    }
     const every = Math.max(1, this.settings.rotationEvery);
     const shift = Math.floor(idx / every);
     const out = new Map<string, OneRule>();
@@ -337,7 +387,24 @@ export class MatchLogic {
     return out;
   }
 
+  /**
+   * Attribution PUBLIQUE : tout le monde porte l'id de la règle commune,
+   * imposteur compris. C'est ce qui voyage dans `match_start.rules` et
+   * `PlayerPublic.ruleId`. `rulesAt` reste l'autorité interne.
+   */
+  reglesPubliques(idx: number): Record<string, string> {
+    const out: Record<string, string> = {};
+    if (this.imposteur && this.regleCommune) {
+      const id = this.regleCommune.id;
+      for (const s of this.seats) out[s.id] = id;
+      return out;
+    }
+    for (const [pid, rule] of this.rulesAt(idx)) out[pid] = rule.id;
+    return out;
+  }
+
   rotationJustHappened(idx: number): boolean {
+    if (this.imposteur) return false;
     const every = Math.max(1, this.settings.rotationEvery);
     return idx > 0 && idx % every === 0;
   }
@@ -394,7 +461,9 @@ export class MatchLogic {
   /** Ouvre la manche suivante. Retourne sa durée (le serveur fixe l'échéance). */
   openRound(): { idx: number; durationMs: number } {
     this.roundIdx++;
-    this.shared = draftShared(this.seed, this.roundIdx, poolMulti(this.clavier));
+    this.shared = this.imposteur && this.regleCommune
+      ? draftImposteur(this.seed, this.roundIdx, this.regleCommune, poolMulti(this.clavier))
+      : draftShared(this.seed, this.roundIdx, poolMulti(this.clavier));
     this.states.clear();
     const rules = this.rulesAt(this.roundIdx);
     for (const s of this.alive) {
@@ -421,15 +490,17 @@ export class MatchLogic {
      * relevées en soirée.
      */
     const grace = this.rotationJustHappened(this.roundIdx) ? ROTATION_GRACE_FACTOR : 1;
-    this.roundDurationMs = Math.min(
-      MAX_ROUND_MS,
-      Math.max(
-        MIN_ROUND_MS,
-        Math.round(
-          this.shared.durationMs * this.settings.speed * this.tensionAt(this.roundIdx) * grace,
-        ),
-      ),
-    );
+    this.roundDurationMs = this.imposteur
+      ? dureeImposteur(this.shared.durationMs)
+      : Math.min(
+          MAX_ROUND_MS,
+          Math.max(
+            MIN_ROUND_MS,
+            Math.round(
+              this.shared.durationMs * this.settings.speed * this.tensionAt(this.roundIdx) * grace,
+            ),
+          ),
+        );
     return { idx: this.roundIdx, durationMs: this.roundDurationMs };
   }
 
@@ -477,6 +548,7 @@ export class MatchLogic {
    * On rejoue la même formule que `openRound`, mais sur la durée personnelle.
    */
   private durationFor(st: PlayerRoundState): number {
+    if (this.imposteur) return dureeImposteur(st.round.durationMs);
     return Math.min(
       MAX_ROUND_MS,
       Math.max(
@@ -540,8 +612,11 @@ export class MatchLogic {
          * d'un membre affecte directement son partenaire » — et c'est elle qui
          * donne sa valeur à la coordination : se rattraper l'un l'autre change
          * réellement l'issue.
+         *
+         * Imposteur : une « mort » n'est qu'une ligne au journal. Personne
+         * n'est éliminé, les vies ne bougent pas.
          */
-        this.perdUneVie(s);
+        if (!this.imposteur) this.perdUneVie(s);
         s.stats.streak = 0;
         /*
          * Mourir sur SA PROPRE regle n'est pas la meme faute que rater une
@@ -565,8 +640,12 @@ export class MatchLogic {
      * amputé continue de jouer — et c'est exactement le moment intéressant.
      */
     const equipes = this.teamsAlive;
-    const matchOver =
-      equipes.length === 0 || (this.teams.length > 1 && equipes.length <= 1) || alive.length === 0;
+    const rec: Record<string, RoundOutcome> = {};
+    for (const [id, o] of outcomes) rec[id] = o;
+    this.journal.push(rec);
+    const matchOver = this.imposteur
+      ? this.roundIdx >= IMPOSTEUR_MANCHES - 1
+      : equipes.length === 0 || (this.teams.length > 1 && equipes.length <= 1) || alive.length === 0;
     const winnerId = matchOver ? this.winner() : null;
     const interludeMs = matchOver ? 0 : this.pauseAfter(alive.length, outcomes);
     return { outcomes, matchOver, winnerId, interludeMs };

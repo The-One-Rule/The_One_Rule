@@ -4359,6 +4359,14 @@ button.chip:active:not(:disabled) {
   cursor: default;
 }
 
+.settings__row.is-fige {
+  opacity: 0.45;
+}
+
+.settings__row.is-fige .opt:not(.is-on) {
+  opacity: 0.6;
+}
+
 .settings.is-locked .opt:not(.is-on),
 .settings.is-guest .opt:not(.is-on) {
   opacity: 0.6;

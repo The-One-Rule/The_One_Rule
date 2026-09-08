@@ -169,6 +169,8 @@ export const EMPTY_STATS: PlayerStats = {
  * Un réglage individuel de vitesse casserait la simultanéité — or c'est elle
  * qui fait le spectacle : on voit l'autre se figer PENDANT qu'on joue.
  */
+export type ModeSalon = "classique" | "duo" | "imposteur";
+
 export interface RoomSettings {
   speed: number;
   lives: number;
@@ -182,6 +184,13 @@ export interface RoomSettings {
    * des joueurs.
    */
   duo: boolean;
+  /**
+   * Mode du salon. FACULTATIF : absent vaut « classique ».
+   *
+   * ⚠️ AJOUTER CE CHAMP N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien n'envoie que `duo` ; `sanitizeSettings` en déduit alors `duo`.
+   */
+  mode?: ModeSalon;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -189,6 +198,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
   lives: 3,
   rotationEvery: 8,
   duo: false,
+  // `mode` est omis : absent = classique. Un client ancien qui n'envoie
+  // que `{ duo: true }` ne se heurte pas à un mode déjà posé.
 };
 /**
  * Vitesses de salon, du plus lent au plus vif.
@@ -206,18 +217,26 @@ export const SPEED_CHOICES = [1.7, 1.3, 1, 0.8, 0.65] as const;
 export const LIVES_CHOICES = [1, 3, 5] as const;
 export const ROTATION_CHOICES = [4, 8, 16, 999] as const;
 
+function lireMode(r: Partial<RoomSettings>): ModeSalon {
+  if (r.mode === "classique" || r.mode === "duo" || r.mode === "imposteur") return r.mode;
+  // Absent, undefined, valeur inconnue : un client ancien n'envoie que `duo`.
+  if (r.duo === true) return "duo";
+  return "classique";
+}
+
 export function sanitizeSettings(raw: unknown): RoomSettings {
   const r = (raw ?? {}) as Partial<RoomSettings>;
   const pick = <T extends number>(v: unknown, allowed: readonly T[], fallback: T): T =>
     allowed.includes(v as T) ? (v as T) : fallback;
+  const mode = lireMode(r);
   return {
     speed: pick(r.speed, SPEED_CHOICES, 1),
     lives: pick(r.lives, LIVES_CHOICES, 3),
     rotationEvery: pick(r.rotationEvery, ROTATION_CHOICES, 8),
-    // `=== true` : un réglage absent ou douteux vaut NON. Basculer un salon en
-    // duo par accident diviserait les réserves sans que personne ne l'ait
-    // demandé.
-    duo: r.duo === true,
+    mode,
+    // Les deux ne se cumulent jamais : imposteur force duo à false, duo le
+    // force à true. `=== true` reste la doctrine pour un booléen orphelin.
+    duo: mode === "duo",
   };
 }
 
@@ -366,7 +385,26 @@ export type ClientMsg =
 export type ServerMsg =
   | { t: "welcome"; id: string }
   | { t: "pong"; sent: number; serverNow: number }
-  | { t: "error"; code: "room_full" | "room_unknown" | "bad_version" | "not_host" | "in_match" | "kicked"; detail?: string }
+  | {
+      t: "error";
+      code:
+        | "room_full"
+        | "room_unknown"
+        | "bad_version"
+        | "not_host"
+        | "in_match"
+        | "kicked"
+        /** Imposteur : l'effectif assis n'est pas dans [4, 8]. Absent des clients anciens. */
+        | "need_players";
+      detail?: string;
+    }
+  /**
+   * Rôle privé — UNIQUEMENT à l'imposteur.
+   *
+   * Absent = villageois. Un client ancien ignore le message (branche default)
+   * et joue donc le classique : la règle publique qu'il a reçue.
+   */
+  | { t: "role"; imposteur: true }
   | { t: "room"; code: string; players: PlayerPublic[]; inMatch: boolean; settings: RoomSettings }
   | {
       t: "match_start";

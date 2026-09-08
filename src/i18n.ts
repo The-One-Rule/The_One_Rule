@@ -331,7 +331,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
     "salon.rotation": "ROTATION",
-    "salon.equipes": "ÉQUIPES",
+    "salon.mode": "MODE",
     "salon.lancer": "LANCER LA PARTIE",
     "salon.nom": "CHOISIR TON NOM",
     "salon.quitter": "QUITTER LE SALON",
@@ -531,7 +531,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
     "salon.rotation": "ROTATION",
-    "salon.equipes": "TEAMS",
+    "salon.mode": "MODE",
     "salon.lancer": "START THE MATCH",
     "salon.nom": "PICK YOUR NAME",
     "salon.quitter": "LEAVE THE ROOM",
@@ -839,15 +839,18 @@ type Dyn = {
   /** Ce que la vitesse choisie change, en millisecondes, a une manche témoin. */
   vitesseQuoi: (nom: string, delta: number) => string;
   vitesseQuoiRef: (nom: string, ms: number) => string;
+  rythmeImposteur: string;
   optJamais: string;
   optDuos: string;
   optChacun: string;
+  optImposteur: string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
   ariaRotationJamais: string;
   ariaRotation: (n: number) => string;
   ariaDuos: string;
   ariaChacun: string;
+  ariaImposteur: string;
   ariaSigne: (n: number, total: number) => string;
   ariaCouper: (qui: string) => string;
   ariaReactiver: (qui: string) => string;
@@ -914,6 +917,7 @@ type Dyn = {
   sortieRecharger: string;
   errSalonInconnu: string;
   errSalonComplet: (max: number) => string;
+  errNeedPlayers: string;
   errPasHote: string;
   errEnMatch: string;
   errVersion: string;
@@ -1312,15 +1316,18 @@ const DYN: Record<Lang, Dyn> = {
     vitesseQuoi: (nom, delta) =>
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS À LA MANCHE 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS À LA MANCHE 20`,
+    rythmeImposteur: "LE RYTHME APPARTIENT AU MODE · DÉCOUVERTE",
     optJamais: "JAMAIS",
     optDuos: "DUOS",
     optChacun: "CHACUN",
+    optImposteur: "IMPOSTEUR",
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
     ariaRotation: (n) => `Rotation toutes les ${n} manches`,
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
     ariaChacun: "Chacun pour soi",
+    ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
@@ -1409,6 +1416,7 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "CE SALON N'EXISTE PLUS — SOIT LE CODE EST MAL RECOPIÉ (LE 2 ET LE Z SE RESSEMBLENT), SOIT L'HÔTE A FERMÉ",
     errSalonComplet: (max) => `SALON COMPLET · ${max} JOUEURS`,
+    errNeedPlayers: "IL FAUT ENTRE 4 ET 8 JOUEURS POUR LANCER",
     errPasHote: "SEUL CELUI QUI A CRÉÉ LE SALON PEUT LANCER — DEMANDE-LUI",
     errEnMatch: "MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE",
     errVersion: "VERSION INCOMPATIBLE — RECHARGE LA PAGE",
@@ -1734,15 +1742,18 @@ const DYN: Record<Lang, Dyn> = {
     vitesseQuoi: (nom, delta) =>
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS ON ROUND 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS ON ROUND 20`,
+    rythmeImposteur: "THE PACE BELONGS TO THE MODE · DISCOVERY",
     optJamais: "NEVER",
     optDuos: "DUOS",
     optChacun: "EACH",
+    optImposteur: "IMPOSTOR",
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
     ariaRotationJamais: "Rules never rotate",
     ariaRotation: (n) => `Rotation every ${n} rounds`,
     ariaDuos: "Duos: two players per team, one shared pool of lives",
     ariaChacun: "Every player for themselves",
+    ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,
@@ -1805,6 +1816,7 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
     errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
+    errNeedPlayers: "YOU NEED 4 TO 8 PLAYERS TO START",
     errPasHote: "ONLY WHOEVER CREATED THE ROOM CAN START — ASK THEM",
     errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
     errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",
