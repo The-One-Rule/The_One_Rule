@@ -52,6 +52,9 @@ export const ALLOWED = new Set([
   "compte_invite",
   "compte_start",
   "compte_lie",
+  // Un run du jour refuse par la route des performances. Voir `traiteEnvois` :
+  // sans lui, une perte de score serait invisible cote mesure.
+  "perf_refusee",
 ]);
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */

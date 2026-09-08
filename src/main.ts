@@ -80,6 +80,7 @@ import {
   supprimeCompte,
 } from "./compte";
 import { enfile, vide } from "./compte/file";
+import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
@@ -1225,12 +1226,37 @@ function renderCompte(): void {
      * sont des affirmations de l'appareil.
      */
     void mesPerfs().then((perfs) => {
-      if (screen !== "compte" || !perfs.length) return;
-      hote.appendChild(
-        ligneCompte(t("cptRunsEnregistres"), `${perfs.length}`),
-      );
-      const meilleur = perfs.reduce((m, p) => (p.valeur > m.valeur ? p : m));
+      if (screen !== "compte") return;
+      /*
+       * ⚠️ ON NE GARDE QUE LE RUN DU JOUR, et les deux lignes le disent.
+       *
+       * Elles comptaient et comparaient TOUTES les performances, tous modes
+       * confondus, sous des intitules qui annoncent « RUN DU JOUR ». La table
+       * ne contient aujourd'hui que du run du jour — `enfile` n'enregistre que
+       * ce mode — donc rien ne se voyait ; mais le jour ou l'entrainement y
+       * entrerait, l'ecran aurait affiche un record d'entrainement sous
+       * l'etiquette du jour. C'est le chiffre faux que `render/but.ts` existe
+       * pour interdire, laisse en clair a deux lignes de la mention qui dit
+       * qu'on ne melange pas les epreuves.
+       */
+      const duJour = perfs.filter((p) => p.mode === "daily");
+      if (!duJour.length) return;
+      hote.appendChild(ligneCompte(t("cptRunsEnregistres"), `${duJour.length}`));
+      const meilleur = duJour.reduce((m, p) => (p.valeur > m.valeur ? p : m));
       hote.appendChild(ligneCompte(t("cptMeilleurRun"), t("cptManches")(meilleur.valeur)));
+      /*
+       * ⚠️ ET ON SIGNALE L'ECART AVEC LE CHIFFRE LOCAL.
+       *
+       * C'est exactement ce que Pierre a vu : « 34 aujourd'hui » plus haut sur
+       * le meme ecran — son score LOCAL — et « meilleur run du jour : 23 »
+       * ici, qui vient du serveur. Sans cette ligne, les deux chiffres se
+       * contredisent en silence et le joueur conclut que le classement est
+       * casse.
+       */
+      const mienDuJour = monScoreDuJour(P.load()) ?? 0;
+      if (mienDuJour > meilleur.valeur) {
+        hote.appendChild(ligneCompte(t("cptEcart"), t("cptEcartQuoi")));
+      }
     });
     return;
   }
@@ -2299,6 +2325,38 @@ const FRAICHEUR_CLASSEMENT_MS = 30_000;
  * `force` sert aux evenements qui RENDENT le cache faux : une performance
  * acceptee, une connexion. La fraicheur sert au reste.
  */
+/**
+ * ⚠️ CE QUE LE SERVEUR A FAIT DU RUN, DIT AU JOUEUR.
+ *
+ * SYMPTOME RAPPORTE : « les records des run du jour ne sont toujours pas
+ * synchronises, un joueur a fait 40 mais le systeme ne s'est pas mis a jour ».
+ * Sa capture le montre : « 34 aujourd'hui » a l'ecran — son score LOCAL — et
+ * « meilleur run du jour : 23 » juste en dessous, qui vient du serveur.
+ *
+ * Les deux chemins d'echec de la soumission etaient MUETS. Un refus 4xx
+ * faisait jeter l'entree de la file sans laisser de trace, et un
+ * `enregistre: false` revenait dans une reponse 200 que personne ne lisait.
+ * Un score pouvait donc se perdre sans que ni le joueur ni nous ne puissions
+ * le savoir — et une perte silencieuse ne se signale pas, donc ne se corrige
+ * jamais.
+ *
+ * On ne cache plus rien : accepte, on rafraichit le classement ; refuse, on le
+ * DIT et on l'enregistre dans la mesure avec sa raison, pour qu'un relevé
+ * puisse compter combien de runs se perdent et pourquoi.
+ */
+function traiteEnvois(resultats: readonly Resultat[]): void {
+  if (!resultats.length) return;
+  const perdus = resultats.filter((r) => !r.enregistre);
+  for (const r of perdus) {
+    track("perf_refusee", { raison: r.refus ?? "?", score: r.score });
+  }
+  if (perdus.length) {
+    montreToast(t("perfRefusee"), perdus[0]!.refus ?? "", 3200);
+  }
+  // Un seul run accepte suffit a rendre le classement faux : on redemande.
+  if (resultats.some((r) => r.enregistre)) void rafraichitClassement(true);
+}
+
 async function rafraichitClassement(force = false): Promise<void> {
   if (!force && Date.now() - recordDuJourVu < FRAICHEUR_CLASSEMENT_MS) return;
   /*
@@ -3175,9 +3233,7 @@ function finishRun(): void {
      * `force`, parce que la fraicheur de trente secondes n'a pas a s'appliquer
      * ici : on SAIT que la table a change.
      */
-    void vide().then((r) => {
-      if (r.length) void rafraichitClassement(true);
-    });
+    void vide().then((r) => traiteEnvois(r));
   }
 
   /*
@@ -4769,7 +4825,7 @@ async function demarreCompte(): Promise<void> {
   }
   // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
   // ou joué avant que le compte n'existe.
-  await vide();
+  traiteEnvois(await vide());
   // Se connecter change ce que le classement peut nous dire — ne serait-ce que
   // pour marquer notre propre ligne — et un run en attente vient peut-etre
   // d'entrer dans la table.

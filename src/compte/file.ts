@@ -79,6 +79,20 @@ export interface Resultat {
   cleared: boolean;
   dureeMs: number;
   verdict: string;
+  /**
+   * ⚠️ POURQUOI LE SERVEUR A REFUSE, quand il a refuse.
+   *
+   * Sans ce champ, les deux chemins d'echec de la soumission etaient MUETS :
+   * un 4xx faisait jeter l'entree sans laisser de trace, et un `enregistre:
+   * false` revenait dans un 200 que personne ne lisait. Le joueur voyait donc
+   * son score local et le serveur en gardait un autre — exactement ce qui a
+   * ete rapporte : « 34 aujourd'hui » a l'ecran, meilleur run du jour a 23
+   * cote serveur.
+   *
+   * Une perte de donnees silencieuse est le pire des defauts : personne ne
+   * peut la signaler, donc personne ne la corrige.
+   */
+  refus?: string;
 }
 
 /**
@@ -112,11 +126,38 @@ export async function vide(): Promise<Resultat[]> {
         body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs }),
       });
       if (res.ok) {
-        resultats.push((await res.json()) as Resultat);
+        const r = (await res.json()) as Resultat;
+        // ⚠️ Un 200 ne veut PAS dire enregistre : `posePerf` n'ameliore que
+        // ce qui merite de l'etre, et rend `false` sinon. On le fait remonter.
+        if (!r.enregistre) r.refus = r.refus ?? "non enregistre";
+        resultats.push(r);
         continue; // envoyé : on ne le remet pas
       }
       // 4xx = ce run ne sera jamais accepté. 5xx et le reste = on réessaiera.
-      if (res.status >= 500 || res.status === 401) restants.push(e);
+      if (res.status >= 500 || res.status === 401) {
+        restants.push(e);
+      } else {
+        /*
+         * ⚠️ ON JETTE, MAIS ON LE DIT. Le run est refuse pour de bon — journal
+         * incoherent, jour trop ancien, mode non enregistrable. Le laisser
+         * partir sans un mot, c'est perdre le score de quelqu'un en silence.
+         */
+        let raison = `HTTP ${res.status}`;
+        try {
+          const b = (await res.json()) as { error?: string; raison?: string };
+          raison = b.raison ?? b.error ?? raison;
+        } catch {
+          /* corps illisible : le code de statut suffira */
+        }
+        resultats.push({
+          enregistre: false,
+          score: 0,
+          cleared: false,
+          dureeMs: 0,
+          verdict: "",
+          refus: raison,
+        });
+      }
     } catch {
       restants.push(e); // hors ligne
     }

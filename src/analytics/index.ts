@@ -65,6 +65,15 @@ export const EVENT_NAMES = [
   "compte_invite",
   "compte_start",
   "compte_lie",
+  /*
+   * ⚠️ UN RUN DU JOUR REFUSE PAR LE SERVEUR.
+   *
+   * Sans cet evenement, une perte de score est INVISIBLE : le joueur voit son
+   * chiffre local, le serveur en garde un autre, et personne ne peut compter
+   * combien de runs se perdent ni pourquoi. `raison` porte le motif rendu par
+   * la route — journal incoherent, jour trop ancien, non enregistre.
+   */
+  "perf_refusee",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

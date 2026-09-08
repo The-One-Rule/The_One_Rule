@@ -887,6 +887,9 @@ type Dyn = {
   signeChoisis: (n: number) => string;
   sortieRetaper: string;
   reconnexion: string;
+  perfRefusee: string;
+  cptEcart: string;
+  cptEcartQuoi: string;
   piedDepasse: string;
   objectifReste: (n: number) => string;
   exerciceValide: string;
@@ -1369,6 +1372,9 @@ const DYN: Record<Lang, Dyn> = {
     signeChoisis: (n) => `CHOISIS TON SIGNE · ${n} DISPONIBLES`,
     sortieRetaper: "RETAPER",
     reconnexion: "RECONNEXION…",
+    perfRefusee: "CE RUN N'A PAS ÉTÉ ENREGISTRÉ",
+    cptEcart: "PAS ENCORE SYNCHRONISÉ",
+    cptEcartQuoi: "TON SCORE DU JOUR EST PLUS HAUT ICI QUE SUR LE SERVEUR",
     piedDepasse: "SUR TON MIEUX",
     objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
     exerciceValide: "EXERCICE VALIDÉ",
@@ -1771,6 +1777,9 @@ const DYN: Record<Lang, Dyn> = {
     signeChoisis: (n) => `PICK YOUR SIGN · ${n} AVAILABLE`,
     sortieRetaper: "TYPE IT AGAIN",
     reconnexion: "RECONNECTING…",
+    perfRefusee: "THIS RUN WAS NOT RECORDED",
+    cptEcart: "NOT SYNCED YET",
+    cptEcartQuoi: "YOUR SCORE TODAY IS HIGHER HERE THAN ON THE SERVER",
     piedDepasse: "OVER YOUR BEST",
     objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
     exerciceValide: "EXERCISE CLEARED",
