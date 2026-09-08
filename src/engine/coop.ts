@@ -23,10 +23,22 @@ export const COOP_VAGUE_MS = 30000;
 export const COOP_VAGUE_MIN = 20000;
 export const COOP_VAGUE_MAX = 40000;
 
+/**
+ * Fenêtre de rassemblement : 400 ms après le PREMIER clic licite
+ * sur cette entité. Nomée, testée. Le serveur clôt ; le client n'en
+ * déduit aucun verdict.
+ */
+export const COOP_RASSEMBLEMENT_MS = 400;
+
+/** 1 = un clic, 2 / 3 = concours. Plafond 3 (6 joueurs max). */
+export type NeedCoop = 1 | 2 | 3;
+
 /** Séparé du tirage des scènes : même graine, autre usage. */
 const SEL_REGLES = 0xc005e1d | 0;
 const SEL_SCENE = 0xc00c5ce | 0;
 const SEL_DUREE = 0xc00d4e | 0;
+/** Séparé de `place()` : le need ne doit pas déplacer une pièce. */
+const SEL_NEED = 0xc00eed | 0;
 
 /** L'effectif assis autorise-t-il le lancement ? UI et serveur, même règle. */
 export function peutLancerCoop(assis: number): boolean {
@@ -85,14 +97,46 @@ export function dureeVague(seed: number, idx: number): number {
 }
 
 /**
- * Scène commune d'une vague : `place()` existant, 15 cellules, `need=1`
- * (chaque pièce se prend d'un clic).
+ * Nombre de concours d'une pièce — déterministe (graine, idx de vague,
+ * idx d'entité). Hors de `place()` : changer `place()` déplacerait les
+ * scènes du run du jour.
+ *
+ * Majorité 1, quelques 2, rare 3. Jamais au-delà de 3.
+ */
+export function needDe(seed: number, idx: number, entIdx: number): NeedCoop {
+  const rng = mulberry32(
+    (seed ^ SEL_NEED ^ Math.imul(idx + 1, 0x9e3779b9) ^ Math.imul(entIdx + 1, 0x85ebca6b)) >>> 0,
+  );
+  const x = rng();
+  if (x < 0.06) return 3;
+  if (x < 0.28) return 2;
+  return 1;
+}
+
+export function needsDeVague(
+  seed: number,
+  idx: number,
+  ents: readonly { idx: number }[],
+): Map<number, NeedCoop> {
+  const out = new Map<number, NeedCoop>();
+  for (const e of ents) out.set(e.idx, needDe(seed, idx, e.idx));
+  return out;
+}
+
+/**
+ * Scène commune d'une vague : `place()` existant, 15 cellules.
+ *
+ * Le `need` vit À CÔTÉ, pas sur `Entity` : le solo ignore la Map, et
+ * `place()` n'est pas touché.
  *
  * Calibrée pour qu'aucune règle du pool ne soit inerte sur un plateau plein :
  * une forme unique (SOLITAIRE), un seul L (COLOSSE), les quatre couleurs,
  * la grille entière (GAUCHER, ANGLES).
  */
-export function draftCoop(seed: number, idx: number): { ents: Entity[] } {
+export function draftCoop(seed: number, idx: number): {
+  ents: Entity[];
+  needs: Map<number, NeedCoop>;
+} {
   const rng = mulberry32((seed ^ SEL_SCENE ^ Math.imul(idx + 1, 0x85ebca6b)) >>> 0);
   const formes = rShuffle(rng, SHAPE_IDS);
   const unique = formes[0]!;
@@ -105,7 +149,8 @@ export function draftCoop(seed: number, idx: number): { ents: Entity[] } {
     size: (i === 1 ? "L" : "M") as SizeId,
     moving: rChance(rng, 0.28),
   }));
-  return { ents: place(rng, rShuffle(rng, specs).slice(0, MAX_ENTITIES)) };
+  const ents = place(rng, rShuffle(rng, specs).slice(0, MAX_ENTITIES));
+  return { ents, needs: needsDeVague(seed, idx, ents) };
 }
 
 /** Round d'affichage — consigne générique, pas une cible solo. */

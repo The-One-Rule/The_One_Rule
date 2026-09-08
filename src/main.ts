@@ -6021,6 +6021,8 @@ function loop(now: number): void {
       now,
       reveal: multiDraw.reveal,
       ratio: multiDraw.ratio,
+      needs: multiDraw.needs,
+      charges: multiDraw.charges,
     });
   } else {
     scene.draw({ round: null, rule: null, now });

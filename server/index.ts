@@ -21,14 +21,14 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
-import { MatchCoop } from "./coop";
+import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
 import {
   fautSignalerActe,
   IMPOSTEUR_MAX_ASIS,
   peutLancerImposteur,
 } from "../src/engine/imposteur";
 import type { IssueVote } from "../src/engine/imposteur";
-import { COOP_MAX_ASIS, peutLancerCoop } from "../src/engine/coop";
+import { COOP_MAX_ASIS, COOP_RASSEMBLEMENT_MS, peutLancerCoop } from "../src/engine/coop";
 import { originAllowed, parseOrigins } from "./origin";
 import { verifieJeton } from "./jeton";
 import { cleanEnv } from "../src/env";
@@ -145,6 +145,8 @@ interface Room {
   roundStartAt: number;
   roundDeadline: number;
   timer: ReturnType<typeof setTimeout> | null;
+  /** Un timeout par entité en cours de rassemblement — distinct du timer de vague. */
+  chargeTimers: Map<number, ReturnType<typeof setTimeout>>;
   roundOpen: boolean;
 }
 
@@ -398,9 +400,76 @@ function startMatchCoop(room: Room): void {
   room.timer = setTimeout(() => openVagueCoop(room), COUNTDOWN_MS);
 }
 
+function clearChargeTimers(room: Room): void {
+  for (const t of room.chargeTimers.values()) clearTimeout(t);
+  room.chargeTimers.clear();
+}
+
+function planifierClotureCharge(room: Room, i: number, expireElapsedMs: number): void {
+  const prev = room.chargeTimers.get(i);
+  if (prev) clearTimeout(prev);
+  const delay = Math.max(0, room.roundStartAt + expireElapsedMs - now());
+  room.chargeTimers.set(
+    i,
+    setTimeout(() => {
+      room.chargeTimers.delete(i);
+      const coop = room.coop;
+      if (!coop || !room.roundOpen) return;
+      const elapsed = now() - room.roundStartAt;
+      appliquerClotureCoop(room, coop.cloreCharge(i, elapsed));
+    }, delay),
+  );
+}
+
+function appliquerClicCoop(room: Room, r: ClicCoop): void {
+  const coop = room.coop;
+  if (!coop) return;
+  if (r.kind === "charge") {
+    broadcast(room, {
+      t: "charge",
+      i: r.i,
+      n: r.n,
+      need: r.need,
+      idx: coop.roundIdx,
+    });
+    if (r.n === 1) planifierClotureCharge(room, r.i, r.debutMs + COOP_RASSEMBLEMENT_MS);
+    return;
+  }
+  if (r.kind === "pris") {
+    const t = room.chargeTimers.get(r.i);
+    if (t) {
+      clearTimeout(t);
+      room.chargeTimers.delete(r.i);
+    }
+  }
+  broadcast(room, {
+    t: "coop_clic",
+    idx: coop.roundIdx,
+    i: r.i,
+    pris: r.kind === "pris",
+    score: r.score,
+    vies: r.vies,
+  });
+  if (r.vies <= 0 || (r.kind === "pris" && coop.toutPris())) {
+    if (room.timer) clearTimeout(room.timer);
+    closeVagueCoop(room);
+  }
+}
+
+function appliquerClotureCoop(room: Room, r: ClotureCharge | null): void {
+  const coop = room.coop;
+  if (!coop || !r) return;
+  if (r.kind === "rate") {
+    broadcast(room, { t: "charge", i: r.i, n: 0, need: r.need, idx: coop.roundIdx });
+    return;
+  }
+  appliquerClicCoop(room, r);
+}
+
 function openVagueCoop(room: Room): void {
   const coop = room.coop;
   if (!coop) return;
+  clearChargeTimers(room);
   const { idx, durationMs } = coop.openVague();
   room.roundStartAt = now();
   room.roundDeadline = room.roundStartAt + durationMs;
@@ -419,6 +488,7 @@ function closeVagueCoop(room: Room): void {
   const coop = room.coop;
   if (!coop || !room.roundOpen) return;
   room.roundOpen = false;
+  clearChargeTimers(room);
   const { matchOver } = coop.closeVague();
   const out: Record<string, RoundOutcome> = {};
   for (const s of coop.seats) out[s.id] = { kind: "idle" };
@@ -698,6 +768,7 @@ wss.on("connection", (ws) => {
           roundStartAt: 0,
           roundDeadline: 0,
           timer: null,
+          chargeTimers: new Map(),
           roundOpen: false,
         };
         rooms.set(room.code, room);
@@ -917,18 +988,7 @@ wss.on("connection", (ws) => {
             elapsedC,
           );
           if (!r) return;
-          broadcast(room, {
-            t: "coop_clic",
-            idx: coop.roundIdx,
-            i: r.i,
-            pris: r.kind === "pris",
-            score: r.score,
-            vies: r.vies,
-          });
-          if (r.vies <= 0 || coop.toutPris()) {
-            if (room.timer) clearTimeout(room.timer);
-            closeVagueCoop(room);
-          }
+          appliquerClicCoop(room, r);
           return;
         }
 
@@ -1139,6 +1199,7 @@ function leaveRoom(client: Client): void {
 
   if (room.clients.size === 0) {
     if (room.timer) clearTimeout(room.timer);
+    clearChargeTimers(room);
     rooms.delete(room.code);
     return;
   }

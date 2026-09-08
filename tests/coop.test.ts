@@ -17,17 +17,21 @@ import {
   attribueReglesCoop,
   dureeVague,
   jugerClic,
+  needDe,
   peutLancerCoop,
   poolCoop,
   roundCoop,
   viesInitialesCoop,
   COOP_MAX_ASIS,
   COOP_MIN_JOUEURS,
+  COOP_RASSEMBLEMENT_MS,
   COOP_VAGUE_MAX,
   COOP_VAGUE_MIN,
 } from "../src/engine/coop";
 import { ONE_RULES } from "../src/engine/rules";
 import { VERSION_CONTENU } from "../src/engine/version";
+import { COLOR_IDS } from "../src/engine/types";
+import { colorHex, NEED_BADGE } from "../src/render/scene";
 import type { Action, Entity, OneRule } from "../src/engine/types";
 
 const QUATRE = ["a", "b", "c", "d"];
@@ -59,13 +63,57 @@ function clic(
   interdit: boolean,
   elapsed = 400,
 ) {
-  const cible = m.ents.filter((e) => !m.consumed.has(e.idx)).find(pred(m, id, interdit));
-  if (!cible) throw new Error(interdit ? "pas d'interdit" : "pas de licite");
+  const cible = m.ents.filter((e) => !m.consumed.has(e.idx)).find((e) => {
+    if (!pred(m, id, interdit)(e)) return false;
+    // Les tests d'un clic isolé visent need=1 : need=2 n'est pas un pris immédiat.
+    if (!interdit && needDe(m.seed, m.roundIdx, e.idx) !== 1) return false;
+    return true;
+  });
+  if (!cible) throw new Error(interdit ? "pas d'interdit" : "pas de licite need=1");
   return m.inputCoop(
     id,
     m.roundIdx,
     { kind: "click", ent: cible, x: cible.x, y: cible.y },
     elapsed,
+  );
+}
+
+function clicSur(m: MatchCoop, id: string, e: Entity, elapsed: number) {
+  return m.inputCoop(
+    id,
+    m.roundIdx,
+    { kind: "click", ent: e, x: e.x, y: e.y },
+    elapsed,
+  );
+}
+
+function trouveCible(
+  m: MatchCoop,
+  need: 1 | 2 | 3,
+  licites: readonly string[],
+  interditId?: string,
+): Entity | undefined {
+  return m.ents.find((e) => {
+    if (m.consumed.has(e.idx)) return false;
+    if (needDe(m.seed, m.roundIdx, e.idx) !== need) return false;
+    if (!licites.every((id) => pred(m, id, false)(e))) return false;
+    if (interditId && !pred(m, interditId, true)(e)) return false;
+    return true;
+  });
+}
+
+function matchAvecCible(
+  need: 1 | 2 | 3,
+  licites: readonly string[],
+  interditId?: string,
+): { m: MatchCoop; e: Entity } {
+  for (let seed = 0; seed < 400; seed++) {
+    const m = coop(seed);
+    const e = trouveCible(m, need, licites, interditId);
+    if (e) return { m, e };
+  }
+  throw new Error(
+    `aucune cible need=${need} licites=${licites.join(",")} interdit=${interditId ?? "—"}`,
   );
 }
 
@@ -280,5 +328,124 @@ describe("HUD hors flux", () => {
     expect(hud).toMatch(/data-i18n="coop\.score"/);
     expect(hud).toMatch(/id="coopViesVal"/);
     expect(hud).toMatch(/id="coopScoreVal"/);
+  });
+});
+
+describe("need — second signe, pas une teinte de pièce", () => {
+  it("needDe est borné à 3, majorité 1, quelques 2, rare 3", () => {
+    const counts = { 1: 0, 2: 0, 3: 0 };
+    let total = 0;
+    for (let s = 0; s < 80; s++) {
+      for (let v = 0; v < 8; v++) {
+        for (let i = 0; i < 15; i++) {
+          const n = needDe(s * 19 + 3, v, i);
+          expect(n === 1 || n === 2 || n === 3).toBe(true);
+          counts[n]++;
+          total++;
+        }
+      }
+    }
+    expect(counts[1]).toBeGreaterThan(counts[2]);
+    expect(counts[2]).toBeGreaterThan(counts[3]);
+    expect(counts[3]).toBeGreaterThan(0);
+    expect(counts[1] / total).toBeGreaterThan(0.55);
+  });
+
+  it("le need vit à côté de la scène — Entity n'en porte pas, place() est appelé tel quel", () => {
+    const src = readFileSync("src/engine/coop.ts", "utf8");
+    expect(src).toMatch(/place\(rng, rShuffle\(rng, specs\)/);
+    expect(src).toMatch(/needsDeVague\(seed, idx, ents\)/);
+    const types = readFileSync("src/engine/types.ts", "utf8");
+    const ent = types.slice(types.indexOf("export interface Entity"), types.indexOf("/* ------------------------------------------------------------------"));
+    expect(ent).not.toMatch(/\bneed\b/);
+  });
+
+  it("COOP_RASSEMBLEMENT_MS vaut 400", () => {
+    expect(COOP_RASSEMBLEMENT_MS).toBe(400);
+  });
+});
+
+describe("rassemblement — le serveur compte les sièges DISTINCTS", () => {
+  it("deux clics licites dans la fenêtre sur need=2 → +2, consumed", () => {
+    const { m, e } = matchAvecCible(2, ["a", "b"]);
+    const r1 = clicSur(m, "a", e, 200);
+    expect(r1?.kind).toBe("charge");
+    if (r1?.kind === "charge") {
+      expect(r1.n).toBe(1);
+      expect(r1.need).toBe(2);
+    }
+    expect(m.consumed.has(e.idx)).toBe(false);
+    const r2 = clicSur(m, "b", e, 350);
+    expect(r2?.kind).toBe("pris");
+    expect(m.score).toBe(2);
+    expect(m.consumed.has(e.idx)).toBe(true);
+    expect(m.entityOf("a", e.idx)).toBeNull();
+  });
+
+  it("un seul clic, 400 ms → rien, entité encore là", () => {
+    const { m, e } = matchAvecCible(2, ["a", "b"]);
+    const r1 = clicSur(m, "a", e, 100);
+    expect(r1?.kind).toBe("charge");
+    expect(m.cloreCharge(e.idx, 100 + COOP_RASSEMBLEMENT_MS - 1)).toBeNull();
+    expect(m.consumed.has(e.idx)).toBe(false);
+    const fin = m.cloreCharge(e.idx, 100 + COOP_RASSEMBLEMENT_MS);
+    expect(fin?.kind).toBe("rate");
+    expect(m.score).toBe(0);
+    expect(m.consumed.has(e.idx)).toBe(false);
+    expect(m.entityOf("a", e.idx)).not.toBeNull();
+  });
+
+  it("un licite + un interdit → −1 vie, pas de point", () => {
+    const { m, e } = matchAvecCible(2, ["a"], "b");
+    const vies = m.vies;
+    const r1 = clicSur(m, "a", e, 100);
+    expect(r1?.kind).toBe("charge");
+    const r2 = clicSur(m, "b", e, 180);
+    expect(r2?.kind).toBe("interdit");
+    expect(m.vies).toBe(vies - 1);
+    expect(m.score).toBe(0);
+    expect(m.consumed.has(e.idx)).toBe(false);
+    const fin = m.cloreCharge(e.idx, 100 + COOP_RASSEMBLEMENT_MS);
+    expect(fin?.kind).toBe("rate");
+    expect(m.score).toBe(0);
+    expect(m.vies).toBe(vies - 1);
+    expect(m.consumed.has(e.idx)).toBe(false);
+  });
+
+  it("deux clics du même siège ne comptent qu'une fois", () => {
+    const { m, e } = matchAvecCible(2, ["a", "b"]);
+    expect(clicSur(m, "a", e, 100)?.kind).toBe("charge");
+    expect(clicSur(m, "a", e, 150)).toBeNull();
+    expect(m.cloreCharge(e.idx, 100 + COOP_RASSEMBLEMENT_MS)?.kind).toBe("rate");
+    expect(m.consumed.has(e.idx)).toBe(false);
+  });
+
+  it("le message charge n'entre pas dans un verdict — PROTOCOL_VERSION reste à 1", () => {
+    const src = readFileSync("shared/protocol.ts", "utf8");
+    expect(src).toMatch(/t: "charge"; i: number; n: number; need: number/);
+    expect(src).toMatch(/N'entre JAMAIS dans un verdict/);
+    expect(PROTOCOL_VERSION).toBe(1);
+  });
+});
+
+describe("badge need — hors palette jouable", () => {
+  it("colorHex des 4 teintes est inchangé", () => {
+    expect(colorHex("garance")).toBe("#F74058");
+    expect(colorHex("azur")).toBe("#237EF6");
+    expect(colorHex("jade")).toBe("#40F7C0");
+    expect(colorHex("ambre")).toBe("#F5B214");
+  });
+
+  it("le badge n'utilise aucune des 4 clés ColorId", () => {
+    const src = readFileSync("src/render/scene.ts", "utf8");
+    const start = src.indexOf("export function drawNeedBadge");
+    expect(start).toBeGreaterThan(0);
+    const end = src.indexOf("/** Hitbox", start);
+    const body = src.slice(start, end);
+    expect(body).not.toMatch(/garance|azur|jade|ambre/);
+    expect(body).not.toMatch(/HEX|colorHex|ColorId/);
+    for (const id of COLOR_IDS) {
+      expect(Object.values(NEED_BADGE), id).not.toContain(colorHex(id));
+    }
   });
 });

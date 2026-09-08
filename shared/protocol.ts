@@ -487,7 +487,7 @@ export type ServerMsg =
    * ancien ignore le cas, et c'est le bon défaut — absent = la vague
    * n'a pas encore bougé à l'écran.
    *
-   * `pris: true` : l'entité est consumed, score +1. `pris: false` : le
+   * `pris: true` : l'entité est consumed, score +need. `pris: false` : le
    * cliqueur a enfreint SA règle, vie commune −1, l'entité RESTE.
    * Jamais de coordonnées : le client reconstruit l'entité par index.
    */
@@ -499,6 +499,18 @@ export type ServerMsg =
       score: number;
       vies: number;
     }
+  /**
+   * Avancement décoratif d'un rassemblement. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien ignore le cas. N'entre JAMAIS dans un verdict : le serveur
+   * clôt par `coop_clic` (pris) ou par `n: 0` (échec, pièce encore là).
+   *
+   * `idx` est facultatif au sens du protocole (absent = le client
+   * applique quand même s'il n'a qu'une vague). On l'envoie pour
+   * ignorer un retard d'une vague précédente.
+   */
+  | { t: "charge"; i: number; n: number; need: number; idx?: number }
   /**
    * Journal des dix manches. FACULTATIF. Une fois, à la fin.
    *

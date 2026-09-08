@@ -73,6 +73,57 @@ interface Particle {
 
 export const colorHex = (c: ColorId): string => HEX[c];
 
+/**
+ * Encre du badge de concours coop.
+ *
+ * Hors palette jouable : les quatre ColorId disent CE QU'EST la pièce
+ * (LE SANG, L'AZUR). Le nombre de concours est un SECOND SIGNE — paper /
+ * line / signal, jamais garance / azur / jade / ambre.
+ */
+export const NEED_BADGE = {
+  paper: PAPER,
+  line: LINE,
+  signal: ACCENT,
+} as const;
+
+/**
+ * Badge cranté, angles droits, pas de halo. `need < 2` : rien (un clic
+ * se lit tout seul). `n` est l'avancement décoratif (0 = repos).
+ */
+export function drawNeedBadge(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  need: 1 | 2 | 3,
+  n = 0,
+): void {
+  if (need < 2) return;
+  const s = 20;
+  const bx = Math.round(x - s / 2);
+  const by = Math.round(y - s / 2);
+  ctx.save();
+  ctx.fillStyle = NEED_BADGE.paper;
+  ctx.fillRect(bx, by, s, s);
+  ctx.strokeStyle = NEED_BADGE.line;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(bx + 1, by + 1, s - 2, s - 2);
+  const inner = s - 6;
+  const cranW = Math.max(3, Math.floor(inner / (need * 2 - 1)));
+  const gap = cranW;
+  let cx = bx + 3;
+  for (let k = 0; k < need; k++) {
+    ctx.fillStyle = k < n ? NEED_BADGE.signal : NEED_BADGE.line;
+    ctx.fillRect(cx, by - 3, cranW, 3);
+    cx += cranW + gap;
+  }
+  ctx.fillStyle = NEED_BADGE.signal;
+  ctx.font = "700 10px 'JetBrains Mono', ui-monospace, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(n > 0 ? `${n}/${need}` : String(need), bx + s / 2, by + s / 2 + 1);
+  ctx.restore();
+}
+
 /** Hitbox 22 % plus large que le visuel. Rater un clic de 3 px fait désinstaller. */
 const HIT = 1.22;
 
@@ -578,8 +629,10 @@ export class SceneRenderer {
     now: number;
     reveal?: boolean;
     ratio?: number;
+    needs?: ReadonlyMap<number, 1 | 2 | 3>;
+    charges?: ReadonlyMap<number, { n: number }>;
   }): void {
-    const { round, rule, now, reveal = false, ratio } = state;
+    const { round, rule, now, reveal = false, ratio, needs, charges } = state;
     const { ctx } = this;
     const dt = this.lastT ? Math.min(0.05, (now - this.lastT) / 1000) : 0;
     this.lastT = now;
@@ -692,6 +745,17 @@ export class SceneRenderer {
         ctx.lineWidth = 2;
         this.path(e, r);
         ctx.stroke();
+
+        const need = needs?.get(e.idx);
+        if (need && need >= 2) {
+          drawNeedBadge(
+            ctx,
+            e.x + e.r * 0.62,
+            e.y - e.r * 0.72,
+            need,
+            charges?.get(e.idx)?.n ?? 0,
+          );
+        }
       }
       if (reveal) this.drawReveal(round, now);
     }

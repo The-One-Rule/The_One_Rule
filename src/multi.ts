@@ -19,7 +19,7 @@ import {
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
 import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
-import { peutLancerCoop, roundCoop, viesInitialesCoop } from "./engine/coop";
+import { peutLancerCoop, needsDeVague, roundCoop, viesInitialesCoop } from "./engine/coop";
 import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
@@ -89,6 +89,8 @@ export type MultiDraw = {
   rule: OneRule | null;
   ratio?: number;
   reveal: boolean;
+  needs?: ReadonlyMap<number, 1 | 2 | 3>;
+  charges?: ReadonlyMap<number, { n: number }>;
 };
 
 /** Effets scène consommés une fois par main (gerbe / flash / kick). */
@@ -220,6 +222,10 @@ type MatchState = {
   modeCoop: boolean;
   /** Indices consumed de la vague courante (coop). */
   consumed: Set<number>;
+  /** Need par entité, reconstruit (graine, idx, idx d'entité). */
+  needs: Map<number, 1 | 2 | 3>;
+  /** Avancement décoratif 1/2 — jamais un verdict. */
+  charges: Map<number, { n: number }>;
 };
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
@@ -1254,6 +1260,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       }
       match.rule = rule;
       match.round = roundCoop(match.seed, match.idx, match.consumed);
+      match.needs = needsDeVague(match.seed, match.idx, match.round.ents);
       hud.setRule(rule);
       return;
     }
@@ -1800,7 +1807,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function applyCoopClic(msg: Extract<ServerMsg, { t: "coop_clic" }>): void {
     if (!match || !match.modeCoop || msg.idx !== match.idx) return;
-    if (msg.pris) match.consumed.add(msg.i);
+    if (msg.pris) {
+      match.consumed.add(msg.i);
+      match.charges.delete(msg.i);
+    }
     match.lives = msg.vies;
     match.score = msg.score;
     match.players = match.players.map((p) =>
@@ -1811,6 +1821,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     rebuildViewRound();
     peintCoopHud();
     renderPlates();
+  }
+
+  function applyCharge(msg: Extract<ServerMsg, { t: "charge" }>): void {
+    if (!match || !match.modeCoop) return;
+    if (msg.idx !== undefined && msg.idx !== match.idx) return;
+    if (msg.n <= 0) match.charges.delete(msg.i);
+    else match.charges.set(msg.i, { n: msg.n });
   }
 
   function clearMatch(): void {
@@ -1932,6 +1949,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       imposteur: jeSuisImposteur,
       modeCoop: msg.settings?.mode === "coop",
       consumed: new Set(),
+      needs: new Map(),
+      charges: new Map(),
     };
 
     if (match.watchingId) net.watch(match.watchingId);
@@ -1996,6 +2015,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     $("head").classList.remove("is-preview");
     if (match.modeCoop) {
       match.consumed = new Set(msg.consumed ?? []);
+      match.charges = new Map();
       match.spanFactor = 1;
       rebuildViewRound();
       peintCoopHud();
@@ -2632,6 +2652,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (msg.t === "coop_clic") {
       applyCoopClic(msg);
+      return;
+    }
+    if (msg.t === "charge") {
+      applyCharge(msg);
       return;
     }
     if (msg.t === "verdict") {
@@ -3392,6 +3416,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       rule: match.rule,
       ratio: match.phase === "frozen" ? 1 : ratio,
       reveal,
+      needs: match.modeCoop ? match.needs : undefined,
+      charges: match.modeCoop ? match.charges : undefined,
     };
   }
 

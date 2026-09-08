@@ -7,23 +7,37 @@
  * injouable.
  *
  * Aucune socket, aucun timer, aucune horloge interne : le transport vit
- * dans `server/index.ts`.
+ * dans `server/index.ts`. Le rassemblement (need 2/3) se clôt par
+ * `cloreCharge(elapsedMs)` que le transport appelle à T0+400 ms.
  */
 
 import type { Action, Entity, OneRule } from "../src/engine/types";
 import {
   attribueReglesCoop,
+  COOP_RASSEMBLEMENT_MS,
   draftCoop,
   dureeVague,
   jugerClic,
   viesInitialesCoop,
 } from "../src/engine/coop";
+import type { NeedCoop } from "../src/engine/coop";
 import { EMPTY_STATS } from "../shared/protocol";
 import type { PlayerStats } from "../shared/protocol";
 
 export type ClicCoop =
   | { kind: "pris"; i: number; score: number; vies: number }
-  | { kind: "interdit"; i: number; score: number; vies: number };
+  | { kind: "interdit"; i: number; score: number; vies: number }
+  | { kind: "charge"; i: number; n: number; need: NeedCoop; debutMs: number };
+
+export type ClotureCharge =
+  | { kind: "pris"; i: number; score: number; vies: number }
+  | { kind: "rate"; i: number; need: NeedCoop };
+
+interface Charge {
+  need: NeedCoop;
+  debutMs: number;
+  sieges: Set<string>;
+}
 
 export interface SiegeCoop {
   id: string;
@@ -44,8 +58,10 @@ export class MatchCoop {
   score = 0;
   consumed = new Set<number>();
   ents: Entity[] = [];
+  needs = new Map<number, NeedCoop>();
   private readonly rules: Map<string, OneRule>;
   private readonly actifs: Set<string>;
+  private readonly charges = new Map<number, Charge>();
   private ouvert = false;
 
   constructor(seed: number, playerIds: readonly string[]) {
@@ -81,7 +97,10 @@ export class MatchCoop {
   openVague(): { idx: number; durationMs: number } {
     this.roundIdx += 1;
     this.consumed = new Set();
-    this.ents = draftCoop(this.seed, this.roundIdx).ents;
+    this.charges.clear();
+    const draft = draftCoop(this.seed, this.roundIdx);
+    this.ents = draft.ents;
+    this.needs = draft.needs;
     this.durationMs = dureeVague(this.seed, this.roundIdx);
     this.ouvert = true;
     this.miroir();
@@ -92,6 +111,10 @@ export class MatchCoop {
     return this.ents.length > 0 && this.consumed.size >= this.ents.length;
   }
 
+  needOf(i: number): NeedCoop {
+    return this.needs.get(i) ?? 1;
+  }
+
   /**
    * Un clic, PAS un outcome de manche.
    *
@@ -99,6 +122,10 @@ export class MatchCoop {
    * `if (!st || st.outcome) return null` dès le premier geste : ici un
    * joueur clique PLUSIEURS fois par vague. Poser cette garde sur ce
    * chemin rend le coop injouable — le test du second clic tombe.
+   *
+   * Licite : le siège entre dans le rassemblement. Need atteint → +need
+   * au score, consumed. Sinon : charge ouverte, la pièce RESTE.
+   * Interdit : −1 vie IMMÉDIAT, le siège ne compte pas.
    */
   inputCoop(
     playerId: string,
@@ -132,10 +159,45 @@ export class MatchCoop {
       return { kind: "interdit", i, score: this.score, vies: this.vies };
     }
 
-    this.consumed.add(i);
-    this.score += 1;
-    this.miroir();
-    return { kind: "pris", i, score: this.score, vies: this.vies };
+    let ch = this.charges.get(i);
+    if (!ch) {
+      ch = { need: this.needOf(i), debutMs: elapsedMs, sieges: new Set() };
+      this.charges.set(i, ch);
+    }
+    if (ch.sieges.has(playerId)) return null;
+    ch.sieges.add(playerId);
+
+    if (ch.sieges.size >= ch.need) {
+      this.charges.delete(i);
+      this.consumed.add(i);
+      this.score += ch.need;
+      this.miroir();
+      return { kind: "pris", i, score: this.score, vies: this.vies };
+    }
+
+    return { kind: "charge", i, n: ch.sieges.size, need: ch.need, debutMs: ch.debutMs };
+  }
+
+  /**
+   * Clôture d'une charge à T0+400 ms (ou plus tard). PURE : le transport
+   * fournit `elapsedMs`. Trop tôt et need non atteint → null. Licites
+   * insuffisants → pas de point, pas de vie, la pièce RESTE cliquable.
+   */
+  cloreCharge(i: number, elapsedMs: number): ClotureCharge | null {
+    if (!this.ouvert) return null;
+    if (this.consumed.has(i)) return null;
+    const ch = this.charges.get(i);
+    if (!ch) return null;
+    if (ch.sieges.size >= ch.need) {
+      this.charges.delete(i);
+      this.consumed.add(i);
+      this.score += ch.need;
+      this.miroir();
+      return { kind: "pris", i, score: this.score, vies: this.vies };
+    }
+    if (elapsedMs < ch.debutMs + COOP_RASSEMBLEMENT_MS) return null;
+    this.charges.delete(i);
+    return { kind: "rate", i, need: ch.need };
   }
 
   entityOf(_playerId: string, entIdx: number | null): Entity | null {
@@ -145,6 +207,7 @@ export class MatchCoop {
 
   closeVague(): { matchOver: boolean } {
     this.ouvert = false;
+    this.charges.clear();
     return { matchOver: this.vies <= 0 };
   }
 
