@@ -23,6 +23,8 @@ import {
   IMPOSTEUR_PIEGES,
   IMPOSTEUR_PLANCHER_MS,
   IMPOSTEUR_VITESSE,
+  issueDuVote,
+  peutLancerImposteur,
   refuseZoneAuRendu,
   renduObserve,
   roundObserve,
@@ -32,6 +34,7 @@ import { applyRule, poolMulti } from "../src/engine/multiround";
 import { ONE_RULES } from "../src/engine/rules";
 import { MOTIFS } from "../src/engine/motifs";
 import { VERSION_CONTENU } from "../src/engine/version";
+import { FORCED_TRAP_ROUNDS } from "../src/engine/difficulty";
 
 function matchImposteur(seed: number, n = 4, clavier = false): MatchLogic {
   const ids = Array.from({ length: n }, (_, i) => `p${i}`);
@@ -383,6 +386,13 @@ describe("observation — zone et transform coupés", () => {
     const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     expect(css).toMatch(/\.observe\s*\{[^}]*position:\s*absolute/);
     expect(css).toMatch(/\.observe\s*\{[^}]*pointer-events:\s*none/);
+    expect(css).toMatch(/\.observe__vote\.hidden/);
+    expect(css).toMatch(/\.observe__vote\s*>\s*button[^}]*pointer-events:\s*auto/);
+    const obs = html.slice(html.indexOf('id="observe"'), html.indexOf("</main>"));
+    expect(obs).not.toMatch(/<select/);
+    expect(obs).not.toMatch(/<input/);
+    expect(obs).toMatch(/id="btnObserveVote"/);
+    expect(html).toContain('id="optDuo"');
     expect(html).not.toMatch(/id="observe"[\s\S]{0,800}ONE_RULES|id="observe"[\s\S]{0,800}carnet/);
   });
 });
@@ -419,6 +429,135 @@ describe("fil — journal une fois, pas dans le verdict, pas de match_end", () =
     expect(src).toMatch(/enObservation\(\)/);
     expect(src).toMatch(/screenOpen\(\) \|\| enObservation\(\)/);
     expect(readFileSync("index.html", "utf8").match(/id="chat"/g)?.length).toBe(1);
+  });
+});
+
+describe("un seul vote", () => {
+  const sieges = ["a", "b", "c", "d"] as const;
+
+  it("majorité STRICTE : 2 voix sur 4 ne suffisent pas — dents pour un >=", () => {
+    const voix = new Map([
+      ["a", "d"],
+      ["b", "d"],
+    ]);
+    const r = issueDuVote(voix, sieges, "d");
+    expect(r.vainqueur).toBe("imposteur");
+    expect(r.accuseId).toBeNull();
+  });
+
+  it("3 voix sur 4 pour l'imposteur → village", () => {
+    const voix = new Map([
+      ["a", "d"],
+      ["b", "d"],
+      ["c", "d"],
+    ]);
+    const r = issueDuVote(voix, sieges, "d");
+    expect(r.vainqueur).toBe("village");
+    expect(r.accuseId).toBe("d");
+  });
+
+  it("3 voix sur 4 pour un villageois → imposteur (mauvais accusé)", () => {
+    const voix = new Map([
+      ["a", "b"],
+      ["c", "b"],
+      ["d", "b"],
+    ]);
+    const r = issueDuVote(voix, sieges, "d");
+    expect(r.vainqueur).toBe("imposteur");
+    expect(r.accuseId).toBe("b");
+  });
+
+  it("personne n'a voté, égalité, voix hors sièges → imposteur", () => {
+    expect(issueDuVote(new Map(), sieges, "d").vainqueur).toBe("imposteur");
+    const egal = new Map([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+    expect(issueDuVote(egal, sieges, "d").accuseId).toBeNull();
+    const hors = new Map([["a", "zzz"]]);
+    expect(issueDuVote(hors, sieges, "d").vainqueur).toBe("imposteur");
+  });
+
+  it("poserVote ignore spectateur, inconnu, second vote — silence", () => {
+    const m = matchImposteur(4, 4);
+    for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
+      m.openRound();
+      m.closeRound();
+    }
+    expect(m.poserVote("spectateur", "p0")).toEqual({ ignore: true });
+    expect(m.poserVote("p0", "zzz")).toEqual({ ignore: true });
+    const premier = m.poserVote("p0", "p1");
+    expect(premier.ignore).toBe(false);
+    if (premier.ignore) return;
+    expect(premier.issue).toBeNull();
+    expect(m.poserVote("p0", "p2")).toEqual({ ignore: true });
+  });
+
+  it("3 voix pour l'imposteur ferment sans attendre la 4e", () => {
+    const m = matchImposteur(8, 4);
+    for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
+      m.openRound();
+      m.closeRound();
+    }
+    const cible = m.imposteurId!;
+    const villageois = m.seats.map((s) => s.id).filter((id) => id !== cible);
+    const v0 = m.poserVote(villageois[0]!, cible);
+    const v1 = m.poserVote(villageois[1]!, cible);
+    expect(v0.ignore).toBe(false);
+    expect(v1.ignore).toBe(false);
+    if (v0.ignore || v1.ignore) return;
+    expect(v0.issue).toBeNull();
+    expect(v1.issue).toBeNull();
+    const clos = m.poserVote(villageois[2]!, cible);
+    expect(clos.ignore).toBe(false);
+    if (clos.ignore) return;
+    expect(clos.issue?.vainqueur).toBe("village");
+    expect(clos.issue?.accuseId).toBe(cible);
+    expect(m.poserVote(cible, villageois[0]!)).toEqual({ ignore: true });
+  });
+
+  it("une coupure n'est pas un aveu : le siège away reste accusable", () => {
+    const m = matchImposteur(2, 4);
+    for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
+      m.openRound();
+      m.closeRound();
+    }
+    m.setAway("p3", true);
+    const clos = m.poserVote("p0", "p3");
+    expect(clos.ignore).toBe(false);
+    expect(m.seats.some((s) => s.id === "p3")).toBe(true);
+  });
+
+  it("le lancement imposteur est borné [4, 8] — UI et serveur, même fonction", () => {
+    expect(peutLancerImposteur(3)).toBe(false);
+    expect(peutLancerImposteur(4)).toBe(true);
+    expect(peutLancerImposteur(8)).toBe(true);
+    expect(peutLancerImposteur(9)).toBe(false);
+  });
+
+  it("FORCED_TRAP_ROUNDS du run du jour n'a pas bougé", () => {
+    expect([...FORCED_TRAP_ROUNDS].sort((a, b) => a - b)).toEqual([2, 5, 9]);
+    expect([...IMPOSTEUR_PIEGES].sort((a, b) => a - b)).toEqual([0, 2, 4, 6, 8]);
+  });
+
+  it("le fil porte vote puis vote_result, PROTOCOL_VERSION reste à 1", () => {
+    expect(PROTOCOL_VERSION).toBe(1);
+    const proto = readFileSync("shared/protocol.ts", "utf8");
+    expect(proto).toMatch(/t: "vote"; playerId: string/);
+    expect(proto).toMatch(/t: "vote_result"/);
+    const srv = readFileSync("server/index.ts", "utf8");
+    expect(srv).toMatch(/case "vote"/);
+    expect(srv).toMatch(/function clotureVote/);
+    const iEnd = srv.indexOf("function clotureVote");
+    const cloture = srv.slice(iEnd, srv.indexOf("Connexions", iEnd));
+    expect(cloture.search(/t:\s*"vote_result"/)).toBeGreaterThan(0);
+    expect(cloture.search(/t:\s*"match_end"/)).toBeGreaterThan(cloture.search(/t:\s*"vote_result"/));
+  });
+
+  it("CONFIRMER n'est pas écrit en textContent — il porte data-i18n", () => {
+    const src = readFileSync("src/multi.ts", "utf8");
+    expect(src).not.toMatch(/btnObserveVote[\s\S]{0,80}textContent\s*=/);
+    expect(src).not.toMatch(/\$\("btnObserveVote"\)[\s\S]{0,40}textContent/);
   });
 });
 

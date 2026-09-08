@@ -24,8 +24,9 @@ import { MatchLogic, MULTI_RULES } from "./match";
 import {
   fautSignalerActe,
   IMPOSTEUR_MAX_ASIS,
-  IMPOSTEUR_MIN_JOUEURS,
+  peutLancerImposteur,
 } from "../src/engine/imposteur";
+import type { IssueVote } from "../src/engine/imposteur";
 import { originAllowed, parseOrigins } from "./origin";
 import { verifieJeton } from "./jeton";
 import { cleanEnv } from "../src/env";
@@ -444,6 +445,32 @@ function closeRound(room: Room): void {
   room.timer = setTimeout(() => openRound(room), pause);
 }
 
+/**
+ * Un seul vote, puis l'écran de fin EXISTANT.
+ *
+ * `vote_result` nomme l'imposteur : les preuves sont fermées, ce n'est
+ * plus une fuite. `match_end` suit tout de suite — pas un cinquième
+ * écran, pas un setTimeout de reprise (décision n°9).
+ */
+function clotureVote(room: Room, issue: IssueVote): void {
+  const match = room.match;
+  if (!match || !match.imposteurId) return;
+  const imposteurId = match.imposteurId;
+  broadcast(room, {
+    t: "vote_result",
+    accuseId: issue.accuseId,
+    imposteurId,
+    vainqueur: issue.vainqueur,
+  });
+  broadcast(room, {
+    t: "match_end",
+    winnerId: issue.vainqueur === "imposteur" ? imposteurId : null,
+    players: publicPlayers(room),
+  });
+  room.match = null;
+  broadcast(room, roomState(room));
+}
+
 /* ------------------------------------------------------------------ *
  * Connexions
  * ------------------------------------------------------------------ */
@@ -707,8 +734,7 @@ wss.on("connection", (ws) => {
           return;
         }
         if (room.settings.mode === "imposteur") {
-          const n = idsAssis(room).length;
-          if (n < IMPOSTEUR_MIN_JOUEURS || n > IMPOSTEUR_MAX_ASIS) {
+          if (!peutLancerImposteur(idsAssis(room).length)) {
             send(client, { t: "error", code: "need_players" });
             return;
           }
@@ -828,6 +854,18 @@ wss.on("connection", (ws) => {
           clearTimeout(room.timer);
           closeRound(room);
         }
+        return;
+      }
+
+      case "vote": {
+        const room = client.room;
+        const match = room?.match;
+        if (!room || !match) return;
+        const accuseId = String(msg.playerId ?? "").slice(0, 16);
+        if (!accuseId) return;
+        const r = match.poserVote(client.id, accuseId);
+        if (r.ignore || !r.issue) return;
+        clotureVote(room, r.issue);
         return;
       }
 

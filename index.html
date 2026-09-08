@@ -227,6 +227,13 @@
           </div>
           <p class="observe__quoi" data-i18n="observe.quoi">THE TEN ROUNDS. THE RULE STAYS HIDDEN.</p>
           <p class="observe__detail" id="observeDetail"></p>
+          <!-- Vote : les glyphes sont déjà sur les plaques. Pas une liste
+               des seize règles, pas un champ texte. Le wrapper se masque pour
+               un spectateur (`.observe__vote.hidden`, pas un `.hidden` générique). -->
+          <div id="observeVote" class="observe__vote">
+            <button type="button" id="btnObserveVote" class="btn btn--ghost" data-i18n="observe.vote">CONFIRM</button>
+            <p class="observe__vote-etat" id="observeVoteEtat"></p>
+          </div>
         </div>
       </main>
 
@@ -1767,6 +1774,7 @@
               <div class="settings__row" data-key="mode">
                 <span class="settings__label" data-i18n="salon.mode">MODE</span>
                 <div class="settings__opts" id="optDuo"></div>
+                <p class="settings__quoi" id="modeQuoi"></p>
               </div>
               <p class="warn hidden" id="multiStartErr"></p>
               <p class="settings__hint" id="settingsHint"></p>
@@ -1811,6 +1819,7 @@
                  du vainqueur sans qu'on lui dise qu'il avait perdu. -->
             <p class="eyebrow" id="multiEndKicker">MATCH OVER</p>
             <h2 class="verdict" id="multiEndTitle">MATCH OVER</h2>
+            <p class="end__issue" id="multiEndIssue"></p>
           </div>
 
           <div class="col end__podium">

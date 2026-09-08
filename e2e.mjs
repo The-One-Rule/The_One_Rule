@@ -23,7 +23,8 @@ process.on("uncaughtException", (e) => {
 });
 
 await import("./server/index.ts");
-const { buildMultiRound, poolMulti } = await import("./src/engine/multiround.ts");
+const { buildMultiRound, poolMulti, applyRule } = await import("./src/engine/multiround.ts");
+const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
 const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
@@ -74,13 +75,29 @@ const DELAI_PILOTE = 460;
 
 function client(name, key, rookie = false, clavier = false) {
   const ws = new WebSocket("ws://localhost:8797");
-  const c = { name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {}, verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [], rounds: [], recus: [], clavierMatch: null };
+  const c = {
+    name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {},
+    verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
+    rounds: [], recus: [], clavierMatch: null, manuel: false,
+    imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
+  };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
     if (m.t === "welcome") c.id = m.id;
     if (m.t === "pong") { c.offset = m.serverNow - (m.sent + Date.now()) / 2; c.offsets.push(c.offset); }
     if (m.t === "room") c.room = m;
-    if (m.t === "match_start") { c.seed = m.seed; c.rules = m.rules; c.clavierMatch = m.clavier === true; }
+    if (m.t === "match_start") {
+      c.seed = m.seed;
+      c.rules = m.rules;
+      c.clavierMatch = m.clavier === true;
+      c.mode = m.settings?.mode ?? null;
+      c.imposteur = false;
+    }
+    if (m.t === "role" && m.imposteur === true) c.imposteur = true;
+    if (m.t === "acted") c.acted.push(m);
+    if (m.t === "journal") c.journals.push(m);
+    if (m.t === "observe") c.observes.push(m);
+    if (m.t === "vote_result") c.voteResults.push(m);
     // Horodatage de réception : c'est ce qui permet de comparer les pauses
     // annoncées par le serveur à celles réellement vécues par un client.
     if (m.t === "round" || m.t === "verdict") c.recus.push({ t: m.t, idx: m.idx, at: Date.now(), nextRoundAt: m.nextRoundAt ?? null });
@@ -90,28 +107,29 @@ function client(name, key, rookie = false, clavier = false) {
       // nombre de verdicts recus rendait les tests dependants du minutage.
       c.roundIdx = m.idx;
       if (m.rules) c.rules = m.rules;
-      const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
       /*
        * CHLOE ne répond jamais (elle sert aux timeouts), et tout client
        * marqué `manuel` est piloté par son scénario.
        *
-       * Le marquage se fait sur l'OBJET, plus sur le nom : depuis que le pool
-       * de règles est permuté par match, on ne sait plus à l'avance lequel des
-       * clients portera LE GAUCHER — il faut le découvrir au démarrage.
-       *
-       * GAUCHER a coûté deux « E2E : 1 échec(s) » sans nom. Le pilote
-       * automatique clique la première pièce satisfaisant la consigne — qui
-       * peut être dans la première colonne, celle que sa règle interdit. Cet
-       * input et celui du scénario couraient donc l'un contre l'autre, et le
-       * premier arrivé figeait le verdict : une fois sur dix, « ZONE
-       * INTERDITE » était le verdict d'un clic que le scénario n'avait pas
-       * envoyé. Le jeu avait raison, le test se trompait de coupable.
+       * Imposteur : `draftImposteur`, jamais `buildMultiRound` / `draftShared`.
+       * L'imposteur joue SANS_REGLE (il doit obéir y compris aux pièges).
        */
-      if (!rule || name === "CHLOE" || c.manuel) return;
-      // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
-      // exactement ce que fait le vrai client, et c'est ce qui garantit que les
-      // deux cotes du fil reconstruisent la meme manche.
-      const round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true));
+      if (name === "CHLOE" || c.manuel) return;
+      let round;
+      if (c.mode === "imposteur") {
+        const commune = ONE_RULES.find((r) => r.id === c.rules[c.id]);
+        if (!commune) return;
+        const rule = c.imposteur ? SANS_REGLE : commune;
+        const shared = draftImposteur(c.seed, m.idx, commune, poolMulti(c.clavierMatch === true));
+        round = applyRule(shared, rule, c.seed);
+      } else {
+        const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
+        if (!rule) return;
+        // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
+        // exactement ce que fait le vrai client, et c'est ce qui garantit que les
+        // deux cotes du fil reconstruisent la meme manche.
+        round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true));
+      }
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
         if (name === "BOB") { ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: 0 } })); return; }
@@ -875,6 +893,107 @@ const notFound = await fetch(`http://127.0.0.1:${process.env.PORT}/`)
   .then((r) => r.status)
   .catch(() => 0);
 ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
+
+/* ------------------------------------------------------------------ *
+ * IMPOSTEUR — un scénario borné, nommé, pas une assertion orpheline.
+ *
+ * 4 clients, 10 manches, un vote, relance. `draftImposteur` côté pilote,
+ * jamais `buildMultiRound`. Si le DUO plus haut casse, les modes sont
+ * mélangés : on corrige, on ne désactive pas.
+ * ------------------------------------------------------------------ */
+{
+  const raz = (c) => {
+    c.verdicts = [];
+    c.ended = null;
+    c.acted = [];
+    c.journals = [];
+    c.observes = [];
+    c.voteResults = [];
+    c.imposteur = false;
+    c.mode = null;
+    c.rules = {};
+    c.rounds = [];
+    c.recus = [];
+    c.errors = [];
+  };
+
+  const attendre = async (pred, ms, quoi) => {
+    const t0 = Date.now();
+    while (!pred() && Date.now() - t0 < ms) await sleep(200);
+    return pred();
+  };
+
+  const jouerUnMatch = async (joueurs, accusateur) => {
+    for (const c of joueurs) raz(c);
+    joueurs[0].ws.send(JSON.stringify({ t: "start" }));
+    const dix = await attendre(() => joueurs[0].verdicts.length >= 10, 90000, "10 verdicts");
+    ok(dix, `imposteur : 10 verdicts (reçus ${joueurs[0].verdicts.length})`);
+    ok(!joueurs[0].ended, "imposteur : pas de match_end avant le 10e");
+    const viesZero = [];
+    for (const v of joueurs[0].verdicts) {
+      for (const p of v.players ?? []) {
+        if (!p.spectator && p.lives === 0) viesZero.push(`${p.name}@${v.idx}`);
+      }
+    }
+    ok(viesZero.length === 0, `imposteur : zéro lives à 0 (${viesZero.join(",") || "aucun"})`);
+    const obs = await attendre(
+      () => joueurs[0].journals.length >= 1 && joueurs[0].observes.length >= 1,
+      4000,
+      "journal+observe",
+    );
+    ok(obs, `imposteur : journal puis observe (j=${joueurs[0].journals.length} o=${joueurs[0].observes.length})`);
+    ok(!joueurs[0].ended, "imposteur : toujours pas de match_end pendant l'observation");
+    const nImp = joueurs.filter((c) => c.imposteur).length;
+    ok(nImp === 1, `imposteur : exactement un rôle privé (reçus ${nImp})`);
+    const cible = accusateur(joueurs);
+    const village = joueurs.filter((c) => !c.imposteur);
+    for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
+    const vote = await attendre(() => joueurs[0].voteResults.length >= 1, 4000, "vote_result");
+    ok(vote, "imposteur : vote_result reçu");
+    const fin = await attendre(() => !!joueurs[0].ended, 4000, "match_end");
+    ok(fin, "imposteur : match_end après le vote (écran de fin existant)");
+    return joueurs[0].voteResults[0] ?? null;
+  };
+
+  const imp = [];
+  for (const n of ["I1", "I2", "I3", "I4"]) imp.push(await client(n, "cle-" + n));
+  for (const c of imp) for (let i = 0; i < 4; i++) { c.ws.send(JSON.stringify({ t: "ping", sent: Date.now() })); await sleep(25); }
+  imp[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const codeImp = imp[0].room.code;
+  for (const c of imp.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code: codeImp })); await sleep(150); }
+  await sleep(250);
+  imp[0].ws.send(JSON.stringify({ t: "settings", settings: { mode: "imposteur" } }));
+  await sleep(300);
+  ok(imp[0].room?.settings?.mode === "imposteur", "imposteur : le réglage se propage");
+  ok(imp[0].room?.settings?.duo === false, "imposteur : duo reste false (l'e2e DUO n'est pas mélangé)");
+
+  const r1 = await jouerUnMatch(imp, (js) => js.find((c) => c.imposteur).id);
+
+  const pub = Object.values(imp[0].rules);
+  ok(pub.length === 4, `imposteur : 4 ruleId publics (${pub.length})`);
+  ok(pub.every((id) => id && id !== "sansRegle"), `imposteur : aucun ruleId public vide ni sansRegle (${pub.join(",")})`);
+  ok(new Set(pub).size === 1, `imposteur : le JSON public ne distingue pas (${pub.join(",")})`);
+  const roomJson = JSON.stringify(imp[0].room);
+  ok(!roomJson.includes("sansRegle"), "imposteur : room ne porte pas sansRegle");
+  ok(!roomJson.includes("imposteurId"), "imposteur : room ne porte pas imposteurId");
+
+  const villageIds = new Set(imp.filter((c) => !c.imposteur).map((c) => c.id));
+  ok(
+    imp[0].acted.some((a) => villageIds.has(a.playerId)),
+    `imposteur : un t:acted d'un villageois (${imp[0].acted.length} acted)`,
+  );
+
+  ok(r1?.vainqueur === "village", `imposteur : 3 voix sur l'imposteur → village (got ${r1?.vainqueur})`);
+  ok(r1?.imposteurId === imp.find((c) => c.imposteur)?.id, "imposteur : l'issue nomme le bon siège");
+
+  await sleep(500);
+  const r2 = await jouerUnMatch(imp, (js) => js.find((c) => !c.imposteur).id);
+  ok(r2?.vainqueur === "imposteur", `imposteur : 3 voix sur un villageois → imposteur (got ${r2?.vainqueur})`);
+
+  for (const c of imp) c.ws.close();
+  await sleep(220);
+}
 
 /* ------------------------------------------------------------------ *
  * Cohérence du flux — relue sur ce que le serveur a réellement envoyé.

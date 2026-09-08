@@ -33,6 +33,11 @@ export const IMPOSTEUR_PLANCHER_MS = 1100;
 export const IMPOSTEUR_MIN_JOUEURS = 4;
 export const IMPOSTEUR_MAX_ASIS = 8;
 
+/** L'effectif assis autorise-t-il le lancement ? UI et serveur, même règle. */
+export function peutLancerImposteur(assis: number): boolean {
+  return assis >= IMPOSTEUR_MIN_JOUEURS && assis <= IMPOSTEUR_MAX_ASIS;
+}
+
 /**
  * Pas de règle. `forbids` est toujours faux : l'imposteur doit obéir à la
  * consigne, y compris quand elle piège les villageois.
@@ -201,4 +206,49 @@ export function refuseZoneAuRendu(state: {
 }): void {
   if (state.rule?.zone) throw new Error("zone");
   if (typeof state.rule?.transform === "function") throw new Error("transform");
+}
+
+/**
+ * Un seul vote, après les dix manches.
+ *
+ * Majorité STRICTE : voix > effectif/2. Moins, égalité, personne n'a voté :
+ * l'accusation n'a pas convaincu, l'imposteur gagne. Un `>=` transformerait
+ * 2 voix sur 4 en majorité — le test le refuse.
+ */
+export type IssueVote = {
+  accuseId: string | null;
+  vainqueur: "imposteur" | "village";
+};
+
+export function issueDuVote(
+  voix: ReadonlyMap<string, string>,
+  sieges: readonly string[],
+  imposteurId: string,
+): IssueVote {
+  const n = sieges.length;
+  const autorises = new Set(sieges);
+  const comptes = new Map<string, number>();
+  for (const acc of voix.values()) {
+    if (!autorises.has(acc)) continue;
+    comptes.set(acc, (comptes.get(acc) ?? 0) + 1);
+  }
+  let top: string | null = null;
+  let max = 0;
+  let nMax = 0;
+  for (const [id, c] of comptes) {
+    if (c > max) {
+      max = c;
+      top = id;
+      nMax = 1;
+    } else if (c === max) {
+      nMax++;
+    }
+  }
+  if (!top || nMax !== 1 || max <= n / 2) {
+    return { accuseId: null, vainqueur: "imposteur" };
+  }
+  return {
+    accuseId: top,
+    vainqueur: top === imposteurId ? "village" : "imposteur",
+  };
 }

@@ -331,6 +331,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.prev": "PRÉCÉDENT",
     "observe.next": "SUIVANT",
     "observe.quoi": "LES DIX MANCHES. LA RÈGLE RESTE CACHÉE.",
+    "observe.vote": "CONFIRMER",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
     "salon.rotation": "ROTATION",
@@ -534,6 +535,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.prev": "PREVIOUS",
     "observe.next": "NEXT",
     "observe.quoi": "THE TEN ROUNDS. THE RULE STAYS HIDDEN.",
+    "observe.vote": "CONFIRM",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
     "salon.rotation": "ROTATION",
@@ -853,6 +855,11 @@ type Dyn = {
   plaqueAgi: string;
   plaqueRien: string;
   observeTour: (n: number, sur: number) => string;
+  modeImposteurQuoi: string;
+  issueVillage: string;
+  issueImposteur: string;
+  imposteurEtait: (nom: string) => string;
+  voteRecu: string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
   ariaRotationJamais: string;
@@ -1333,13 +1340,18 @@ const DYN: Record<Lang, Dyn> = {
     plaqueAgi: "AGI",
     plaqueRien: "RIEN",
     observeTour: (n, sur) => `${n} / ${sur}`,
+    modeImposteurQuoi: "DIX MANCHES · PERSONNE N'EST ÉLIMINÉ · UN IMPOSTEUR · UN VOTE",
+    issueVillage: "LE VILLAGE A TROUVÉ",
+    issueImposteur: "L'IMPOSTEUR S'EN TIRE",
+    imposteurEtait: (nom) => `L'IMPOSTEUR ÉTAIT ${nom}`,
+    voteRecu: "VOIX ENREGISTRÉE",
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
     ariaRotation: (n) => `Rotation toutes les ${n} manches`,
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
     ariaChacun: "Chacun pour soi",
-    ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé",
+    ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
@@ -1762,13 +1774,18 @@ const DYN: Record<Lang, Dyn> = {
     plaqueAgi: "ACTED",
     plaqueRien: "WAIT",
     observeTour: (n, sur) => `${n} / ${sur}`,
+    modeImposteurQuoi: "TEN ROUNDS · NOBODY IS ELIMINATED · ONE IMPOSTOR · ONE VOTE",
+    issueVillage: "THE VILLAGE FOUND THEM",
+    issueImposteur: "THE IMPOSTOR WALKS FREE",
+    imposteurEtait: (nom) => `THE IMPOSTOR WAS ${nom}`,
+    voteRecu: "VOTE IN",
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
     ariaRotationJamais: "Rules never rotate",
     ariaRotation: (n) => `Rotation every ${n} rounds`,
     ariaDuos: "Duos: two players per team, one shared pool of lives",
     ariaChacun: "Every player for themselves",
-    ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated",
+    ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,

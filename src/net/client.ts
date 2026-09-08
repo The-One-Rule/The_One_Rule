@@ -246,6 +246,14 @@ export class NetClient {
     this.send({ t: "kick", playerId });
   }
 
+  /**
+   * Une voix, pendant l'observation. Le serveur ignore un second vote
+   * en silence — comme une emote hors débit.
+   */
+  vote(playerId: string): void {
+    this.send({ t: "vote", playerId });
+  }
+
   /** Signe visuel local, dérivé de l'identifiant du joueur. */
   glyph(): Glyph {
     return glyphFor(this.myId);

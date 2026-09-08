@@ -17,8 +17,10 @@ import {
   draftImposteur,
   dureeImposteur,
   IMPOSTEUR_MANCHES,
+  issueDuVote,
   SANS_REGLE,
 } from "../src/engine/imposteur";
+import type { IssueVote } from "../src/engine/imposteur";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import type { SharedRound } from "../src/engine/multiround";
 import type { Action, OneRule, Round, RoundProgress } from "../src/engine/types";
@@ -231,6 +233,9 @@ export class MatchLogic {
    * qu'une fois, à la fin.
    */
   readonly journal: TourJournal[] = [];
+  /** Une voix par siège. Un second vote n'écrase pas. */
+  private readonly voix = new Map<string, string>();
+  private voteClos = false;
 
   constructor(
     seed: number,
@@ -690,7 +695,38 @@ export class MatchLogic {
 
   /** Les dix manches sont closes : l'observation peut s'ouvrir. */
   enObservation(): boolean {
-    return this.imposteur && this.journal.length >= IMPOSTEUR_MANCHES;
+    return this.imposteur && this.journal.length >= IMPOSTEUR_MANCHES && !this.voteClos;
+  }
+
+  /**
+   * Une voix. Silence total si elle ne compte pas (spectateur, inconnu,
+   * second vote) — même doctrine que les emotes hors débit.
+   *
+   * Ferme le vote dès qu'une majorité stricte existe, ou que tous les
+   * sièges (hors absents) ont voté. Une coupure n'est pas un aveu : le
+   * siège away reste accusable, sa voix n'est pas inventée.
+   */
+  poserVote(
+    voterId: string,
+    accuseId: string,
+  ): { ignore: true } | { ignore: false; issue: IssueVote | null } {
+    if (!this.imposteur || this.voteClos || !this.imposteurId) return { ignore: true };
+    if (this.journal.length < IMPOSTEUR_MANCHES) return { ignore: true };
+    const sieges = this.seats.map((s) => s.id);
+    if (!sieges.includes(voterId) || !sieges.includes(accuseId)) return { ignore: true };
+    if (this.voix.has(voterId)) return { ignore: true };
+    this.voix.set(voterId, accuseId);
+
+    const issue = issueDuVote(this.voix, sieges, this.imposteurId);
+    const majority = issue.accuseId !== null;
+    const tous = sieges.every((id) => this.voix.has(id));
+    const presents = this.seats.filter((s) => !s.away).map((s) => s.id);
+    const tousPresents = presents.length > 0 && presents.every((id) => this.voix.has(id));
+    if (majority || tous || tousPresents) {
+      this.voteClos = true;
+      return { ignore: false, issue };
+    }
+    return { ignore: false, issue: null };
   }
 
   /**

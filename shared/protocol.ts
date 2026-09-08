@@ -388,6 +388,14 @@ export type ClientMsg =
   | { t: "chat"; text: string }
   | { t: "kick"; playerId: string }
   | { t: "ping"; sent: number }
+  /**
+   * Une voix, pendant l'observation. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un serveur
+   * ancien ignore le cas. Une voix par siège, un second vote est ignoré
+   * en silence — comme une emote hors débit.
+   */
+  | { t: "vote"; playerId: string }
   | {
       t: "input";
       round: number;
@@ -456,6 +464,19 @@ export type ServerMsg =
    * — MatchLogic n'a pas d'horloge interne.
    */
   | { t: "observe" }
+  /**
+   * Issue du vote. FACULTATIF. Une fois, après l'unique tour.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien ignore le cas. `imposteurId` n'était jamais public avant : les
+   * preuves sont fermées, le nommer ici est le dénouement, pas une fuite.
+   */
+  | {
+      t: "vote_result";
+      accuseId: string | null;
+      imposteurId: string;
+      vainqueur: "imposteur" | "village";
+    }
   | { t: "room"; code: string; players: PlayerPublic[]; inMatch: boolean; settings: RoomSettings }
   | {
       t: "match_start";

@@ -8368,6 +8368,57 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
+.observe__vote {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.observe__vote.hidden {
+  display: none;
+}
+
+.observe__vote > button {
+  pointer-events: auto;
+  min-height: var(--tap);
+}
+
+.observe__vote-etat {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+}
+
+.observe__vote-etat:empty {
+  display: none;
+}
+
+#app.is-observe .plate.is-accuse {
+  border-color: var(--signal);
+  border-left-width: var(--bd-frame);
+}
+
+.settings__quoi:empty {
+  display: none;
+  margin: 0;
+}
+
+.end__issue {
+  margin: 8px 0 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--signal-pale);
+}
+
+.end__issue:empty {
+  display: none;
+}
+
 /* ==================================================================
    L'OBJECTIF DE L'ACCUEIL
 

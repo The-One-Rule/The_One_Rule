@@ -723,6 +723,15 @@ Deux façons propres de s'en passer, toutes deux en place :
 **Branche** `master`. **Vérification** : `tsc` · 618 tests ·
 e2e 78 assertions (~2 min 30) · `vite build`.
 
+### Mode imposteur — vit sur `mode/imposteur`, pas master
+
+Le mode n'est pas mergé. Il force cinq pièges locaux (`IMPOSTEUR_PIEGES`,
+indices pairs) — **`FORCED_TRAP_ROUNDS` du run du jour n'a pas bougé**.
+Le secret est public/privé (même `ruleId` pour tous, `{ t: "role" }`
+seulement à l'imposteur). Le live `{ t: "acted" }` peint AGI / RIEN.
+Après les dix manches : journal, observation, **un seul vote**, puis
+l'écran de fin existant. `VERSION_CONTENU` inchangée (`hdblrb`).
+
 ### Le bandeau de mesure a quitté l'accueil
 
 Il s'affichait à l'ARRIVÉE, avant la première partie. Mesuré sur un 375×812 :

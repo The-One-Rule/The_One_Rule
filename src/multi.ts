@@ -17,7 +17,7 @@ import {
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, poolMulti } from "./engine/multiround";
-import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
+import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -420,7 +420,12 @@ function renderLobby(
   const list = $("multiPlayers");
   list.innerHTML = "";
   const me = players.find((p) => p.id === myId);
-  $<HTMLButtonElement>("btnMultiStart").classList.toggle("hidden", !me?.host || inMatch);
+  const start = $<HTMLButtonElement>("btnMultiStart");
+  start.classList.toggle("hidden", !me?.host || inMatch);
+  const modeImp =
+    (settings.mode ?? (settings.duo ? "duo" : "classique")) === "imposteur";
+  const assis = players.filter((p) => !p.spectator).length;
+  start.disabled = modeImp && !peutLancerImposteur(assis);
 
   /*
    * Un joueur = une tuile, pas une ligne de tableau.
@@ -677,6 +682,7 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     level: (n) => n + 1,
     steps: 3,
   });
+  $("modeQuoi").textContent = imposteur ? tr("modeImposteurQuoi") : "";
 }
 
 function toWire(
@@ -859,6 +865,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * Les scènes se commandent ICI (précédent / suivant), pas par le serveur.
    */
   let observe: { tours: TourJournal[]; idx: number; detailId: string | null } | null = null;
+  /** Accusé choisi sur une plaque. Survivit au changement de tour. */
+  let voteCible: string | null = null;
+  let voteEnvoye = false;
+  /** Capturé AVANT clearMatch : celui-ci remet jeSuisImposteur à false. */
+  let lastVote: Extract<ServerMsg, { t: "vote_result" }> | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -924,10 +935,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function hideObserve(): void {
     observe = null;
+    voteCible = null;
+    voteEnvoye = false;
     $("observe").classList.add("hidden");
     $("observeDetail").textContent = "";
+    $("observeVoteEtat").textContent = "";
     document.getElementById("app")?.classList.remove("is-observe");
     syncChatChrome();
+  }
+
+  function syncVoteUi(): void {
+    const bloc = $("observeVote");
+    const btn = $<HTMLButtonElement>("btnObserveVote");
+    const spectator = isSpectating();
+    bloc.classList.toggle("hidden", spectator);
+    btn.disabled = spectator || voteEnvoye || !voteCible;
   }
 
   function peintObserveDetail(): void {
@@ -977,6 +999,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     $<HTMLButtonElement>("btnObservePrev").disabled = observe.idx <= 0;
     $<HTMLButtonElement>("btnObserveNext").disabled = observe.idx >= max;
     peintObserveDetail();
+    syncVoteUi();
     renderPlates();
   }
 
@@ -996,6 +1019,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     poseTour(observe.idx);
+    syncVoteUi();
     syncChatChrome();
   }
 
@@ -1642,7 +1666,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           pulse: acte ? null : platePulse.get(p.id) ?? null,
           inRound: match!.phase === "round",
           acte,
-        }).join(" ") + (equipe === undefined ? "" : ` is-equipe-${equipe % 5}`);
+        }).join(" ") +
+        (equipe === undefined ? "" : ` is-equipe-${equipe % 5}`) +
+        (match!.phase === "observe" && voteCible === p.id ? " is-accuse" : "");
 
       el.querySelector(".plate__glyph")!.innerHTML = glyphSvg(
         playerGlyph(p),
@@ -1745,6 +1771,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     hideObserve();
     endScreenOpen = false;
+    lastVote = null;
     roomSettings = msg.settings ?? roomSettings;
     lobbyInMatch = true;
     hideDrama();
@@ -2267,6 +2294,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hideDrama();
     musicApi.stop();
     lastPlayers = mergePlayers(lastPlayers, msg.players);
+    const issue = lastVote;
+    lastVote = null;
     clearMatch();
     endScreenOpen = true;
 
@@ -2277,30 +2306,50 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * perdait lisait un pseudo — le sien s'il gagnait — sans qu'aucun mot ne
      * lui dise ce qui venait de se passer. C'est le dernier écran d'un match,
      * celui qu'on regarde ensemble : il doit trancher en un coup d'œil.
+     *
+     * Imposteur : l'issue vient de `vote_result`, capturé avant clearMatch.
+     * Un winnerId null voudrait dire ÉGALITÉ — faux ici : le village a gagné.
      */
     const title = $("multiEndTitle");
     const kicker = $("multiEndKicker");
     const ecran = $("multi-end");
-    const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
-    ecran.classList.toggle("is-victory", jeGagne);
-    if (msg.winnerId === null) {
-      kicker.textContent = tr("matchTermine");
-      title.textContent = tr("egalite");
-      title.classList.remove("is-win");
-    } else {
-      const winner =
-        lastPlayers.find((p) => p.id === msg.winnerId) ??
-        msg.players.find((p) => p.id === msg.winnerId);
-      kicker.textContent = jeGagne ? tr("tuAsGagne") : tr("vainqueur");
-      title.textContent = winner?.name ?? tr("finDuMatch");
+    const issueEl = $("multiEndIssue");
+    if (issue) {
+      const imposteur =
+        lastPlayers.find((p) => p.id === issue.imposteurId) ??
+        msg.players.find((p) => p.id === issue.imposteurId);
+      const jeGagne =
+        (issue.vainqueur === "imposteur") === (issue.imposteurId === net.myId);
+      ecran.classList.toggle("is-victory", jeGagne);
+      kicker.textContent =
+        issue.vainqueur === "village" ? tr("issueVillage") : tr("issueImposteur");
+      title.textContent = imposteur?.name ?? tr("finDuMatch");
       title.classList.toggle("is-win", jeGagne);
+      issueEl.textContent = tr("imposteurEtait")(imposteur?.name ?? "");
+      if (jeGagne) sfx.win();
+    } else {
+      issueEl.textContent = "";
+      const jeGagne = msg.winnerId !== null && msg.winnerId === net.myId;
+      ecran.classList.toggle("is-victory", jeGagne);
+      if (msg.winnerId === null) {
+        kicker.textContent = tr("matchTermine");
+        title.textContent = tr("egalite");
+        title.classList.remove("is-win");
+      } else {
+        const winner =
+          lastPlayers.find((p) => p.id === msg.winnerId) ??
+          msg.players.find((p) => p.id === msg.winnerId);
+        kicker.textContent = jeGagne ? tr("tuAsGagne") : tr("vainqueur");
+        title.textContent = winner?.name ?? tr("finDuMatch");
+        title.classList.toggle("is-win", jeGagne);
+      }
+      if (msg.winnerId === net.myId) sfx.win();
     }
 
     renderTitles(msg.players);
     renderPodium(msg.players);
     $("multiEndInviteHint").textContent = tr("lienInvitation");
 
-    if (msg.winnerId === net.myId) sfx.win();
     show("multi-end");
   }
 
@@ -2378,6 +2427,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (msg.t === "observe") {
       beginObserve();
+      return;
+    }
+    if (msg.t === "vote_result") {
+      lastVote = msg;
       return;
     }
     if (msg.t === "match_end") {
@@ -3336,13 +3389,23 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $("btnObserveNext").addEventListener("click", () => {
     if (observe) poseTour(observe.idx + 1);
   });
+  $("btnObserveVote").addEventListener("click", () => {
+    if (!voteCible || voteEnvoye || isSpectating() || !net) return;
+    net.vote(voteCible);
+    voteEnvoye = true;
+    $("observeVoteEtat").textContent = tr("voteRecu");
+    syncVoteUi();
+  });
   platesEl.addEventListener("click", (ev) => {
     if (!match || match.phase !== "observe" || !observe) return;
     const plate = (ev.target as HTMLElement | null)?.closest?.(".plate");
     if (!(plate instanceof HTMLElement) || !plate.dataset.id) return;
     const id = plate.dataset.id;
-    observe.detailId = observe.detailId === id ? null : id;
+    voteCible = id;
+    observe.detailId = id;
     peintObserveDetail();
+    syncVoteUi();
+    renderPlates();
   });
 
   return {
