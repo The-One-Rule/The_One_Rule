@@ -14785,3 +14785,278 @@ button.chip:active:not(:disabled) {
     opacity: 0.25;
   }
 }
+
+/* ==================================================================
+   LE PIEGE DEJOUE — VALEURS RELEVEES SUR LA SOURCE (vue `feedback`)
+
+   corps 0 22px · « TU N'AS RIEN FAIT » 10px .24em
+   titre 12px 0 0, 44px lh 1 ls -.04em · pourquoi 14px lh 1,45
+   carte 22px 0 0, 8px 12px, 10,5px .16em
+   ================================================================== */
+
+.piegefx__quoi {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+}
+
+.piegefx__titre {
+  margin: 12px 0 0;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.piegefx__pourquoi {
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.piegefx__carte {
+  margin: 22px 0 0;
+  padding: 8px 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+}
+
+/* La mort : le panneau qui revele le piege APRES (decision n°5).
+   Cadre 16px 18px · titre 28px lh 1 · phrase 10px 0 0, 13,5px lh 1,5 */
+.drama__panel {
+  padding: 16px 18px;
+}
+
+.drama__names {
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.drama__reason,
+.drama__rule {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.drama__extra {
+  margin: 10px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+}
+
+/* ==================================================================
+   LES MICRO-ETATS — VALEURS RELEVEES SUR LA SOURCE (vue `micro`)
+
+   plein cadre  20px 16px · intitule 9,5px .22em
+   decouverte   nom 10px 0 0, 30px lh 1 ls -.03em · quoi 13px lh 1,45
+   maitrise     nom 12px 0 0, 34px lh 1 ls -.04em · jauge 8px, gouttiere 3
+   carte        16px, gouttiere 13 · vignette 62px, cadre 6
+   pastille     valeur 18px · note 9px .16em · retrait 9px 12px
+   ================================================================== */
+
+.micro {
+  padding: 20px 16px;
+}
+
+.micro__eyebrow {
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+}
+
+.micro__nom {
+  margin: 10px 0 0;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.micro.is-maitrise .micro__nom {
+  margin-top: 12px;
+  font-size: 34px;
+  letter-spacing: -0.04em;
+}
+
+.micro__quoi {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.micro.is-maitrise .micro__quoi {
+  margin-top: 12px;
+  font-size: 12.5px;
+}
+
+.pastille {
+  padding: 9px 12px;
+}
+
+.pastille__score {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.pastille__note {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+/* Le TOAST : 15px .02em dans un 7px 13px — la source en fait une etiquette
+   posee, pas un panneau. */
+.toast {
+  padding: 7px 13px;
+}
+
+.toast__titre {
+  font-size: 15px;
+  letter-spacing: 0.02em;
+}
+
+.toast__quoi {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+/* ==================================================================
+   LES ETATS PAUVRES — VALEURS RELEVEES SUR LA SOURCE (vue `empty`)
+
+   panneau 18px 16px · titre 16px · phrase 8px 0 0, 12,5px lh 1,5
+   issues gouttiere 8, 11,5px .08em, 12px 8px, hauteur 44
+   ================================================================== */
+
+.coupure__panel {
+  padding: 18px 16px;
+}
+
+.coupure__titre {
+  font-size: 16px;
+  line-height: 1.15;
+}
+
+.coupure__quoi {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  letter-spacing: 0;
+}
+
+.sorties {
+  gap: 8px;
+}
+
+.btn--sortie {
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  padding: 12px 8px;
+  min-height: var(--tap);
+}
+
+/* ==================================================================
+   LE MATCH — VALEURS RELEVEES SUR LA SOURCE (vue `mgame`)
+
+   ⚠️ Le bandeau du MULTI est plus serre que celui du solo : `8px 12px 8px 0`
+   et `min-height:44px` contre `9px 14px 9px 0` et 48. La raison est dans le
+   dessin : les plaques prennent le bas de l'ecran, donc le haut rend ce qu'il
+   peut. Regle 19px et non 21, consigne 30px et non 36.
+
+   plaques : grille 1fr 1fr, gouttiere 5 · plaque 7px 8px, gouttiere 7
+   signe 12px · nom 11px · regle 1px 0 0, 8px .1em · vies 5px, gouttiere 2
+   pied 8px 14px · valeur 19px · intitule 8,5px .18em · emotes 36px
+   ================================================================== */
+
+#app.is-multi #band,
+.is-multi #band {
+  padding: 8px 12px 8px 0;
+  min-height: 44px;
+  gap: 0 12px;
+}
+
+.is-multi #bandRule {
+  font-size: 19px;
+}
+
+.is-multi #instr {
+  font-size: 30px;
+}
+
+.plates {
+  gap: 5px;
+}
+
+.plate {
+  gap: 7px;
+  padding: 7px 8px;
+}
+
+.plate__glyph {
+  font-size: 12px;
+}
+
+.plate__name {
+  font-size: 11px;
+}
+
+.plate__rule {
+  margin: 1px 0 0;
+  font-size: 8px;
+  letter-spacing: 0.1em;
+}
+
+.plate__lives {
+  gap: 2px;
+}
+
+.plate__lives i {
+  width: 5px;
+  height: 5px;
+}
+
+.emote {
+  height: 36px;
+  font-size: 15px;
+}
+
+/* ==================================================================
+   LA FIN DE MATCH — VALEURS RELEVEES SUR LA SOURCE
+
+   intitule 10px .2em · titre 8px 0 0, 30px lh 1 ls -.03em
+   sous-titre 8px 0 0, 10,5px .14em · rangs gouttiere 6, 11px, gouttiere 10
+   rang 17px · signe 15px
+   ================================================================== */
+
+#multiEndKicker {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+}
+
+#multiEndTitle {
+  margin: 8px 0 0;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.end__sous {
+  margin: 8px 0 0;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+
+.lobby {
+  gap: 6px;
+}
+
+.lobbyrow {
+  gap: 10px;
+  padding: 11px;
+}
+
+.lobbyrow__rang {
+  font-size: 17px;
+}
+
+.lobbyrow__glyph {
+  font-size: 15px;
+}
