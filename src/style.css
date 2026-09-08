@@ -1414,6 +1414,25 @@ body {
 }
 
 /*
+ * Live imposteur — AGI / RIEN. Pas ok / trap / dead.
+ *
+ * `--trap` DIRIT que la manche était un piège ; `--dead` porterait le motif.
+ * Pendant les dix manches, le signal est binaire et s'écrit en deux classes,
+ * même spécificité que les verdicts (`.plate.plate--acted`) pour primer
+ * sur `--me` / `--rookie` sans dépendre de l'ordre du fichier.
+ */
+.plate.plate--wait {
+  border-color: var(--line);
+  color: var(--paper-dim);
+}
+
+.plate.plate--acted {
+  border-color: var(--paper);
+  background: color-mix(in srgb, var(--paper) 10%, transparent);
+  color: var(--paper);
+}
+
+/*
  * Verdicts de manche — ils PRIMENT sur les états durables.
  *
  * Écrits en `.plate.plate--ok` plutôt que `.plate--ok` : deux classes contre

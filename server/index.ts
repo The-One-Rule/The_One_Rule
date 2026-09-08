@@ -22,6 +22,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
 import {
+  fautSignalerActe,
   IMPOSTEUR_MAX_ASIS,
   IMPOSTEUR_MIN_JOUEURS,
 } from "../src/engine/imposteur";
@@ -796,7 +797,11 @@ wss.on("connection", (ws) => {
               ? { kind: "key" as const, key }
               : { kind: "release" as const, key };
 
+        const vierge = match.encoreSansGeste(client.id);
         match.input(client.id, msg.round, action, elapsed);
+        if (fautSignalerActe(match.imposteur, vierge, match.encoreSansGeste(client.id))) {
+          broadcast(room, { t: "acted", idx: match.roundIdx, playerId: client.id });
+        }
 
         // Tous les vivants ont conclu → on n'attend pas l'échéance pour rien.
         const allDone = match.alive.every((s) => {

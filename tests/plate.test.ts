@@ -15,6 +15,7 @@ const etat = (over: Partial<PlateState> = {}): PlateState => ({
   rookie: false,
   pulse: null,
   inRound: true,
+  acte: null,
   ...over,
 });
 
@@ -55,5 +56,21 @@ describe("classes de plaque", () => {
 
   it("distingue toujours ma propre plaque", () => {
     expect(plateClasses(etat({ isMe: true, pulse: "dead" }))).toContain("plate--me");
+  });
+
+  it("en imposteur, AGI / RIEN prime sur le flash piège — on ne lit pas la règle", () => {
+    const wait = plateClasses(etat({ acte: "wait", pulse: "trap", inRound: true }));
+    expect(wait).toContain("plate--wait");
+    expect(wait).not.toContain("plate--trap");
+    expect(wait).not.toContain("plate--live");
+    const acted = plateClasses(etat({ acte: "acted", pulse: "ok", inRound: true }));
+    expect(acted).toContain("plate--acted");
+    expect(acted).not.toContain("plate--ok");
+    expect(acted).not.toContain("plate--wait");
+  });
+
+  it("sans acte, le spectacle classique ne bouge pas", () => {
+    expect(plateClasses(etat({ pulse: "trap" }))).toContain("plate--trap");
+    expect(plateClasses(etat({ inRound: true }))).toContain("plate--live");
   });
 });

@@ -536,6 +536,18 @@ export class MatchLogic {
   }
 
   /**
+   * Ce siège n'a pas encore gesté sur la manche ouverte.
+   *
+   * `firstInputMs === null`. Le serveur lit ça AVANT et APRÈS `input()` :
+   * le passage true → false est le premier geste, et c'est lui seul qui
+   * mérite `{ t: "acted" }`.
+   */
+  encoreSansGeste(playerId: string): boolean {
+    const st = this.states.get(playerId);
+    return !!st && st.firstInputMs === null;
+  }
+
+  /**
    * Fenêtre RÉELLE d'un joueur, sa règle comprise.
    *
    * `roundDurationMs` part de la manche partagée et vaut donc pour tout le

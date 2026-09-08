@@ -17,6 +17,8 @@ import { MatchLogic, multiRulesFor } from "../server/match";
 import {
   draftImposteur,
   dureeImposteur,
+  fautSignalerActe,
+  acteDe,
   IMPOSTEUR_MANCHES,
   IMPOSTEUR_PIEGES,
   IMPOSTEUR_PLANCHER_MS,
@@ -25,6 +27,7 @@ import {
 } from "../src/engine/imposteur";
 import { applyRule, poolMulti } from "../src/engine/multiround";
 import { ONE_RULES } from "../src/engine/rules";
+import { MOTIFS } from "../src/engine/motifs";
 import { VERSION_CONTENU } from "../src/engine/version";
 
 function matchImposteur(seed: number, n = 4, clavier = false): MatchLogic {
@@ -211,3 +214,72 @@ describe("5 pièges forcés", () => {
     expect(rate).toBeGreaterThan(0);
   });
 });
+
+describe("acte live — AGI / RIEN", () => {
+  it("acteDe : survive+piège et mort au temps = rien, le reste qui a bougé = agi", () => {
+    expect(acteDe({ kind: "survive", trap: false })).toBe("agi");
+    expect(acteDe({ kind: "survive", trap: true })).toBe("rien");
+    expect(acteDe({ kind: "death", reason: MOTIFS.temps })).toBe("rien");
+    expect(acteDe({ kind: "death", reason: MOTIFS.rouge })).toBe("agi");
+    expect(acteDe({ kind: "death", reason: MOTIFS.sequence })).toBe("agi");
+    expect(acteDe({ kind: "idle" })).toBe("rien");
+  });
+
+  it("le premier input d'un siège, et seulement celui-là, ouvre un acted", () => {
+    const m = matchImposteur(1, 4);
+    m.openRound();
+    expect(m.encoreSansGeste("p0")).toBe(true);
+    const avant = m.encoreSansGeste("p0");
+    unGeste(m, "p0");
+    expect(fautSignalerActe(m.imposteur, avant, m.encoreSansGeste("p0"))).toBe(true);
+    const avant2 = m.encoreSansGeste("p0");
+    expect(avant2).toBe(false);
+    unGeste(m, "p0");
+    expect(fautSignalerActe(m.imposteur, avant2, m.encoreSansGeste("p0"))).toBe(false);
+  });
+
+  it("en classique / duo, pas d'acted — le spectacle existant ne bouge pas", () => {
+    const m = new MatchLogic(1, ["a", "b"]);
+    m.openRound();
+    const avant = m.encoreSansGeste("a");
+    m.input("a", m.roundIdx, { kind: "click", ent: null, x: 0, y: 0 }, 200);
+    expect(m.imposteur).toBe(false);
+    expect(fautSignalerActe(m.imposteur, avant, m.encoreSansGeste("a"))).toBe(false);
+  });
+
+  it("le serveur émet t: acted au premier input — dents", () => {
+    const src = readFileSync("server/index.ts", "utf8")
+      .split(/\r?\n/)
+      .filter((l) => !/^\s*\/\//.test(l))
+      .join("\n");
+    expect(src).toMatch(/broadcast\(\s*room,\s*\{\s*t:\s*"acted"/);
+  });
+
+  it("le message acted ne porte ni reason, ni trap, ni coordonnées", () => {
+    const src = readFileSync("shared/protocol.ts", "utf8");
+    const bloc = /t: "acted"; idx: number; playerId: string/.exec(src);
+    expect(bloc, "le type acted a bougé").toBeTruthy();
+  });
+});
+
+/** Un seul geste, scène imposteur — pas `buildMultiRound` (draftShared). */
+function unGeste(m: MatchLogic, id: string): void {
+  const rule = m.rulesAt(m.roundIdx).get(id)!;
+  const shared = draftImposteur(m.seed, m.roundIdx, m.regleCommune!, poolMulti(false));
+  const round = applyRule(shared, rule, m.seed);
+  const step = round.steps[0];
+  if (!step) {
+    m.input(id, m.roundIdx, { kind: "click", ent: null, x: 0, y: 0 }, 200);
+    return;
+  }
+  if (step.kind === "click") {
+    const ent = round.ents[step.idx]!;
+    m.input(id, m.roundIdx, { kind: "click", ent, x: ent.x, y: ent.y }, 200);
+    return;
+  }
+  if (step.kind === "key") {
+    m.input(id, m.roundIdx, { kind: "key", key: step.key }, 200);
+    return;
+  }
+  m.input(id, m.roundIdx, { kind: "click", ent: round.ents[0] ?? null, x: 900, y: 10 }, 200);
+}

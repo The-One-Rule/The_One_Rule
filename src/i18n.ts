@@ -844,6 +844,8 @@ type Dyn = {
   optDuos: string;
   optChacun: string;
   optImposteur: string;
+  plaqueAgi: string;
+  plaqueRien: string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
   ariaRotationJamais: string;
@@ -1321,6 +1323,8 @@ const DYN: Record<Lang, Dyn> = {
     optDuos: "DUOS",
     optChacun: "CHACUN",
     optImposteur: "IMPOSTEUR",
+    plaqueAgi: "AGI",
+    plaqueRien: "RIEN",
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
@@ -1747,6 +1751,8 @@ const DYN: Record<Lang, Dyn> = {
     optDuos: "DUOS",
     optChacun: "EACH",
     optImposteur: "IMPOSTOR",
+    plaqueAgi: "ACTED",
+    plaqueRien: "WAIT",
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
     ariaRotationJamais: "Rules never rotate",

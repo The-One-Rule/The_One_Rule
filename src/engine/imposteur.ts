@@ -13,8 +13,10 @@ import { place } from "./scene";
 import { windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import { MAX_ROUND_MS, SPEED_CHOICES } from "../../shared/protocol";
+import type { RoundOutcome } from "../../shared/protocol";
 import type { Instruction, OneRule, Want } from "./types";
 import type { SharedRound } from "./multiround";
+import { MOTIFS } from "./motifs";
 
 /** Dix manches, indices 0 à 9. */
 export const IMPOSTEUR_MANCHES = 10;
@@ -43,6 +45,42 @@ export const SANS_REGLE: OneRule = {
   forbids: () => false,
   judge: () => null,
 };
+
+/**
+ * Ce qu'un siège a FAIT, après la manche — identifiant, pas une phrase.
+ *
+ * Le live ne peut pas s'appuyer sur `RoundOutcome` : le verdict arrive à la
+ * clôture. Pendant la manche, c'est `t: "acted"`. Après, le journal peut
+ * reconstruire le même binaire sans relire un motif de mort ni un flash
+ * piège — ces phrases sont pour l'observation et le vote, pas pour les
+ * dix manches.
+ *
+ *   survive sans piège, ou mort hors temps → agi
+ *   survive sur piège, ou mort au temps     → rien
+ *   idle (spectateur, déjà hors jeu)        → rien
+ */
+export type ActeId = "agi" | "rien";
+
+export function acteDe(o: RoundOutcome): ActeId {
+  if (o.kind === "survive") return o.trap ? "rien" : "agi";
+  if (o.kind === "death") return o.reason === MOTIFS.temps ? "rien" : "agi";
+  return "rien";
+}
+
+/**
+ * Faut-il diffuser `{ t: "acted" }` ?
+ *
+ * Vrai seulement en imposteur, et seulement si le siège VENAIT d'être
+ * vierge et ne l'est plus — le premier geste, pas les suivants.
+ * Classique / duo : faux, le spectacle existant ne bouge pas.
+ */
+export function fautSignalerActe(
+  imposteur: boolean,
+  viergeAvant: boolean,
+  viergeApres: boolean,
+): boolean {
+  return imposteur && viergeAvant && !viergeApres;
+}
 
 /**
  * Durée d'une manche imposteur.

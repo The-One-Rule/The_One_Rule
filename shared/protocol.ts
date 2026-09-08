@@ -405,6 +405,19 @@ export type ServerMsg =
    * et joue donc le classique : la règle publique qu'il a reçue.
    */
   | { t: "role"; imposteur: true }
+  /**
+   * Premier geste d'un siège sur cette manche. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien n'a pas ce cas dans son switch : il l'ignore, et c'est le bon
+   * défaut — absent = personne n'a encore agi à l'écran.
+   *
+   * Émis UNIQUEMENT en mode imposteur, au moment où `firstInputMs` passe
+   * de null à un nombre — pas à chaque clic d'une séquence. Ne porte ni
+   * reason, ni trap, ni coordonnées : juste que CE siège a agi, sur CETTE
+   * manche. En classique / duo, on n'émet rien.
+   */
+  | { t: "acted"; idx: number; playerId: string }
   | { t: "room"; code: string; players: PlayerPublic[]; inMatch: boolean; settings: RoomSettings }
   | {
       t: "match_start";

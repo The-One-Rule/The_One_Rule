@@ -33,7 +33,8 @@ import { livesDots } from "./render/hud";
 import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
-import type { PlateFlash } from "./render/plate";
+import type { PlateActe, PlateFlash } from "./render/plate";
+import { acteDe } from "./engine/imposteur";
 import { seatClasses, seatStatus } from "./render/seat";
 import { musicApi, sfx, unlock } from "./audio";
 /*
@@ -859,6 +860,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   const watchTargets = $("watchTargets");
   /** Flashes de verdict (ok/trap/dead/idle) jusqu'à expiration ou prochaine manche. */
   const platePulse = new Map<string, PlateFlash>();
+  /** Sièges qui ont agi sur la manche en cours — live imposteur, reset à `round`. */
+  const plateActes = new Set<string>();
   const emoteTimers = new Map<string, ReturnType<typeof setTimeout>>();
   let lastEmoteSentAt = 0;
   let emoteCooldownTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1513,13 +1516,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
        * croirait à un bug plutôt qu'à une réserve commune.
        */
       const equipe = p.team;
+      const enLive =
+        match!.modeImposteur &&
+        (match!.phase === "round" || match!.phase === "frozen") &&
+        !p.spectator;
+      const acte: PlateActe | null = enLive ? (plateActes.has(p.id) ? "acted" : "wait") : null;
       el.className =
         plateClasses({
           isMe: p.id === myId,
           lives: p.lives,
           rookie: !!p.rookie,
-          pulse: platePulse.get(p.id) ?? null,
+          pulse: acte ? null : platePulse.get(p.id) ?? null,
           inRound: match!.phase === "round",
+          acte,
         }).join(" ") + (equipe === undefined ? "" : ` is-equipe-${equipe % 5}`);
 
       el.querySelector(".plate__glyph")!.innerHTML = glyphSvg(
@@ -1528,9 +1537,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       );
       el.querySelector<HTMLElement>(".plate__name")!.textContent = p.name;
       const ruleText = el.querySelector<HTMLElement>(".plate__rule-text")!;
-      if (compact) el.title = ruleName;
+      const liveTxt = acte === "acted" ? tr("plaqueAgi") : acte === "wait" ? tr("plaqueRien") : null;
+      if (compact) el.title = liveTxt ?? ruleName;
       else el.removeAttribute("title");
-      swapRuleText(ruleText, ruleName);
+      swapRuleText(ruleText, liveTxt ?? ruleName);
+      if (liveTxt) el.setAttribute("aria-label", `${p.name} · ${liveTxt}`);
+      else el.removeAttribute("aria-label");
       el.querySelector<HTMLElement>(".plate__lives")!.innerHTML = livesDots(
         Math.max(0, p.lives),
         match!.maxLives,
@@ -1586,6 +1598,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     jeSuisImposteur = false;
     lobbyInMatch = false;
     platePulse.clear();
+    plateActes.clear();
     clearEmoteTimers();
     clearFeed();
     setPlatesVisible(false);
@@ -1678,6 +1691,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (match.watchingId) net.watch(match.watchingId);
 
     platePulse.clear();
+    plateActes.clear();
     unlock();
     hud.hideStamp();
     hud.clearRound();
@@ -1723,6 +1737,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // L'annonce a fait son office : la règle est désormais en vigueur.
     match.rotationRule = null;
     platePulse.clear();
+    plateActes.clear();
     hud.hideStamp();
     $("head").classList.remove("is-preview");
     rebuildViewRound();
@@ -1768,8 +1783,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * partout ailleurs, plutôt qu'un `setTimeout` qui devine.
      */
     platePulse.clear();
-    for (const [id, o] of Object.entries(msg.outcomes)) {
-      platePulse.set(id, outcomeFlash(o));
+    plateActes.clear();
+    if (match.modeImposteur) {
+      /*
+       * Pas d'`outcomeFlash` : « trap » dirait que la manche était un piège,
+       * « dead » porterait le motif. Pendant les dix manches le signal reste
+       * AGI / RIEN, déduit d'une fonction PURE — le même binaire que le live.
+       */
+      for (const [id, o] of Object.entries(msg.outcomes)) {
+        if (acteDe(o) === "agi") plateActes.add(id);
+      }
+    } else {
+      for (const [id, o] of Object.entries(msg.outcomes)) {
+        platePulse.set(id, outcomeFlash(o));
+      }
     }
     renderPlates();
     syncFooter();
@@ -2216,6 +2243,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     if (msg.t === "round") {
       beginRound(msg);
+      return;
+    }
+    if (msg.t === "acted") {
+      if (!match || msg.idx !== match.idx || match.phase !== "round") return;
+      if (typeof msg.playerId === "string" && msg.playerId) {
+        plateActes.add(msg.playerId);
+        renderPlates();
+      }
       return;
     }
     if (msg.t === "verdict") {

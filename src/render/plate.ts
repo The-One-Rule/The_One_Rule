@@ -11,10 +11,18 @@
  *   · ce que le joueur EST (moi, éliminé, débutant) — durable ;
  *   · ce qu'il vient de FAIRE (ok, piège déjoué, mort, absent) — la manche.
  *
+ * En mode imposteur s'ajoute un troisième canal, binaire, PENDANT la manche :
+ * AGI / RIEN. Il ne réutilise PAS le flash « trap » : ce flash DIRIT que la
+ * manche était un piège, et pendant les dix manches personne ne doit lire
+ * la règle sur les plaques. `acte` prime donc sur `pulse` : si le live
+ * parle, le verdict classique se tait.
+ *
  * Le verdict prime à l'écran : la feuille lui donne une spécificité
  * supérieure, pour que la règle ne dépende pas de l'ordre des déclarations.
  */
 export type PlateFlash = "ok" | "trap" | "dead" | "idle";
+/** Live imposteur : le siège a agi, ou pas encore. Identifiant, pas une phrase. */
+export type PlateActe = "acted" | "wait";
 
 export interface PlateState {
   isMe: boolean;
@@ -25,6 +33,11 @@ export interface PlateState {
   pulse: PlateFlash | null;
   /** Une manche est en cours (par opposition à une pause ou un compte à rebours). */
   inRound: boolean;
+  /**
+   * Signal live du mode imposteur. Absent = classique / duo, le spectacle
+   * existant (`pulse` / `--live`) ne bouge pas.
+   */
+  acte: PlateActe | null;
 }
 
 export function plateClasses(s: PlateState): string[] {
@@ -38,6 +51,10 @@ export function plateClasses(s: PlateState): string[] {
    * au verdict, il ne le remplace pas.
    */
   if (s.rookie) classes.push("plate--rookie");
+  if (s.acte) {
+    classes.push(`plate--${s.acte}`);
+    return classes;
+  }
   if (s.pulse) classes.push(`plate--${s.pulse}`);
   // `--live` ne dit rien de plus qu'« il joue » : inutile dès qu'un verdict
   // est affiché, et inutile aussi sur une plaque qui porte déjà un liseré.
