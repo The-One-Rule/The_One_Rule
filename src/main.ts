@@ -44,7 +44,14 @@ import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, MEDIANE_CONNUE, vueBut } from "./render/but";
-import { cacheMicro, cachePastille, montreMicro, montrePastille, montreToast } from "./render/micro";
+import {
+  cacheMicro,
+  cachePastille,
+  cacheToast,
+  montreMicro,
+  montrePastille,
+  montreToast,
+} from "./render/micro";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
@@ -3114,7 +3121,9 @@ function finishRun(): void {
        * même jour.
        */
       st.daily = P.majJour(st.daily, day, end.score, end.cleared);
-      if (end.cleared) bump(st, "dailyCleared", 1);
+      // Venir compte, meme sans aller au bout : c'est la quete de PRESENCE.
+      bump(st, "dailyPlayed", 1, "max");
+      if (end.cleared) bump(st, "dailyCleared", 1, "max");
       // Idempotent par jour : `touchStreak` sort sans rien faire quand
       // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
       P.touchStreak(st, day);
@@ -3648,7 +3657,6 @@ $("btnAvanceTrain").addEventListener("click", () => {
  * collection : le compteur de pièges et la case de maîtrise bougent sous les
  * yeux du joueur, à l'instant où il les gagne.
  */
-let piegeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function montrePiegeDejoue(round: Round): void {
   if (!session) return;
@@ -3676,21 +3684,35 @@ function montrePiegeDejoue(round: Round): void {
     franchies(echelleMaitrise(r, projete)),
   );
 
-  const el = $("piege");
-  el.classList.remove("hidden");
-  // On relance l'animation d'entrée : deux pièges d'affilée doivent produire
-  // deux annonces, pas une seule qui reste.
-  el.classList.remove("is-vu");
-  void el.offsetWidth;
-  el.classList.add("is-vu");
-  if (piegeTimer) clearTimeout(piegeTimer);
-  piegeTimer = setTimeout(() => el.classList.add("hidden"), 1500);
+  /*
+   * ⚠️ UN TOAST, ET PLUS DISCRET QUE CELUI DE L'ECHAUFFEMENT.
+   *
+   * Rapporte par Pierre : « fais la meme chose pour le piege dejoue qui prend
+   * le centre de l'ecran, c'est desagreable, mais encore plus discret ».
+   *
+   * Le raisonnement est le meme que pour l'echauffement, en plus fort : ce
+   * retour tombe PENDANT une manche — et la manche suivante s'ouvre derriere
+   * lui, puisqu'il n'arrete rien. Un plein cadre au centre couvrait donc le
+   * terrain au moment ou la scene suivante se dessine. Le joueur venait de
+   * bien jouer et perdait l'ecran.
+   *
+   * Plus discret : une seule ligne, pas de seconde phrase. Ce qu'il faut dire
+   * tient dans « PIEGE DEJOUE » et le nom de la regle — la consigne qui
+   * piegeait, il vient de la lire, et sa carte l'attend sur l'ecran de fin.
+   */
+  montreToast(t("piegeDejoue"), $("piegeCarte").textContent ?? "", 1400);
 }
 
-/** Efface l'annonce — tout changement d'écran passe par là. */
+/**
+ * Efface l'annonce — tout changement d'écran passe par là.
+ *
+ * Le calque `#piegefx` ne sert plus : le piège déjoué passe par le toast. On
+ * le referme quand même, parce qu'un changement d'écran doit tout éteindre et
+ * qu'une annonce oubliée à l'écran est exactement ce que `show()` existe pour
+ * empêcher.
+ */
 function cachePiege(): void {
-  if (piegeTimer) clearTimeout(piegeTimer);
-  piegeTimer = null;
+  cacheToast();
   $("piege").classList.add("hidden");
 }
 

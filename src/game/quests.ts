@@ -2,7 +2,16 @@ import { mulberry32, rPick } from "../engine/rng";
 import { recentAverage } from "./progress";
 import type { Save } from "./progress";
 
-export type Metric = "runs" | "traps" | "best" | "dailyCleared" | "rounds" | "noKey";
+export type Metric =
+  | "runs"
+  | "traps"
+  | "best"
+  /** Le run du jour a ete JOUE — quel qu'ait ete le score. */
+  | "dailyPlayed"
+  /** Le run du jour a ete mene jusqu'a la 40e manche. Rare, et c'est voulu. */
+  | "dailyCleared"
+  | "rounds"
+  | "noKey";
 
 export interface Quest {
   id: string;
@@ -20,7 +29,23 @@ export interface QuestView extends Quest {
 
 /* --- quête 1 : présence. Toujours faisable, quel que soit le niveau. --- */
 const PRESENCE: Array<(rng: () => number) => Quest> = [
-  () => ({ id: "p_daily", label: "Termine le run du jour", metric: "dailyCleared", target: 1, reward: 10 }),
+  /*
+   * ⚠️ JOUER, PAS TERMINER — et l'ecart n'etait pas mince.
+   *
+   * SYMPTOME RAPPORTE : « j'ai valide ma run du jour mais la quete du jour ne
+   * me la valide toujours pas ».
+   *
+   * Elle visait `dailyCleared`, qui n'est vrai qu'en atteignant la 40e manche
+   * (`Session.finish("complete", …, true)`). Or le score MEDIAN d'un run est
+   * de 12 et le p75 de 20 : cette quete etait donc hors de portee de la
+   * quasi-totalite des joueurs, tous les jours.
+   *
+   * Et elle est dans le lot PRESENCE, dont le commentaire dit en toutes
+   * lettres « toujours faisable, quel que soit le niveau ». Elle ne l'etait
+   * pas. Le lot exploration et le lot performance sont la pour demander un
+   * effort ; celui-ci demande de VENIR.
+   */
+  () => ({ id: "p_daily", label: "Joue le run du jour", metric: "dailyPlayed", target: 1, reward: 10 }),
   () => ({ id: "p_runs3", label: "Joue 3 parties", metric: "runs", target: 3, reward: 10 }),
   () => ({ id: "p_rounds40", label: "Survis à 40 manches en tout", metric: "rounds", target: 40, reward: 10 }),
 ];

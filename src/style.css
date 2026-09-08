@@ -15049,9 +15049,30 @@ button.chip:active:not(:disabled) {
   gap: 2px;
 }
 
+/*
+ * ⚠️ A CETTE TAILLE, LA VIE SE DIT PAR LE REMPLISSAGE, PAS PAR LA BORDURE.
+ *
+ * SYMPTOME RAPPORTE : « dans le multijoueur les vies ne s'actualisent plus ».
+ * Elles s'actualisaient — elles ne se LISAIENT plus.
+ *
+ * La regle generale donne aux points un cadre de `--bd-thin`, soit 2 px, et
+ * distingue l'allume en le remplissant. A 11 px ca marche. En reprenant les
+ * 5 px de la maquette pour les plaques, il ne restait plus qu'UN pixel
+ * d'interieur : allume et eteint devenaient le meme petit carre plein.
+ *
+ * On garde donc les 5 px du dessin et on change de canal — cadre d'un cheveu,
+ * et c'est le FOND qui porte l'information. C'est d'ailleurs ce que fait la
+ * source : ses vies de plaque sont des aplats, pas des cadres.
+ */
 .plate__lives i {
   width: 5px;
   height: 5px;
+  border-width: var(--bd-hair);
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.plate__lives i.is-on {
+  background: currentColor;
 }
 
 .emote {

@@ -141,6 +141,7 @@ describe("quêtes", () => {
     Q.bump(s, "traps", 10);
     Q.bump(s, "rounds", 200);
     Q.bump(s, "best", 99, "max");
+    Q.bump(s, "dailyPlayed", 1);
     Q.bump(s, "dailyCleared", 1);
     Q.bump(s, "noKey", 99, "max");
     const first = Q.claimAll(s, 5);
@@ -156,5 +157,28 @@ describe("quêtes", () => {
     Q.ensureDay(s, 6);
     expect(s.quests.state["runs"] ?? 0).toBe(0);
     expect(s.daily.played).toBe(false);
+  });
+});
+
+describe("⚠️ la quête de PRÉSENCE doit être faisable", () => {
+  it("se valide en JOUANT le run du jour, pas en le terminant", () => {
+    /*
+     * Elle visait `dailyCleared`, qui n'est vrai qu'en atteignant la 40e
+     * manche. Or le score médian d'un run est de 12 et le p75 de 20 : la
+     * quête était donc hors de portée de la quasi-totalité des joueurs, tous
+     * les jours — alors que son lot s'annonce « toujours faisable, quel que
+     * soit le niveau ».
+     *
+     * Rapporté par Pierre : « j'ai validé ma run du jour mais la quête du
+     * jour ne me la valide toujours pas », avec 34 manches sur 40 à l'écran.
+     */
+    const s = P.load();
+    Q.ensureDay(s, 5);
+    const presence = Q.viewQuests(s, 5).find((q) => q.id === "p_daily");
+    if (!presence) return; // ce jour-là, le tirage a servi une autre présence
+    expect(presence.done, "rien joué, rien validé").toBe(false);
+    // Un run du jour JOUÉ, et perdu bien avant la quarantième manche.
+    Q.bump(s, "dailyPlayed", 1, "max");
+    expect(Q.viewQuests(s, 5).find((q) => q.id === "p_daily")!.done).toBe(true);
   });
 });
