@@ -69,12 +69,21 @@ export const cleEntrainement = (allure: number): string =>
 export const cleEscalade = (): string =>
   cleComparaison({ mode: "escalade", regime: {}, versionContenu: VERSION_CONTENU });
 
-/** La clé d'une performance, quel que soit le mode. */
-export function clePour(mode: ModePerf, opts: { allure?: number; jour?: number }): string {
-  if (mode === "daily") return cleDuJour(opts.jour ?? 0);
-  if (mode === "training") return cleEntrainement(opts.allure ?? 1);
-  return cleEscalade();
-}
+/*
+ * ⚠️ IL Y AVAIT ICI UN `clePour(mode, opts)`, ET IL EST SUPPRIME.
+ *
+ * Personne ne l'appelait : les trois clés se fabriquent chacune sur son site
+ * d'usage, où le mode est connu statiquement — un répartiteur n'y ajoutait
+ * rien. C'est le troisième code mort de la semaine qui ressemblait à une
+ * fonctionnalité livrée, après `changeIdentite` et `inscritRecord`.
+ *
+ * Et celui-là portait une MINE : `cleDuJour(opts.jour ?? 0)`. Le jour par
+ * défaut à zéro, c'est-à-dire le 1er janvier 2026 — exactement la famille de
+ * défaut qui vient de faire servir un classement vide par `api/perf.ts`.
+ * Le jour qui suivait où quelqu'un l'aurait rebranché sans passer `jour`, la
+ * performance serait partie sous la clé d'un autre jour, en silence, et une
+ * clé de comparabilité fausse ne se rattrape pas après coup.
+ */
 
 /**
  * Une performance prête à être enregistrée.
