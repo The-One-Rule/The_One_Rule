@@ -779,6 +779,73 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ------------------------------------------------------------------
+   Curseurs coop — hors flux dans `#stage`
+   ------------------------------------------------------------------ */
+.cursors {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cursors.hidden {
+  display: none;
+}
+
+.curseur {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.curseur.is-on {
+  visibility: visible;
+}
+
+.curseur__pointe {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--cur, var(--paper));
+  border: 2px solid var(--line);
+  transform: translate(-50%, -50%);
+}
+
+.curseur__nom {
+  position: absolute;
+  left: 10px;
+  top: -6px;
+  font-family: var(--sans);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper);
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.curseur__trace {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--cur, var(--paper));
+  opacity: 0.22;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curseur__trace {
+    display: none;
+  }
+}
+
 .settings__row.is-fige {
   opacity: 0.45;
 }

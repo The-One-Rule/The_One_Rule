@@ -216,6 +216,10 @@ export class MatchCoop {
     else this.actifs.add(playerId);
   }
 
+  estActif(playerId: string): boolean {
+    return this.actifs.has(playerId);
+  }
+
   forfeit(playerId: string): void {
     this.actifs.delete(playerId);
   }

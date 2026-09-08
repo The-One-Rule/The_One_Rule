@@ -13,7 +13,7 @@
 import { ONE_RULES } from "./rules";
 import { place, MAX_ENTITIES } from "./scene";
 import { mulberry32, rChance, rShuffle } from "./rng";
-import { COLOR_IDS, SHAPE_IDS } from "./types";
+import { COLOR_IDS, FIELD_H, FIELD_W, SHAPE_IDS } from "./types";
 import type { Action, Entity, EntitySpec, JudgeContext, OneRule, Round, SizeId } from "./types";
 
 export const COOP_MIN_JOUEURS = 4;
@@ -197,4 +197,18 @@ export function jugerClic(
   if (action.kind !== "click" || !action.ent) return "vide";
   const motif = rule.judge(action, ctxCoop(visibles, durationMs, elapsedMs));
   return motif ? "interdit" : "licite";
+}
+
+/**
+ * Borne une position de curseur dans le champ. `null` si ce n'est pas
+ * un nombre fini — le serveur ignore, il ne juge pas.
+ */
+export function borneCurseur(x: unknown, y: unknown): { x: number; y: number } | null {
+  const nx = Number(x);
+  const ny = Number(y);
+  if (!Number.isFinite(nx) || !Number.isFinite(ny)) return null;
+  return {
+    x: Math.min(FIELD_W, Math.max(0, nx)),
+    y: Math.min(FIELD_H, Math.max(0, ny)),
+  };
 }

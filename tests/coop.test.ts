@@ -10,11 +10,13 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SETTINGS,
   PROTOCOL_VERSION,
+  CURSOR_COOLDOWN_MS,
   sanitizeSettings,
 } from "../shared/protocol";
 import { MatchCoop } from "../server/coop";
 import {
   attribueReglesCoop,
+  borneCurseur,
   dureeVague,
   jugerClic,
   needDe,
@@ -30,8 +32,9 @@ import {
 } from "../src/engine/coop";
 import { ONE_RULES } from "../src/engine/rules";
 import { VERSION_CONTENU } from "../src/engine/version";
-import { COLOR_IDS } from "../src/engine/types";
+import { COLOR_IDS, FIELD_H, FIELD_W } from "../src/engine/types";
 import { colorHex, NEED_BADGE } from "../src/render/scene";
+import { GLYPH_COLORS } from "../src/net/glyph";
 import type { Action, Entity, OneRule } from "../src/engine/types";
 
 const QUATRE = ["a", "b", "c", "d"];
@@ -446,6 +449,65 @@ describe("badge need — hors palette jouable", () => {
     expect(body).not.toMatch(/HEX|colorHex|ColorId/);
     for (const id of COLOR_IDS) {
       expect(Object.values(NEED_BADGE), id).not.toContain(colorHex(id));
+    }
+  });
+});
+
+describe("curseurs — canal hors verdict", () => {
+  it("PROTOCOL_VERSION reste à 1, cursor n'est pas un input", () => {
+    expect(PROTOCOL_VERSION).toBe(1);
+    expect(CURSOR_COOLDOWN_MS).toBe(50);
+    const proto = readFileSync("shared/protocol.ts", "utf8");
+    expect(proto).toMatch(/t: "cursor"; x: number; y: number/);
+    expect(proto).toMatch(/t: "cursors"; at: number; pos:/);
+    expect(proto).toMatch(/N'entre JAMAIS dans un verdict/);
+    expect(proto).toMatch(/CE N'EST PAS un `t: "input"`/);
+  });
+
+  it("le verdict coop ne lit jamais le curseur", () => {
+    const index = readFileSync("server/index.ts", "utf8");
+    const coop = readFileSync("server/coop.ts", "utf8");
+    const debut = index.indexOf("if (room.coop)");
+    const fin = index.indexOf("const match = room.match;", debut);
+    const branche = index.slice(debut, fin);
+    expect(branche).toMatch(/x: entC \? entC\.x/);
+    expect(branche).toMatch(/y: entC \? entC\.y/);
+    expect(branche).not.toMatch(/cursorPos|lastCursor|msg\.x|msg\.y/);
+    expect(coop).not.toMatch(/cursor/i);
+    expect(coop).toMatch(/x: cible\.x,\s*y: cible\.y/);
+    expect(index).toMatch(/Jamais lu par inputCoop/);
+  });
+
+  it("borneCurseur cale dans le champ et refuse le non-nombre", () => {
+    expect(borneCurseur(0, 0)).toEqual({ x: 0, y: 0 });
+    expect(borneCurseur(FIELD_W + 50, -10)).toEqual({ x: FIELD_W, y: 0 });
+    expect(borneCurseur(-1, FIELD_H + 10)).toEqual({ x: 0, y: FIELD_H });
+    expect(borneCurseur("nope", 1)).toBeNull();
+    expect(borneCurseur(Number.NaN, 10)).toBeNull();
+  });
+
+  it("HIT global reste à 1.22 — pas d'élargissement du solo", () => {
+    const src = readFileSync("src/render/scene.ts", "utf8");
+    expect(src).toMatch(/const HIT = 1\.22/);
+  });
+
+  it("le calque est hors flux, pointer-events none, 6 sièges", () => {
+    const html = readFileSync("index.html", "utf8");
+    const iCv = html.indexOf('id="cv"');
+    const iCur = html.indexOf('id="cursors"');
+    const iStage = html.indexOf("</main>");
+    expect(iCur).toBeGreaterThan(iCv);
+    expect(iStage).toBeGreaterThan(iCur);
+    expect((html.match(/class="curseur"/g) ?? []).length).toBe(6);
+    const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(css).toMatch(/\.cursors\s*\{[^}]*position:\s*absolute/);
+    expect(css).toMatch(/\.cursors\s*\{[^}]*pointer-events:\s*none/);
+    expect(css).toMatch(/\.cursors\.hidden/);
+    const paint = readFileSync("src/render/cursors.ts", "utf8");
+    expect(paint).not.toMatch(/garance|azur|jade|ambre/);
+    expect(paint).toMatch(/glyphHex/);
+    for (const hex of GLYPH_COLORS) {
+      expect(COLOR_IDS.some((id) => colorHex(id) === hex)).toBe(false);
     }
   });
 });

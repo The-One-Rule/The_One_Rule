@@ -28,12 +28,13 @@ import {
   peutLancerImposteur,
 } from "../src/engine/imposteur";
 import type { IssueVote } from "../src/engine/imposteur";
-import { COOP_MAX_ASIS, COOP_RASSEMBLEMENT_MS, peutLancerCoop } from "../src/engine/coop";
+import { COOP_MAX_ASIS, COOP_RASSEMBLEMENT_MS, borneCurseur, peutLancerCoop } from "../src/engine/coop";
 import { originAllowed, parseOrigins } from "./origin";
 import { verifieJeton } from "./jeton";
 import { cleanEnv } from "../src/env";
 import {
   COUNTDOWN_MS,
+  CURSOR_COOLDOWN_MS,
   DEFAULT_SETTINGS,
   EMPTY_STATS,
   EMOTE_COOLDOWN_MS,
@@ -101,6 +102,8 @@ interface Client {
   watching: string | null;
   lastEmoteAt: number;
   lastChatAt: number;
+  /** Dernier curseur coop accepté — plafond 20 Hz, comme les emotes. */
+  lastCursorAt: number;
   /** Identifiant local stable du joueur — sert à retrouver son siège. */
   key: string;
   /** Armé à la coupure : abandonne le siège si personne ne le réclame. */
@@ -147,6 +150,11 @@ interface Room {
   timer: ReturnType<typeof setTimeout> | null;
   /** Un timeout par entité en cours de rassemblement — distinct du timer de vague. */
   chargeTimers: Map<number, ReturnType<typeof setTimeout>>;
+  /**
+   * Dernière position de curseur par siège. DÉCORATIF.
+   * Jamais lu par inputCoop, entityOf, ni aucun judge.
+   */
+  cursorPos: Map<string, { x: number; y: number }>;
   roundOpen: boolean;
 }
 
@@ -384,6 +392,7 @@ function startMatchCoop(room: Room): void {
   const ids = idsAssis(room);
   const seed = (Math.random() * 2 ** 31) | 0;
   room.coop = new MatchCoop(seed, ids);
+  room.cursorPos.clear();
   const rules = room.coop.reglesPubliques();
   broadcast(room, roomState(room));
   const firstRoundAt = now() + COUNTDOWN_MS;
@@ -398,6 +407,20 @@ function startMatchCoop(room: Room): void {
     clavier: false,
   });
   room.timer = setTimeout(() => openVagueCoop(room), COUNTDOWN_MS);
+}
+
+function diffuserCurseurs(room: Room): void {
+  const coop = room.coop;
+  if (!coop) return;
+  const pos: Record<string, { x: number; y: number }> = {};
+  let n = 0;
+  for (const [id, p] of room.cursorPos) {
+    if (!coop.estActif(id)) continue;
+    pos[id] = p;
+    n += 1;
+    if (n >= COOP_MAX_ASIS) break;
+  }
+  broadcast(room, { t: "cursors", at: now(), pos });
 }
 
 function clearChargeTimers(room: Room): void {
@@ -507,6 +530,7 @@ function closeVagueCoop(room: Room): void {
       players: publicPlayers(room),
     });
     room.coop = null;
+    room.cursorPos.clear();
     broadcast(room, roomState(room));
     return;
   }
@@ -692,6 +716,7 @@ wss.on("connection", (ws) => {
     watching: null,
     lastEmoteAt: 0,
     lastChatAt: 0,
+    lastCursorAt: 0,
     key: "",
     graceTimer: null,
     rookie: false,
@@ -769,6 +794,7 @@ wss.on("connection", (ws) => {
           roundDeadline: 0,
           timer: null,
           chargeTimers: new Map(),
+          cursorPos: new Map(),
           roundOpen: false,
         };
         rooms.set(room.code, room);
@@ -1088,6 +1114,21 @@ wss.on("connection", (ws) => {
         return;
       }
 
+      case "cursor": {
+        const room = client.room;
+        const coop = room?.coop;
+        if (!room || !coop) return;
+        if (!coop.estActif(client.id)) return;
+        const t = now();
+        if (t - client.lastCursorAt < CURSOR_COOLDOWN_MS) return;
+        const p = borneCurseur(msg.x, msg.y);
+        if (!p) return;
+        client.lastCursorAt = t;
+        room.cursorPos.set(client.id, p);
+        diffuserCurseurs(room);
+        return;
+      }
+
       case "emote": {
         const room = client.room;
         if (!room) return;
@@ -1165,6 +1206,7 @@ wss.on("connection", (ws) => {
       // éliminé bien avant d'avoir pu revenir.
       room.match?.setAway(client.id, true);
       room.coop?.setAway(client.id, true);
+      if (room.coop && room.cursorPos.delete(client.id)) diffuserCurseurs(room);
       client.graceTimer = setTimeout(() => {
         client.graceTimer = null;
         leaveRoom(client);
@@ -1196,6 +1238,7 @@ function leaveRoom(client: Client): void {
 
   if (room.match) room.match.forfeit(client.id);
   if (room.coop) room.coop.forfeit(client.id);
+  const curseurParti = room.cursorPos.delete(client.id);
 
   if (room.clients.size === 0) {
     if (room.timer) clearTimeout(room.timer);
@@ -1207,6 +1250,7 @@ function leaveRoom(client: Client): void {
     room.hostId = [...room.clients.keys()][0]!;
   }
   broadcast(room, roomState(room));
+  if (room.coop && curseurParti) diffuserCurseurs(room);
 }
 
 /* Heartbeat : une connexion morte silencieusement ne doit pas geler un salon. */

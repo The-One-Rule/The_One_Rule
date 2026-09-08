@@ -149,6 +149,12 @@ export const EMOTE_COUNT = 6;
  *  la seule défense contre le déluge est le débit. */
 export const EMOTE_COOLDOWN_MS = 1500;
 
+/**
+ * Curseurs coop : 20 Hz par siège. Même doctrine que les emotes — le
+ * surplus est du silence, pas une erreur. Le serveur RELAYE, il ne juge pas.
+ */
+export const CURSOR_COOLDOWN_MS = 50;
+
 /** Un message tient en une ligne lisible d'un coup d'œil. Au-delà, ce n'est
  *  plus du salon, c'est du forum. */
 export const CHAT_MAX_LEN = 140;
@@ -418,6 +424,14 @@ export type ClientMsg =
    *  reconstruit lui-même avec la règle du joueur observé. */
   | { t: "watch"; playerId: string }
   | { t: "emote"; k: number }
+  /**
+   * Position du pointeur, en coordonnées de CHAMP. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un serveur
+   * ancien ignore le cas. CE N'EST PAS un `t: "input"` : aucun verdict
+   * ne s'en sert. Hors match, hors coop, ou siège away : ignoré.
+   */
+  | { t: "cursor"; x: number; y: number }
   | { t: "chat"; text: string }
   | { t: "kick"; playerId: string }
   | { t: "ping"; sent: number }
@@ -602,7 +616,16 @@ export type ServerMsg =
       players: PlayerPublic[];
     }
   | { t: "emote"; playerId: string; k: number }
-  | { t: "chat"; playerId: string; name: string; text: string };
+  | { t: "chat"; playerId: string; name: string; text: string }
+  /**
+   * Instantané des curseurs coop. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien ignore le cas. `pos` est la table complète des sièges qui ont
+   * envoyé une position (pas un delta) : un siège absent a quitté ou
+   * est away. `at` est l'horloge serveur. N'entre JAMAIS dans un verdict.
+   */
+  | { t: "cursors"; at: number; pos: Record<string, { x: number; y: number }> };
 
 export const encode = (m: ClientMsg | ServerMsg): string => JSON.stringify(m);
 

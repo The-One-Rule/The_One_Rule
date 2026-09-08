@@ -270,6 +270,14 @@ export class NetClient {
     this.send({ t: "input", round, at: this.clock.now(), action });
   }
 
+  /**
+   * Position de curseur, coordonnées de champ. Le serveur borne et plafonne
+   * à 20 Hz. Ce n'est pas un input : aucun verdict ne s'en sert.
+   */
+  sendCursor(x: number, y: number): void {
+    this.send({ t: "cursor", x, y });
+  }
+
   close(): void {
     if (this.pingTimer) clearInterval(this.pingTimer);
     this.ws?.close();

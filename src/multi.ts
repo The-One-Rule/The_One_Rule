@@ -6,6 +6,7 @@
 import type { Glyph, ModeSalon, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg, TourJournal } from "../shared/protocol";
 import {
   CHAT_MAX_LEN,
+  CURSOR_COOLDOWN_MS,
   DEFAULT_SETTINGS,
   EMPTY_STATS,
   EMOTE_COOLDOWN_MS,
@@ -37,6 +38,8 @@ import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
 import type { PlateActe, PlateFlash } from "./render/plate";
+import { paintCursors } from "./render/cursors";
+import type { CurseurAffiche } from "./render/cursors";
 import { seatClasses, seatStatus } from "./render/seat";
 import { musicApi, sfx, unlock } from "./audio";
 /*
@@ -111,6 +114,10 @@ export type MultiApi = {
   /** Index de la manche en cours — lu par la couche d'ambiance. */
   roundIndex: () => number;
   trySendMultiAction: (action: Action) => MultiFeel;
+  /** Position de curseur coop, coordonnées de champ. No-op hors coop. */
+  sendCursor: (x: number, y: number) => void;
+  /** Peint le calque des curseurs (hors flux). */
+  paintCursors: (now: number, rect: { x: number; y: number; w: number; h: number }) => void;
   /** Met à jour HUD / compte à rebours ; retourne l'état de dessin ou null. */
   syncFrame: () => MultiDraw | null;
   /** Consomme les effets scène en attente (appelé par main après syncFrame). */
@@ -854,6 +861,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     peekRound: () => null,
     roundIndex: () => 0,
     trySendMultiAction: () => ({ consumed: false }),
+    sendCursor: () => {},
+    paintCursors: () => {},
     syncFrame: () => null,
     takeFx: () => null,
     chatAvailable: () => false,
@@ -890,6 +899,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let rejoining = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
+  const curseursCible = new Map<string, { x: number; y: number }>();
+  const curseursAffiches = new Map<string, CurseurAffiche>();
+  let lastCursorSent = 0;
+  const curseurReduced =
+    typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   /** Reçu en privé. Absent = villageois. Remis à zéro à chaque match. */
   let jeSuisImposteur = false;
   /**
@@ -1798,11 +1812,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function peintCoopHud(): void {
     if (!match || !match.modeCoop) {
       $("coophud").classList.add("hidden");
+      $("cursors").classList.add("hidden");
       return;
     }
     $("coopViesVal").textContent = String(match.lives);
     $("coopScoreVal").textContent = String(match.score);
     $("coophud").classList.remove("hidden");
+    $("cursors").classList.remove("hidden");
   }
 
   function applyCoopClic(msg: Extract<ServerMsg, { t: "coop_clic" }>): void {
@@ -1830,6 +1846,15 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     else match.charges.set(msg.i, { n: msg.n });
   }
 
+  function applyCursors(msg: Extract<ServerMsg, { t: "cursors" }>): void {
+    curseursCible.clear();
+    for (const id of Object.keys(msg.pos)) {
+      const p = msg.pos[id];
+      if (!p) continue;
+      curseursCible.set(id, { x: p.x, y: p.y });
+    }
+  }
+
   function clearMatch(): void {
     hideDrama();
     hideObserve();
@@ -1844,6 +1869,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     clearPlateCols();
     watchBar.classList.add("hidden");
     $("coophud").classList.add("hidden");
+    $("cursors").classList.add("hidden");
+    curseursCible.clear();
+    curseursAffiches.clear();
     $("head").classList.remove("is-preview");
     hud.hideStamp();
     hud.clearRound();
@@ -1967,8 +1995,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       match.maxLives = Math.max(match.maxLives, viesInitialesCoop(n));
       peintCoopHud();
       $("coophud").classList.remove("hidden");
+      $("cursors").classList.remove("hidden");
     } else {
       $("coophud").classList.add("hidden");
+      $("cursors").classList.add("hidden");
     }
     syncFooter();
     hud.setMeta("");
@@ -2658,6 +2688,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       applyCharge(msg);
       return;
     }
+    if (msg.t === "cursors") {
+      applyCursors(msg);
+      return;
+    }
     if (msg.t === "verdict") {
       applyVerdict(msg);
       return;
@@ -3170,6 +3204,33 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       !!match.round &&
       !!match.rule
     );
+  }
+
+  function sendCursor(x: number, y: number): void {
+    if (!match || !net || !match.modeCoop) return;
+    if (match.spectator) return;
+    const t = Date.now();
+    if (t - lastCursorSent < CURSOR_COOLDOWN_MS) return;
+    lastCursorSent = t;
+    net.sendCursor(x, y);
+  }
+
+  function paintCursorsFrame(now: number, rect: { x: number; y: number; w: number; h: number }): void {
+    const root = $("cursors");
+    if (!match || !match.modeCoop || !net) {
+      root.classList.add("hidden");
+      return;
+    }
+    paintCursors({
+      root,
+      cibles: curseursCible,
+      affiches: curseursAffiches,
+      joueurs: match.players.map((p) => ({ id: p.id, name: p.name, glyph: playerGlyph(p) })),
+      myId: net.myId,
+      now,
+      rect,
+      reduced: curseurReduced,
+    });
   }
 
   function trySendMultiAction(action: Action): MultiFeel {
@@ -3777,6 +3838,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     peekRound,
     roundIndex,
     trySendMultiAction,
+    sendCursor,
+    paintCursors: paintCursorsFrame,
     syncFrame,
     takeFx,
     chatAvailable,

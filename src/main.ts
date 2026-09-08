@@ -4919,6 +4919,12 @@ $("cv").addEventListener("pointerdown", (ev) => {
   }
 });
 
+$("cv").addEventListener("pointermove", (ev) => {
+  if (!multi.isPlayingMulti()) return;
+  const { x, y } = scene.toField((ev as PointerEvent).clientX, (ev as PointerEvent).clientY);
+  multi.sendCursor(x, y);
+});
+
 window.addEventListener("keydown", (e) => {
   if (isTyping(e.target)) {
     if (e.key === "Escape") {
@@ -6024,6 +6030,7 @@ function loop(now: number): void {
       needs: multiDraw.needs,
       charges: multiDraw.charges,
     });
+    multi.paintCursors(now, scene.fieldRect());
   } else {
     scene.draw({ round: null, rule: null, now });
   }

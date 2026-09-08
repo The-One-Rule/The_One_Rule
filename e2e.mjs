@@ -96,6 +96,7 @@ function client(name, key, rookie = false, clavier = false) {
     verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
     rounds: [], recus: [], clavierMatch: null, manuel: false,
     imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
+    coopClics: [], cursorsMsgs: [], chargesCoop: [],
   };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
@@ -114,6 +115,9 @@ function client(name, key, rookie = false, clavier = false) {
     if (m.t === "journal") c.journals.push(m);
     if (m.t === "observe") c.observes.push(m);
     if (m.t === "vote_result") c.voteResults.push(m);
+    if (m.t === "coop_clic") c.coopClics.push(m);
+    if (m.t === "cursors") c.cursorsMsgs.push(m);
+    if (m.t === "charge") c.chargesCoop.push(m);
     // Horodatage de réception : c'est ce qui permet de comparer les pauses
     // annoncées par le serveur à celles réellement vécues par un client.
     if (m.t === "round" || m.t === "verdict") c.recus.push({ t: m.t, idx: m.idx, at: Date.now(), nextRoundAt: m.nextRoundAt ?? null });
@@ -886,6 +890,8 @@ const malformes = [
   { t: "join" },
   { t: "kick" },
   { t: "hello", v: 1, glyph: { shape: "banane", color: 999, pattern: -1 } },
+  { t: "cursor" },
+  { t: "cursor", x: "nope", y: 1 },
 ];
 for (const m of malformes) {
   alice.ws.send(JSON.stringify(m));
@@ -911,6 +917,90 @@ const notFound = await fetch(`http://127.0.0.1:${process.env.PORT}/`)
   .then((r) => r.status)
   .catch(() => 0);
 ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
+
+/* ------------------------------------------------------------------ *
+ * COOP — curseur décoratif. Le clic est jugé sur l'index, pas sur x,y.
+ * ------------------------------------------------------------------ */
+{
+  const { draftCoop } = await import("./src/engine/coop.ts");
+  const { FIELD_H } = await import("./src/engine/types.ts");
+  const seuilG = ONE_RULES.find((r) => r.id === "gaucher")?.zone?.[0]?.x1 ?? 200;
+
+  const attendre = async (pred, ms) => {
+    const t0 = Date.now();
+    while (!pred() && Date.now() - t0 < ms) await sleep(100);
+    return pred();
+  };
+
+  let dent = false;
+  for (let essai = 0; essai < 10 && !dent; essai++) {
+    const js = [];
+    for (const n of ["K1", "K2", "K3", "K4"]) {
+      const c = await client(n, "cle-cur-" + n + "-" + essai);
+      c.manuel = true;
+      js.push(c);
+    }
+    for (const c of js) for (let i = 0; i < 4; i++) {
+      c.ws.send(JSON.stringify({ t: "ping", sent: Date.now() }));
+      await sleep(20);
+    }
+    js[0].ws.send(JSON.stringify({ t: "create" }));
+    await sleep(250);
+    const code = js[0].room.code;
+    for (const c of js.slice(1)) {
+      c.ws.send(JSON.stringify({ t: "join", code }));
+      await sleep(120);
+    }
+    js[0].ws.send(JSON.stringify({ t: "settings", settings: { mode: "coop" } }));
+    await sleep(200);
+    js[0].ws.send(JSON.stringify({ t: "start" }));
+    const start = await attendre(() => js[0].mode === "coop" && Object.keys(js[0].rules).length >= 4, 4000);
+    if (!start) {
+      for (const c of js) c.ws.close();
+      await sleep(150);
+      continue;
+    }
+    const porteur = js.find((c) => js[0].rules[c.id] === "gaucher");
+    const e3 = draftCoop(js[0].seed, 0).ents.find((e) => e.idx === 3);
+    if (!porteur || !e3 || e3.x < seuilG) {
+      for (const c of js) c.ws.close();
+      await sleep(150);
+      continue;
+    }
+    const round = await attendre(() => porteur.roundIdx >= 0, APRES_DEPART + 2000);
+    if (!round) {
+      for (const c of js) c.ws.close();
+      await sleep(150);
+      continue;
+    }
+    await sleep(DELAI_PILOTE);
+    // Mensonge dans la zone interdite du GAUCHER (x < 200). Un second
+    // envoi à FIELD_W passerait le juge si le cooldown lâchait : on n'en
+    // envoie donc qu'un, à l'antipode gauche.
+    porteur.ws.send(JSON.stringify({ t: "cursor", x: 0, y: FIELD_H }));
+    await sleep(80);
+    const at = Date.now() + porteur.offset;
+    porteur.ws.send(JSON.stringify({ t: "input", round: porteur.roundIdx, at, action: { k: "c", i: 3 } }));
+    await sleep(350);
+    const autre = js.find((c) => c.id !== porteur.id);
+    ok(
+      (autre?.cursorsMsgs.length ?? 0) >= 1,
+      `coop curseur : t:cursors relayé (got ${autre?.cursorsMsgs.length ?? 0})`,
+    );
+    const interdit = porteur.coopClics.some((m) => m.i === 3 && m.pris === false);
+    const pris =
+      porteur.coopClics.some((m) => m.i === 3 && m.pris === true) ||
+      porteur.chargesCoop.some((m) => m.i === 3 && m.n > 0);
+    ok(
+      !interdit && pris,
+      "le verdict d'un clic sur i=3 reste identique si le curseur ment (x,y aux antipodes)",
+    );
+    dent = true;
+    for (const c of js) c.ws.close();
+    await sleep(200);
+  }
+  ok(dent, "coop curseur : une graine avec GAUCHER et i=3 hors zone a été trouvée");
+}
 
 /* ------------------------------------------------------------------ *
  * IMPOSTEUR — un scénario borné, nommé, pas une assertion orpheline.

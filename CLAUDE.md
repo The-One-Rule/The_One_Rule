@@ -733,6 +733,16 @@ seulement à l'imposteur). Le live `{ t: "acted" }` peint AGI / RIEN.
 Après les dix manches : journal, observation, **un seul vote**, puis
 l'écran de fin existant. `VERSION_CONTENU` inchangée (`hdblrb`).
 
+### Mode coop — vit sur `mode/coop`, pas master
+
+`MatchCoop` est un chemin séparé : `MatchLogic.input` fige le siège, le
+coop demande plusieurs clics. Le `need` (1–3) est un **second signe**
+(badge cranté, `--paper` / `--line` / `--signal`), jamais une ColorId
+jouable. Le canal `{ t: "cursor" }` / `{ t: "cursors" }` est purement
+décoratif : le verdict reconstruit x/y depuis l'entité, jamais depuis
+le curseur (décision n°3). `VERSION_CONTENU` inchangée (`5m4fgw`).
+`PROTOCOL_VERSION` = 1.
+
 ### Le bandeau de mesure a quitté l'accueil
 
 Il s'affichait à l'ARRIVÉE, avant la première partie. Mesuré sur un 375×812 :
