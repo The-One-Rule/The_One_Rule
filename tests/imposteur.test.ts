@@ -57,8 +57,9 @@ function refuseFuite(rules: Record<string, string>): void {
 }
 
 describe("invariants du lot", () => {
-  it("VERSION_CONTENU n'a pas bougé", () => {
-    expect(VERSION_CONTENU).toBe("hdblrb");
+  it("VERSION_CONTENU suit la courbe du playtest 247", () => {
+    // Origin a redescendu windowMs (1500 → 4000). Ce n'est plus hdblrb.
+    expect(VERSION_CONTENU).toBe("5m4fgw");
   });
 
   it("PROTOCOL_VERSION reste à 1", () => {
@@ -183,7 +184,7 @@ describe("10 manches, personne n'est éliminé", () => {
 
   it("tensionAt n'entre pas dans la durée", () => {
     expect(IMPOSTEUR_VITESSE).toBe(SPEED_CHOICES[0]);
-    expect(dureeImposteur(1500)).toBe(2400);
+    expect(dureeImposteur(1500)).toBe(2550);
     expect(dureeImposteur(760)).toBe(1292);
     expect(dureeImposteur(100)).toBe(IMPOSTEUR_PLANCHER_MS);
     const m = matchImposteur(1, 4);

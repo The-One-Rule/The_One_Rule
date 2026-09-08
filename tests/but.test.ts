@@ -11,7 +11,7 @@
  * comparabilité sépare côté serveur.
  */
 import { describe, expect, it } from "vitest";
-import { MEILLEUR_CONNU, vueBut } from "../src/render/but";
+import { MEILLEUR_CONNU, vueAccueil, vueBut } from "../src/render/but";
 import type { SiennesDuJoueur } from "../src/render/but";
 import { PACE_CHOICES, PACE_DEFAULT } from "../src/engine/difficulty";
 import { cleEntrainement } from "../src/game/perfs";
@@ -165,5 +165,72 @@ describe("le record lu sur l'accueil", () => {
   it("chaque allure du catalogue a une clé lisible et distincte", () => {
     const cles = PACE_CHOICES.map((p) => cleEntrainement(p));
     expect(new Set(cles).size).toBe(PACE_CHOICES.length);
+  });
+});
+
+describe("ce que l'accueil met en haut", () => {
+  /*
+   * ⚠️ LE BUG QUE CES TESTS EXISTENT POUR EMPÊCHER, ET IL ÉTAIT EN PRODUCTION.
+   *
+   * Relevé en arrivant sur le site avec un `localStorage` vide, à 375 × 812 —
+   * l'état exact des 74 % de visiteurs qui repartent sans lancer une partie,
+   * médiane 6 secondes. Le texte INTÉGRAL de la page d'accueil était :
+   *
+   *     THE ONE RULE · PERSONNE N'A ENCORE JOUÉ · Sois le premier ·
+   *     TENTER LA RUN DU JOUR · SOLO · MULTI
+   *
+   * Nulle part il n'était dit ce qu'on FAIT dans ce jeu. La phrase existait,
+   * écrite et traduite, et portait `hidden`.
+   */
+  it("⚠️ UN NOUVEAU VENU LIT TOUJOURS CE QU'EST LE JEU", () => {
+    for (const large of [false, true]) {
+      expect(
+        vueAccueil(false, false, large).chapo,
+        `large=${large} : le nouveau venu n'a rien à lire`,
+      ).toBe(true);
+    }
+  });
+
+  it("⚠️ et on ne lui montre PAS un classement vide à la place", () => {
+    /*
+     * « PERSONNE N'A ENCORE JOUÉ · Sois le premier » est une invitation pour
+     * qui sait qu'un classement quotidien existe. Pour un inconnu, c'est un
+     * constat de désert — sur un jeu dont l'accroche est « ton code, tes
+     * potes ». La même phrase change de sens selon le lecteur.
+     */
+    expect(vueAccueil(false, false, false).bloc).toBe("rien");
+  });
+
+  it("l'habitué sans cible garde son invitation", () => {
+    expect(vueAccueil(false, true, false)).toEqual({ chapo: false, bloc: "invitation" });
+  });
+
+  it("un chiffre à battre passe devant la définition, sur téléphone", () => {
+    // Celui qui revient sait déjà ce qu'est le jeu : il vient chercher sa cible.
+    expect(vueAccueil(true, true, false)).toEqual({ chapo: false, bloc: "objectif" });
+    expect(vueAccueil(true, false, false).bloc).toBe("objectif");
+  });
+
+  it("en large, les deux — la colonne de gauche était VIDE", () => {
+    expect(vueAccueil(true, true, true)).toEqual({ chapo: true, bloc: "objectif" });
+    expect(vueAccueil(false, true, true)).toEqual({ chapo: true, bloc: "invitation" });
+  });
+
+  it("le chapo et l'objectif ne peuvent pas disparaître ENSEMBLE", () => {
+    /*
+     * Le garde-fou de forme : quelle que soit la combinaison, le haut de
+     * l'accueil dit toujours quelque chose. Un titre seul au-dessus de deux
+     * portes serait pire que ce qu'on vient de corriger.
+     */
+    for (const cible of [false, true]) {
+      for (const connait of [false, true]) {
+        for (const large of [false, true]) {
+          const v = vueAccueil(cible, connait, large);
+          expect(v.chapo || v.bloc !== "rien", `${cible}/${connait}/${large} : haut vide`).toBe(
+            true,
+          );
+        }
+      }
+    }
   });
 });

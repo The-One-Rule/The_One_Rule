@@ -22,9 +22,60 @@
  * vingt manches suivantes strictement identiques — le même ennui, déplacé.
  */
 export function windowMs(level: number): number {
-  if (level < 12) return 1500 - level * 42;
-  return Math.max(760, 996 - (level - 12) * 9);
+  if (level < PENTE_CHANGE) return DEBUT_MS - level * PENTE_1;
+  return Math.max(PLANCHER_MS, COUDE_MS - (level - PENTE_CHANGE) * PENTE_2);
 }
+
+/*
+ * ⚠️ **LA COURBE A ÉTÉ REDESCENDUE, SUR DIRECTIVE DE PIERRE.**
+ *
+ * « Le jeu est trop dur encore une fois … diminue vraiment la vitesse en
+ * général et garde des niveaux vraiment durs pour ceux qui veulent
+ * s'investir, mais ne mets pas un mur au joueur. Par exemple 4 s par manche
+ * puis 3,5, etc., et à la fin 0,7 minimum tout mode confondu. Pour un joueur
+ * lambda, 2 s ça doit déjà commencer à être dur. »
+ *
+ * L'ancienne courbe ouvrait à **1500 ms** et plafonnait à 760. La nouvelle
+ * ouvre à **4000** et descend au plancher **700**. Le tableau, aux manches qui
+ * comptent :
+ *
+ *     manche      0     3     6    11    12    20    39    56+
+ *     avant    1500  1374  1248  1038   996   924   756    760
+ *     après    4000  3460  2920  2020  2020  1780  1210    700
+ *
+ * ⚠️ **UNE FENÊTRE EST UNE ÉCHÉANCE, PAS UNE DURÉE.** 4000 ms n'allonge pas la
+ * manche de celui qui répond en 800 : elle allonge seulement le temps dont il
+ * DISPOSE. C'est ce qui permet d'ouvrir aussi large sans rendre le début
+ * ennuyeux — et c'est aussi pourquoi les allures de l'entraînement n'ont pas
+ * eu à être recomprimées, alors que × 2,0 donne désormais 8 s à la manche 0.
+ *
+ * ⚠️ **CE QUE ÇA COÛTE, ET IL FAUT LE DIRE UNE FOIS :** `windowMs` est
+ * échantillonnée dans `VERSION_CONTENU` (`engine/version.ts`, aux manches
+ * 0, 5, 11, 12, 20, 38, 60). La toucher change donc la clé de comparabilité :
+ * **tous les records d'entraînement et d'escalade déjà enregistrés deviennent
+ * inatteignables sous la nouvelle clé.** Le classement du JOUR, lui, ne perd
+ * rien — sa clé porte déjà la date, et tout le monde reçoit le même
+ * déploiement le même jour. C'est le prix explicitement accepté : un jeu qu'on
+ * ne relance pas n'a pas de records à protéger.
+ */
+/** La fenêtre de la toute première manche. */
+const DEBUT_MS = 4000;
+/** Où la pente s'adoucit — et où le joueur lambda commence à sentir la presse. */
+const PENTE_CHANGE = 12;
+const PENTE_1 = 180;
+/** La fenêtre au coude : les 2 s que Pierre désigne comme le début du dur. */
+const COUDE_MS = DEBUT_MS - PENTE_CHANGE * PENTE_1;
+const PENTE_2 = 30;
+/**
+ * Le plancher, TOUS MODES CONFONDUS.
+ *
+ * ⚠️ Il n'est plus seulement le bas de cette courbe : `plancherParGeste`
+ * l'applique en dernier, après les déformations de règle et après la tension du
+ * duel. « 0,7 minimum tout mode confondu » veut dire qu'aucun chemin du jeu ne
+ * peut produire une manche plus courte, et un plancher posé seulement ici
+ * laisserait passer le duel (× 0,7 sur 700 donne 490).
+ */
+export const PLANCHER_MS = 700;
 
 /**
  * Supplément de temps par action SUPPLÉMENTAIRE demandée.
@@ -50,6 +101,46 @@ export const STEP_MS = 280;
 /** La fenêtre d'une manche, pour un niveau et un nombre d'actions donnés. */
 export const windowForSteps = (level: number, steps: number): number =>
   windowMs(level) + Math.max(0, steps - 1) * STEP_MS;
+
+/**
+ * LE PLANCHER PAR GESTE — le dernier filet, appliqué APRÈS les règles.
+ *
+ * `windowForSteps` donne une fenêtre juste, puis une règle la déforme, et c'est
+ * là que le compte peut cesser d'être tenable. Le cas mesuré est
+ * L'ACCÉLÉRATION : elle multiplie la fenêtre ENTIÈRE par 0,7, supplément par
+ * geste compris. Or ces 280 ms ne sont pas du confort — c'est le coût
+ * irréductible d'un clic de plus. Les raboter de 30 % donne, sur une séquence
+ * de deux :
+ *
+ *     niveau 25 → 811 ms pour 2 gestes → 406 ms par geste
+ *     niveau 40 → 728 ms pour 2 gestes → 364 ms par geste
+ *
+ * contre 520 ms pour toutes les autres règles au même niveau. Rapporté après
+ * essai : « la consigne avec deux gestes semble buguer selon les règles, le
+ * temps ne suffit pas ». Il ne s'agissait pas d'un bug d'affichage.
+ *
+ * 420 ms est le seuil, et il n'est pas choisi au doigt : le titre GÂCHETTE du
+ * multijoueur mesure une réaction médiane à 412 ms. En dessous, on ne demande
+ * plus un réflexe, on demande d'avoir deviné.
+ *
+ * ⚠️ Il s'applique à la fin, jamais dans une règle : c'est ce qui le rend vrai
+ * pour TOUTES les combinaisons, y compris les piles de l'escalade, qui
+ * empilent deux déformations dont aucune ne connaît l'autre.
+ */
+export const MS_MIN_PAR_GESTE = 420;
+
+/**
+ * La durée d'une manche ne descend jamais sous ses deux planchers.
+ *
+ * ⚠️ **DEUX, ET ILS NE DISENT PAS LA MÊME CHOSE.** `PLANCHER_MS` est le sol
+ * absolu — « 0,7 s minimum tout mode confondu » — et il vaut même pour une
+ * manche à un seul geste. `MS_MIN_PAR_GESTE` est le coût irréductible d'un clic
+ * SUPPLÉMENTAIRE : une séquence de trois ne se joue pas dans le temps d'une.
+ * Garder le premier seul laisserait une séquence de trois à 700 ms ; garder le
+ * second seul laisserait une manche d'un geste tomber à 420 en duel.
+ */
+export const plancherParGeste = (durationMs: number, steps: number): number =>
+  Math.max(durationMs, PLANCHER_MS, steps * MS_MIN_PAR_GESTE);
 
 /**
  * Allures de l'ENTRAÎNEMENT — et de lui seul.
@@ -130,6 +221,44 @@ export const DAILY_ESSAIS = 3;
 
 /** Manches d'échauffement pendant lesquelles on ne meurt pas. */
 export const GRACE_ROUNDS = 3;
+
+/**
+ * L'ÉCHAUFFEMENT PARDONNE-T-IL CETTE MORT ?
+ *
+ * ⚠️ **NON POUR UNE VIOLATION DE MAINTIEN, ET C'EST UN BUG RAPPORTÉ.** Mot pour
+ * mot : « la règle main gauche ne fonctionne pas, on peut très bien lâcher la
+ * barre en pleine game et il ne se passera rien ».
+ *
+ * Le moteur, lui, était juste : mesuré, un relâchement à la manche 4 tue. Le
+ * trou était l'échauffement, et il est plus large qu'il n'en a l'air. Un
+ * relâchement pendant les trois manches de grâce était pardonné — puis **plus
+ * aucun `keyup` ne survenait de tout le run**, puisque la barre était déjà
+ * levée. Le joueur terminait donc sa partie entière en violant sa règle unique
+ * en continu, sans jamais rien voir. LA MAIN GAUCHE devenait INERTE, ce que la
+ * décision n°1 interdit précisément parce que c'est un avantage gratuit et
+ * invisible.
+ *
+ * ⚠️ **CE QUI DISTINGUE CETTE MORT DES AUTRES : elle décrit un ÉTAT, pas un
+ * geste.** L'échauffement existe pour qu'un mauvais clic ne coûte rien le temps
+ * d'apprendre sa règle — un clic est ponctuel, on le refait mieux au tour
+ * suivant. Ne plus tenir la barre, non : ça dure, et le pardonner enseigne que
+ * la règle est facultative. C'est la seule règle du catalogue dans ce cas, et
+ * c'est `watchRelease` qui la désigne, jamais une liste de noms.
+ *
+ * ⚠️ **ÉCRIT ICI ET PAS AILLEURS** parce que `Session` et `verify.ts` sont DEUX
+ * rejoueurs de la même partie. Une loi écrite deux fois finirait par diverger,
+ * et le symptôme serait le seul défaut que ce dépôt tient pour fatal : un
+ * aperçu qui contredit le verdict (décision n°3).
+ */
+export const pardonnable = (
+  rule: { watchRelease?: string | undefined },
+  action: { kind: string; key?: string },
+): boolean =>
+  !(
+    rule.watchRelease !== undefined &&
+    action.kind === "release" &&
+    action.key === rule.watchRelease
+  );
 
 /**
  * Manches où un piège est FORCÉ si la règle en est capable.

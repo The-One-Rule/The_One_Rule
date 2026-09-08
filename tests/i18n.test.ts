@@ -72,8 +72,19 @@ describe("sélecteur de langue", () => {
 });
 
 describe("appliqueLangue", () => {
-  it("l'anglais change l'accroche et l'attribut lang, pas la structure de la faille", () => {
-    const soloAvant = document.getElementById("btnSolo")!.querySelectorAll("span").length;
+  it("l'anglais change l'accroche et l'attribut lang, pas la structure des cartes", () => {
+    /*
+     * ⚠️ CE TEST PARLAIT DE LA FAILLE — l'objet fendu SOLO / MULTI qui tenait
+     * lieu de vitrine. Elle a été remplacée par le MODE ATTRACT (« le fond EST
+     * le jeu ») et par la rangée de PROFONDEUR, cinq cartes qui nomment les
+     * cinq modes au lieu d'en cacher trois derrière « SOLO ».
+     *
+     * Ce qu'il vérifiait vaut toujours, et c'est pour ça qu'il n'est pas
+     * supprimé : une carte est un bouton à PLUSIEURS `<span>`, et un
+     * `textContent` posé sur le bouton les détruirait. C'est le piège que
+     * `tests/cartes.test.ts` documente, payé plusieurs fois dans ce dépôt.
+     */
+    const carteAvant = document.getElementById("profJour")!.querySelectorAll("span").length;
     appliqueLangue(document, "en");
     expect(document.documentElement.lang).toBe("en");
     /*
@@ -83,14 +94,17 @@ describe("appliqueLangue", () => {
      * ligne en `<span>`, qui est le seul morceau que le style colore.
      */
     expect(document.getElementById("ledeHome")!.innerHTML).toBe(TEXTES.en.ledeHtml);
-    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(2);
-    expect(document.getElementById("failleSoloDesc")!.textContent).toBe(TEXTES.en.soloDesc);
-    expect(document.getElementById("failleMultiDesc")!.textContent).toBe(TEXTES.en.multiDesc);
+    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(1);
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("SETTINGS");
     expect(document.getElementById("btnLangEn")!.getAttribute("aria-pressed")).toBe("true");
     expect(document.getElementById("btnLangFr")!.getAttribute("aria-pressed")).toBe("false");
-    expect(document.getElementById("btnSolo")!.querySelectorAll("span").length).toBe(soloAvant);
-    expect(document.getElementById("soloEtat")).not.toBeNull();
+    expect(
+      document.getElementById("profJour")!.querySelectorAll("span").length,
+      "une carte de la profondeur a perdu ses spans : un textContent l'a écrasée",
+    ).toBe(carteAvant);
+    expect(document.getElementById("profJourNote")!.textContent).toBe(
+      "SAME RULE · 3 TRIES · ONCE A DAY",
+    );
   });
 
   it("le français restaure le texte d'origine", () => {

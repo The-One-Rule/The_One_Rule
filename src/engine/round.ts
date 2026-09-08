@@ -1,6 +1,6 @@
 import { pickInstruction } from "./instructions";
 import { place } from "./scene";
-import { FORCED_TRAP_ROUNDS, windowForSteps } from "./difficulty";
+import { FORCED_TRAP_ROUNDS, plancherParGeste, windowForSteps } from "./difficulty";
 import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
@@ -44,6 +44,22 @@ export function buildRound(
    * qui permet de l'ajouter sans invalider un rejeu ni une graine du jour.
    */
   pace = 1,
+  /**
+   * QUAND FORCER UN PIÈGE — l'ESCALIER d'entraînement, et lui seul.
+   *
+   * Par défaut c'est `FORCED_TRAP_ROUNDS`, la constante d'origine : les manches
+   * 2, 5 et 9, les mêmes pour tout le monde depuis toujours. Le run du jour, le
+   * multijoueur, le classé et le rejeu serveur ne passent JAMAIS d'argument ici
+   * — donc rien de ce qui se compare ne change, et `verifyRun` continue de
+   * reconstruire exactement les manches qu'il reconstruisait hier.
+   *
+   * ⚠️ C'est un PLANCHER, jamais un plafond : quand la fonction dit non, on ne
+   * bride rien, la règle continue de piéger naturellement dès qu'une consigne
+   * tombe dessus. Brider demanderait de REFUSER des consignes, donc de changer
+   * les scènes, donc de faire d'un palier un jeu différent de celui qu'il
+   * prétend entraîner.
+   */
+  forcePiege: (level: number) => boolean = (l) => FORCED_TRAP_ROUNDS.has(l),
 ): Round {
   /*
    * Piège garanti sur les manches d'ouverture.
@@ -59,7 +75,7 @@ export function buildRound(
    * et le multijoueur restent valides. Les manches choisies tombent pendant
    * l'échauffement : le joueur découvre le piège en le ratant, sans être puni.
    */
-  const wantsTrap = rule.traps && FORCED_TRAP_ROUNDS.has(level);
+  const wantsTrap = rule.traps && forcePiege(level);
   let instr!: Instruction;
   let draft!: ReturnType<Instruction["gen"]>;
   let ents!: Entity[];
@@ -95,5 +111,10 @@ export function buildRound(
   };
 
   if (rule.transform) round = rule.transform(round, rng, level);
-  return round;
+  /*
+   * APRES la regle, jamais avant : c'est la deformation qui peut rendre le
+   * compte intenable, et une regle ne connait pas les autres. Voir
+   * `plancherParGeste`.
+   */
+  return { ...round, durationMs: plancherParGeste(round.durationMs, round.steps.length) };
 }

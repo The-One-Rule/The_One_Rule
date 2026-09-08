@@ -25,7 +25,9 @@ import {
   litApparence,
   normalisePseudo,
 } from "../shared/compte";
-import type { Agregats, CarnetEntree } from "../shared/compte";
+import type { Agregats, CarnetEntree, EscalierEntree } from "../shared/compte";
+import { PALIER_SOMMET } from "../src/game/escalier";
+import { DAILY_ESSAIS } from "../src/engine/difficulty";
 import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
 import type { Depot, Utilisateur } from "./_depot";
@@ -120,7 +122,42 @@ export function litAgregats(brut: unknown): Agregats {
       const se = entier(e.serie, MAX_VALEUR);
       if (se) a.carnet[id]!.serie = se;
       if (e.sansFaute === true) a.carnet[id]!.sansFaute = true;
+      /*
+       * L'ESCALIER, borné par la longueur réelle de la montée.
+       *
+       * ⚠️ `palier` est plafonné à `PALIER_SOMMET` et non à `MAX_VALEUR` : un
+       * client bricolé qui enverrait 9999 se retrouverait au-delà du dernier
+       * palier, `palierCourant` rendrait `undefined`, et l'écran afficherait
+       * une montée terminée qu'aucun essai ne peut plus reprendre. Le borner
+       * ici coûte une ligne ; le déboguer là-bas coûterait une soirée.
+       */
+      const esc = (e.escalier ?? null) as Partial<EscalierEntree> | null;
+      if (esc && typeof esc === "object") {
+        const palier = entier(esc.palier, PALIER_SOMMET);
+        const essais = entier(esc.essais, MAX_VALEUR);
+        const meilleur = entier(esc.meilleur, MAX_VALEUR);
+        if (palier + essais + meilleur > 0) {
+          a.carnet[id]!.escalier = { palier, essais, meilleur };
+        }
+      }
     }
+  }
+
+  /*
+   * LE RUN DU JOUR. Comme le reste, il est RECONSTRUIT et non recopié — on ne
+   * fait pas confiance au client. `essais` est borné par la limite du mode
+   * plutôt que par `MAX_VALEUR` : un compteur qui dépasse sa propre limite rend
+   * faux tout ce qui en dérive, et « restants » passerait négatif.
+   */
+  if (o.jour && typeof o.jour === "object") {
+    const j = o.jour as Record<string, unknown>;
+    const journee = {
+      jour: entier(j.jour, MAX_SERIE * 10),
+      score: entier(j.score, MAX_VALEUR),
+      cleared: j.cleared === true,
+      essais: entier(j.essais, DAILY_ESSAIS),
+    };
+    if (journee.jour > 0) a.jour = journee;
   }
 
   if (o.serie && typeof o.serie === "object") {

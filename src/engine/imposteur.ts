@@ -94,9 +94,9 @@ export function fautSignalerActe(
  * (`MAX_ROUND_MS`). `tensionAt` n'entre pas : sans élimination elle resterait
  * à 1,45 et tout tapperait le plafond.
  *
- * ⚠️ `windowMs(0)×1,7 = 2550`, qui EST au-dessus de 2400 : les premières
- * manches font 2400. La fourchette réelle est 2400 → ~1907 (et davantage si
- * `windowForSteps` ajoute des `STEP_MS`).
+ * ⚠️ `windowMs(0)×1,7` ouvre désormais au-dessus de l'ancien plafond 2400,
+ * depuis que `MAX_ROUND_MS` est passé à 4000 (playtest 247). Les premières
+ * manches ne tapent plus le plafond : 1500×1,7 = 2550.
  */
 export function dureeImposteur(durationMs: number): number {
   return Math.min(

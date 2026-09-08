@@ -27,7 +27,7 @@ const { buildMultiRound, poolMulti, applyRule } = await import("./src/engine/mul
 const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
 const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
-const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
+const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
 
 /*
  * Attendre le DÉPART d'un match, pas une durée devinée.
@@ -38,6 +38,22 @@ const { COUNTDOWN_MS } = await import("./shared/protocol.ts");
  * mesuraient une constante qu'elles ne nommaient pas.
  */
 const APRES_DEPART = COUNTDOWN_MS + 600;
+
+/*
+ * UNE MANCHE ENTIÈRE, PAUSE COMPRISE — et c'est la SEPTIÈME attente de ce
+ * fichier à avoir été écrite en dur.
+ *
+ * `sleep(3000)` attendait qu'un spectateur voie passer un verdict. Ça tenait
+ * tant qu'une manche plafonnait à 2400 ms. La courbe de difficulté a été
+ * redescendue sur directive de Pierre — le plafond multi passe de 2400 à
+ * 4000 — et l'attente est devenue trop courte du jour au lendemain : plus aucun
+ * verdict dans la fenêtre, assertion rouge, et rien dans le code de match qui
+ * ait changé.
+ *
+ * Exactement le défaut que le commentaire du dessus décrit déjà : une attente
+ * qui MESURE une constante sans la nommer. On la nomme.
+ */
+const UNE_MANCHE = MAX_ROUND_MS + INTERLUDE_MS + 600;
 
 /*
  * Journal bavard.
@@ -116,8 +132,10 @@ function client(name, key, rookie = false, clavier = false) {
        */
       if (name === "CHLOE" || c.manuel) return;
       let round;
-      if (c.mode === "imposteur") {
-        const commune = ONE_RULES.find((r) => r.id === c.rules[c.id]);
+      const modeImp = c.mode === "imposteur" || c.room?.settings?.mode === "imposteur";
+      if (modeImp) {
+        const commune = ONE_RULES.find((r) => r.id === c.rules[c.id])
+          || ONE_RULES.find((r) => r.id === Object.values(c.rules)[0]);
         if (!commune) return;
         const rule = c.imposteur ? SANS_REGLE : commune;
         const shared = draftImposteur(c.seed, m.idx, commune, poolMulti(c.clavierMatch === true));
@@ -675,7 +693,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   ok(vu?.spectator === true, "il est bien marque spectateur");
 
   const avant = curieux.verdicts.length;
-  await sleep(3000);
+  await sleep(UNE_MANCHE);
   ok(curieux.verdicts.length > avant, "il suit les verdicts des manches en direct");
 
   for (const c of [joueur, curieux]) c.ws.close();
@@ -945,8 +963,30 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
     ok(!joueurs[0].ended, "imposteur : toujours pas de match_end pendant l'observation");
     const nImp = joueurs.filter((c) => c.imposteur).length;
     ok(nImp === 1, `imposteur : exactement un rôle privé (reçus ${nImp})`);
-    const cible = accusateur(joueurs);
+    /*
+     * `t:acted` d'un villageois. Les cinq indices pairs sont des pièges
+     * forcés : un villageois n'y envoie rien. Les cinq impairs peuvent
+     * encore piéger naturellement — un seed qui les piège tous laisserait
+     * le village silencieux, et l'ancienne égalité « au moins un acted
+     * villageois » tombait sans qu'aucun code n'ait cassé. On lit donc le
+     * journal : s'il a agi, le live doit l'avoir dit.
+     */
     const village = joueurs.filter((c) => !c.imposteur);
+    const villageIds = new Set(village.map((c) => c.id));
+    const tours = joueurs[0].journals[0]?.tours ?? [];
+    let villageAAgi = false;
+    for (const tour of tours) {
+      for (const id of villageIds) {
+        if (tour.sieges?.[id]?.aAgit) villageAAgi = true;
+      }
+    }
+    ok(
+      villageAAgi
+        ? joueurs[0].acted.some((a) => villageIds.has(a.playerId))
+        : joueurs[0].acted.length > 0,
+      `imposteur : un t:acted d'un villageois (${joueurs[0].acted.length} acted, aAgitVillage=${villageAAgi})`,
+    );
+    const cible = accusateur(joueurs);
     for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
     const vote = await attendre(() => joueurs[0].voteResults.length >= 1, 4000, "vote_result");
     ok(vote, "imposteur : vote_result reçu");
@@ -977,12 +1017,6 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   const roomJson = JSON.stringify(imp[0].room);
   ok(!roomJson.includes("sansRegle"), "imposteur : room ne porte pas sansRegle");
   ok(!roomJson.includes("imposteurId"), "imposteur : room ne porte pas imposteurId");
-
-  const villageIds = new Set(imp.filter((c) => !c.imposteur).map((c) => c.id));
-  ok(
-    imp[0].acted.some((a) => villageIds.has(a.playerId)),
-    `imposteur : un t:acted d'un villageois (${imp[0].acted.length} acted)`,
-  );
 
   ok(r1?.vainqueur === "village", `imposteur : 3 voix sur l'imposteur → village (got ${r1?.vainqueur})`);
   ok(r1?.imposteurId === imp.find((c) => c.imposteur)?.id, "imposteur : l'issue nomme le bon siège");

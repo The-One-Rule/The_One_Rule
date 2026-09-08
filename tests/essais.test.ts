@@ -85,6 +85,21 @@ describe("ce que le jour retient", () => {
     expect(retient(apres1, 300, 31, false).score).toBe(31);
   });
 
+  it("le compteur ne dépasse JAMAIS le nombre d'essais du mode", () => {
+    /*
+     * Relevé en jeu : 6 essais consommés sur une journée qui en autorise 3, via
+     * un chemin de lancement depuis ferme. Un compteur qui depasse sa propre
+     * limite rend faux tout ce qui en derive — « restants » part negatif, et
+     * l'etat de la journee cesse de se deduire du chiffre.
+     *
+     * Le plafond double le verrou de lancement, il ne le remplace pas : l'un
+     * empeche de jouer, l'autre empeche d'ecrire un etat impossible.
+     */
+    let etat: Save["daily"] = { day: 300, played: false, score: 0, cleared: false, essais: 0 };
+    for (let i = 0; i < 8; i++) etat = retient(etat, 300, 5, false);
+    expect(etat.essais, "huit lancements ne font pas huit essais").toBe(DAILY_ESSAIS);
+  });
+
   it("un run TERMINÉ le reste, même si le suivant échoue", () => {
     const gagne = retient({ day: 300, played: false, score: 0, cleared: false, essais: 0 }, 300, 40, true);
     expect(retient(gagne, 300, 5, false).cleared).toBe(true);

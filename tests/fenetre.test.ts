@@ -12,7 +12,7 @@
  * s'effondre jamais, quelle que soit la règle et quel que soit le niveau.
  */
 import { describe, expect, it } from "vitest";
-import { STEP_MS, windowForSteps, windowMs } from "../src/engine/difficulty";
+import { MS_MIN_PAR_GESTE, STEP_MS, windowForSteps, windowMs } from "../src/engine/difficulty";
 import { ONE_RULES } from "../src/engine/rules";
 import { applyRule, draftShared } from "../src/engine/multiround";
 import { buildRound } from "../src/engine/round";
@@ -45,18 +45,37 @@ describe("fenêtre et nombre d'actions", () => {
       if (double.steps.length === 0) continue;
       vues++;
       expect(double.steps.length, `manche ${idx}`).toBe(nu.steps.length * 2);
-      // Le supplément correspond exactement aux étapes ajoutées.
-      expect(double.durationMs - partagee.durationMs).toBe(nu.steps.length * STEP_MS);
+      /*
+       * Le supplement couvre AU MOINS les etapes ajoutees.
+       *
+       * L'egalite stricte tenait tant que la regle etait seule a decider de la
+       * duree. `plancherParGeste` s'applique apres elle et peut donner
+       * davantage — c'est son role. Ce qui doit rester vrai, et que cette
+       * assertion garde, c'est que doubler les gestes n'a jamais lieu a temps
+       * constant.
+       */
+      expect(double.durationMs - partagee.durationMs).toBeGreaterThanOrEqual(
+        nu.steps.length * STEP_MS,
+      );
     }
     expect(vues, "aucune manche testable").toBeGreaterThan(10);
   });
 
-  it("le temps par action ne descend jamais sous 350 ms, pour AUCUNE règle", () => {
+  it("le temps par action ne descend jamais sous le seuil de réflexe, pour AUCUNE règle", () => {
     /*
      * Le test qui aurait attrapé le défaut. On balaie tout le catalogue sur
      * soixante manches, en solo comme à travers le transport multijoueur, et
      * on regarde la seule grandeur qui compte pour un joueur : le temps dont
      * il dispose par geste à faire.
+     *
+     * ⚠️ LE SEUIL ETAIT A 350, ET IL A LAISSE PASSER LE DEFAUT SUIVANT.
+     * L'ACCELERATION multiplie la fenetre entiere par 0,7, supplement par geste
+     * compris : sur une sequence de deux, elle donnait 364 ms par geste au
+     * niveau 40 et 406 au niveau 25 — au-dessus de 350, donc vert, et pourtant
+     * rapporte a l'usage comme « le temps ne suffit pas ». Le seuil suit
+     * desormais `MS_MIN_PAR_GESTE`, cale sur la reaction mediane mesuree
+     * (412 ms), et c'est la meme constante qui borne le jeu et ce test : ils ne
+     * peuvent plus diverger.
      */
     for (const rule of ONE_RULES) {
       for (let lvl = 0; lvl < 60; lvl++) {
@@ -69,7 +88,7 @@ describe("fenêtre et nombre d'actions", () => {
           expect(
             parAction,
             `${rule.name} niveau ${lvl} : ${round.steps.length} actions en ${round.durationMs} ms`,
-          ).toBeGreaterThanOrEqual(350);
+          ).toBeGreaterThanOrEqual(MS_MIN_PAR_GESTE);
         }
       }
     }

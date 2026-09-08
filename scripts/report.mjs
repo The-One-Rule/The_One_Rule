@@ -31,6 +31,30 @@ let shares = 0;
 const social = { duelSent: 0, duelOpened: 0, duelPlayed: 0, inviteSent: 0, inviteOpened: 0 };
 
 /**
+ * LE MULTIJOUEUR, qui n'était pas mesuré du tout avant le jour 247.
+ *
+ * Le trou s'est vu en cherchant les bugs d'un playtest en salon : le rapport
+ * montrait quinze runs solo, et rien de la soirée. On comptait les invitations
+ * envoyées et les parties d'un joueur seul — jamais une partie à plusieurs.
+ *
+ * `illisibles` mesure une PANNE et non un usage : une manche que le bundle du
+ * joueur ne sait pas reconstruire, faute d'avoir la même table de règles que le
+ * serveur. C'est le freeze du jour 247. Il doit rester à zéro ; toute valeur
+ * non nulle veut dire que le front et les salons ne sont pas de la même
+ * version, et qu'il faut redéployer l'un des deux.
+ */
+const multi = { crees: 0, rejoints: 0, debuts: 0, fins: 0, manches: [], illisibles: 0, gagnes: 0 };
+
+/**
+ * L'ACCUEIL — le premier geste du visiteur, et lui seul.
+ *
+ * 74 % des nouveaux repartaient sans lancer une partie, en 6 secondes de
+ * médiane, et rien ne disait D'OÙ. Ce compteur répond à une seule question :
+ * sur quoi tombe le premier clic, quand il y en a un.
+ */
+const accueil = new Map();
+
+/**
  * Entonnoir du COMPTE — vu, cliqué, lié.
  *
  * Trois crans, et on compte des JOUEURS et non des affichages : l'invitation
@@ -99,6 +123,20 @@ for await (const line of rl) {
     u.sent++;
   }
   if (e.ev === "invite_opened") social.inviteOpened++;
+
+  if (e.ev === "salon_cree") multi.crees++;
+  if (e.ev === "salon_rejoint") multi.rejoints++;
+  if (e.ev === "match_debut") multi.debuts++;
+  if (e.ev === "match_fin") {
+    multi.fins++;
+    if (typeof e.manches === "number") multi.manches.push(e.manches);
+    if (e.gagne === true) multi.gagnes++;
+  }
+  if (e.ev === "multi_manche_illisible") multi.illisibles++;
+
+  if (e.ev === "accueil_premier_clic" && typeof e.quoi === "string") {
+    accueil.set(e.quoi, (accueil.get(e.quoi) ?? 0) + 1);
+  }
 
   // Un joueur compte UNE fois par cran, pas une fois par affichage.
   if (e.ev === "compte_invite" && !u.voitCompte) {
@@ -217,6 +255,71 @@ console.log("  quelque chose qui bloque le clic. À comparer aux 76,3 % des jour
 console.log("");
 console.log(`  Le second cran, lui, EST l'onboarding : ${ratio(aRejoue.length, aLance.length)} de ceux qui`);
 console.log("  lancent une partie en relancent une seconde.");
+
+/* ------------------------------------------------------------------ *
+ * LE MULTIJOUEUR
+ *
+ * Cinq crans, parce qu'on échoue à cinq endroits différents : on ne crée pas
+ * de salon, on n'y entre pas, on ne lance pas, la partie tourne court, ou elle
+ * casse. Avant le jour 247 aucun de ces chiffres n'existait, et une soirée
+ * entière en salon ne laissait aucune trace dans ce rapport.
+ * ------------------------------------------------------------------ */
+console.log("\nMULTIJOUEUR");
+if (!multi.crees && !multi.rejoints && !multi.debuts) {
+  console.log("  Aucun événement multijoueur sur la période.");
+  console.log("  (Si des salons ont été joués, c'est que le déploiement est antérieur");
+  console.log("   à l'instrumentation — les événements datent du jour 247.)");
+} else {
+  console.log(`  salons créés           ${String(multi.crees).padStart(7)}`);
+  console.log(`  salons rejoints        ${String(multi.rejoints).padStart(7)}`);
+  console.log(`  matchs lancés          ${String(multi.debuts).padStart(7)}   ${ratio(multi.debuts, multi.crees + multi.rejoints).padStart(7)} des entrées en salon`);
+  console.log(`  matchs terminés        ${String(multi.fins).padStart(7)}   ${ratio(multi.fins, multi.debuts).padStart(7)} des matchs lancés`);
+  if (multi.manches.length) {
+    console.log(`  manches (médiane)      ${String(median(multi.manches)).padStart(7)}`);
+  }
+  const abandon = multi.debuts - multi.fins;
+  if (abandon > 0) {
+    console.log("");
+    console.log(`  ⇒ ${abandon} match(s) lancé(s) sans fin vue : onglet fermé, coupure, ou`);
+    console.log("    salon quitté en cours. À lire avec les manches médianes.");
+  }
+}
+
+/*
+ * ⚠️ LA PANNE, ET ELLE DOIT RESTER À ZÉRO.
+ *
+ * Une manche que le bundle du joueur ne sait pas reconstruire. La cause connue
+ * est un décalage de versions : le front (Vercel) et les salons (Fly) se
+ * déploient séparément, et le serveur peut nommer une règle absente du bundle.
+ * Jusqu'au correctif du jour 247, ça gelait l'écran sans un mot.
+ */
+if (multi.illisibles > 0) {
+  console.log("");
+  console.log(`  ⚠️  ${multi.illisibles} MANCHE(S) ILLISIBLE(S) — front et salons ne sont pas de la`);
+  console.log("     même version. Redéployer celui des deux qui est en retard :");
+  console.log("       vercel --prod --yes      (front)");
+  console.log("       fly deploy               (salons)");
+}
+
+/* ------------------------------------------------------------------ *
+ * L'ACCUEIL — sur quoi tombe le premier clic
+ *
+ * La question est « d'où partent-ils », pas « combien partent » : ce dernier
+ * chiffre, on l'a depuis longtemps, et il n'a jamais dit quoi réparer.
+ * ------------------------------------------------------------------ */
+if (accueil.size) {
+  const total = [...accueil.values()].reduce((a, b) => a + b, 0);
+  console.log("\nACCUEIL — PREMIER CLIC");
+  const classe = [...accueil.entries()].sort((a, b) => b[1] - a[1]);
+  for (const [quoi, n] of classe) {
+    const bar = "█".repeat(Math.round((n / total) * 40));
+    console.log(`  ${quoi.padEnd(24)} ${String(n).padStart(5)}  ${pct(n / total).padStart(7)}  ${bar}`);
+  }
+  console.log("");
+  console.log(`  ${total} visiteur(s) ont cliqué quelque part ; les autres sont repartis`);
+  console.log("  sans toucher à l'écran. Un premier clic sur RÉGLAGES ou sur le vide");
+  console.log("  ne se répare pas comme un premier clic sur une porte du jeu.");
+}
 
 /* ------------------------------------------------------------------ *
  * DISTRIBUTION DES RUNS — jamais la moyenne

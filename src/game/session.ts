@@ -1,4 +1,4 @@
-import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, tierOf } from "../engine/difficulty";
+import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, pardonnable, tierOf } from "../engine/difficulty";
 import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
@@ -79,6 +79,10 @@ export class Session {
   private grace: number;
   /** Multiplicateur de fenêtre — 1 hors entraînement, toujours. */
   readonly pace: number;
+  /** ESCALIER : manches à tenir. `undefined` = la borne du mode. */
+  private readonly longueur?: number;
+  /** ESCALIER : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
+  private readonly forcePiege?: (level: number) => boolean;
 
   private runStart: number;
 
@@ -99,6 +103,24 @@ export class Session {
     return pileA(this.pile, this.level).length;
   }
 
+  /**
+   * Les règles RÉELLEMENT tenues, une par une.
+   *
+   * ⚠️ `rule` rend leur COMPOSÉE, dont l'identifiant est fabriqué par
+   * `combineRules` en collant les autres avec des `+` — « azur+pointe+voyelle
+   * +colosse ». C'est un identifiant de calcul, pas une règle du catalogue, et
+   * tout ce qui le traite comme tel se casse : une carte cherchée à
+   * `/cartes/azur+pointe+voyelle+colosse.png` rend une image morte, et une
+   * entrée de carnet écrite sous ce nom est un fantôme qui compte dans les
+   * totaux et voyage jusqu'au compte.
+   *
+   * Cet accesseur existe pour que l'appelant puisse toujours redescendre aux
+   * VRAIES règles.
+   */
+  get reglesTenues(): readonly OneRule[] {
+    return pileA(this.pile, this.level);
+  }
+
   constructor(opts: {
     mode: Mode;
     rule: OneRule;
@@ -110,6 +132,18 @@ export class Session {
     pace?: number;
     /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
+    /**
+     * ESCALIER : le nombre de manches à tenir, et la cadence de pièges.
+     *
+     * ⚠️ Les deux sont OPTIONNELS et absents partout ailleurs. C'est la même
+     * astuce que l'escalade et que le DUO : le mode existant devient un cas
+     * particulier du nouveau, donc aucun branchement de mode n'entre dans un
+     * chemin chaud et l'existant ne peut pas régresser. Sans `longueur`,
+     * `maxRounds` répond exactement ce qu'il répondait ; sans `forcePiege`,
+     * `buildRound` reprend `FORCED_TRAP_ROUNDS`.
+     */
+    longueur?: number;
+    forcePiege?: (level: number) => boolean;
   }) {
     this.mode = opts.mode;
     this.pile = opts.pile?.length ? opts.pile : [opts.rule];
@@ -131,6 +165,8 @@ export class Session {
      */
     this.grace = GRACE_ROUNDS;
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
+    this.longueur = opts.longueur;
+    this.forcePiege = opts.forcePiege;
     this.majRegle();
     this.nextRound(opts.now);
   }
@@ -151,8 +187,11 @@ export class Session {
   }
 
   get maxRounds(): number {
-    // Le classé est borné comme le quotidien : un match doit se conclure, et
-    // deux runs de longueur différente ne se comparent pas.
+    // Un palier de l'escalier porte sa propre borne : c'est ce qui fait qu'on
+    // le FRANCHIT au lieu d'y survivre. Ailleurs, rien n'a bougé — le classé
+    // est borné comme le quotidien, deux runs de longueur différente ne se
+    // comparant pas, et l'entraînement libre n'a pas de fin.
+    if (this.longueur !== undefined) return this.longueur;
     return this.mode === "training" ? Infinity : DAILY_LENGTH;
   }
 
@@ -202,7 +241,14 @@ export class Session {
     // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
     this.regleAjoutee = this.majRegle();
     if (this.regleAjoutee) this.derniereAjoutee = this.regleAjoutee;
-    this.round = buildRound(this.rng, this.level, this.rule, this.pool, this.pace);
+    this.round = buildRound(
+      this.rng,
+      this.level,
+      this.rule,
+      this.pool,
+      this.pace,
+      this.forcePiege,
+    );
     this.progress = { step: 0 };
     this.roundStart = now;
   }
@@ -225,9 +271,21 @@ export class Session {
     this.nextRound(now);
   }
 
-  private die(outcome: Extract<Outcome, { kind: "death" }>, now: number): void {
-    // échauffement : la manche est perdue mais le run continue
-    if (this.inGrace) {
+  private die(
+    outcome: Extract<Outcome, { kind: "death" }>,
+    now: number,
+    /**
+     * L'action fautive, quand il y en a une.
+     *
+     * ⚠️ Absente sur un dépassement de temps — et c'est juste : `pardonnable`
+     * ne refuse le pardon qu'à un relâchement, jamais à l'horloge.
+     */
+    action?: Action,
+  ): void {
+    // échauffement : la manche est perdue mais le run continue — sauf pour une
+    // violation de MAINTIEN, qui décrit un état et non un geste (voir
+    // `pardonnable`, engine/difficulty.ts).
+    if (this.inGrace && (!action || pardonnable(this.rule, action))) {
       this.marks.push("🟨");
       this.level++;
       this.nextRound(now);
@@ -269,7 +327,7 @@ export class Session {
     this.progress = progress;
 
     if (outcome.kind === "survive") this.survive(now);
-    else if (outcome.kind === "death") this.die(outcome, now);
+    else if (outcome.kind === "death") this.die(outcome, now, action);
     return outcome;
   }
 

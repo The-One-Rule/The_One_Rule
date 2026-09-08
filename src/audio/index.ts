@@ -359,18 +359,37 @@ export const sfx = {
     if (!ac || !sfxBus) return;
     safely(() => {
       const t = ac!.currentTime;
-      voice(sfxBus!, t, midi(45), 0.035, "square", 0.025);
+      // 0.045 et non 0.025 : voir la note de `success` — l'accuse de reception
+      // passait sous la ligne de basse, donc il n'accusait rien du tout.
+      voice(sfxBus!, t, midi(45), 0.035, "square", 0.045);
     });
   },
 
-  /** Réussite : monte avec la série en cours. */
+  /**
+   * Réussite : monte avec la série en cours.
+   *
+   * ⚠️ LE JEU N'ENTENDAIT QUE SES ECHECS, et le releve des gains le disait :
+   *
+   *     elimImpact 0.16 · basse de la musique 0.15 · fail 0.10
+   *     trapAvoided 0.055 · success 0.045 · step 0.025
+   *
+   * Rater claquait ; reussir passait SOUS la ligne de basse. Le retour positif
+   * existait donc dans le code et nulle part dans l'oreille — c'est ce qui a
+   * ete rapporte comme « il faudrait ramener les sons qui confirment qu'un
+   * joueur a bien valide sa manche ». Ils n'avaient pas disparu, ils etaient
+   * couverts.
+   *
+   * Les confirmations rejoignent le niveau des echecs. Le piege dejoue passe
+   * juste au-dessus : c'est le seul moment ou le jeu felicite, et le seul geste
+   * qu'il existe pour apprendre.
+   */
   success(combo: number): void {
     if (!ac || !sfxBus) return;
     safely(() => {
       const s = COMBO_STEPS[Math.min(combo, COMBO_STEPS.length - 1)]!;
       const t = ac!.currentTime;
-      voice(sfxBus!, t, midi(s + 36), 0.07, "square", 0.045);
-      voice(sfxBus!, t + 0.012, midi(s + 48), 0.05, "sine", 0.03);
+      voice(sfxBus!, t, midi(s + 36), 0.07, "square", 0.095);
+      voice(sfxBus!, t + 0.012, midi(s + 48), 0.05, "sine", 0.065);
     });
   },
 
@@ -382,9 +401,9 @@ export const sfx = {
     if (!ac || !sfxBus) return;
     safely(() => {
       const t = ac!.currentTime;
-      voice(sfxBus!, t, midi(36), 0.09, "triangle", 0.055);
-      voice(sfxBus!, t + 0.075, midi(43), 0.12, "triangle", 0.05);
-      voice(sfxBus!, t + 0.15, midi(48), 0.18, "triangle", 0.042);
+      voice(sfxBus!, t, midi(36), 0.09, "triangle", 0.115);
+      voice(sfxBus!, t + 0.075, midi(43), 0.12, "triangle", 0.105);
+      voice(sfxBus!, t + 0.15, midi(48), 0.18, "triangle", 0.09);
     });
   },
 

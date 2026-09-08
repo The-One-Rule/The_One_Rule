@@ -11,14 +11,19 @@ import {
   windowMs,
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
+import { FIELD_H, FIELD_W } from "./engine/types";
 import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
+import * as ESC from "./game/escalier";
+import { exploitDuRun } from "./render/exploit";
+import { actionsDeFin } from "./render/finactions";
+import { dessineCarte, donneesCarte } from "./render/partage";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
 import { classementDuJour } from "./compte";
-import { emblemeDe, emblemeSvg, etatCarte } from "./render/carte";
+import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
@@ -43,7 +48,7 @@ import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { vueDuJour } from "./render/jour";
-import { MEILLEUR_CONNU, MEDIANE_CONNUE, vueBut } from "./render/but";
+import { MEILLEUR_CONNU, vueBut } from "./render/but";
 import {
   cacheMicro,
   cachePastille,
@@ -52,13 +57,17 @@ import {
   montrePastille,
   montreToast,
 } from "./render/micro";
+import { cibleDe, pilote } from "./game/attract";
+import { ecranAuChargement, ecranDe } from "./route";
+import type { EcranId } from "./route";
+import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
 import { tempsDeLecture } from "./game/lecture";
 import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { SERIE_EPREUVE } from "./game/echelle";
 import type { CaseMaitrise } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
-import { cleEntrainement } from "./game/perfs";
+import { cleEntrainement, cleEscalade } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -92,7 +101,6 @@ import {
   appliqueLangue,
   CHAINES,
   estLang,
-  etatSolo,
   jetons,
   langue,
   libelleCompte,
@@ -214,6 +222,7 @@ const SCREENS = [
   "home",
   "onb",
   "fiche",
+  "escalier",
   "solo",
   "brief",
   "over",
@@ -235,6 +244,25 @@ let pendingMode: Mode = "daily";
 let spaceDown = false;
 /** Dernière règle servie à l'entraînement — pour ne pas la resservir aussitôt. */
 let derniereEntrainement: string | null = null;
+/*
+ * L'ESCALIER — trois variables, et chacune répond à une question différente.
+ *
+ * `escalierRegle` : de quelle règle on regarde la montée.
+ * `palierVu`      : quel palier la colonne de droite détaille (≠ celui où l'on
+ *                   est : on peut relire un palier déjà franchi).
+ * `palierEnCours` : le palier que le RUN EN COURS joue. `null` partout
+ *                   ailleurs, et c'est ce qui garantit qu'un entraînement
+ *                   ordinaire garde exactement le comportement d'avant.
+ *
+ * ⚠️ `palierDemande` est un ARMEMENT À USAGE UNIQUE, consommé par `openBrief`.
+ * Sans lui, il faudrait que chaque chemin menant au brief pense à remettre
+ * `palierEnCours` à zéro — et le prochain chemin oublierait. C'est la leçon du
+ * REJOUER muet : le garde-fou appartient au point de passage COMMUN.
+ */
+let escalierRegle: OneRule | null = null;
+let palierVu = 1;
+let palierEnCours: number | null = null;
+let palierDemande: number | null = null;
 /** Dernier run terminé : la session est libérée dès la fin, mais l'écran
  *  de fin et le partage doivent encore pouvoir s'y référer. */
 let lastRun: {
@@ -275,6 +303,270 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "reglages",
 ]);
 
+/* ------------------------------------------------------------------ *
+ * LE MODE ATTRACT — « LE CHAMP, PLEIN ÉCRAN : LE FOND EST LE JEU »
+ *
+ * ⚠️ **118 NOUVEAUX VISITEURS SUR 159 — 74 % — REPARTENT SANS LANCER UNE SEULE
+ * PARTIE**, médiane 6 secondes. L'accueil ne montrait aucun jeu, et un jeu de
+ * réflexes se comprend en deux secondes de vidéo, pas en trois lignes de texte.
+ *
+ * ⚠️ **CE N'EST PAS UNE IMITATION.** La première tentative dessinait cinq
+ * formes à la main dans une bande de 108 px — rapporté : « la démo est mal
+ * faite ». Ici tourne une VRAIE `Session`, avec le vrai `buildRound`, dessinée
+ * par le vrai `SceneRenderer` sur son propre canvas. Il n'y a plus rien à tenir
+ * d'accord avec le jeu, parce que c'est le jeu : le jour où une règle change,
+ * la démo change avec, sans qu'on y pense.
+ *
+ * ⚠️ **ELLE N'ÉCRIT RIEN.** Pas de `finishRun`, pas de carnet, pas de records,
+ * aucune analytique. Une partie qui tourne toute seule ne doit rien laisser
+ * derrière elle — sinon les compteurs du joueur monteraient pendant qu'il lit
+ * la page.
+ *
+ * ⚠️ **ET ELLE NE COÛTE RIEN EN JEU.** Elle est peinte par la boucle de jeu et
+ * seulement quand `screen === "home"`, comme le battement de lecture : une
+ * application n'a qu'une horloge, et un décor ne doit jamais pouvoir disputer
+ * ses images au jeu.
+ * ------------------------------------------------------------------ */
+
+/** L'allure de la démo : la plus lente, pour qu'on ait le temps de LIRE. */
+const ATTRACT_ALLURE = 2;
+
+/**
+ * ⚠️ **LA DÉMO NE MONTE PAS EN DIFFICULTÉ, ET C'EST UN RÉGLAGE DE VITESSE.**
+ *
+ * Elle tournait jusqu'à la mort. Or c'est une VRAIE `Session` : sa fenêtre
+ * rétrécit manche après manche, et la main, qui parcourt son trajet dans une
+ * fraction de cette fenêtre, accélère avec elle. Un run qui tient bien finissait
+ * donc en curseur qui se téléporte — exactement ce qui a été rapporté.
+ *
+ * Dix manches gardent la fenêtre entre 8000 et 4400 ms (allure 2), c'est-à-dire
+ * lisible d'un bout à l'autre. Et `FORCED_TRAP_ROUNDS` pose ses pièges aux
+ * manches 2, 5 et 9 : la borne est APRÈS les trois, donc on ne coupe rien de ce
+ * que la démo existe pour montrer. Elle repart alors sur une autre règle, ce
+ * qui vaut mieux qu'une onzième manche de la même.
+ */
+const ATTRACT_MANCHES = 10;
+
+let attract: {
+  session: Session;
+  scene: SceneRenderer;
+  /** D'où vient le curseur — le déplacement doit être continu d'une manche à l'autre. */
+  main: { x: number; y: number } | null;
+  /** La manche a-t-elle déjà reçu son clic ? Une seule action par manche. */
+  agi: boolean;
+  /** Le verdict à afficher, et jusqu'à quand. */
+  verdict: { texte: string; jusqua: number } | null;
+} | null = null;
+
+/**
+ * (Re)démarre la partie de démonstration.
+ *
+ * ⚠️ La graine change à chaque fois : deux visites ne montrent pas la même
+ * suite de manches. Une démo identique à chaque chargement se reconnaît, et ce
+ * qu'on reconnaît on cesse de le regarder.
+ */
+function lanceAttract(): void {
+  const cvs = $<HTMLCanvasElement>("attractCvs");
+  const scene = attract?.scene ?? new SceneRenderer(cvs);
+  const graine = (Math.random() * 2 ** 31) | 0;
+  /*
+   * ⚠️ UNE RÈGLE QUI PIÈGE, TOUJOURS.
+   *
+   * Sept règles sur seize ne posent aucun piège, et la densité du catalogue est
+   * de 5,4 % de manches piégeuses. Tirer au hasard donnerait donc, une fois sur
+   * deux, une démo qui ne montre JAMAIS ce qui distingue ce jeu — c'est-à-dire
+   * une démo pour rien. On tire parmi celles qui piègent, et `FORCED_TRAP_ROUNDS`
+   * garantit un piège dès les premières manches.
+   */
+  const piegeuses = ONE_RULES.filter((r) => r.traps && estJouableIci(r));
+  const regle = piegeuses[Math.abs(graine) % piegeuses.length] ?? ONE_RULES[0]!;
+  attract = {
+    session: new Session({
+      mode: "training",
+      rule: regle,
+      rng: mulberry32(graine),
+      now: performance.now(),
+      seed: graine,
+      touchOnly: TOUCH_ONLY,
+      pace: ATTRACT_ALLURE,
+      longueur: ATTRACT_MANCHES,
+    }),
+    scene,
+    main: null,
+    agi: false,
+    verdict: null,
+  };
+  peintReglAttract(regle);
+}
+
+/** Le coin haut gauche : la carte de la règle, et son nom. */
+function peintReglAttract(regle: OneRule): void {
+  $("attractCarte").innerHTML = carteVignette(regle.id);
+  $("attractRegleLabel").textContent = t("attractRegle");
+  $("attractRegleNom").textContent = nomDeRegle(regle.id, regle.name);
+}
+
+/**
+ * Une image de la démo. Appelée par la boucle de jeu, uniquement sur l'accueil.
+ */
+function imageAttract(now: number): void {
+  if (!attract) return;
+  const { session: sess, scene: sc } = attract;
+
+  /*
+   * ⚠️ ELLE NE MEURT PAS, ELLE RECOMMENCE.
+   *
+   * Un run de démonstration finit toujours par tomber — l'échauffement ne
+   * protège que trois manches. Montrer l'écran de mort n'apprendrait rien de
+   * plus et couperait la seule chose qu'on veut faire voir : que ça tourne.
+   */
+  if (sess.phase !== "playing") {
+    lanceAttract();
+    return;
+  }
+
+  const ratio = sess.ratio(now);
+
+  // La main.
+  const g = pilote(sess.round, ratio, attract.main);
+  if (g.curseur) attract.main = g.curseur;
+  if (g.clique && !attract.agi) {
+    attract.agi = true;
+    const cible = cibleDe(sess.round);
+    const issue = sess.input(
+      cible
+        ? { kind: "click", ent: cible, x: cible.x, y: cible.y }
+        : { kind: "key", key: "A" },
+      now,
+    );
+    if (issue.kind === "survive") {
+      attract.verdict = { texte: t("attractTenu"), jusqua: now + 700 };
+    }
+  }
+  const avant = sess.round;
+  sess.tick(now);
+  if (sess.round !== avant) {
+    // Manche suivante : la main repart de là où elle était, et le droit d'agir
+    // se rouvre. Sans cette remise à zéro, une seule manche serait jouée.
+    attract.agi = false;
+    if (avant.trap && sess.phase === "playing") {
+      attract.verdict = { texte: t("attractPiege"), jusqua: now + 1100 };
+    }
+  }
+
+  peintAttract(now, ratio, g);
+  sc.draw({ round: sess.round, rule: sess.rule, now, ratio });
+}
+
+/** Ce que la démo écrit autour du champ. */
+function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>): void {
+  if (!attract) return;
+  const sess = attract.session;
+
+  /*
+   * ⚠️ LA CONSIGNE SE COMPOSE, ELLE NE SE LIT PAS.
+   *
+   * `round.text` est le français CANONIQUE — il sert au MENTEUR à emprunter une
+   * phrase plausible, pas à l'affichage. Le rendre tel quel afficherait du
+   * français à un joueur anglais, sur la seule page qu'il lira jamais.
+   * `composePhrase` fait ce que le HUD fait en jeu.
+   */
+  $("attractInstr").textContent = composePhrase(sess.round.phrase, sess.round.text);
+  const barre = $("attractChrono");
+  barre.style.transform = `scaleX(${1 - ratio})`;
+  const chaud = ratio > CRITICAL_RATIO;
+  barre.classList.toggle("est-chaud", chaud);
+
+  const v = attract.verdict && now < attract.verdict.jusqua ? attract.verdict.texte : "";
+  $("attractVerdict").textContent = v;
+
+  /*
+   * « DÉMO · MANCHE 7 » puis « PERSONNE NE TIENT LA SOURIS ».
+   *
+   * ⚠️ La seconde ligne compte autant que la première : sans elle, un visiteur
+   * qui bouge sa souris et ne voit rien répondre croit que le site est cassé.
+   */
+  const meta = $("attractMeta");
+  meta.textContent = "";
+  meta.append(
+    t("attractManche")(sess.level),
+    document.createElement("br"),
+    t("attractPersonne"),
+  );
+
+  /*
+   * LE CURSEUR, en pixels d'écran.
+   *
+   * ⚠️ `fieldRect()` est la SEULE source de la conversion, et c'est délibéré :
+   * c'est déjà elle qui décide où le renderer pose les pièces. Refaire le
+   * calcul à partir de la taille du canvas donnerait un curseur décalé dès que
+   * la gouttière change — et un curseur qui ne pointe pas la pièce qu'il vise
+   * enseigne un geste faux.
+   */
+  const cur = $("attractCurseur");
+  if (g.curseur) {
+    const r = attract.scene.fieldRect();
+    const x = r.x + (g.curseur.x / FIELD_W) * r.w;
+    const y = r.y + (g.curseur.y / FIELD_H) * r.h;
+    cur.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+    cur.classList.remove("hidden");
+  } else {
+    cur.classList.add("hidden");
+  }
+
+  // La chaleur : le cadre bat, et il rougit quand ça tourne mal.
+  const boite = $("attract");
+  boite.style.setProperty("--attract-heat", String(Math.round(ratio * 20) / 20));
+  $("attractChaleur").classList.toggle("est-chaud", chaud);
+}
+
+/** La démo suit l'écran : elle ne tourne QUE sur l'accueil. */
+/*
+ * ⚠️ **SUR TÉLÉPHONE, LA DÉMO NE TOURNE PAS — ET C'EST UNE SEULE SOURCE DE
+ * VÉRITÉ QUI LE DIT, PAS DEUX.**
+ *
+ * Demandé : « sur téléphone supprime la démo en fond et garde juste un fond
+ * animé très beau ». La raison tient en deux mesures : une manche compte quinze
+ * pièces sur 1000 × 420, et un écran de 375 px de large les rend à un tiers de
+ * leur taille — on ne lit ni la consigne, ni ce que la main fait, donc la démo
+ * ne démontre rien. Et elle fait tourner une `Session` complète plus un canvas
+ * plein écran sur la batterie de quelqu'un qui n'a encore rien demandé.
+ *
+ * ⚠️ Le seuil est décidé **ici et nulle part ailleurs**, et la feuille de style
+ * se contente de suivre la classe. Écrire la même largeur des deux côtés
+ * marcherait aujourd'hui et divergerait au premier ajustement : on aurait alors
+ * soit un canvas invisible qui consomme, soit un fond de nuit sous une partie
+ * qui tourne. `matchMedia` est la seule mesure, et elle est écoutée — faire
+ * pivoter le téléphone bascule d'un monde à l'autre.
+ */
+/*
+ * ⚠️ `matchMedia` PEUT MANQUER, ET SON ABSENCE VAUT « GRAND ÉCRAN ».
+ *
+ * Aucun navigateur en service ne s'en passe, mais le harnais de test monte
+ * l'application dans un DOM simulé qui, lui, ne l'implémente pas — et un décor
+ * n'a jamais le droit d'empêcher le jeu de démarrer. C'est la même doctrine que
+ * le moteur sonore, qui reste jouable sur un WebAudio incomplet.
+ *
+ * Le repli est un objet inerte plutôt qu'un `if` à chaque usage : le reste du
+ * code lit `SANS_DEMO.matches` et s'abonne, sans jamais avoir à savoir.
+ */
+const SANS_DEMO: Pick<MediaQueryList, "matches" | "addEventListener"> =
+  typeof matchMedia === "function"
+    ? matchMedia("(max-width: 899px)")
+    : { matches: false, addEventListener: () => {} };
+
+function attractSuitEcran(id: ScreenId): void {
+  $("attract").classList.toggle("attract--nuit", SANS_DEMO.matches);
+  if (id !== "home" || SANS_DEMO.matches) {
+    attract = null;
+    return;
+  }
+  if (!attract) lanceAttract();
+}
+
+// Pivoter le téléphone, ou étirer la fenêtre : on repasse par le même chemin.
+SANS_DEMO.addEventListener("change", () => attractSuitEcran(screen));
+
 function show(id: ScreenId): void {
   /*
    * Quitter le brief ANNULE le battement de lecture.
@@ -289,9 +581,9 @@ function show(id: ScreenId): void {
    * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
    */
   if (lecture && id !== null) annuleLecture();
-  cachePiege();
   cacheMicro();
   cachePastille();
+  cacheToast();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   /*
@@ -334,6 +626,7 @@ function show(id: ScreenId): void {
     poseBarre();
     majNav();
   }
+  attractSuitEcran(id);
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -344,7 +637,59 @@ function show(id: ScreenId): void {
   // Sur l'accueil, MENU n'a nulle part ou aller.
   $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
+  // `null` est l'écran de PARTIE : il a une adresse lui aussi, sans quoi le
+  // bouton précédent sauterait par-dessus la partie comme si elle n'avait pas
+  // eu lieu.
+  poseAdresse(id ?? "partie");
 }
+
+/* ------------------------------------------------------------------ *
+ * L'ADRESSE SUIT L'ÉCRAN
+ *
+ * Demandé par Pierre : « chaque partie du site a une page différente ». Et,
+ * dans le même message : « pas de bouton pour revenir en arrière pour taper le
+ * code d'un salon, juste direct au menu ».
+ *
+ * ⚠️ CE SONT DEUX SYMPTÔMES DU MÊME MANQUE : l'application ne savait pas d'où
+ * l'on venait. Chaque RETOUR portait une destination écrite en dur —
+ * `btnMultiJoinBack` faisait `exitToMenu(); show("home")`, donc il ne revenait
+ * pas, il éjectait. Une histoire de navigation répond aux deux d'un coup.
+ *
+ * La table des adresses est dans `route.ts`, pure et testée ; le compteur de
+ * pas et le dialogue avec `history` sont dans `histoire.ts`, parce que le
+ * multijoueur en a besoin lui aussi et qu'un compteur par module se
+ * désynchroniserait au premier écran de salon.
+ * ------------------------------------------------------------------ */
+
+window.addEventListener("popstate", () => {
+  const cible = ecranDe(location.pathname) ?? "home";
+  pendantRetour(() => {
+    /*
+     * ⚠️ REVENIR EN ARRIÈRE PENDANT UNE PARTIE, C'EST L'ABANDONNER.
+     *
+     * C'est déjà ce que fait ÉCHAP, et c'est la seule lecture honnête : le
+     * joueur a demandé à quitter cet écran. Laisser la session tourner derrière
+     * un menu produirait un run fantôme qui finirait par écrire un score que
+     * personne n'a joué.
+     */
+    if (session) {
+      abandon();
+      return;
+    }
+    /*
+     * ⚠️ ET QUITTER LE SALON EN PARTANT, SINON ON Y RESTE ASSIS.
+     *
+     * Le salon est un état RÉSEAU, pas seulement un écran : sortir sans
+     * prévenir laisserait un siège occupé par quelqu'un qui n'est plus là, et
+     * les autres attendraient un joueur fantôme au lancement.
+     */
+    if ((screen === "multi-lobby" || screen === "multi-end") && cible !== "multi-lobby") {
+      multi.exitToMenu();
+    }
+    show(cible === "partie" ? "home" : cible);
+  });
+});
+
 
 /*
  * Revenir du multijoueur repeint l'accueil.
@@ -387,7 +732,6 @@ function renderHome(): void {
    * en français, et « RECORD » une fois passé en anglais — un cran de retard à
    * chaque bascule, qui ne se rattrapait qu'au repeint suivant.
    */
-  const rule = ruleOfDay(day);
   const lang: Lang = estLang(s.lang) ? s.lang : "fr";
   const c = compte();
   appliqueLangue(document, lang, {
@@ -399,16 +743,21 @@ function renderHome(): void {
   hud.setMeta("");
   hud.setFooter(0, s.bestTraining, "—");
 
-  $("soloEtat").textContent = etatSolo(lang, {
-    played: s.daily.played,
-    score: s.daily.score,
-    ruleName: nomDeRegle(rule.id, rule.name),
-    streak: s.streak.count,
-  });
-
-  $("cardMultiState").textContent = multi.available
-    ? TEXTES[lang].multiOk
-    : TEXTES[lang].multiOff;
+  /*
+   * ⚠️ LE SALON HORS LIGNE SE DIT SUR SA CARTE, PLUS EN HAUT DE PAGE.
+   *
+   * L'ancien accueil affichait « SERVEUR DE SALONS HORS LIGNE » sous la moitié
+   * MULTI de la faille, c'est-à-dire une panne annoncée à l'arrivée, à tout le
+   * monde, y compris à qui n'a jamais joué. Le bouton reste désactivé — ça, ça
+   * n'est pas négociable — mais l'information descend sur la carte, où elle
+   * répond à quelqu'un qui vient de s'y intéresser.
+   *
+   * ⚠️ ET LA LIGNE « RUN DU JOUR : LE MENTEUR » A DISPARU AVEC LA FAILLE. Elle
+   * nommait la règle du jour AVANT que le joueur ait cliqué quoi que ce soit :
+   * la carte DU JOUR porte désormais le RECORD à battre, qui donne envie sans
+   * rien brûler.
+   */
+  if (!multi.available) $("profMultiNote").textContent = TEXTES[lang].multiOff;
   $<HTMLButtonElement>("btnMulti").disabled = !multi.available;
 
   /*
@@ -429,7 +778,6 @@ function renderHome(): void {
    * bandeau de mesure, qui a coûté 76 % d'entrées.
    */
   peintBut(monScoreDuJour(s), recordDuJour);
-  peintEtat(s);
   /*
    * Le record du JOUR se charge après coup, et ne bloque rien.
    *
@@ -440,10 +788,15 @@ function renderHome(): void {
    */
   void rafraichitClassement();
 
-  const vjm = vueDuJour(s, day);
-  const versMulti = (vjm.acquis || vjm.verrouille) && multi.available;
-  $("btnSolo").classList.toggle("faille__zone--primary", !versMulti);
-  $("btnMulti").classList.toggle("faille__zone--primary", versMulti);
+  /*
+   * ⚠️ LA FAILLE A QUITTÉ L'ACCUEIL.
+   *
+   * Elle désignait la porte à prendre en donnant l'accent à SOLO ou à MULTI
+   * selon que le run du jour était fait. La rangée de profondeur ne fonctionne
+   * pas ainsi : aucune de ses cinq cartes ne porte l'accent, parce qu'elles
+   * viennent APRÈS le centre de gravité et n'ont pas le droit de disputer
+   * l'attention à PLAY. La réponse par défaut est PLAY, toujours.
+   */
 
   appliqueMotifs(s.daltonien);
   setEnabled(s.sound);
@@ -467,6 +820,12 @@ function choisitLangue(lang: Lang): void {
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
   if (screen === "codex") renderCodex();
+  /*
+   * Le mode attract non plus : son intitulé et son nom de règle sont posés une
+   * fois au lancement. C'est exactement par là que les six émotes du multi
+   * étaient restées françaises.
+   */
+  if (attract) peintReglAttract(attract.session.rule);
 }
 
 /**
@@ -824,7 +1183,7 @@ function renderCodex(): void {
    */
   const stat = CHAINES[langue()];
   if (codexVue === "training") {
-    $("codexEyebrow").textContent = stat["nav.training"];
+    $("codexEyebrow").textContent = stat["carte.training.titre"];
     $("codexTitre").textContent = t("salleTitre");
   } else {
     $("codexEyebrow").textContent = stat["carnet.collection"];
@@ -1778,6 +2137,18 @@ function renderPick(): void {
 function openBrief(mode: Mode): void {
   const s = P.load();
   pendingMode = mode;
+  /*
+   * ⚠️ LE PALIER SE CONSOMME ICI, ET NULLE PART AILLEURS.
+   *
+   * `openBrief` est le passage obligé de tout lancement solo. Y consommer
+   * l'armement garantit deux choses d'un coup : un run lancé depuis l'escalier
+   * porte son palier, et TOUT autre run — entraînement libre, run du jour,
+   * escalade, défi — repart forcément à `null`. Répartir cette remise à zéro
+   * sur chaque porte serait la faute du REJOUER muet, à l'identique : la
+   * prochaine porte oublierait de la poser.
+   */
+  palierEnCours = mode === "training" ? palierDemande : null;
+  palierDemande = null;
 
   if (mode === "daily") {
     pendingRule = regleJouableIci(ruleOfDay(day));
@@ -1902,6 +2273,29 @@ function openBrief(mode: Mode): void {
   $("btnGo").classList.toggle("btn--primary", !neuf);
   btnTry.classList.toggle("btn--primary", neuf);
 
+  /*
+   * LA JOURNÉE CLOSE VERROUILLE AUSSI LE BRIEF.
+   *
+   * `vueDuJour().verrouille` était appliqué sur `#btnDaily` (l'écran SOLO) et
+   * sur `#btnAgain` (l'écran de fin), mais PAS ici — or `navDaily` ouvre ce
+   * brief directement, sans passer par l'un ni l'autre. Le quatrième essai
+   * partait donc par la barre du bas, avec « 0 / 3 ESSAIS » affiché juste
+   * au-dessus d'un COMMENCER parfaitement actif.
+   *
+   * Mesuré en jouant les trois essais : le brief s'ouvrait, le bouton lançait,
+   * la manche démarrait.
+   *
+   * C'est la même faute que le REJOUER muet, à l'envers : là un bouton
+   * promettait ce que la fonction refusait, ici il autorise ce que la règle
+   * interdit. Le garde-fou appartient au point de passage COMMUN — le brief —
+   * et non à chacune des portes qui y mènent, dont la prochaine oubliera de le
+   * poser.
+   */
+  const closeJour = mode === "daily" && !challenge && vueDuJour(s, day).verrouille;
+  const go = $<HTMLButtonElement>("btnGo");
+  go.disabled = closeJour;
+  if (closeJour) go.textContent = t("goReviensDemain");
+
   renderPace();
   show("brief");
 }
@@ -1909,6 +2303,19 @@ function openBrief(mode: Mode): void {
 
 /** Vrai dès que la fin de l'échauffement a été annoncée, pour ce run-là. */
 let finEchauffementDite = false;
+
+/*
+ * CE QUE LE DERNIER RUN A ÉTÉ — retenu pour l'écran de fin et pour la carte.
+ *
+ * `palierEnCours` reste posé jusqu'au prochain `openBrief`, mais s'y fier
+ * depuis l'écran de fin ferait dépendre l'affichage d'un état qu'un autre
+ * chemin peut effacer entre-temps. On fige les deux valeurs au moment où le
+ * run se termine, comme `lastRun` fige déjà le reste — c'est la même leçon que
+ * « une valeur mémorisée doit l'être à un instant où l'on sait ce qu'elle
+ * vaut ».
+ */
+let palierDuDernierRun: ESC.Palier | undefined;
+let avanceDuRun = 0;
 
 /**
  * LE BATTEMENT DE LECTURE, entre COMMENCER et la première consigne.
@@ -1997,6 +2404,30 @@ function majLecture(now: number): void {
     const b = $<HTMLButtonElement>("btnGo");
     b.disabled = false;
     b.classList.remove("btn--lecture");
+    /*
+     * ⚠️ ON REND SON LIBELLE AU BOUTON — LA FIN NORMALE L'OUBLIAIT.
+     *
+     * Seul `annuleLecture` le restituait, c'est-a-dire seulement sur une sortie
+     * PREMATUREE. Un rebours mene a son terme laissait donc « 1 » sur le
+     * bouton, pour de bon. Releve en deroulant la boucle image par image :
+     *
+     *     brief:START | +800ms:3 | +1600ms:2 | +2400ms:1 | +3200ms:1 (en jeu)
+     *
+     * Invisible pendant la partie — le brief est masque — et efface au brief
+     * suivant, puisque `openBrief` reecrit le libelle. D'ou une panne qui ne se
+     * declenche que par un chemin : lancer, laisser le rebours finir, revenir
+     * au brief, relancer, puis ECHAP pendant CE rebours-la. `startRun` avait
+     * memorise `bouton.textContent` — qui valait « 1 » — et `annuleLecture`
+     * le restituait fidelement. Bouton bloque sur un chiffre.
+     *
+     * C'est la meme racine que le bug deja documente sur ESPACE : celui-la
+     * avait ete ferme du cote de l'appel en trop, pas du cote de la cause. La
+     * regle du depot le disait pourtant — « une valeur memorisee doit l'etre a
+     * un instant ou l'on sait ce qu'elle vaut ». On garantit donc qu'au repos
+     * le bouton ne porte JAMAIS un chiffre, ce qui rend la memorisation
+     * toujours vraie.
+     */
+    b.textContent = lecture.libelle;
     lecture = null;
     lanceRun();
     return;
@@ -2044,6 +2475,19 @@ function lanceRun(): void {
   recordAvantRun =
     pendingMode === "daily" ? (s.daily.score ?? 0) : P.recordDeSonAllure(s);
   pastilleDite = false;
+  /**
+   * Le palier joué par ce run, s'il y en a un. Lu une fois, utilisé partout.
+   *
+   * ⚠️ UN DÉFI ET UN MATCH CLASSÉ N'EN ONT JAMAIS, quoi qu'il reste d'armé.
+   * `openBrief` remet `palierEnCours` à zéro sur tout autre lancement — mais
+   * la REVANCHE d'un duel appelle `startRun(false)` directement depuis l'écran
+   * de fin, sans repasser par le brief. Sans cette garde, enchaîner un palier
+   * puis un duel ferait jouer le duel sur la longueur et la cadence du palier,
+   * c'est-à-dire une partie qui ne se compare plus à celle de l'adversaire —
+   * le seul défaut que ce dépôt tient pour fatal.
+   */
+  const palier =
+    challenge || ranked || palierEnCours === null ? undefined : ESC.palierN(palierEnCours);
   /*
    * La pile de l'escalade est tirée d'un RNG À PART.
    *
@@ -2066,8 +2510,19 @@ function lanceRun(): void {
     touchOnly: TOUCH_ONLY,
     // Un duel rejoue la partie d'un adversaire et se compare à ses temps de
     // passage : il garde l'allure de référence, quoi qu'ait choisi le joueur.
-    pace: challenge ? PACE_DEFAULT : s.trainingPace,
+    /*
+     * L'ALLURE D'UN PALIER PRIME SUR LA PRÉFÉRENCE DU JOUEUR.
+     *
+     * C'est le sens même de la montée : le palier 11 EST le passage à × 1,0.
+     * La laisser au réglage global rendrait quatre volées identiques et
+     * viderait l'escalier de sa moitié.
+     */
+    pace: challenge ? PACE_DEFAULT : (palier?.allure ?? s.trainingPace),
     pile,
+    // Les deux leviers du palier. Absents ailleurs — donc `maxRounds` et
+    // `buildRound` répondent exactement ce qu'ils répondaient hier.
+    longueur: palier?.manches,
+    forcePiege: palier ? (l) => ESC.piegeIci(palier, l) : undefined,
   });
   finEchauffementDite = false;
   hud.setRule(session.rule);
@@ -2080,12 +2535,33 @@ function lanceRun(): void {
       : pendingMode === "escalade"
         ? // Le chiffre de droite est ce qu'on VISE : le plafond de règles.
           PALIER_MAX
-        : s.bestTraining,
+        : // Sur un palier, ce qu'on vise est le palier — pas son record
+          // d'entraînement, qui a été fait à une autre allure et sans cadence.
+          (palier?.manches ?? s.bestTraining),
     pendingMode === "daily" ? t("piedDaily")(day) : pendingMode === "escalade" ? t("modeEscalade") : t("modeTraining"),
     pendingMode === "daily" ? t("piedSur") : pendingMode === "escalade" ? t("piedRegles") : t("piedRecord"),
   );
   $("ghost").classList.toggle("hidden", !challenge);
   show(null);
+  /*
+   * LA CARTE EST POSEE AVANT LA PREMIERE MANCHE, PAS PENDANT.
+   *
+   * `majGouttieres()` ne tournait qu'au CHANGEMENT de manche (`key !==
+   * lastRoundKey`), et `lastRoundKey` vient d'etre remis a vide : la gouttiere
+   * apparaissait donc a la premiere manche, c'est-a-dire une fois la partie
+   * lancee et le chrono parti. Rapporte en soiree : « souvent la carte
+   * apparait APRES que la partie ait commence, ca change la dimension et c'est
+   * tres perturbant ».
+   *
+   * L'appeler ici la pose pendant que l'ecran s'ouvre, avant que la moindre
+   * consigne s'affiche. La geometrie du champ est donc etablie AVANT le premier
+   * geste — et c'est tout ce qui compte, puisque la taille du champ est du
+   * gameplay (n°10).
+   *
+   * Rien n'est calcule deux fois : la boucle ne rappellera `majGouttieres()`
+   * qu'au changement de manche, comme avant.
+   */
+  majGouttieres();
   sfx.runStart();
   musicApi.start();
   // `duel` distingue un défi relevé d'un entraînement ordinaire : les deux
@@ -2215,8 +2691,7 @@ function majNav(): void {
   // La destination courante se lit, comme dans la maquette. FICHE reste
   // sous CARTES ou TRAINING selon le cadre qui l'a ouverte.
   const sousCodex = screen === "codex" || screen === "fiche";
-  $("navCartes").classList.toggle("is-on", sousCodex && codexVue === "collection");
-  $("navTraining").classList.toggle("is-on", sousCodex && codexVue === "training");
+  $("navCartes").classList.toggle("is-on", sousCodex);
   $("navDaily").classList.toggle(
     "is-on",
     (screen === "brief" || screen === "over") && pendingMode === "daily",
@@ -2240,13 +2715,6 @@ $("navClassement").addEventListener("click", () => {
   sfx.ui();
   renderClassement();
   show("classement");
-});
-
-$("navTraining").addEventListener("click", () => {
-  sfx.ui();
-  // La salle de travail, pas une partie : PLAY lance, TRAINING désigne
-  // quoi travailler. Deux boutons vers le brief, c'est une hésitation.
-  ouvreCodex("training", "nav");
 });
 
 $("navJouer").addEventListener("click", () => {
@@ -2391,169 +2859,68 @@ async function rafraichitClassement(force = false): Promise<void> {
 }
 
 /**
- * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
+ * Jette le record du jour en memoire pour qu'il soit redemande.
  *
- * On départage sur le nombre de cases franchies — à runs égaux, celle dont on
- * est le plus loin.
- *
- * ⚠️ Extraite parce que DEUX écrans la désignent maintenant : la collection et
- * l'accueil. Une sélection écrite deux fois finit par diverger, et le symptôme
- * serait une règle différente selon l'écran pour la même question.
- *
- * Elle ne rend rien au-dessous de deux runs : à un seul, « celle qui te
- * résiste » désignerait une règle qu'on vient de croiser une fois.
+ * Appele apres un run du jour : c'est le seul moment ou la valeur affichee peut
+ * etre devenue fausse, puisque le run qu'on vient de finir a pu prendre la tete.
+ * Le rechargement lui-meme n'a pas lieu ici — il se fera au prochain rendu de
+ * l'accueil, la ou il ne retarde rien.
  */
-function regleQuiResiste(s: P.Save): { r: OneRule; rec: P.RuleRecord } | null {
-  const aMater = ONE_RULES.filter(
-    (r) => !!s.encountered[r.id] && !estMaitrisee(r, s.encountered[r.id]),
-  );
-  const r = [...aMater].sort((x, y) => {
-    const rx = s.encountered[x.id]?.runs ?? 0;
-    const ry = s.encountered[y.id]?.runs ?? 0;
-    if (rx !== ry) return ry - rx;
-    return (
-      franchies(echelleMaitrise(x, s.encountered[x.id])) -
-      franchies(echelleMaitrise(y, s.encountered[y.id]))
-    );
-  })[0];
-  const rec = r ? s.encountered[r.id] : undefined;
-  if (!r || !rec || (rec.runs ?? 0) < 2) return null;
-  return { r, rec };
+function oublieRecordDuJour(): void {
+  recordDuJour = null;
+  recordDuJourVu = 0;
 }
 
-/**
- * LA COLONNE D'ÉTAT DE L'ACCUEIL — desktop seulement.
+/*
+ * ⚠️ `regleQuiResiste` A ÉTÉ SUPPRIMÉE : elle ne servait qu'à l'ancien accueil.
  *
- * ⚠️ ELLE N'INVENTE RIEN. Chaque bloc est un objet que le joueur a déjà vu
- * ailleurs : la jauge du carnet, la règle qui résiste, les quêtes. L'accueil
- * les RÉUNIT — c'est la seule chose qu'il ajoute, et c'est la seule qui vaille
- * la largeur d'un écran de bureau.
- *
- * Elle est peinte même quand la colonne est masquée : le coût est nul (aucune
- * requête, aucune image au-delà de celles déjà en cache) et un rendu
- * conditionnel au seuil CSS ferait décider une largeur d'un contenu, ce qui
- * est exactement l'oscillation que `render/layout.ts` existe pour éviter.
+ * Le CARNET a sa propre désignation de « celle qui te résiste », calculée sur
+ * place et avec un seuil à elle (deux runs, sans quoi une règle croisée une
+ * fois passerait pour un échec). Garder la seconde aurait laissé deux formules
+ * pour une même question — et ce dépôt a déjà payé trois fois la divergence de
+ * deux formules dont une seule tournait.
  */
-function peintEtat(s: P.Save): void {
-  /* --- TA COLLECTION : la même jauge qu'ailleurs, et le même vocabulaire. --- */
-  const etats = ONE_RULES.map((r) =>
-    etatCarte(franchies(echelleMaitrise(r, s.encountered[r.id]))),
-  );
-  const vues = etats.filter((e) => e !== "verrouillee").length;
-  $("etatCollTotal").textContent = `${vues} / ${ONE_RULES.length}`;
-  const jauge = $("etatCollJauge");
-  jauge.innerHTML = "";
-  for (const e of etats) {
-    const i = document.createElement("i");
-    if (e !== "verrouillee") {
-      i.className = `est-${e === "parfaite" ? "parfaite" : e === "maitrisee" ? "maitrisee" : "decouverte"}`;
-    }
-    jauge.appendChild(i);
-  }
-  const reste = ONE_RULES.length - vues;
-  $("etatCollNote").textContent = reste > 0 ? t("etatCollReste")(reste) : t("etatCollTout");
 
-  /* --- À MATER : elle DÉSIGNE, elle ne propose pas seize choix. --- */
-  const qui = regleQuiResiste(s);
-  $("etatMater").classList.toggle("hidden", !qui);
-  if (qui) {
-    $<HTMLImageElement>("etatMaterImg").src = `/cartes/${qui.r.id}.png`;
-    const cases = franchies(echelleMaitrise(qui.r, qui.rec));
-    $("etatMaterNom").textContent = `${nomDeRegle(qui.r.id, qui.r.name)} · ${cases}/6`;
-    /*
-     * ⚠️ La maquette écrit « 4 morts sur tes 12 derniers runs ». Le carnet ne
-     * compte NI les morts NI une fenêtre glissante : `RuleRecord` porte `best`,
-     * `cleared`, `pieges`, `parAllure`, `serie`, `sansFaute` et `runs`. Écrire
-     * cette phrase demanderait d'instrumenter le chemin chaud du jeu pour une
-     * ligne décorative. On dit ce qu'on sait, et c'est déjà vrai.
-     */
-    $("etatMaterNote").textContent = t("resisteNote")(qui.rec.runs ?? 0, cases);
-    $("etatMater").dataset.regle = qui.r.id;
-  }
-
-  /* --- LE RUN DU JOUR : la priorité de `render/jour.ts`, pas un compte d'essais. --- */
-  const vj = vueDuJour(s, day);
-  $("etatJour").textContent =
-    vj.etat === "termine"
-      ? t("etatJourFait")(s.daily.score)
-      : vj.etat === "epuise"
-        ? t("etatJourEpuise")
-        : vj.etat === "vierge"
-          ? t("etatJourVierge")
-          : t("etatJourReste")(vj.restants);
-  $("etatJourNote").textContent = t("etatJourNote")(DAILY_ESSAIS, DAILY_LENGTH);
-
-  /* --- LA SÉRIE, et son jour de grâce — qui existe vraiment. --- */
-  $("etatSerie").textContent = t("cptEnJours")(s.streak.count);
-  /*
-   * `graceLeft` est remis à 1 au changement de SEMAINE (`graceWeek`), et
-   * consommé quand un trou d'un jour est comblé. Le dire au présent — « il
-   * t'en reste un » ou « déjà utilisé » — vaut mieux que d'énoncer la règle :
-   * ce qu'on veut savoir, c'est si on peut sauter demain.
-   */
-  const semaine = Math.floor(day / 7);
-  const graceDispo = s.streak.graceWeek !== semaine || s.streak.graceLeft > 0;
-  $("etatSerieNote").textContent = graceDispo ? t("etatGraceOui") : t("etatGraceNon");
-
-  /* --- LES QUÊTES : le même rendu que SOLO et que la fin de run. --- */
-  const q = viewQuests(s, day);
-  $("etatQuetesTotal").textContent = `${q.filter((x) => x.done).length} / ${q.length}`;
-  renderQuests("etatQuetes");
-}
+/*
+ * ⚠️ `peintEtat` A ÉTÉ SUPPRIMÉE AVEC L'ANCIEN ACCUEIL.
+ *
+ * Elle peignait la colonne latérale du desktop : « TA COLLECTION 0 / 16 »,
+ * « PAS ENCORE JOUÉ », « 0 J », « 0 / 3 QUÊTES », plus la carte à mater. Quatre
+ * compteurs et une carte — c'est-à-dire, pour le seul public qui n'a encore
+ * rien, un mur de zéros. C'était le défaut relevé en arrivant sur le site avec
+ * une sauvegarde vide, et la maquette le remplace par la rangée de PROFONDEUR :
+ * cinq portes qui disent ce qu'on peut FAIRE plutôt que ce qu'on n'a pas.
+ *
+ * Rien n'est perdu de ce qu'elle disait : la collection a son écran, la série
+ * et les quêtes vivent sur SOLO et sur l'écran de fin, la carte à mater est sur
+ * le carnet (`#resiste`), et le record du jour a rejoint la carte DU JOUR.
+ */
 
 /**
- * LA CARTE DE RECORD DE L'ACCUEIL — le RUN DU JOUR, et rien d'autre.
+ * LE RECORD DU JOUR, SUR LA CARTE « DU JOUR ».
  *
- * ⚠️ LES DEUX CHIFFRES VIENNENT DE LA MÊME ÉPREUVE, et c'est la contrainte qui
- * façonne la fonction. La cible est le meilleur du jour ; « le tien » est TON
- * score du jour, jamais ton record d'entraînement — celui-ci se fait à une
- * allure choisie, sur une règle choisie, et le poser à côté d'un score du jour
- * mettrait deux épreuves sous un même cadre. C'est exactement le chiffre faux
- * que `render/but.ts` existe pour interdire.
+ * ⚠️ **LE BLOC D'OBJECTIF A DISPARU AVEC L'ANCIEN ACCUEIL**, et son chiffre ne
+ * devait pas disparaître avec lui. Il occupait le haut de la page et arbitrait
+ * avec le chapo — arbitrage qui n'a plus lieu d'être : la nouvelle composition
+ * montre le chapo ET les cinq portes, il n'y a plus de place à se disputer.
  *
- * ⚠️ AUCUN REPLI D'ENTRAÎNEMENT ICI (`repli: "aucun"`). Le mur des records, lui,
- * garde le sien : il l'étiquette, et un mur sans record n'est plus un mur.
+ * Ce que le chiffre disait reste vrai et reste utile : un record du JOUR est
+ * vérifié (`verifyRun` a rejoué le journal), vivant — il change chaque jour —
+ * et bien plus atteignable qu'un record de tous les temps. Il se pose donc sur
+ * la carte qui parle de ce mode, là où il répond à une question qu'on se pose
+ * déjà : « ça vaut quoi, aujourd'hui ? »
  *
- * Quand le classement se tait, la carte devient une INVITATION plutôt qu'un
- * trou. Et ce n'est pas un cas rare : tant que le déploiement n'a ni Supabase
- * ni fournisseur OAuth, `classementDuJour` rend `null` pour tout le monde, tous
- * les jours — c'est donc l'état que la plupart des visiteurs verront.
+ * ⚠️ La carte GARDE sa note par défaut quand le classement se tait — sans
+ * comptes configurés, `classementDuJour` rend `null` pour tout le monde et tous
+ * les jours. Un « — » à la place d'un chiffre se lirait comme une panne.
  */
 function peintBut(sien: number | null, duJour: number | null): void {
   const but = vueBut({ jour: sien, entrainement: 0 }, duJour, "aucun");
-  /*
-   * ⚠️ LE CHAPO CÈDE SA PLACE — SUR TÉLÉPHONE SEULEMENT.
-   *
-   * La mesure qui a impose l'exclusivite est une mesure de TELEPHONE : sur
-   * 375 x 812 la faille finissait deja a y=818 pour 812 de haut, et un bloc
-   * AJOUTE coutait 135 px, poussant le bas de MULTI a 142 px sous la ligne de
-   * flottaison. Ce budget-la n'existe pas en large : mesure a 1280 x 860, la
-   * colonne de gauche ne fait que 260 px pour 573 a droite — elle est VIDE.
-   *
-   * Et les deux disent des choses differentes : le chapo dit ce QU'EST le jeu
-   * a un nouveau venu, la carte donne son chiffre a un habitue. Quand il y a
-   * la place, il n'y a aucune raison de choisir.
-   */
-  /* Le chapo et la bande de record PARAISSENT ENSEMBLE : c'est la
-     composition de la maquette (vues A et dhome). L'exclusivite telephone
-     datait d'un budget de hauteur que le trio compact + la faille a 186 px
-     rendent caduc. */
-  $("ledeHome").classList.remove("hidden");
-  $("but").classList.remove("hidden");
-  $("butPlein").classList.toggle("hidden", but.cible === null);
-  $("butVide").classList.toggle("hidden", but.cible !== null);
+  const note = $("profJourNote");
   if (!but.cible) return;
-
-  // Le chiffre NU et son unite dessous : c'est la composition de la maquette,
-  // et elle rend le nombre lisible d'un coup d'oeil plutot qu'au milieu d'un mot.
-  $("butChiffre").textContent = String(but.cible.score);
-  $("butUnite").textContent = t("butUnite");
-  $("butPousse").textContent = but.depasse ? t("butDejaBattu") : t("butMieux");
-  // Son propre chiffre à CÔTÉ, jamais à la place : c'est ce qui rend la cible
-  // comparable au lieu de l'opposer. La colonne entiere disparait quand il n'a
-  // pas encore joue — un intitule au-dessus du vide se lit comme une panne.
-  $("butDroite").classList.toggle("hidden", but.sien === null);
-  $("butSien").textContent = but.sien === null ? "" : String(but.sien);
+  note.textContent = but.depasse
+    ? t("profJourBattu")(but.cible.score)
+    : t("profJourRecord")(but.cible.score);
 }
 
 /**
@@ -2782,6 +3149,18 @@ function ouvreFiche(r: OneRule): void {
   btn.textContent = t("ficheEntraine")(nomAllure(allure, String(allure)));
   btn.dataset.allure = String(allure);
 
+  /*
+   * LA MONTÉE, ET CE QU'ELLE ANNONCE.
+   *
+   * Le bouton porte l'avancement plutôt qu'un simple nom : « 8 / 20 PALIERS »
+   * dit à la fois où on en est et qu'il y a un ailleurs. À zéro, il invite.
+   */
+  const e = P.escalierDe(s, r.id);
+  $("btnFicheEsc").textContent =
+    e.palier > 0
+      ? `${t("escTitre")} · ${t("escProgres")(e.palier, ESC.PALIER_SOMMET)}`
+      : t("escOuvrir");
+
   show("fiche");
 }
 
@@ -2812,9 +3191,328 @@ $("btnFicheTrain").addEventListener("click", () => {
   openBrief("training");
 });
 
+$("btnFicheEsc").addEventListener("click", () => {
+  if (ficheRegle) ouvreEscalier(ficheRegle);
+});
+
 $("btnFicheBack").addEventListener("click", () => {
   sfx.ui();
   renderCodex();
+});
+
+/* ------------------------------------------------------------------ *
+ * L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées
+ *
+ * Demandé par Pierre : « tu cliques sur la carte et tu arrives sur une autre
+ * page avec des escaliers qui représentent chaque palier jusqu'à la maîtrise ».
+ *
+ * Ce que ça règle, et qui était mesuré : l'entraînement libre n'a PAS de but.
+ * On y meurt à la même difficulté à la première partie et à la centième, et
+ * 538 des 572 runs relevés y ont été joués — c'est-à-dire que le mode le plus
+ * pratiqué du jeu est celui qui ne mène nulle part.
+ *
+ * Toute la logique vit dans `game/escalier.ts`, pur et testé. Ici, on peint.
+ * ------------------------------------------------------------------ */
+
+/** La carte d'une règle, à la taille de l'escalier. */
+function ouvreEscalier(r: OneRule): void {
+  const s = P.load();
+  // Décision n°7 : une règle jamais rencontrée n'a rien à montrer, et sa
+  // montée dirait déjà ce qu'elle interdit.
+  if (!s.encountered[r.id]) return;
+  escalierRegle = r;
+  sfx.ui();
+  const e = P.escalierDe(s, r.id);
+  // On ouvre SUR le palier courant, jamais sur le premier : c'est la marche
+  // qu'on vient chercher. Au sommet, on ouvre sur la dernière.
+  palierVu = Math.min(ESC.PALIER_SOMMET, e.palier + 1);
+  $("escBoite").classList.remove("est-detail");
+  renderEscalier();
+  show("escalier");
+  escVersIci();
+}
+
+function renderEscalier(): void {
+  const r = escalierRegle;
+  if (!r) return;
+  const s = P.load();
+  const e = P.escalierDe(s, r.id);
+  const courant = ESC.palierCourant(e);
+
+  $("btnEscBackTxt").textContent = t("escRetour");
+  $("escOu").textContent = `${nomDeRegle(r.id, r.name)} · ${t("escProgres")(
+    e.palier,
+    ESC.PALIER_SOMMET,
+  )}`;
+
+  $("escVue").innerHTML = carteVignette(r.id);
+
+  const vol = courant ? ESC.VOLEES.find((v) => v.id === courant.volee)! : ESC.VOLEES[3]!;
+  $("escVolee").textContent = t("escVolee")(
+    vol.n,
+    t("escVoleeNom")(vol.id),
+    t("allureTxt")(vol.allure),
+  );
+  // Ce que la PROCHAINE marche ajoute — pas ce que la dernière a ajouté : on
+  // regarde vers le haut. Au sommet, la montée n'ajoute plus rien.
+  $("escAjout").textContent = courant
+    ? (() => {
+        const a = ESC.ajoutDuPalier(courant.n);
+        return t("escAjout")(a.id, a.valeur);
+      })()
+    : t("escFiniNote");
+
+  // La jauge : une case par palier.
+  const jauge = $("escJauge");
+  jauge.innerHTML = "";
+  for (const pal of ESC.PALIERS) {
+    const li = document.createElement("li");
+    if (pal.n <= e.palier) li.className = "est-franchi";
+    else if (courant && pal.n === courant.n) li.className = "est-ici";
+    jauge.appendChild(li);
+  }
+  $("escVers").textContent = courant
+    ? t("escVersSommet")(courant.n, ESC.PALIER_SOMMET)
+    : t("escFini");
+
+  /*
+   * LA LISTE DESCEND — le sommet en haut, la première marche en bas.
+   *
+   * C'est un escalier : on le monte. L'intitulé d'une volée ouvre le groupe
+   * qu'il nomme, donc il se pose au-dessus de son palier LE PLUS HAUT, ce qui
+   * dans cet ordre veut dire avant lui.
+   */
+  const liste = $("escListe");
+  liste.innerHTML = "";
+  let ici: HTMLElement | null = null;
+  for (const pal of [...ESC.PALIERS].reverse()) {
+    const v = ESC.VOLEES.find((x) => x.id === pal.volee)!;
+    if (pal.n % 5 === 0) {
+      const tete = document.createElement("li");
+      tete.className = "esc__vol";
+      tete.innerHTML = `<span></span><span></span>`;
+      const sp = tete.querySelectorAll("span");
+      sp[0]!.innerHTML = "<b></b>";
+      sp[0]!.querySelector("b")!.textContent = t("escVolee")(
+        v.n,
+        t("escVoleeNom")(v.id),
+        t("allureTxt")(v.allure),
+      );
+      sp[1]!.textContent = t("escVoleeNote")(v.id);
+      liste.appendChild(tete);
+    }
+
+    const franchi = pal.n <= e.palier;
+    const estIci = !!courant && pal.n === courant.n;
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.className =
+      "esc__marche" +
+      (franchi ? " est-franchi" : "") +
+      (estIci ? " est-ici" : "") +
+      (pal.n === ESC.PALIER_SOMMET ? " est-sommet" : "");
+    /*
+     * ⚠️ ON NE PEUT PAS OUVRIR UN PALIER QU'ON N'A PAS ATTEINT.
+     *
+     * Pas par avarice : sa fiche dit ce qu'il ajoute, donc l'ouvrir montrerait
+     * d'un coup toute la progression à venir. C'est la même doctrine que le
+     * carnet (n°7) — on n'explique que ce qui a été rencontré.
+     */
+    b.disabled = !franchi && !estIci;
+    b.innerHTML = `<span class="esc__num"></span><span class="esc__nom"></span><span class="esc__cout"></span>`;
+    /*
+     * \u26a0\ufe0f LE NUM\u00c9RO RESTE, M\u00caME UNE FOIS LE PALIER FRANCHI.
+     *
+     * Premier essai : la coche REMPLA\u00c7AIT le num\u00e9ro. Relev\u00e9 \u00e0 l'\u00e9cran, la
+     * vol\u00e9e 1 devenait cinq lignes sans identit\u00e9 \u2014 or c'est par son num\u00e9ro
+     * qu'on d\u00e9signe un palier, \u00e0 soi comme \u00e0 quelqu'un d'autre, et c'est ce
+     * num\u00e9ro que le bouton REPRENDRE reprend. La coche s'ajoute donc \u00e0 la
+     * colonne de droite plut\u00f4t que d'effacer la gauche.
+     */
+    b.querySelector<HTMLElement>(".esc__num")!.textContent = String(pal.n).padStart(2, "0");
+    b.querySelector<HTMLElement>(".esc__nom")!.textContent = estIci
+      ? t("escTuEsIci")
+      : pal.n === ESC.PALIER_SOMMET
+        ? t("escSommet")
+        : pal.n === ESC.PALIER_MAITRISE
+          ? t("escMaitrisee")
+          : (() => {
+              /*
+               * ⚠️ UNE MARCHE QUI N'AJOUTE QUE DE LA DURÉE NE SE NOMME PAS.
+               *
+               * Relevé à l'écran : la volée 1 alignait trois marches portant
+               * mot pour mot « 2 manches de plus à tenir. ». Trois lignes
+               * identiques dans une liste se lisent comme un bug d'affichage,
+               * pas comme une progression — et elles répétaient de surcroît la
+               * colonne de droite, qui dit déjà « 10 MANCHES ».
+               *
+               * La phrase reste sur la FICHE du palier, où elle est le seul
+               * texte et où elle répond à « qu'est-ce qui change ? ». Ici, le
+               * chiffre est le contenu entier de la marche. La maquette ne les
+               * nomme pas non plus.
+               */
+              const a = ESC.ajoutDuPalier(pal.n);
+              return a.id === "duree" || a.id === "depart"
+                ? ""
+                : t("escAjout")(a.id, a.valeur);
+            })();
+    b.querySelector<HTMLElement>(".esc__cout")!.textContent =
+      estIci && e.meilleur > 0
+        ? `${e.meilleur} / ${pal.manches}`
+        : franchi
+          ? `✓ ${t("escManches")(pal.manches)}`
+          : t("escManches")(pal.manches);
+    b.addEventListener("click", () => {
+      palierVu = pal.n;
+      sfx.ui();
+      $("escBoite").classList.add("est-detail");
+      renderPalier();
+    });
+    li.appendChild(b);
+    liste.appendChild(li);
+    if (estIci) ici = b;
+  }
+
+  /*
+   * LE TOTAL EST CALCULÉ, JAMAIS ÉCRIT.
+   *
+   * La maquette annonce « 371 MANCHES » sous une colonne qui en fait 396 : elle
+   * se contredit, comme les documents de ce dépôt le font régulièrement (§2).
+   * Un total dérivé ne peut pas mentir, et il suit le jour où un palier change.
+   */
+  $("escTotal").innerHTML = `<span></span><span></span>`;
+  const tot = $("escTotal").querySelectorAll("span");
+  tot[0]!.textContent = t("escTotal");
+  tot[1]!.textContent = t("escTotalVal")(
+    ESC.totalManches(),
+    ESC.minutesDeMontee(windowMs),
+  );
+  $("escNote").textContent = t("escNote");
+
+  renderPalier();
+  /*
+   * ⚠️ ON AMÈNE LA MARCHE COURANTE EN VUE, ET **APRÈS** `show`.
+   *
+   * Mesuré : sans ça, l'écran s'ouvre sur le SOMMET — donc sur les douze
+   * marches qu'on ne peut pas encore jouer — et la marche courante est à
+   * 922 px dans une fenêtre de 812. La liste descend, c'est le prix de
+   * l'escalier ; l'amener en vue est ce qui le rend gratuit.
+   *
+   * Et le premier essai ne marchait pas : `renderEscalier` tourne pendant que
+   * `#escalier` porte encore `hidden`, et `scrollIntoView` sur un élément non
+   * affiché ne fait rien — silencieusement, comme toujours. `escVersIci`
+   * s'appelle donc depuis `ouvreEscalier`, une fois l'écran montré.
+   */
+  marcheIci = ici;
+}
+
+/** La marche « TU ES ICI » du dernier rendu, à amener en vue une fois affichée. */
+let marcheIci: HTMLElement | null = null;
+
+function escVersIci(): void {
+  marcheIci?.scrollIntoView({ block: "center" });
+}
+
+function renderPalier(): void {
+  const r = escalierRegle;
+  if (!r) return;
+  const s = P.load();
+  const e = P.escalierDe(s, r.id);
+  const pal = ESC.palierN(palierVu);
+  if (!pal) return;
+  const v = ESC.VOLEES.find((x) => x.id === pal.volee)!;
+  const franchi = pal.n <= e.palier;
+  const ajout = ESC.ajoutDuPalier(pal.n);
+
+  $("palVolee").textContent = t("escVolee")(v.n, t("escVoleeNom")(v.id), t("allureTxt")(v.allure));
+  $("palNom").textContent = t("escSurN")(pal.n, ESC.PALIER_SOMMET);
+  /*
+   * La jauge du palier ne dit quelque chose QUE sur celui qu'on joue :
+   * `meilleur` décrit le palier courant et lui seul (voir `fusionneEscalier`).
+   * L'afficher sur un palier franchi collerait un chiffre qui n'est pas le
+   * sien.
+   */
+  const enCours = !franchi && e.palier + 1 === pal.n;
+  $("palEssai").textContent = franchi
+    ? "\u2713"
+    : enCours && e.meilleur > 0
+      ? `${e.meilleur} / ${pal.manches}`
+      : t("escManches")(pal.manches);
+
+  $("palAjoutTitre").textContent = t("escAjoutTitre");
+  $("palAjout").textContent = t("escAjout")(ajout.id, ajout.valeur);
+
+  const chiffres = $("palChiffres");
+  chiffres.innerHTML = "";
+  for (const [label, valeur, danger] of [
+    [t("escTenir"), String(pal.manches), false],
+    [t("escAllure"), `\u00d7 ${t("allureTxt")(pal.allure)}`, false],
+    // ⚠️ Sans effet sur une règle qui ne piège pas : sept sur seize n'en posent
+    // aucun, et annoncer « 1 SUR 5 » à celles-là serait une promesse fausse.
+    [t("escPieges"), r.traps ? t("escPiegesVal")(pal.cadence) : t("escPiegesVal")(0), false],
+    [t("escMorts"), "0", true],
+  ] as const) {
+    const cel = document.createElement("div");
+    cel.className = "pal__cel";
+    cel.innerHTML = `<b class="pal__val"></b><span class="pal__lab"></span>`;
+    const b = cel.querySelector<HTMLElement>(".pal__val")!;
+    b.textContent = valeur;
+    if (danger) b.classList.add("est-danger");
+    cel.querySelector<HTMLElement>(".pal__lab")!.textContent = label;
+    chiffres.appendChild(cel);
+  }
+
+  $("palMeilleur").innerHTML = `<span></span><b></b>`;
+  const m = $("palMeilleur").querySelectorAll("span, b");
+  m[0]!.textContent = t("escMeilleurEssai");
+  m[1]!.textContent =
+    enCours && e.essais > 0 ? t("escMeilleurVal")(e.meilleur, e.essais) : t("escAucunEssai");
+
+  const go = $<HTMLButtonElement>("btnPalGo");
+  // Un palier franchi se rejoue — c'est un exercice, pas un jeton à consommer
+  // — mais le libellé ne promet plus de le franchir.
+  go.textContent = franchi || e.essais > 0 ? t("escReprendre")(pal.n) : t("escLancer");
+  /*
+   * ⚠️ UN BOUTON DIT CE QU'IL FAIT, JAMAIS UNE RÈGLE DU JEU.
+   *
+   * Premier essai : ce bouton portait « UN PALIER RATÉ SE REJOUE · TU NE
+   * REDESCENDS JAMAIS ». Une phrase de trente-neuf caractères sur un bouton
+   * fantôme, c'est-à-dire un avertissement déguisé en action — on ne sait plus
+   * si on le presse pour accepter quelque chose. La phrase est allée sous la
+   * montée, où elle répond à la vraie question ; le bouton, lui, revient.
+   */
+  $("btnPalBack").textContent = `\u25c2 ${t("escRetour")}`;
+}
+
+$("btnEscBack").addEventListener("click", () => {
+  sfx.ui();
+  // Sur téléphone, le détail est une VUE de cet écran : le retour revient
+  // d'abord à la montée, et seulement ensuite à la collection.
+  if ($("escBoite").classList.contains("est-detail")) {
+    $("escBoite").classList.remove("est-detail");
+    return;
+  }
+  renderCodex();
+});
+
+$("btnPalBack").addEventListener("click", () => {
+  sfx.ui();
+  $("escBoite").classList.remove("est-detail");
+});
+
+$("btnPalGo").addEventListener("click", () => {
+  if (!escalierRegle) return;
+  sfx.ui();
+  const id = escalierRegle.id;
+  const n = palierVu;
+  P.mutate((st) => {
+    // Le brief tire sa règle de `trainingRegle` : on la pose, comme le fait la
+    // fiche. L'allure, elle, ne passe PAS par `trainingPace` — c'est une
+    // préférence du joueur, et un palier ne doit pas la réécrire dans son dos.
+    st.trainingRegle = id;
+  });
+  palierDemande = n;
+  openBrief("training");
 });
 
 /* ------------------------------------------------------------------ *
@@ -2861,7 +3559,8 @@ function poseTemps(n: Temps): void {
   if (n === 1) {
     $("onbT1Nom").textContent = nomDeRegle(regle.id, regle.name);
     $("onbT1Brief").textContent = briefDeRegle(regle.id, regle.brief);
-    $("onbT1Embleme").innerHTML = emblemeSvg(emblemeDe(regle), { verrouille: false });
+    $("onbT1Embleme").innerHTML =
+      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
   }
   if (n === 2) {
     // Les deux consignes d'exemple sont COMPOSÉES comme celles du jeu : elles
@@ -2871,7 +3570,25 @@ function poseTemps(n: Temps): void {
   }
   if (n === 6) {
     $("onbT6Nom").textContent = nomDeRegle(regle.id, regle.name);
-    $("onbT6Embleme").innerHTML = emblemeSvg(emblemeDe(regle), { verrouille: false });
+    /*
+     * ⚠️ LA VRAIE CARTE, celle qu'il retrouvera dans sa collection.
+     *
+     * Cet écran montrait un embleme SVG genere — et c'etait le SEUL endroit du
+     * jeu a le faire. Les cinq autres surfaces qui montrent une carte (la
+     * collection, la fiche, la gouttiere de partie, « celle qui te resiste »,
+     * l'etat a mater) affichent l'image `/cartes/<id>.png`.
+     *
+     * Le joueur gagnait donc sa premiere carte sous une forme, et la retrouvait
+     * sous une autre au premier passage par la collection. C'est le moment
+     * precis ou l'on veut qu'il reconnaisse l'objet : le tutoriel existe pour
+     * raccorder l'arrivee a la collection, et il montrait autre chose qu'elle.
+     *
+     * `decoding="async"` et pas `loading="lazy"` : l'image est visible des que
+     * le temps s'ouvre, donc rien a differer — et une carte qui arrive apres
+     * coup est exactement le defaut qu'on vient de corriger sur la gouttiere.
+     */
+    $("onbT6Embleme").innerHTML =
+      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
     const vues = Object.keys(P.load().encountered).length;
     $("onbT6Compte").textContent = t("onbCompte")(Math.max(1, vues), ONE_RULES.length);
     $("onbT6Suite").textContent = t("onbSuite")(ONE_RULES.length - Math.max(1, vues));
@@ -3123,6 +3840,9 @@ function finishRun(): void {
   const { end, rule, mode } = session;
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
+  // Les VRAIES règles de la pile, avant que la session ne soit libérée.
+  const reglesTenues = session.reglesTenues;
+  palierDuDernierRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
   let avant: P.RuleRecord | undefined;
@@ -3150,20 +3870,114 @@ function finishRun(): void {
      * qu'on a acquis.
      */
     avant = st.encountered[rule.id] ? { ...st.encountered[rule.id]! } : undefined;
-    st.encountered[rule.id] = P.majCarnet(
-      st.encountered[rule.id],
-      end.score,
-      end.cleared,
-      end.trapsSurvived,
-      { allure: pace, ...lisRun(end.marks) },
-    );
-    st.recent = [...st.recent, end.score].slice(-5);
+    /*
+     * ⚠️ **UN RUN DE PALIER NOURRIT L'ESCALIER, JAMAIS CE QUI JUGE.**
+     *
+     * Une règle, une seule, et c'est celle qui rend le mode inoffensif : le
+     * palier écrit `best` et `pieges` — des faits — et rien d'autre. Il
+     * n'écrit ni `parAllure`, ni `serie`, ni `sansFaute` (les cases de
+     * l'échelle de maîtrise), ni `recent`, ni le moindre record.
+     *
+     * Pourquoi. Un palier n'est PAS un run d'entraînement : sa longueur est
+     * bornée, son allure est imposée, sa cadence de pièges est forcée, et
+     * jusqu'au palier 10 le jeu lui annonce ses pièges. Quinze manches tenues
+     * là ne prouvent pas ce que quinze manches tenues en entraînement libre
+     * prouvent — et « MAÎTRISÉE » deviendrait atteignable sur un échafaudage.
+     * C'est la décision n°14 : ce qui est opposable est rejoué, le reste ne
+     * doit jamais se confondre avec.
+     *
+     * Le passage de `run` à `undefined` suffit à tout suspendre d'un coup :
+     * `majCarnet` n'écrit ces quatre champs QUE s'il le reçoit. Un jour où un
+     * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
+     */
+    /*
+     * ⚠️ **L'ESCALADE N'ÉCRIT PAS SA COMPOSÉE AU CARNET.**
+     *
+     * `session.rule` y rend la composée de la pile, dont l'identifiant est
+     * « azur+pointe+voyelle+colosse ». Écrite telle quelle, elle créait une
+     * entrée FANTÔME : absente du catalogue, donc invisible dans la collection,
+     * mais bien comptée dans `Object.keys(s.encountered)` — le nombre de règles
+     * rencontrées, la jauge du compte, le seuil « ce joueur connaît le jeu » de
+     * l'accueil — et expédiée au compte, où elle occupait une place sur les 64
+     * que `api/moi.ts` accepte. Une seule partie d'escalade suffisait.
+     *
+     * Ce qu'un run d'escalade prouve VRAIMENT, c'est qu'on a rencontré chacune
+     * des règles tenues. On les inscrit donc une par une, sans rien d'autre :
+     * ni `best` — un score d'escalade se compte en RÈGLES tenues, pas en
+     * manches, et le poser sous une règle le rendrait incomparable au reste —
+     * ni les pièges, qu'on ne saurait pas attribuer entre quatre règles.
+     */
+    if (mode === "escalade") {
+      for (const r of reglesTenues) {
+        st.encountered[r.id] = P.majCarnet(st.encountered[r.id], 0, false, 0, undefined);
+      }
+    }
 
+    /*
+     * ⚠️ **LES COMPTEURS DE QUÊTES PASSENT AVANT TOUTE SORTIE DE MODE.**
+     *
+     * Rapporté : « j'ai déjoué des pièges mais ma to-do list ne s'est pas mise
+     * à jour dans l'escalade, alors que ça me le valide en entraînement ». Bug
+     * introduit au commit précédent : le retour anticipé de l'escalade — posé
+     * pour empêcher sa règle COMPOSÉE d'entrer au carnet — sautait du même coup
+     * les cinq `bump`, qui sont plus bas dans la fonction.
+     *
+     * Or ils ne dépendent d'aucun mode : un piège déjoué est un piège déjoué,
+     * une manche tenue est une manche tenue. Les remonter ici les met hors de
+     * portée du prochain `return` qu'on ajoutera — et il y en aura un.
+     */
     bump(st, "runs", 1);
     bump(st, "traps", end.trapsSurvived);
     bump(st, "rounds", end.score);
     bump(st, "best", end.score, "max");
     if (!end.usedKeyboard) bump(st, "noKey", end.score, "max");
+
+    const surPalier = palierEnCours !== null;
+    /*
+     * ⚠️ ET ON S'ARRÊTE LÀ POUR L'ESCALADE.
+     *
+     * Sans ce retour, la ligne d'en dessous réécrirait `st.encountered` sous
+     * l'identifiant de la COMPOSÉE, et le fantôme reviendrait par la porte
+     * qu'on vient de fermer. Le reste de la mutation — `recent`, les records
+     * d'entraînement — ne la concerne pas davantage : un score d'escalade se
+     * compte en RÈGLES tenues, pas en manches, et sa clé de comparabilité est
+     * `cleEscalade`, jamais celle d'une règle.
+     */
+    if (mode === "escalade") {
+      st.recent = [...st.recent, end.score].slice(-5);
+      P.inscritRecord(st, cleEscalade(), session!.paliers);
+      return;
+    }
+
+    /*
+     * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
+     *
+     * Elle se lisait après, sur l'entrée que `majCarnet` venait de rendre — ce
+     * qui marche tant que `majCarnet` recopie le champ, et rate en silence dès
+     * qu'il l'oublie. C'est exactement ce qui s'est produit, et le symptôme
+     * était « impossible d'aller au-delà de l'étape 2 ».
+     *
+     * `majCarnet` porte désormais le champ, donc les deux lectures donneraient
+     * le même résultat. On garde quand même celle-ci : elle ne DÉPEND plus de
+     * ce que fait la fonction d'à côté, et c'est la même précaution que la
+     * photo d'`avant` prise deux lignes plus haut.
+     */
+    const monteeAvant = st.encountered[rule.id]?.escalier ?? ESC.ESCALIER_VIERGE;
+    st.encountered[rule.id] = P.majCarnet(
+      st.encountered[rule.id],
+      end.score,
+      end.cleared,
+      end.trapsSurvived,
+      surPalier ? undefined : { allure: pace, ...lisRun(end.marks) },
+    );
+    if (surPalier) {
+      st.encountered[rule.id]!.escalier = ESC.majEscalier(monteeAvant, end.score);
+    } else {
+      // `recent` calibre la quête de performance et la médiane de l'écran de
+      // fin. Un palier plafonné à cinq manches la ferait mentir vers le bas,
+      // et un palier de cinquante vers le haut.
+      st.recent = [...st.recent, end.score].slice(-5);
+    }
 
     if (mode === "daily") {
       /*
@@ -3179,9 +3993,10 @@ function finishRun(): void {
        * même jour.
        */
       st.daily = P.majJour(st.daily, day, end.score, end.cleared);
-      // Venir compte, meme sans aller au bout : c'est la quete de PRESENCE.
-      bump(st, "dailyPlayed", 1, "max");
-      if (end.cleared) bump(st, "dailyCleared", 1, "max");
+      // AVOIR JOUÉ suffit à la quête de présence ; TERMINER reste un exploit et
+      // se compte à part. Voir la note de `game/quests.ts`.
+      bump(st, "dailyPlayed", 1);
+      if (end.cleared) bump(st, "dailyCleared", 1);
       // Idempotent par jour : `touchStreak` sort sans rien faire quand
       // `lastDay` est déjà aujourd'hui, donc trois essais ne triplent rien.
       P.touchStreak(st, day);
@@ -3200,8 +4015,11 @@ function finishRun(): void {
        * l'allure de référence — ne bougeait plus jamais. Il n'avait aucun
        * record, sur aucun écran.
        */
-      P.inscritRecord(st, cleEntrainement(pace), end.score);
-      if (pace === PACE_DEFAULT) {
+      // ⚠️ Un palier n'inscrit AUCUN record : il est plafonné, donc son score
+      // n'est pas un score mais une cible atteinte. Poser 50 comme record
+      // d'entraînement à × 0,8 comparerait deux épreuves différentes.
+      if (!surPalier) P.inscritRecord(st, cleEntrainement(pace), end.score);
+      if (pace === PACE_DEFAULT && !surPalier) {
         // Un record obtenu en DÉCOUVERTE ne se compare pas à un record obtenu
         // en RAPIDE. `bestTraining` reste l'allure de référence et rien
         // d'autre : trois écrans et la passerelle du compte en dépendent.
@@ -3224,16 +4042,37 @@ function finishRun(): void {
   if (mode === "daily" && !challenge) {
     enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
     /*
-     * ⚠️ ET ON REDEMANDE LE CLASSEMENT DES QUE LE SERVEUR A PRIS LE RUN.
-     *
-     * C'est l'evenement qui rend le cache faux, et c'est exactement celui
-     * qu'on ratait : le joueur venait de poser son score, l'accueil et le mur
-     * continuaient d'afficher l'etat d'avant.
-     *
-     * `force`, parce que la fraicheur de trente secondes n'a pas a s'appliquer
-     * ici : on SAIT que la table a change.
+     * Le run qui vient de finir a pu prendre la tête du classement : la valeur
+     * en mémoire n'est plus sûre, on la jette. Sans cela, l'accueil continuait
+     * d'annoncer le record d'avant — y compris quand c'est le joueur lui-même
+     * qui venait de le battre, ce qui est le pire moment pour se taire.
      */
-    void vide().then((r) => traiteEnvois(r));
+    oublieRecordDuJour();
+    /*
+     * ⚠️ **LE PODIUM SE REPEINT UNE FOIS LE SCORE PARTI, PAS AVANT.**
+     *
+     * Rapporté deux fois : « le record ne s'actualise pas dans le classement
+     * exactement au moment où je termine la run ». C'était une COURSE, et elle
+     * était perdue d'avance : `vide()` envoie la performance au serveur, et
+     * `renderPodium` allait lire `?a=top` dans la foulée — donc presque
+     * toujours AVANT que le POST n'ait abouti. L'écran de fin affichait le
+     * classement d'il y a une seconde, celui qui ne contient pas encore le run
+     * qu'on vient de faire.
+     *
+     * On attend donc l'envoi. `vide()` rend une promesse ; on la suit, et on ne
+     * repeint que si le joueur est encore sur cet écran-là.
+     *
+     * ⚠️ Un échec ne repeint rien, et c'est juste : hors ligne ou sans compte,
+     * le score n'est PAS au classement, et l'y afficher serait un mensonge que
+     * le prochain chargement démentirait.
+     *
+     * `traiteEnvois` dit un refus au joueur et force le rechargement du
+     * classement dès qu'un run est accepté.
+     */
+    void vide().then((r) => {
+      traiteEnvois(r);
+      if (screen === "over") renderPodium("daily");
+    });
   }
 
   /*
@@ -3301,57 +4140,118 @@ function finishRun(): void {
    * dessous, il n'est pas perdu.
    */
   const paliers = mode === "escalade" ? session.paliers : 0;
+  /*
+   * SUR UN PALIER, LE CHIFFRE SE LIT CONTRE SA CIBLE.
+   *
+   * « 11 » ne dit rien ; « 11 / 15 MANCHES » dit exactement ce qui manque, et
+   * « PALIER 8 FRANCHI » dit qu'on monte. C'est la seule chose que cet écran
+   * doit apprendre au joueur d'un palier — le reste (record, médiane) parle
+   * d'une autre épreuve.
+   */
+  const palFini = palierDuDernierRun;
   $("tally").textContent = String(mode === "escalade" ? paliers : end.score);
   $("tallyLabel").textContent =
     mode === "escalade"
       ? t("finReglesTenues")(paliers, end.score)
-      : end.cleared
-        ? t("finSansFaute")
-        : mode === "daily"
-          ? t("finSurTotal")(DAILY_LENGTH)
-          : t("finManchesTenues");
-  /*
-   * Situer le score, pas le juger. TON RECORD est le sien (cette epreuve),
-   * la mediane et le 201 sont des mesures GELEES — le 201 n'est PAS un
-   * record du jour, et l'etiquette ne le dit pas.
-   */
-  const comparables = mode !== "ranked" && !challenge && !battu;
-  $("overComp").classList.toggle("hidden", !comparables);
-  if (comparables) {
-    const sien =
-      mode === "daily" ? s.daily.score : (s.encountered[rule.id]?.best ?? end.score);
-    $("overCompRecord").textContent = t("overCompRecord")(sien);
-    $("overCompMediane").textContent = t("overCompMediane")(MEDIANE_CONNUE);
-    $("overCompAbsolu").textContent = t("overCompAbsolu")(MEILLEUR_CONNU.score);
-  }
-  $("overRecord").classList.toggle("hidden", !battu);
-  $("overCarte").classList.toggle("hidden", !battu);
-  $("overManque").classList.toggle("hidden", !battu);
-  if (battu) {
-    $("overAncien").textContent = t("overAncien")(ancien);
-    $("overDelta").textContent = `+${end.score - ancien}`;
-    $("overCarteMode").textContent =
-      mode === "daily" ? t("piedDaily")(day) : t("modeTraining");
-    $("overCarteScore").textContent = String(end.score);
-    $("overCarteRegle").textContent = t("overCarteRegle")(
-      nomDeRegle(rule.id, rule.name),
-      end.trapsSurvived,
-    );
-    const manque = MEILLEUR_CONNU.score - end.score;
-    $("overManque").textContent = manque > 0 ? t("overManque")(manque) : t("overManquePas");
-    $("btnShare").textContent = t("finPartagerCarte");
-    $("btnShare").classList.add("btn--primary");
-    $("btnAgain").classList.remove("btn--primary");
-  } else {
-    $("btnShare").textContent = t("partager");
-    $("btnShare").classList.remove("btn--primary");
-    $("btnAgain").classList.add("btn--primary");
-  }
-  const quetesDuJour = viewQuests(s, day);
-  $("overChQuetes").textContent = `${quetesDuJour.filter((q) => q.claimed).length} / ${quetesDuJour.length}`;
-  $("overChSerie").textContent = t("cptEnJours")(s.streak.count);
-  $("overChCarnet").textContent = `${Object.keys(s.encountered).length} / ${ONE_RULES.length}`;
+      : palFini
+        ? end.cleared
+          ? t("escFranchi")(palFini.n)
+          : t("escRate")(end.score, palFini.manches)
+        : end.cleared
+          ? t("finSansFaute")
+          : mode === "daily"
+            ? t("finSurTotal")(DAILY_LENGTH)
+            : t("finManchesTenues");
   renderMarks($("marks"), end.marks);
+
+  /*
+   * LES TROIS REPERES — ce qui transforme un nombre en resultat.
+   *
+   * « 23 » ne dit rien tout seul : ni si c'est bien, ni si l'on progresse. La
+   * maquette le situe entre TON RECORD, TA MEDIANE et le MEILLEUR CONNU, et
+   * c'est le bon triptyque — le premier dit le progres, le second l'ordinaire,
+   * le troisieme l'horizon.
+   *
+   * ⚠️ Le record montre celui d'AVANT ce run, photographie au lancement
+   * (`recordAvantRun`) : afficher celui d'apres reviendrait, quand on vient de
+   * le battre, a se comparer a soi-meme et a n'annoncer aucun progres.
+   *
+   * La mediane vient des cinq derniers runs — `recent`, deja tenu pour la quete
+   * de performance. Elle se tait sous trois runs : une mediane sur deux valeurs
+   * n'est pas une mediane, c'est la moyenne de deux hasards.
+   */
+  const recents = s.recent;
+  const triees = [...recents].sort((a, b) => a - b);
+  const mediane = triees.length >= 3 ? triees[Math.floor(triees.length / 2)]! : null;
+  const morceaux: string[] = [];
+  /*
+   * ⚠️ Chaque repere se TAIT quand il n'a rien a dire.
+   *
+   * « TON RECORD · 0 » a un joueur qui n'a pas encore de record ne le situe
+   * pas : il lui apprend qu'il part de zero, au moment precis ou il vient de
+   * jouer. Meme raison pour la mediane sous trois runs. Le meilleur connu,
+   * lui, existe toujours — c'est l'horizon, pas une donnee personnelle.
+   */
+  /*
+   * L'EXPLOIT — et le repère qu'il REMPLACE.
+   *
+   * Un run qui bat le record ne doit pas afficher « TON RECORD · 23 » sous
+   * « TU AS BATTU TON RECORD » : les deux lignes se contredisent à un
+   * centimètre d'intervalle, et la seconde a déjà dit le chiffre. Le bandeau
+   * prend donc la place du repère plutôt que de s'y ajouter.
+   *
+   * ⚠️ Trois modes n'ont PAS de record personnel à battre, et aucun pour la
+   * même raison — voir `render/exploit.ts`. Le calcul est là-bas, pur et
+   * testé ; ici on ne fait que peindre ce qu'il décide.
+   */
+  const comparable =
+    mode !== "daily" && palFini === undefined && !challenge && mode !== "ranked";
+  const exploit = exploitDuRun(end.score, recordAvantRun, comparable);
+  const boiteEx = $("exploit");
+  boiteEx.classList.toggle("hidden", exploit.id === "rien");
+  if (exploit.id !== "rien") {
+    $("exploitTitre").textContent =
+      exploit.id === "record" ? t("finRecordTitre") : t("finEgaleTitre");
+    $("exploitAncien").textContent = t("finRecordAncien")(exploit.ancien);
+    // Vide sur un record ÉGALÉ : « +0 » se lirait comme un progrès nul, alors
+    // que refaire son meilleur score n'en est pas un et n'est pas un échec.
+    $("exploitAvance").textContent =
+      exploit.avance > 0 ? t("finRecordAvance")(exploit.avance) : "";
+  }
+
+  if (recordAvantRun > 0 && exploit.id === "rien") {
+    morceaux.push(t("finReperRecord")(recordAvantRun));
+  }
+  if (mediane !== null) morceaux.push(t("finReperMediane")(mediane));
+  morceaux.push(t("finReperMeilleur")(MEILLEUR_CONNU.score));
+  $("reperes").textContent = morceaux.join(" · ");
+  // La carte de partage reprend l'écart : elle n'a pas à le recalculer, deux
+  // jugements finiraient par diverger.
+  avanceDuRun = exploit.avance;
+
+  /*
+   * LA LEGENDE DE LA FRISE.
+   *
+   * La frise etait la seule surface du jeu a ne dire son affaire QUE par la
+   * teinte — le mode motifs lui avait deja donne des silhouettes, mais rien ne
+   * disait ce que chacune veut dire. On la nomme, avec la meme silhouette que
+   * la frise juste au-dessus.
+   *
+   * Seules les marques PRESENTES sont legendees : une legende qui annonce une
+   * chute sur un run sans faute decrit un autre run que celui qu'on vient de
+   * jouer.
+   */
+  const vues = new Set(end.marks);
+  const leg: string[] = [];
+  for (const [m, cle] of [
+    ["🟩", "finLegTenue"],
+    ["🟦", "finLegPiege"],
+    ["🟨", "finLegFaute"],
+    ["🟥", "finLegChute"],
+  ] as const) {
+    if (vues.has(m)) leg.push(`${SILHOUETTE[m]!.glyphe} ${t(cle)}`);
+  }
+  $("marksLegende").textContent = leg.join("   ");
 
   const reward = $("reward");
   reward.classList.toggle("hidden", gained <= 0);
@@ -3382,8 +4282,41 @@ function finishRun(): void {
     teaser.querySelector("b")!.textContent = nomDeRegle(demain.id, demain.name);
     teaser.classList.remove("hidden");
   } else {
-    teaser.innerHTML = `${t("serieEnCours")}<b></b>`;
-    teaser.querySelector("b")!.textContent = t("finJours")(s.streak.count);
+    /*
+     * La serie a sa TUILE (voir `bilan`) : la redire en phrase ferait deux
+     * lignes pour un chiffre, sur l'ecran le plus charge du jeu.
+     */
+    teaser.classList.add("hidden");
+  }
+
+  /*
+   * LE BILAN EN TROIS TUILES — quetes, serie, carnet.
+   *
+   * Les trois grandeurs qu'un run fait bouger en dehors du score, et les seules
+   * que le joueur suit d'une partie a l'autre. Elles etaient dispersees : les
+   * quetes en liste, la serie en phrase, le carnet nulle part — il fallait
+   * quitter l'ecran pour savoir ou l'on en etait de la collection.
+   *
+   * ⚠️ Des CHIFFRES, pas des barres : trois jauges cote a cote se comparent
+   * alors qu'elles ne mesurent pas la meme chose. « 5 / 16 » et « 4 J » ne
+   * vivent pas sur la meme echelle.
+   */
+  const quetes = viewQuests(s, day);
+  const quetesFaites = quetes.filter((q) => q.done).length;
+  const carnetVues = ONE_RULES.filter((r) => !!s.encountered[r.id]).length;
+  const bilan = $("bilan");
+  bilan.innerHTML = "";
+  for (const [valeur, libelle] of [
+    [`${quetesFaites}/${quetes.length}`, t("bilanQuetes")],
+    [t("finJours")(s.streak.count), t("bilanSerie")],
+    [`${carnetVues}/${ONE_RULES.length}`, t("bilanCarnet")],
+  ] as const) {
+    const cel = document.createElement("div");
+    cel.className = "bilan__cel";
+    cel.innerHTML = `<b class="bilan__val"></b><span class="bilan__lab"></span>`;
+    cel.querySelector<HTMLElement>(".bilan__val")!.textContent = valeur;
+    cel.querySelector<HTMLElement>(".bilan__lab")!.textContent = libelle;
+    bilan.appendChild(cel);
   }
 
   // Un duel se rejoue à volonté : c'est la même partie, la comparaison reste
@@ -3395,20 +4328,48 @@ function finishRun(): void {
    * demain juste après un run raté à quatre manches était la fin de partie la
    * plus fréquente du jeu, et la plus décourageante.
    */
+  /*
+   * CE QUE L'ÉCRAN PROPOSE — décidé une fois, dans `render/finactions.ts`.
+   *
+   * Cinq boutons s'affichaient en toutes circonstances, et seuls deux
+   * changeaient d'état. Après un palier, quatre n'avaient aucun sens et le
+   * cinquième portait un mot faux : « REJOUER » lançait le palier SUIVANT.
+   */
   const essaisRestants = mode === "daily" ? Math.max(0, DAILY_ESSAIS - P.essaisDuJour(s)) : 0;
-  $<HTMLButtonElement>("btnAgain").disabled =
-    mode === "daily" && !challenge && essaisRestants === 0;
-  $<HTMLButtonElement>("btnAgain").textContent =
-    mode === "ranked"
+  const suiteMontee = palFini
+    ? ESC.palierCourant(P.escalierDe(s, rule.id))
+    : undefined;
+  const actes = actionsDeFin({
+    mode,
+    duel: !!challenge,
+    surPalier: palFini !== undefined,
+    palierFranchi: end.cleared,
+    palierSuivant: suiteMontee !== undefined,
+    essaisRestants,
+    duelPossible: end.splits.length >= 3,
+  });
+
+  const again = $<HTMLButtonElement>("btnAgain");
+  again.disabled = actes.bloquee;
+  again.textContent =
+    actes.principale === "matchSuivant"
       ? t("goMatchSuivant")
-      : challenge
+      : actes.principale === "revanche"
         ? t("goRevanche")
-        : mode === "daily"
-          ? essaisRestants > 0
-            ? t("goRejouer")
-            : t("goReviensDemain")
-          : t("goRejouer");
-  $<HTMLButtonElement>("btnDuel").disabled = end.splits.length < 3;
+        : actes.principale === "suivant"
+          ? t("finPalierSuivant")(suiteMontee?.n ?? 0)
+          : actes.principale === "reprendre"
+            ? t("finPalierReprendre")(palFini?.n ?? 0)
+            : actes.principale === "demain"
+              ? t("goReviensDemain")
+              : t("goRejouer");
+
+  $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
+  $("btnVersEscalier").textContent = t("finVersEscalier");
+  $("btnShare").classList.toggle("hidden", !actes.partage);
+  $("btnShareCarte").classList.toggle("hidden", !actes.partage);
+  $("btnDuel").classList.toggle("hidden", !actes.duel);
+  $("btnShareCarte").textContent = t("finCarte");
 
   /*
    * L'invitation à enregistrer.
@@ -3421,10 +4382,38 @@ function finishRun(): void {
   // fait céder l'invitation au compte pour ce run-là.
   renderInvite(end.score, recordBattu, proposeMesure());
   renderPodium(mode);
-  const avance = peintAvance(rule, avant, s, pace, end.score);
+  /*
+   * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
+   *
+   * Les deux blocs décrivent l'échelle de maîtrise d'UNE règle. L'escalade en
+   * tient jusqu'à quatre : en désigner une serait arbitraire, et leur passer la
+   * composée revenait à afficher une carte qui n'existe pas — l'image morte
+   * rapportée au playtest. Ils se taisent, comme le podium se tait plutôt que
+   * de montrer un cadre vide.
+   */
+  const avance =
+    mode === "escalade"
+      ? { franchi: false, nom: "" }
+      : peintAvance(rule, avant, s, pace, end.score);
+  if (mode === "escalade") {
+    $("avance").classList.add("hidden");
+    $("decouverte").classList.add("hidden");
+  }
 
   hud.hideStamp();
   hud.setRule(null);
+  /*
+   * ⚠️ **LA MUSIQUE S'ARRÊTE AVEC LE RUN, PAS AVEC L'ÉCRAN.**
+   *
+   * Rapporté : « la musique dans le mode escalier continue même lorsque le
+   * palier est fini ». Elle ne s'arrêtait que dans `backHome()`, c'est-à-dire
+   * quand on QUITTE — donc elle courait sur tout l'écran de fin, et sur le
+   * suivant si l'on relançait. Le défaut se voit surtout sur un palier, qui se
+   * termine net à sa cible au lieu de s'achever sur une mort.
+   *
+   * Elle accompagne une partie ; il n'y a plus de partie.
+   */
+  musicApi.stop();
   show("over");
   if (avance.franchi) {
     montreMicro({
@@ -3539,9 +4528,38 @@ function peintPuces(s: Session): void {
 
 function objectifExercice(): number | null {
   if (!session || session.mode !== "training") return null;
+  // Un palier porte SON but, qui n'est pas celui de l'échelle de maîtrise.
+  if (palierEnCours !== null) return ESC.palierN(palierEnCours)?.manches ?? null;
   const choisie = P.load().trainingRegle;
   if (!choisie || session.rule.id !== choisie) return null;
   return MANCHES_MAITRISE;
+}
+
+/**
+ * LA VIGNETTE D'UNE CARTE — la même image que partout ailleurs.
+ *
+ * Cinq surfaces montrent déjà une carte (collection, fiche, gouttière, « celle
+ * qui te résiste », l'état à mater) et chacune écrivait sa propre balise. Une
+ * sixième et une septième arrivent avec l'écran de fin : autant écrire la
+ * forme une fois. Le jour où les cartes changent de dossier ou de dimensions,
+ * il n'y aura qu'un endroit à corriger.
+ */
+function carteVignette(ruleId: string): string {
+  /*
+   * ⚠️ UNE PILE D'ESCALADE N'A PAS DE CARTE — et elle en demandait une.
+   *
+   * Rapporté en playtest : « dans l'escalade, lorsqu'il y a le récap, les
+   * cartes qui s'affichent sont buguées à la fin ». `combineRules` fabrique
+   * l'identifiant de la composée en collant les autres avec des `+`, donc
+   * l'écran allait chercher `/cartes/azur+pointe+voyelle+colosse.png` : 404, et
+   * un rectangle mort à la place de l'illustration.
+   *
+   * On ne rend RIEN plutôt qu'une image cassée. Le bloc qui l'entoure a déjà
+   * son texte, et un cadre vide se lit comme un chargement raté — c'est
+   * exactement pourquoi le podium se tait quand il n'a rien à montrer.
+   */
+  if (!ONE_RULES.some((r) => r.id === ruleId)) return "";
+  return `<img class="vignette" src="/cartes/${ruleId}.png" width="64" height="64" alt="" decoding="async" />`;
 }
 
 function majGouttieres(): void {
@@ -3550,10 +4568,34 @@ function majGouttieres(): void {
     el.classList.add("hidden");
     return;
   }
-  el.classList.remove("hidden");
   const r = session.rule;
   const rec = P.load().encountered[r.id];
   const cases = echelleMaitrise(r, rec);
+
+  /*
+   * UNE CARTE PARFAITE N'A PLUS RIEN A DIRE — la gouttiere s'efface.
+   *
+   * Tout ce que porte cette colonne est une PROGRESSION : la jauge de
+   * maitrise, et la ligne « ce run fait avancer telle case ». Sur une carte
+   * parfaite les six cases sont franchies, `prochaineCase` ne rend rien, et la
+   * note tombe deja sur « rien a avancer » — on affichait donc une colonne
+   * entiere pour annoncer qu'elle ne sert a rien, a cote du terrain, pendant
+   * toute la partie.
+   *
+   * Demande en soiree, et c'est la bonne lecture : ce qui est acquis n'a plus
+   * besoin d'etre suivi. La carte reste consultable dans la collection, ou
+   * elle est justement montree comme parfaite.
+   *
+   * ⚠️ La colonne DROITE (les marques de ce run) disparait avec elle, et c'est
+   * assume : elle redit ce que le pied et l'ecran de fin portent deja, alors
+   * que la gauche etait la seule raison d'ouvrir cette bande.
+   */
+  if (etatCarte(franchies(cases)) === "parfaite") {
+    el.classList.add("hidden");
+    return;
+  }
+
+  el.classList.remove("hidden");
 
   $<HTMLImageElement>("goutImg").src = `/cartes/${r.id}.png`;
   $("goutNom").textContent = nomDeRegle(r.id, r.name);
@@ -3616,8 +4658,16 @@ function peintAvance(
   score: number,
 ): { franchi: boolean; nom: string } {
   const rec = apres.encountered[regle.id];
+  const echelle = echelleMaitrise(regle, rec);
   const casesAvant = franchies(echelleMaitrise(regle, avant));
-  const casesApres = franchies(echelleMaitrise(regle, rec));
+  const casesApres = franchies(echelle);
+  /*
+   * Le total vient de l'ECHELLE, jamais d'un 6 ecrit ici. Elle en produit six
+   * aujourd'hui ; le jour ou elle en produira dix — l'escalier de maitrise est
+   * au programme — cette jauge suivra sans qu'on y pense, et une jauge qui
+   * ment sur son propre total est pire que pas de jauge.
+   */
+  const totalCases = echelle.length;
 
   /*
    * UNE RÈGLE DÉCOUVERTE est un événement à part : c'est une carte de plus dans
@@ -3629,6 +4679,7 @@ function peintAvance(
   const vues = ONE_RULES.filter((r) => !!apres.encountered[r.id]).length;
   $("decouverte").classList.toggle("hidden", !neuve);
   if (neuve) {
+    $("decouverteCarte").innerHTML = carteVignette(regle.id);
     $("decouverteNom").textContent = nomDeRegle(regle.id, regle.name);
     $("decouverteNote").textContent = t("decouverteNote")(score, vues, ONE_RULES.length);
   }
@@ -3669,13 +4720,29 @@ function peintAvance(
   bloc.classList.toggle("is-franchi", montre && franchi);
   const nom = nomDeRegle(regle.id, regle.name);
   if (!montre) return { franchi: false, nom };
-  $<HTMLImageElement>("avanceImg").src = `/cartes/${regle.id}.png`;
-  const jaugeAv = $("avanceJauge");
-  jaugeAv.innerHTML = "";
-  for (let i = 0; i < 6; i++) {
-    const bar = document.createElement("i");
-    if (i < casesApres) bar.className = "is-on";
-    jaugeAv.appendChild(bar);
+  $("avanceCarte").innerHTML = carteVignette(regle.id);
+  /*
+   * LES SIX CASES, ET CELLES QUE CE RUN VIENT DE FAIRE TOMBER.
+   *
+   * Le bloc disait « MAÎTRISE 3 / 6 » en toutes lettres ; la maquette le montre.
+   * Une case NEUVE se distingue d'une case déjà acquise — c'est la seule chose
+   * que cet écran ait à célébrer, et un compteur qui passe de 2 à 3 ne la
+   * montre pas.
+   */
+  const jauge = $("avanceJauge");
+  jauge.innerHTML = "";
+  for (let i = 0; i < totalCases; i++) {
+    const c = document.createElement("i");
+    /*
+     * Trois etats, et une CLASSE pour chacun — pas deux classes et un implicite.
+     * Une case acquise et une case vide sont toutes deux « sans est-neuve » :
+     * les distinguer par leur rang en CSS (`nth-child`) marcherait aujourd'hui
+     * et se tromperait le jour ou l'echelle change de longueur.
+     */
+    if (i >= casesApres) c.className = "est-vide";
+    else if (i >= casesAvant) c.className = "est-neuve";
+    else c.className = "est-faite";
+    jauge.appendChild(c);
   }
   $("avanceRegle").textContent = franchi
     ? t(etatApres === "parfaite" ? "avanceParfaite" : "avanceMaitrisee")(nom)
@@ -3696,80 +4763,40 @@ $("btnAvanceTrain").addEventListener("click", () => {
 });
 
 /**
- * LE PIÈGE DÉJOUÉ — le seul retour de manche qui PARLE.
+ * LE PIÈGE DÉJOUÉ — DU SON ET UNE VIBRATION, PLUS UN PANNEAU.
  *
- * Une réussite ordinaire ne dit rien et n'arrête rien ; une mort révèle le
- * piège APRÈS, jamais pendant (décision n°5). Entre les deux, le piège déjoué
- * est le geste que le jeu existe pour apprendre — et la mesure dit pourquoi il
- * faut s'y arrêter : ouvrir le catalogue d'entraînement a fait tomber les morts
- * sur le piège de 42,9 % à 4,1 %, donc un joueur peut désormais en croiser très
- * peu. Chacun compte.
+ * Il y avait ici une annonce écrite : « TU N'AS RIEN FAIT · PIÈGE DÉJOUÉ », la
+ * consigne qui piégeait, et l'avancement de la carte. Elle a d'abord été
+ * déplacée hors du terrain parce qu'elle le recouvrait, puis retirée : demandé
+ * après essai, « juste un petit retour haptique suffit ».
  *
- * ⚠️ IL N'ARRÊTE RIEN. Le calque est hors flux et `pointer-events: none` : la
- * manche suivante s'ouvre normalement derrière, et il s'efface tout seul. Une
- * pause ici casserait le rythme au moment précis où le joueur vient de réussir.
+ * C'est le bon arbitrage, et il tient en une phrase : le joueur qui vient de
+ * NE RIEN FAIRE sait déjà pourquoi. Lui expliquer son propre geste au moment où
+ * la manche suivante s'ouvre, c'est occuper les deux secondes pendant
+ * lesquelles il doit lire autre chose. Le retour doit se sentir, pas se lire.
  *
- * ⚠️ IL FAIT AVANCER UNE CARTE À L'ÉCRAN. C'est le raccord entre le geste et la
- * collection : le compteur de pièges et la case de maîtrise bougent sous les
- * yeux du joueur, à l'instant où il les gagne.
+ * Restent trois canaux, tous instantanés et tous hors du chemin de lecture :
+ * `sfx.trapAvoided()` (le seul son de félicitation du jeu), le flash violet et
+ * la secousse du canvas, et cette vibration.
  */
-
-function montrePiegeDejoue(round: Round): void {
-  if (!session) return;
-  const r = session.rule;
-  /*
-   * La consigne d'ORIGINE, celle qui piégeait — composée dans la langue du
-   * joueur comme elle l'était à l'écran. C'est elle qu'il faut lui remettre
-   * sous les yeux : c'est ce qu'il vient de refuser d'exécuter.
-   */
-  $("piegePourquoi").textContent = t("piegePourquoi")(
-    composePhrase(round.phrase, round.text),
-    nomDeRegle(r.id, r.name),
-  );
-
-  /*
-   * Le compteur du CARNET plus ceux de ce run : le carnet n'est écrit qu'à la
-   * fin, donc l'afficher seul montrerait un chiffre en retard d'un run entier.
-   */
-  const rec = P.load().encountered[r.id];
-  const total = (rec?.pieges ?? 0) + session.trapsSurvived;
-  const projete = { ...(rec ?? { best: 0, cleared: false }), pieges: total };
-  $("piegeCarte").textContent = t("piegeCarte")(
-    nomDeRegle(r.id, r.name),
-    total,
-    franchies(echelleMaitrise(r, projete)),
-  );
-
-  /*
-   * ⚠️ UN TOAST, ET PLUS DISCRET QUE CELUI DE L'ECHAUFFEMENT.
-   *
-   * Rapporte par Pierre : « fais la meme chose pour le piege dejoue qui prend
-   * le centre de l'ecran, c'est desagreable, mais encore plus discret ».
-   *
-   * Le raisonnement est le meme que pour l'echauffement, en plus fort : ce
-   * retour tombe PENDANT une manche — et la manche suivante s'ouvre derriere
-   * lui, puisqu'il n'arrete rien. Un plein cadre au centre couvrait donc le
-   * terrain au moment ou la scene suivante se dessine. Le joueur venait de
-   * bien jouer et perdait l'ecran.
-   *
-   * Plus discret : une seule ligne, pas de seconde phrase. Ce qu'il faut dire
-   * tient dans « PIEGE DEJOUE » et le nom de la regle — la consigne qui
-   * piegeait, il vient de la lire, et sa carte l'attend sur l'ecran de fin.
-   */
-  montreToast(t("piegeDejoue"), $("piegeCarte").textContent ?? "", 1400);
-}
 
 /**
- * Efface l'annonce — tout changement d'écran passe par là.
+ * Vibration courte, si l'appareil sait le faire.
  *
- * Le calque `#piegefx` ne sert plus : le piège déjoué passe par le toast. On
- * le referme quand même, parce qu'un changement d'écran doit tout éteindre et
- * qu'une annonce oubliée à l'écran est exactement ce que `show()` existe pour
- * empêcher.
+ * ⚠️ Silencieuse en cas d'échec, et jamais conditionnée à autre chose que la
+ * présence de l'API : `navigator.vibrate` n'existe pas sur iOS et lève sur
+ * certains navigateurs de bureau quand la page n'a pas encore reçu de geste.
+ * Un retour d'agrément ne doit jamais pouvoir interrompre une manche.
+ *
+ * Deux impulsions brèves séparées d'une pause, comme les deux notes montantes
+ * du son : c'est le même événement, dit deux fois au même rythme.
  */
-function cachePiege(): void {
-  cacheToast();
-  $("piege").classList.add("hidden");
+function vibrePiegeDejoue(): void {
+  try {
+    navigator.vibrate?.([18, 40, 26]);
+  } catch {
+    /* appareil sans vibreur, ou geste utilisateur pas encore reçu */
+  }
 }
 
 function react(outcome: Outcome, comboBefore: number, manche: Round): void {
@@ -3796,7 +4823,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
-      montrePiegeDejoue(manche);
+      vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
       scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
@@ -3912,7 +4939,12 @@ window.addEventListener("keydown", (e) => {
   unlock();
 
   if (screen === "brief") {
-    if (e.key === " " || e.key === "Enter") startRun();
+    // Le clavier respecte l'état du bouton, comme R le fait pour `btnAgain` :
+    // sans cette garde, ESPACE relançait un run du jour dont les trois essais
+    // étaient consommés, en contournant le verrou posé sur COMMENCER.
+    if ((e.key === " " || e.key === "Enter") && !$<HTMLButtonElement>("btnGo").disabled) {
+      startRun();
+    }
     if (e.key === "Escape") backHome();
     return;
   }
@@ -3987,8 +5019,26 @@ window.visualViewport?.addEventListener("resize", () => {
   poseBarre();
 });
 syncField();
+/*
+ * ⚠️ QUITTER LA FENETRE RELACHE LA BARRE — et il faut le DIRE au run.
+ *
+ * On remettait le drapeau a faux sans envoyer d'action : la barre etait donc
+ * levee pour de bon, et comme aucun `keyup` ne surviendrait plus jamais, LA
+ * MAIN GAUCHE devenait inerte pour le reste du run. Meme trou que l'echauffement
+ * qui pardonnait, par un autre chemin.
+ *
+ * ⚠️ Ce n'est PAS la decision n°4 (« une coupure n'est pas une defaite ») : elle
+ * protege le joueur d'un incident RESEAU, pas de sa propre main. Changer
+ * d'onglet en pleine manche, c'est cesser de jouer — la manche serait perdue au
+ * chrono de toute facon. Et l'action part dans le journal, donc `verifyRun`
+ * juge exactement ce que l'ecran a montre.
+ */
 window.addEventListener("blur", () => {
+  const tenait = spaceDown;
   spaceDown = false;
+  if (!tenait) return;
+  if (session?.phase === "playing") send({ kind: "release", key: " " });
+  else if (multi.isPlayingMulti()) sendOrMulti({ kind: "release", key: " " });
 });
 
 /* ------------------------------------------------------------------ *
@@ -4103,8 +5153,49 @@ function replay(): void {
     startRun(false);
     return;
   }
-  if (pendingMode === "daily") return;
-  openBrief("training");
+  /*
+   * LE RUN DU JOUR SE REJOUE TANT QU'IL RESTE UN ESSAI.
+   *
+   * Rapporté du playtest : « le bouton pour rejouer qui bug en silence, par
+   * exemple sur la run du jour en solo ». C'était exact, et la faute était
+   * ici : cette ligne sortait sans rien faire.
+   *
+   * La cause est un ajout fait à moitié. Les trois essais quotidiens
+   * (`DAILY_ESSAIS`) ont rendu le bouton ACTIF tant qu'un essai demeure — il
+   * n'est désactivé qu'à zéro, et il affiche « REJOUER » — mais `replay()` a
+   * gardé le garde-fou de l'époque où le run du jour ne se jouait qu'une fois.
+   * Les deux moitiés se contredisaient : le bouton promettait, la fonction
+   * refusait, et rien ne le disait. Le pire des trois états — un refus muet se
+   * lit comme un jeu cassé, pas comme une règle.
+   *
+   * On repasse par l'annonce, comme l'entraînement et pour la même raison :
+   * enchaîner sans revoir sa règle unique était déjà un bug corrigé.
+   * `essaisDuJour` reste seul juge du droit à rejouer, et il est déjà appliqué
+   * sur le bouton — inutile de le redire ici, ce serait une seconde moitié de
+   * plus à tenir d'accord avec la première.
+   */
+  /*
+   * ⚠️ REJOUER SUR UN PALIER REPREND LA MONTÉE, PAS LE PALIER JOUÉ.
+   *
+   * On relit l'état APRÈS coup plutôt que de réutiliser `palierEnCours` : un
+   * palier qui vient d'être franchi doit enchaîner sur le SUIVANT, un palier
+   * raté doit se reprendre. Les deux cas se déduisent de la sauvegarde, et
+   * s'en déduire évite d'avoir à distinguer une victoire d'un échec ici — ce
+   * que `majEscalier` a déjà tranché une fois.
+   */
+  if (palierEnCours !== null && escalierRegle) {
+    const e = P.escalierDe(P.load(), escalierRegle.id);
+    const suite = ESC.palierCourant(e);
+    if (suite) {
+      palierDemande = suite.n;
+      openBrief("training");
+      return;
+    }
+    // Au sommet : il n'y a plus de palier à jouer, on rend la montée.
+    ouvreEscalier(escalierRegle);
+    return;
+  }
+  openBrief(pendingMode === "daily" ? "daily" : "training");
 }
 
 $("btnDaily").addEventListener("click", () => {
@@ -4148,6 +5239,47 @@ $("btnHome").addEventListener("click", () => backHome());
  *
  * L'accueil vend, la première partie enseigne.
  */
+
+/*
+ * ------------------------------------------------------------------
+ * OÙ LE VISITEUR S'ARRÊTE — le premier geste, et lui seul.
+ * ------------------------------------------------------------------
+ *
+ * Le chiffre qui domine toute la mesure : 74 % des nouveaux (118 sur 159)
+ * repartent sans lancer une seule partie, médiane 6 secondes, la moitié en
+ * moins de 5. On savait QUAND ils partaient, jamais D'OÙ — et « il n'a rien
+ * trouvé à cliquer » se répare à l'opposé de « il a cliqué et s'est ravisé ».
+ *
+ * ⚠️ UN SEUL événement par visite, le PREMIER. Un accueil qui rapporte chaque
+ * clic produit surtout du bruit de navigation, et la question posée ici tient
+ * en un geste : celui qui suit l'arrivée. Croisé avec `visit_end`, il dit si
+ * l'écran a échoué à proposer, ou à convaincre.
+ *
+ * Posé en CAPTURE sur `#home` : les boutons de l'accueil arrêtent leur clic
+ * (`stopPropagation` dans la faille), et une écoute en bouillonnement en
+ * manquerait une partie — c'est-à-dire précisément les portes du jeu.
+ */
+let premierClicFait = false;
+$("home").addEventListener(
+  "click",
+  (e) => {
+    if (premierClicFait) return;
+    premierClicFait = true;
+    const el = e.target as HTMLElement | null;
+    const cible = el?.closest<HTMLElement>("button,a,[role=button]");
+    track("accueil_premier_clic", {
+      // L'identifiant quand il existe, la classe sinon : un clic dans le vide
+      // est une information, pas une absence de donnée.
+      quoi: cible?.id || cible?.className.split(" ")[0] || "(vide)",
+      neuf: Object.keys(P.load().encountered).length === 0,
+      // Depuis combien de temps la page est ouverte : une hésitation de dix
+      // secondes et un clic immédiat ne se lisent pas pareil.
+      ms: Math.round(performance.now()),
+    });
+  },
+  true,
+);
+
 $("btnPlay").addEventListener("click", () => {
   sfx.ui();
   if (estNouveau()) {
@@ -4156,26 +5288,56 @@ $("btnPlay").addEventListener("click", () => {
   }
   openBrief("training");
 });
-$("btnSolo").addEventListener("click", () => {
+/* ------------------------------------------------------------------ *
+ * LA PROFONDEUR — les cinq portes du bas de l'accueil
+ *
+ * ⚠️ ELLES REMPLACENT LA FAILLE, ET C'EST UN ÉLARGISSEMENT. L'objet fendu
+ * n'offrait que SOLO et MULTI, et « SOLO » cachait derrière lui trois modes
+ * qu'un nouveau venu ne pouvait pas deviner — mesuré au playtest : 538 runs
+ * d'entraînement contre 13 du run du jour et 18 d'escalade. Les cinq modes se
+ * nomment désormais eux-mêmes.
+ *
+ * ⚠️ AUCUNE NE PORTE L'ACCENT. Elles viennent APRÈS le centre de gravité et
+ * n'ont pas le droit de lui disputer l'attention : PLAY reste la réponse par
+ * défaut, elles sont des détours qu'on prend en connaissance de cause.
+ * ------------------------------------------------------------------ */
+
+$("profJour").addEventListener("click", () => {
   sfx.ui();
-  if (estNouveau()) {
-    ouvreOnboarding();
-    return;
-  }
+  /*
+   * ⚠️ ELLE OUVRE L'ÉCRAN SOLO, PAS DIRECTEMENT L'ANNONCE.
+   *
+   * Deux raisons, et la seconde est un bug évité de justesse. D'abord ce que
+   * l'écran porte : combien d'essais il reste aujourd'hui, la série, les
+   * quêtes — tout ce qu'on veut savoir AVANT de brûler un des trois essais.
+   * Sauter au brief les cacherait au moment précis où ils comptent.
+   *
+   * Ensuite : depuis que l'accueil n'a plus de bouton SOLO, c'est la SEULE
+   * porte vers cet écran. Le faire sauter le rendait inatteignable — un écran
+   * entier orphelin, que seule son adresse `/solo` aurait encore ouvert.
+   */
   renderSolo();
   show("solo");
 });
-$("etatMater").addEventListener("click", () => {
-  // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
-  const r = ONE_RULES.find((x) => x.id === $("etatMater").dataset.regle);
-  if (r) ouvreFiche(r);
+
+$("profClassement").addEventListener("click", () => {
+  sfx.ui();
+  renderClassement();
+  show("classement");
 });
 
-$("btnButJour").addEventListener("click", () => {
+$("profEscalade").addEventListener("click", () => {
   sfx.ui();
-  // La carte parle du run du jour : elle y mène, jamais ailleurs.
-  openBrief("daily");
+  openBrief("escalade");
 });
+
+$("profCartes").addEventListener("click", () => {
+  sfx.ui();
+  renderCodex();
+});
+
+
+
 
 $("btnResteTravailler").addEventListener("click", () => {
   // La FICHE, pas l'exercice : elle dit ce qui manque, et c'est elle qui lance.
@@ -4376,7 +5538,7 @@ $("btnDuel").addEventListener("click", async () => {
   });
   const text = t("partageTexte")(lastRun.end.score, nomDeRegle(lastRun.rule.id, lastRun.rule.name), url);
   try {
-    if (navigator.share) await navigator.share({ text });
+    if (TOUCH_ONLY && navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     // Après le partage, jamais avant : un `navigator.share` annulé lève, et
     // compter l'intention comme un envoi gonflerait le haut de l'entonnoir
@@ -4388,6 +5550,151 @@ $("btnDuel").addEventListener("click", async () => {
   }
 });
 
+/* ------------------------------------------------------------------ *
+ * LA CARTE DE PARTAGE
+ *
+ * ⚠️ **LE PARTAGE TEXTE EST À 0 % SUR TROIS RELEVÉS ET 203 JOUEURS** — jour 2
+ * (14 joueurs), jour 3 (50), jours 238-245 (139). Le bouton existait à chaque
+ * fois. Ce n'est donc pas un creux : c'est une fonctionnalité que personne
+ * n'utilise, et la répéter plus fort ne changerait rien.
+ *
+ * L'hypothèse qu'on teste ici : ce qui manquait n'est pas le bouton mais
+ * l'OBJET. Trois lignes de texte et quatre carrés d'emoji, collés dans une
+ * conversation, ne se distinguent d'aucun autre message. Une image se
+ * reconnaît, et surtout elle porte l'adresse du jeu sur elle — ce que le texte
+ * ne faisait que sur le lien de DÉFI, jamais sur le partage de score.
+ *
+ * ⚠️ **LE BOUTON TEXTE RESTE.** Il coûte une ligne, il marche partout, et
+ * remplacer une chose à 0 % par une autre sans garder la première rendrait la
+ * comparaison impossible : `share` et `share_carte` sont deux événements, et
+ * c'est le rapport qui tranchera.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Fabrique l'image et la propose.
+ *
+ * Trois issues, dans cet ordre : le partage natif avec le FICHIER quand le
+ * navigateur l'accepte (le seul chemin qui envoie vraiment l'image), le
+ * téléchargement sinon, et un message honnête si même ça échoue. On ne retombe
+ * PAS sur le partage texte : le joueur a demandé une carte, lui envoyer trois
+ * lignes à la place serait un refus déguisé en succès.
+ */
+async function partageCarte(): Promise<void> {
+  if (!lastRun) return;
+  const btn = $<HTMLButtonElement>("btnShareCarte");
+  const rendre = (cle: "finCartePrete" | "finCarteRatee"): void => {
+    btn.textContent = t(cle);
+    setTimeout(() => (btn.textContent = t("finCarte")), 1800);
+  };
+
+  const { end, rule, mode } = lastRun;
+  const d = donneesCarte({
+    mode: mode === "escalade" || mode === "ranked" || mode === "daily" ? mode : "training",
+    jour: day,
+    regle: nomDeRegle(rule.id, rule.name),
+    score: end.score,
+    cleared: end.cleared,
+    marks: end.marks,
+    allure: P.load().trainingPace,
+    palier: palierDuDernierRun
+      ? { n: palierDuDernierRun.n, manches: palierDuDernierRun.manches }
+      : undefined,
+    avance: avanceDuRun,
+    url: location.protocol === "file:" ? "theonerule.party" : location.origin,
+  });
+
+  try {
+    /*
+     * ⚠️ ON ATTEND LES POLICES.
+     *
+     * Un canvas qui dessine avant que « Inter » et « JetBrains Mono » soient
+     * prêtes retombe sur la police système SANS ERREUR — l'image part, et elle
+     * est hors marque. C'est la même famille que les emoji écartés des
+     * pictogrammes de l'accueil : un rendu qui change d'un appareil à l'autre
+     * n'est pas un effet, c'est un bug.
+     */
+    await document.fonts?.ready;
+    const cvs = document.createElement("canvas");
+    dessineCarte(cvs, d);
+    const blob = await new Promise<Blob | null>((res) => cvs.toBlob(res, "image/png"));
+    if (!blob) {
+      rendre("finCarteRatee");
+      return;
+    }
+    const fichier = new File([blob], `the-one-rule-${end.score}.png`, { type: "image/png" });
+
+    /*
+     * ⚠️ **SUR ORDINATEUR, ON COPIE — ON N'OUVRE PAS LE PANNEAU DE WINDOWS.**
+     *
+     * Rapporté : « le bouton partager et carte à partager ouvrent des trucs sur
+     * Windows alors qu'il faut que ça soit juste copier-coller ». C'est exact et
+     * c'est le bon reproche : `navigator.share` ouvre la feuille système, qui
+     * demande de CHOISIR une application avant même de savoir ce qu'on partage.
+     * Sur un téléphone c'est le geste naturel — c'est comme ça qu'on envoie
+     * quoi que ce soit. Sur un ordinateur, c'est une boîte de dialogue de plus
+     * entre le joueur et son ami.
+     *
+     * Le partage natif est donc réservé au TACTILE. Ailleurs, l'image va dans
+     * le presse-papiers, et il n'y a plus qu'à coller.
+     */
+    if (TOUCH_ONLY && navigator.canShare?.({ files: [fichier] }) && navigator.share) {
+      await navigator.share({ files: [fichier], text: `${d.slogan} · ${d.url}` });
+      // Après coup, jamais avant : un partage annulé lève, et compter
+      // l'intention comme un envoi gonflerait exactement le chiffre qu'on
+      // cherche à lire.
+      track("share_carte", { mode, rule: rule.id, score: end.score, voie: "natif" });
+      rendre("finCartePrete");
+      return;
+    }
+
+    /*
+     * L'IMAGE DANS LE PRESSE-PAPIERS. `ClipboardItem` accepte un blob PNG, et
+     * c'est exactement ce que le joueur veut : coller dans une conversation.
+     *
+     * ⚠️ Le téléchargement reste le REPLI, pas le chemin normal : il n'est
+     * atteint que si le navigateur refuse l'écriture d'image (Firefox, ou une
+     * page sans interaction récente). Un fichier dans « Téléchargements » est
+     * mieux que rien, mais c'est un détour.
+     */
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      track("share_carte", { mode, rule: rule.id, score: end.score, voie: "presse-papiers" });
+      rendre("finCartePrete");
+      return;
+    } catch {
+      /* le navigateur refuse l'image : on tombe sur le fichier */
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fichier.name;
+    a.click();
+    // L'objet URL est retenu par le navigateur tant qu'on ne le révoque pas ;
+    // à 1080×1080 ça finit par peser sur un onglet qui reste ouvert.
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    track("share_carte", { mode, rule: rule.id, score: end.score, voie: "fichier" });
+    rendre("finCartePrete");
+  } catch {
+    /*
+     * Un partage ANNULÉ passe par ici comme un échec de rendu, et c'est
+     * volontairement indiscernable : dans les deux cas le joueur n'a rien
+     * envoyé, et lui afficher « CARTE IMPOSSIBLE » après une annulation
+     * volontaire est moins grave que de compter l'annulation comme un envoi.
+     */
+    rendre("finCarteRatee");
+  }
+}
+
+$("btnVersEscalier").addEventListener("click", () => {
+  if (!escalierRegle) return;
+  sfx.ui();
+  ouvreEscalier(escalierRegle);
+});
+
+$("btnShareCarte").addEventListener("click", () => {
+  sfx.ui();
+  void partageCarte();
+});
+
 $("btnShare").addEventListener("click", async () => {
   if (!lastRun) return;
   const { end, rule, mode } = lastRun;
@@ -4396,7 +5703,9 @@ $("btnShare").addEventListener("click", async () => {
   const tail = end.cleared ? t("partageTenu")(DAILY_LENGTH) : t("partageRompu")(end.score);
   const text = `${head}\n${nomDeRegle(rule.id, rule.name)}\n${marksToString(end.marks)}\n${tail}`;
   try {
-    if (navigator.share) await navigator.share({ text });
+    // Même règle que la carte : le panneau système sur téléphone, le
+    // presse-papiers partout ailleurs.
+    if (TOUCH_ONLY && navigator.share) await navigator.share({ text });
     else await navigator.clipboard.writeText(text);
     track("share", { mode, rule: rule.id, score: end.score });
     montreToast(t("toastLien"), text.split("\n")[0] ?? "");
@@ -4458,6 +5767,16 @@ const heatOf = (ratio: number, level: number): number =>
 function loop(now: number): void {
   requestAnimationFrame(loop);
 
+  /*
+   * La démo de l'accueil, et RIEN d'autre quand on y est.
+   *
+   * Elle est peinte par cette boucle plutôt que par la sienne : une
+   * application n'a qu'une horloge, et un décor ne doit jamais pouvoir
+   * disputer ses images au jeu. Le test `screen === "home"` suffit à la
+   * couper — l'accueil est en `display: none` dès qu'on joue.
+   */
+  if (screen === "home") imageAttract(now);
+
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.
   if (lecture) majLecture(now);
@@ -4490,6 +5809,12 @@ function loop(now: number): void {
         urgentDone = false;
         sfx.roundStart();
         majGouttieres();
+        /*
+         * Le compteur du bandeau, une fois par MANCHE et pas par image.
+         * `setPieges` ignore une valeur inchangee, donc rien n'est reecrit
+         * tant qu'aucun piege n'est tombe.
+         */
+        hud.setPieges(session.trapsSurvived);
         /*
          * L'EXERCICE EST VALIDÉ, et il se dit à l'instant où il tombe.
          *
@@ -4614,12 +5939,35 @@ function loop(now: number): void {
         window.innerWidth >= 900 && session.trapsSurvived > 0
           ? t("hudPieges")(session.trapsSurvived)
           : "";
+      /*
+       * L'ANNONCE DU PIÈGE — volées 2 et 3 basse de l'escalier, jamais ailleurs.
+       *
+       * ⚠️ Elle croise la décision n°5 (« le piège n'est révélé qu'après la
+       * mort »), et c'est délibéré : la justification complète est dans
+       * `game/escalier.ts`, § `Annonce`. En deux lignes — n°5 protège
+       * l'ÉPREUVE, et elle n'est levée sur aucun mode dont un résultat se
+       * compare ; l'escalier est un APPRENTISSAGE, et l'échafaudage est retiré
+       * au palier 11, soit avant le 15 qui déclare la maîtrise.
+       *
+       * ⚠️ ELLE PASSE DEVANT L'OBJECTIF, JAMAIS DEVANT L'ÉCHAUFFEMENT. Trois
+       * choses se disputent une seule case, et l'ordre n'est pas libre : « une
+       * erreur ne coûte rien » change ce qu'on risque, « ce tour est un
+       * piège » change ce qu'on fait, « il te reste 4 manches » ne change que
+       * ce qu'on espère.
+       */
+      const palRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
+      const annonce =
+        palRun !== undefined &&
+        session.round.trap &&
+        ESC.annonceIci(palRun.annonce, session.level);
       hud.setMeta(
         session.inGrace
           ? t("echauffement")
-          : cible !== null && session.level < cible
-            ? t("objectifReste")(cible - session.level)
-            : pieges,
+          : annonce
+            ? t("escAnnonce")
+            : cible !== null && session.level < cible
+              ? t("objectifReste")(cible - session.level)
+              : pieges,
       );
     }
   } else if (multi.isPlayingMulti()) {
@@ -4839,6 +6187,75 @@ async function demarreCompte(): Promise<void> {
 }
 
 renderHome();
+
+/*
+ * L'ADRESSE DÉCIDE DE L'ÉCRAN D'ARRIVÉE.
+ *
+ * ⚠️ Les écrans CONTEXTUELS retombent sur leur parent, et une adresse inconnue
+ * sur l'accueil — voir `route.ts`. Un salon sans code, une fiche sans règle ou
+ * un écran de fin sans run sont des cadres vides ; les montrer se lirait comme
+ * un chargement raté, et le joueur n'aurait rien à réparer.
+ *
+ * `replaceState` et non `pushState` : la première entrée de l'histoire doit
+ * être celle où l'on est, sinon le tout premier appui sur PRÉCÉDENT ferait
+ * sortir du site alors qu'on vient d'arriver.
+ */
+/**
+ * Ouvrir un écran depuis son ADRESSE.
+ *
+ * ⚠️ **`show()` NE SUFFIT PAS, ET C'ÉTAIT LE BUG.** Montrer un écran ne le
+ * PEINT pas : chaque bouton de la barre fait `renderX(); show("x")`, et le
+ * démarrage n'appelait que la seconde moitié. Arriver directement sur `/solo`
+ * ou `/cartes` donnait donc un écran aux données vides — un cadre qui a l'air
+ * cassé, ce qui est exactement ce que le repli sur le parent existe pour
+ * éviter.
+ *
+ * Cette table dit, pour chaque adresse ouvrable à froid, ce que fait le bouton
+ * correspondant. Les écrans absents d'ici ne sont pas adressables : `route.ts`
+ * les a déjà fait retomber sur leur parent avant qu'on arrive.
+ */
+function ouvreAdresse(id: EcranId): void {
+  switch (id) {
+    case "solo":
+      renderSolo();
+      show("solo");
+      return;
+    case "codex":
+      renderCodex();
+      return;
+    case "classement":
+      renderClassement();
+      show("classement");
+      return;
+    case "compte":
+      renderCompte();
+      return;
+    case "reglages":
+      renderReglages();
+      show("reglages");
+      return;
+    case "multi-join":
+      // Le multi a sa propre porte : elle décide seule entre l'écran du nom et
+      // celui du code, selon que le joueur s'est déjà nommé.
+      $("btnMulti").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      return;
+    default:
+      /*
+       * ⚠️ L'ACCUEIL PASSE QUAND MÊME PAR `show`, ET CE N'EST PAS REDONDANT.
+       *
+       * `renderHome()` a déjà peint son contenu — mais `show` est le seul
+       * endroit qui prévient le reste : la barre haute, la barre du bas, et
+       * surtout le MODE ATTRACT, qui ne démarre que là. Sans cet appel, on
+       * arrivait sur un accueil dont le champ ne tournait pas : canvas resté à
+       * sa taille intrinsèque de 300 × 150, consigne vide, aucune règle
+       * annoncée. Rien dans la console, parce que rien n'avait échoué — la
+       * démo n'avait simplement jamais été lancée.
+       */
+      show("home");
+      return;
+  }
+}
+
 /*
  * Et le multi PAR-DESSUS, une fois seulement.
  *
@@ -4891,7 +6308,36 @@ const invite = readInvite();
 // Un lien de défi ouvre directement l'annonce de la règle : celui qui clique
 // vient pour affronter quelqu'un, pas pour lire un menu.
 const incoming = readChallenge();
+/*
+ * PAR OÙ L'ON ENTRE — et l'ordre EST la priorité.
+ *
+ * ⚠️ **CETTE LIGNE ÉCRASAIT L'ADRESSE, ET C'ÉTAIT LE BUG RAPPORTÉ** : « quand
+ * je tape ma propre url vers une page du site elle me ramène directement à la
+ * page principale ». Le `else show("home")` date d'avant le routeur, quand le
+ * site n'avait qu'une seule adresse. Le bloc qui ouvre l'écran demandé
+ * s'exécutait plus haut dans le fichier — donc AVANT celui-ci — et se faisait
+ * piétiner à chaque chargement, en silence.
+ *
+ * Mesuré côté serveur pour écarter la piste : `/solo` répond bien 200, sert
+ * l'application, et le bundle déployé contient le routage. Le défaut était
+ * entièrement ici.
+ *
+ * Les trois entrées, dans l'ordre où elles priment :
+ *
+ *   1. un lien de DÉFI ouvre directement l'annonce de la règle — celui qui
+ *      clique vient affronter quelqu'un, pas lire un menu ;
+ *   2. un lien d'INVITATION ouvre le salon, pour la même raison ;
+ *   3. sinon, l'ADRESSE décide. Elle ne vient pas d'un lien reçu mais de ce que
+ *      le joueur a tapé ou mis en favori : c'est un choix, et il passe après un
+ *      lien qu'on lui a envoyé mais avant le réglage par défaut.
+ *
+ * ⚠️ `poseArrivee` dans TOUS les cas, y compris les deux premiers : la première
+ * entrée de l'histoire doit être celle où l'on est, sinon le premier appui sur
+ * PRÉCÉDENT fait sortir du site alors qu'on vient d'arriver.
+ */
+const arrivee = ecranAuChargement(location.pathname);
+poseArrivee(arrivee);
 if (incoming) loadChallenge(incoming);
 else if (invite && multi.available) multi.openFromInvite(invite);
-else show("home");
+else ouvreAdresse(arrivee);
 requestAnimationFrame(loop);

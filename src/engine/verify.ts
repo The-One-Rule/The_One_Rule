@@ -18,7 +18,7 @@ import { combineRules } from "./rules/combine";
 import { pileA, pileEscalade } from "./escalade";
 import { buildRound } from "./round";
 import { resolveAction, resolveTimeout } from "./resolve";
-import { DAILY_LENGTH, GRACE_ROUNDS } from "./difficulty";
+import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty";
 import type { Action, Entity, OneRule, Round, RoundProgress } from "./types";
 
 /** Une entrée journalisée. `t` est en ms depuis le début du run. */
@@ -240,7 +240,16 @@ export function verifyRun(claim: RunClaim): Verdict {
         };
       }
     } else if (res.outcome.kind === "death") {
-      if (level < grace) {
+      /*
+       * ⚠️ LA MEME LOI QUE `Session.die`, ET ELLE VIENT DU MEME ENDROIT.
+       *
+       * L'echauffement pardonne une mort — sauf une violation de MAINTIEN, qui
+       * decrit un etat et non un geste (voir `pardonnable`). Ecrire la
+       * condition ici plutot que de l'importer la ferait diverger du client, et
+       * le symptome serait un score refuse par le serveur alors que l'ecran
+       * venait de le valider : le seul defaut que ce depot tient pour fatal.
+       */
+      if (level < grace && pardonnable(regleA(level), action)) {
         level++;
         nextRound(next.t);
         continue;

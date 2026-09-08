@@ -32,6 +32,7 @@ export const EVENT_NAMES = [
   "run_end",
   "quest_complete",
   "share",
+  "share_carte",
   "duel_sent",
   "duel_opened",
   "invite_sent",
@@ -74,6 +75,51 @@ export const EVENT_NAMES = [
    * la route — journal incoherent, jour trop ancien, non enregistre.
    */
   "perf_refusee",
+  /*
+   * LE MULTIJOUEUR, QUI N'ÉTAIT PAS MESURÉ DU TOUT.
+   *
+   * Le trou s'est vu au playtest du jour 247 : douze joueurs, quinze runs solo
+   * dans le rapport, et une soirée en salon dont il ne restait AUCUNE trace.
+   * `invite_sent` disait qu'on avait invité, `run_start` ne parle que du solo,
+   * et entre les deux le mode le plus fragile du jeu — celui qui traverse le
+   * réseau, celui qu'on joue à plusieurs — était invisible. On ne pouvait donc
+   * ni compter les parties, ni voir où elles se perdaient.
+   *
+   * Les cinq crans se lisent séparément parce qu'ils échouent séparément : on
+   * ne crée pas de salon, on n'y entre pas, on ne le lance pas, on n'y survit
+   * pas, ou on le quitte en route.
+   */
+  "salon_cree",
+  "salon_rejoint",
+  "match_debut",
+  "match_fin",
+  /*
+   * ⚠️ LA PANNE ELLE-MÊME, MESURÉE.
+   *
+   * Une manche que le bundle ne sait pas reconstruire : c'est le freeze du jour
+   * 247, dont la cause est un décalage de versions entre le front et les
+   * salons, déployés séparément. Le correctif rend l'écran survivable ; cet
+   * événement rend la cause VISIBLE, parce qu'un joueur qui recharge ne
+   * rapportera jamais rien et que la panne serait à nouveau muette.
+   *
+   * C'est le seul événement du fichier qui mesure un défaut plutôt qu'un usage.
+   * Il a sa place ici pour cette raison précise : il est le seul témoin d'une
+   * panne qui ne laisse ni erreur ni trace côté serveur.
+   */
+  "multi_manche_illisible",
+  /*
+   * L'ACCUEIL — où le visiteur s'arrête.
+   *
+   * Le chiffre qui domine la mesure est que 74 % des nouveaux (118 sur 159)
+   * repartent sans lancer une seule partie, en 6 secondes de médiane. On savait
+   * QUAND ils partaient, jamais D'OÙ : aucun événement ne distinguait « il n'a
+   * rien trouvé à cliquer » de « il a cliqué et s'est ravisé ».
+   *
+   * Un seul événement, et seulement le PREMIER geste — le reste serait du bruit
+   * de navigation, et cette mesure doit rester lisible dans un rapport plutôt
+   * que complète.
+   */
+  "accueil_premier_clic",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

@@ -1,9 +1,10 @@
 import { dayIndex } from "./daily";
 import { langueDuNavigateur } from "../i18n";
 import { cleEntrainement } from "./perfs";
-import { PACE_DEFAULT } from "../engine/difficulty";
+import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
-import type { Agregats } from "../../shared/compte";
+import type { Agregats, EscalierEntree } from "../../shared/compte";
+import { ESCALIER_VIERGE, majEscalier } from "./escalier";
 
 const KEY = "oneRule.save.v1";
 
@@ -57,6 +58,15 @@ export interface RuleRecord {
    * synchro.
    */
   runs?: number;
+  /**
+   * L'ESCALIER de cette règle — vingt paliers, voir `game/escalier.ts`.
+   *
+   * ⚠️ Absent vaut « la montée n'a pas commencé », comme tout ce qui est arrivé
+   * après. Lire avec `escalierDe`, jamais directement : un joueur qui a déjà
+   * joué cent runs d'entraînement n'a aucun palier franchi, et c'est juste —
+   * ces runs n'avaient ni longueur, ni cadence, ni allure imposées.
+   */
+  escalier?: EscalierEntree;
 }
 
 export interface Save {
@@ -357,7 +367,34 @@ export function majCarnet(
    * gonflerait toutes les sauvegardes — et surtout la charge que `api/moi.ts`
    * fait transiter — pour ne rien dire de plus que leur absence.
    */
+  /*
+   * ⚠️ **CETTE FONCTION RECONSTRUIT L'ENTRÉE, ELLE NE LA COMPLÈTE PAS.**
+   *
+   * Tout champ du carnet qui n'est pas nommé ici est EFFACÉ à chaque run. Le
+   * §12 de CLAUDE.md nomme les trois bouts où un champ neuf doit être branché
+   * — `majCarnet`, `fusionne`, le nettoyage de `api/moi.ts` — et celui-ci est
+   * cité en premier parce que c'est le seul qui tourne à CHAQUE partie.
+   *
+   * ⚠️ **CE QUE ÇA A COÛTÉ.** `escalier` a été ajouté au carnet en ne branchant
+   * que les deux autres. Conséquence, rapportée en playtest le soir même :
+   * « impossible d'aller au-delà de l'étape 2, même en la réussissant ». Le
+   * mécanisme exact — un run de palier écrivait `majCarnet(...)`, qui rendait
+   * une entrée SANS escalier ; la ligne suivante relisait cette entrée pour y
+   * trouver la montée, tombait sur « pas commencée », et repartait du palier 1.
+   * Le joueur voyait pourtant « PALIER 2 FRANCHI » à l'écran, parce que ce
+   * libellé vient du palier JOUÉ et non de l'état enregistré : le jeu
+   * annonçait une victoire qu'il venait d'effacer.
+   *
+   * Et ça mordait bien au-delà de l'escalier : n'importe quel run
+   * d'entraînement ou du jour passe ici, donc jouer QUOI QUE CE SOIT détruisait
+   * la montée. `tests/carnet-voyage.test.ts` ne l'a pas vu — il éprouve le
+   * voyage entre deux appareils, pas le chemin d'un run. D'où
+   * `tests/majcarnet.test.ts`, qui exige qu'aucun champ ne se perde ICI.
+   */
   return {
+    // Ce que ce run ne concerne pas voyage tel quel. En premier, donc écrasé
+    // par tout ce que la fonction calcule vraiment juste en dessous.
+    ...(prev ?? {}),
     best: Math.max(prev?.best ?? 0, score),
     cleared: (prev?.cleared ?? false) || cleared,
     pieges: (prev?.pieges ?? 0) + pieges,
@@ -366,6 +403,43 @@ export function majCarnet(
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
   };
+}
+
+/**
+ * Où en est la montée d'une règle. Absent vaut « pas commencée ».
+ *
+ * Un accesseur plutôt qu'un `?? ESCALIER_VIERGE` recopié partout : c'est la
+ * même précaution que `essaisDuJour`, et pour la même raison — le repli d'un
+ * champ arrivé après coup doit être écrit à un seul endroit.
+ */
+export const escalierDe = (s: Save, ruleId: string): EscalierEntree =>
+  s.encountered[ruleId]?.escalier ?? ESCALIER_VIERGE;
+
+/**
+ * Ce qu'un essai de palier laisse derrière lui.
+ *
+ * ⚠️ ÉCRIT À PART DE `majCarnet`, ET C'EST DÉLIBÉRÉ. Un run de palier n'est pas
+ * un run d'entraînement : sa longueur est bornée, son allure est imposée et sa
+ * cadence de pièges est forcée. Le laisser remplir `parAllure` — donc les
+ * cases de l'échelle de maîtrise — rendrait « MAÎTRISÉE » atteignable en
+ * quinze manches à un palier qui annonce ses pièges. Ce qui se compare ne se
+ * gagne pas sur un échafaudage (décision n°14).
+ *
+ * Ce qu'un palier écrit malgré tout au carnet : les PIÈGES déjoués, qui sont
+ * des faits, et la rencontre de la règle. Rien d'autre.
+ */
+export function majEscalierDe(ruleId: string, manches: number, pieges: number): Save {
+  return mutate((s) => {
+    const prev = s.encountered[ruleId];
+    const apres = majEscalier(prev?.escalier ?? ESCALIER_VIERGE, manches);
+    s.encountered[ruleId] = {
+      ...prev,
+      best: prev?.best ?? 0,
+      cleared: prev?.cleared ?? false,
+      pieges: (prev?.pieges ?? 0) + pieges,
+      escalier: apres,
+    };
+  });
 }
 
 export function recordRun(
@@ -422,7 +496,20 @@ export function majJour(
     played: true,
     score: Math.max(memeJour ? avant.score : 0, score),
     cleared: (memeJour && avant.cleared) || cleared,
-    essais: (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    /*
+     * PLAFONNE. Le compteur montait sans borne — releve a 6 sur une journee
+     * qui en autorise 3, en empruntant un chemin de lancement qui a depuis ete
+     * ferme. Un compteur qui depasse sa propre limite rend tout ce qui en
+     * derive faux : « essais restants » passe negatif avant d'etre borne
+     * ailleurs, et l'etat de la journee cesse de se deduire du chiffre.
+     *
+     * Le plafond ne remplace pas le verrou de lancement, il le double : l'un
+     * empeche de jouer, l'autre empeche d'ecrire un etat impossible.
+     */
+    essais: Math.min(
+      DAILY_ESSAIS,
+      (memeJour ? essaisDuJour({ daily: avant } as Save) : 0) + 1,
+    ),
   };
 }
 
@@ -456,6 +543,21 @@ export function agregatsDe(s: Save): Agregats {
     carnet: { ...s.encountered },
     serie: { count: s.streak.count, lastDay: s.streak.lastDay },
     records,
+    /*
+     * ⚠️ LE RUN DU JOUR MONTE AUSSI — il ne montait NULLE PART.
+     *
+     * `s.daily` restait strictement local à l'appareil : la fiche du compte
+     * lisait `s.daily.score`, donc changer de téléphone remettait le run du
+     * jour à rien. Et le compteur `essais` avec lui, ce qui donnait SIX
+     * tentatives à qui possède deux appareils, sur le seul mode dont les
+     * résultats se comparent entre joueurs.
+     */
+    jour: {
+      jour: s.daily.day,
+      score: s.daily.score,
+      cleared: s.daily.cleared,
+      essais: essaisDuJour(s),
+    },
   };
 }
 
@@ -472,6 +574,24 @@ export function appliqueAgregats(s: Save, a: Agregats): void {
   s.streak.count = fusionnes.serie.count;
   s.streak.lastDay = fusionnes.serie.lastDay;
   s.records = fusionnes.records;
+  /*
+   * ⚠️ ON NE REDESCEND QUE LA JOURNÉE EN COURS.
+   *
+   * `fusionneJour` a déjà tranché entre les deux dates ; si celle qui gagne
+   * n'est pas celle de cet appareil, l'écrire écraserait la sienne par une
+   * autre — c'est-à-dire poser le score d'un autre jour sur la graine
+   * d'aujourd'hui. `ensureDay` remettra les compteurs à zéro à l'ouverture,
+   * mais il ne doit pas avoir à réparer ce qu'on vient d'écrire.
+   */
+  if (fusionnes.jour && fusionnes.jour.jour === s.daily.day) {
+    s.daily = {
+      day: s.daily.day,
+      played: fusionnes.jour.essais > 0 || s.daily.played,
+      score: Math.max(s.daily.score, fusionnes.jour.score),
+      cleared: s.daily.cleared || fusionnes.jour.cleared,
+      essais: Math.max(essaisDuJour(s), fusionnes.jour.essais),
+    };
+  }
   s.bestTraining = Math.max(
     s.bestTraining,
     fusionnes.records[cleEntrainement(PACE_DEFAULT)] ?? 0,

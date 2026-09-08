@@ -41,6 +41,7 @@ export const ALLOWED = new Set([
   "run_end",
   "quest_complete",
   "share",
+  "share_carte",
   "duel_sent",
   "duel_opened",
   "invite_sent",
@@ -55,6 +56,14 @@ export const ALLOWED = new Set([
   // Un run du jour refuse par la route des performances. Voir `traiteEnvois` :
   // sans lui, une perte de score serait invisible cote mesure.
   "perf_refusee",
+  // Le multijoueur, qui n'était pas mesuré du tout — voir `EVENT_NAMES`.
+  "salon_cree",
+  "salon_rejoint",
+  "match_debut",
+  "match_fin",
+  "multi_manche_illisible",
+  // Où le visiteur s'arrête sur l'accueil.
+  "accueil_premier_clic",
 ]);
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */
