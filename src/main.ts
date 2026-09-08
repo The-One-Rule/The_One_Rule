@@ -4407,7 +4407,7 @@ function loop(now: number): void {
       // L'œil apprend le même seuil que l'oreille, au même instant.
       setHeat(heatOf(ratio, session.level), ratio > CRITICAL_RATIO && aJouer);
       hud.updateRound(session.round, session.elapsed(now), session.ratio(now));
-      musicApi.level(session.level);
+      musicApi.level(session.level, session.pace);
       if (challenge) updateGhost(session.runTime(now), session.level);
       /*
        * LE PIED DIT LE DEPASSEMENT DE RECORD, EN DIRECT.

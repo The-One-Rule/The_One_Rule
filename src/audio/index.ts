@@ -210,9 +210,38 @@ class Music {
    *   - l'arpège double sa cadence dans le dernier tiers : à niveau élevé
    *     il ne joue plus seulement plus vite, il joue plus DENSE
    */
-  setLevel(level: number): void {
-    this.targetBpm = Math.min(176, 91 + level * 2.55);
-    this.intensity = Math.min(1, level / 20);
+  /**
+   * ⚠️ L'ALLURE ENTRE DANS LE CALCUL, et sans elle la musique MENTAIT.
+   *
+   * Le tempo ne suivait que le numero de manche. Or l'allure multiplie la
+   * duree de chaque manche : a DEBUT (2.0) la fenetre de la manche 20 fait
+   * 1848 ms, pres du double des 924 ms de NORMAL — et la musique jouait
+   * pourtant exactement le meme tempo. Elle courait donc devant un jeu calme,
+   * ce qui est le contraire de ce qu'elle est censee faire : dire, a
+   * l'oreille, combien de temps il reste.
+   *
+   * Depuis que DEBUT est l'allure PAR DEFAUT d'un joueur neuf, c'est le cas
+   * le plus frequent du jeu, pas un cas de bord.
+   *
+   * Un tempo est une duree : il se divise donc par l'allure, exactement comme
+   * la fenetre se multiplie par elle. A DEBUT la musique tourne a moitie
+   * vitesse, a RAPIDE elle sature plus tot.
+   *
+   * ⚠️ A `PACE_DEFAULT`, RIEN NE CHANGE — la division par 1 est l'identite, et
+   * c'est voulu : ce reglage-la a ete cale a l'oreille, et il reste la
+   * reference contre laquelle les autres se placent.
+   *
+   * Le plancher a 64 evite qu'une allure tres lente ne rende le pouls
+   * inaudible ; le plafond a 176 est celui d'avant.
+   */
+  setLevel(level: number, allure = 1): void {
+    const a = allure > 0 ? allure : 1;
+    this.targetBpm = Math.max(64, Math.min(176, (91 + level * 2.55) / a));
+    // Les COUCHES s'ouvrent au meme rythme relatif : vingt manches a l'allure
+    // de reference, quarante a DEBUT, seize a RAPIDE. Sans ca, un debutant
+    // atteignait la dissonance finale alors qu'il a encore deux secondes par
+    // manche.
+    this.intensity = Math.min(1, level / (20 * a));
     this.arpDiv = this.intensity > 0.8 ? 1 : 2;
   }
 
@@ -288,8 +317,8 @@ export const musicApi = {
   start(): void {
     if (musicOn) music.start();
   },
-  level(n: number): void {
-    music.setLevel(n);
+  level(n: number, allure = 1): void {
+    music.setLevel(n, allure);
   },
   /** Ambiance salon : basse intensité, entre manches et hors run. */
   lobby(): void {
