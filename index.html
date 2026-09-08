@@ -165,6 +165,22 @@
              Purement decoratives et hors flux : elles ne rognent pas le champ. -->
         <span class="equerres" aria-hidden="true"></span>
 
+        <!-- HUD COOP, HORS FLUX.
+             Vie commune + score de groupe. Absolu dans `#stage` : `#cv` ne
+             bouge pas. `pointer-events: none` — le canvas reste la seule
+             cible. Les libellés portent `data-i18n` ; les valeurs sont des
+             feuilles sans enfants. -->
+        <div id="coophud" class="coophud hidden" aria-hidden="true">
+          <p class="coophud__ligne">
+            <span data-i18n="coop.vies">LIVES</span>
+            <span id="coopViesVal" class="coophud__val">0</span>
+          </p>
+          <p class="coophud__ligne">
+            <span data-i18n="coop.score">SCORE</span>
+            <span id="coopScoreVal" class="coophud__val">0</span>
+          </p>
+        </div>
+
         <!-- L'AIDE DU TUTORIEL, HORS FLUX.
              Posée en absolu par-dessus la scène, jamais dans le flux : tout ce
              qui grossit le bandeau ou le pied rogne le champ, et la taille du

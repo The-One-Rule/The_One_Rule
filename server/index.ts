@@ -21,12 +21,14 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { MatchLogic, MULTI_RULES } from "./match";
+import { MatchCoop } from "./coop";
 import {
   fautSignalerActe,
   IMPOSTEUR_MAX_ASIS,
   peutLancerImposteur,
 } from "../src/engine/imposteur";
 import type { IssueVote } from "../src/engine/imposteur";
+import { COOP_MAX_ASIS, peutLancerCoop } from "../src/engine/coop";
 import { originAllowed, parseOrigins } from "./origin";
 import { verifieJeton } from "./jeton";
 import { cleanEnv } from "../src/env";
@@ -136,6 +138,8 @@ interface Room {
   clients: Map<string, Client>;
   hostId: string;
   match: MatchLogic | null;
+  /** Chemin SÉPARÉ : `MatchLogic.input` fige le siège, le coop ne le peut pas. */
+  coop: MatchCoop | null;
   settings: import("../shared/protocol").RoomSettings;
   /** départ de la manche courante, horloge serveur */
   roundStartAt: number;
@@ -223,17 +227,31 @@ function parseGlyph(raw: unknown, fallbackId: string): Glyph {
   return glyphFor(fallbackId);
 }
 
+function enPartie(room: Room): boolean {
+  return room.match !== null || room.coop !== null;
+}
+
 function publicPlayers(room: Room): PlayerPublic[] {
-  const idx = room.match ? Math.max(0, room.match.roundIdx) : 0;
-  const rules = room.match ? room.match.reglesPubliques(idx) : null;
+  const idx = room.match
+    ? Math.max(0, room.match.roundIdx)
+    : room.coop
+      ? Math.max(0, room.coop.roundIdx)
+      : 0;
+  const rules = room.match
+    ? room.match.reglesPubliques(idx)
+    : room.coop
+      ? room.coop.reglesPubliques()
+      : null;
   const ordre = [...room.clients.keys()];
   return [...room.clients.values()].map((c) => {
-    const seat = room.match?.seats.find((s) => s.id === c.id);
+    const seat =
+      room.match?.seats.find((s) => s.id === c.id) ??
+      room.coop?.seats.find((s) => s.id === c.id);
     const rang = ordre.indexOf(c.id);
     const spectateurLobby =
-      room.settings.mode === "imposteur" &&
-      room.match === null &&
-      rang >= 8;
+      !enPartie(room) &&
+      ((room.settings.mode === "imposteur" && rang >= 8) ||
+        (room.settings.mode === "coop" && rang >= COOP_MAX_ASIS));
     return {
       id: c.id,
       name: c.name,
@@ -250,10 +268,10 @@ function publicPlayers(room: Room): PlayerPublic[] {
        * Hors match, le réglage reste la bonne réponse : c'est ce qu'on aura en
        * commençant.
        */
-      lives: seat ? seat.lives : room.match ? 0 : room.settings.lives,
+      lives: seat ? seat.lives : enPartie(room) ? 0 : room.settings.lives,
       score: seat?.score ?? 0,
       host: c.id === room.hostId,
-      spectator: (room.match !== null && !seat) || spectateurLobby,
+      spectator: (enPartie(room) && !seat) || spectateurLobby,
       connected: c.ws.readyState === WebSocket.OPEN,
       glyph: c.glyph,
       // Hors match, on montre son intention ; en match, ce que le siège porte
@@ -262,12 +280,14 @@ function publicPlayers(room: Room): PlayerPublic[] {
       // L'équipe n'existe que pendant un match en duo : hors match, personne
       // n'est encore apparié, et prétendre le contraire afficherait des paires
       // qui bougeraient au lancement.
-      team: room.match?.duo && seat ? seat.team : undefined,
+      team: room.match?.duo && seat && "team" in seat ? seat.team : undefined,
       // Un joueur au-delà de INPUT_TOLERANCE_MS de latence voit ses temps
       // gonflés : le serveur refuse d'horodater plus de 120 ms dans le passé
       // (anti-triche). La médiane limite le bruit sans corriger ce biais —
       // on ne le corrige pas avec une valeur client.
-      stats: room.match?.statsOf(c.id) ?? { ...EMPTY_STATS },
+      stats:
+        room.match?.statsOf(c.id) ??
+        room.coop?.statsOf(c.id) ?? { ...EMPTY_STATS },
     };
   });
 }
@@ -276,7 +296,7 @@ const roomState = (room: Room): ServerMsg => ({
   t: "room",
   code: room.code,
   players: publicPlayers(room),
-  inMatch: room.match !== null,
+  inMatch: enPartie(room),
   settings: room.settings,
 });
 
@@ -287,6 +307,7 @@ const roomState = (room: Room): ServerMsg => ({
 function idsAssis(room: Room): string[] {
   const ids = [...room.clients.keys()];
   if (room.settings.mode === "imposteur") return ids.slice(0, IMPOSTEUR_MAX_ASIS);
+  if (room.settings.mode === "coop") return ids.slice(0, COOP_MAX_ASIS);
   return ids;
 }
 
@@ -298,6 +319,10 @@ function chuchoteRole(room: Room): void {
 }
 
 function startMatch(room: Room): void {
+  if (room.settings.mode === "coop") {
+    startMatchCoop(room);
+    return;
+  }
   const ids = idsAssis(room);
   const seed = (Math.random() * 2 ** 31) | 0;
   /*
@@ -351,6 +376,71 @@ function startMatch(room: Room): void {
   chuchoteRole(room);
 
   room.timer = setTimeout(() => openRound(room), COUNTDOWN_MS);
+}
+
+function startMatchCoop(room: Room): void {
+  const ids = idsAssis(room);
+  const seed = (Math.random() * 2 ** 31) | 0;
+  room.coop = new MatchCoop(seed, ids);
+  const rules = room.coop.reglesPubliques();
+  broadcast(room, roomState(room));
+  const firstRoundAt = now() + COUNTDOWN_MS;
+  broadcast(room, {
+    t: "match_start",
+    seed,
+    rules,
+    firstRoundAt,
+    settings: room.settings,
+    // La scène coop n'utilise pas le pool de consignes. Absent du client
+    // ancien. On envoie false : c'est le défaut, et ça ne change rien.
+    clavier: false,
+  });
+  room.timer = setTimeout(() => openVagueCoop(room), COUNTDOWN_MS);
+}
+
+function openVagueCoop(room: Room): void {
+  const coop = room.coop;
+  if (!coop) return;
+  const { idx, durationMs } = coop.openVague();
+  room.roundStartAt = now();
+  room.roundDeadline = room.roundStartAt + durationMs;
+  room.roundOpen = true;
+  broadcast(room, {
+    t: "round",
+    idx,
+    startAt: room.roundStartAt,
+    deadline: room.roundDeadline,
+    consumed: [],
+  });
+  room.timer = setTimeout(() => closeVagueCoop(room), durationMs + INPUT_TOLERANCE_MS + 15);
+}
+
+function closeVagueCoop(room: Room): void {
+  const coop = room.coop;
+  if (!coop || !room.roundOpen) return;
+  room.roundOpen = false;
+  const { matchOver } = coop.closeVague();
+  const out: Record<string, RoundOutcome> = {};
+  for (const s of coop.seats) out[s.id] = { kind: "idle" };
+  const nextRoundAt = matchOver ? null : now() + INTERLUDE_MS;
+  broadcast(room, {
+    t: "verdict",
+    idx: coop.roundIdx,
+    outcomes: out,
+    players: publicPlayers(room),
+    nextRoundAt,
+  });
+  if (matchOver) {
+    broadcast(room, {
+      t: "match_end",
+      winnerId: null,
+      players: publicPlayers(room),
+    });
+    room.coop = null;
+    broadcast(room, roomState(room));
+    return;
+  }
+  room.timer = setTimeout(() => openVagueCoop(room), INTERLUDE_MS);
 }
 
 function openRound(room: Room): void {
@@ -603,6 +693,7 @@ wss.on("connection", (ws) => {
           clients: new Map([[client.id, client]]),
           hostId: client.id,
           match: null,
+          coop: null,
           settings: { ...DEFAULT_SETTINGS },
           roundStartAt: 0,
           roundDeadline: 0,
@@ -662,8 +753,10 @@ wss.on("connection", (ws) => {
           fantome.room = null;
           room.clients.delete(fantome.id);
           client.id = fantome.id;
-          // De retour : le siège rejoue dès la manche suivante.
+          // De retour : le siège rejoue dès la manche suivante (classique)
+          // ou dans la vague en cours (coop — une coupure n'est pas une défaite).
           room.match?.setAway(client.id, false);
+          room.coop?.setAway(client.id, false);
           // L'identifiant vient de changer : le client doit le réapprendre,
           // sinon il ne se reconnaît pas dans les verdicts ni sur les plaques.
           send(client, { t: "welcome", id: client.id });
@@ -719,6 +812,26 @@ wss.on("connection", (ws) => {
             send(client, { t: "observe" });
           }
         }
+        const coop = room.coop;
+        if (coop) {
+          send(client, {
+            t: "match_start",
+            seed: coop.seed,
+            rules: coop.reglesPubliques(),
+            firstRoundAt: now(),
+            settings: room.settings,
+            clavier: false,
+          });
+          if (room.roundOpen) {
+            send(client, {
+              t: "round",
+              idx: coop.roundIdx,
+              startAt: room.roundStartAt,
+              deadline: room.roundDeadline,
+              consumed: [...coop.consumed],
+            });
+          }
+        }
         return;
       }
 
@@ -729,12 +842,18 @@ wss.on("connection", (ws) => {
           send(client, { t: "error", code: "not_host" });
           return;
         }
-        if (room.match) {
+        if (enPartie(room)) {
           send(client, { t: "error", code: "in_match" });
           return;
         }
         if (room.settings.mode === "imposteur") {
           if (!peutLancerImposteur(idsAssis(room).length)) {
+            send(client, { t: "error", code: "need_players" });
+            return;
+          }
+        }
+        if (room.settings.mode === "coop") {
+          if (!peutLancerCoop(idsAssis(room).length)) {
             send(client, { t: "error", code: "need_players" });
             return;
           }
@@ -751,7 +870,7 @@ wss.on("connection", (ws) => {
           send(client, { t: "error", code: "not_host" });
           return;
         }
-        if (room.match) {
+        if (enPartie(room)) {
           send(client, { t: "error", code: "in_match" });
           return;
         }
@@ -773,8 +892,48 @@ wss.on("connection", (ws) => {
 
       case "input": {
         const room = client.room;
-        const match = room?.match;
-        if (!room || !match || !room.roundOpen) return;
+        if (!room || !room.roundOpen) return;
+
+        if (room.coop) {
+          const coop = room.coop;
+          if (msg.round !== coop.roundIdx) return;
+          const floorC = Math.max(room.roundStartAt, now() - INPUT_TOLERANCE_MS);
+          const atC = Math.min(Math.max(Number(msg.at) || 0, floorC), room.roundDeadline);
+          const elapsedC = atC - room.roundStartAt;
+          const aC = msg.action as Partial<{ k: string; i: unknown }> | undefined;
+          if (!aC || aC.k !== "c") return;
+          const iC = aC.i === null || aC.i === undefined ? null : Number(aC.i);
+          if (iC !== null && !Number.isInteger(iC)) return;
+          const entC = coop.entityOf(client.id, iC);
+          const r = coop.inputCoop(
+            client.id,
+            msg.round,
+            {
+              kind: "click",
+              ent: entC,
+              x: entC ? entC.x : Number.NaN,
+              y: entC ? entC.y : Number.NaN,
+            },
+            elapsedC,
+          );
+          if (!r) return;
+          broadcast(room, {
+            t: "coop_clic",
+            idx: coop.roundIdx,
+            i: r.i,
+            pris: r.kind === "pris",
+            score: r.score,
+            vies: r.vies,
+          });
+          if (r.vies <= 0 || coop.toutPris()) {
+            if (room.timer) clearTimeout(room.timer);
+            closeVagueCoop(room);
+          }
+          return;
+        }
+
+        const match = room.match;
+        if (!match) return;
         if (msg.round !== match.roundIdx) return;
 
         /*
@@ -938,12 +1097,14 @@ wss.on("connection", (ws) => {
      */
     const room = client.room;
     const seatVivant =
-      !!room?.match && room.match.seats.some((s) => s.id === client.id && !s.eliminated);
+      (!!room?.match && room.match.seats.some((s) => s.id === client.id && !s.eliminated)) ||
+      (!!room?.coop && room.coop.seats.some((s) => s.id === client.id));
     if (room && seatVivant && client.key) {
       // Absent : plus aucune manche ne lui est ouverte, donc plus de vie
       // perdue par timeout. Sans ça le sursis ne servait à rien — il était
       // éliminé bien avant d'avoir pu revenir.
       room.match?.setAway(client.id, true);
+      room.coop?.setAway(client.id, true);
       client.graceTimer = setTimeout(() => {
         client.graceTimer = null;
         leaveRoom(client);
@@ -974,6 +1135,7 @@ function leaveRoom(client: Client): void {
   client.room = null;
 
   if (room.match) room.match.forfeit(client.id);
+  if (room.coop) room.coop.forfeit(client.id);
 
   if (room.clients.size === 0) {
     if (room.timer) clearTimeout(room.timer);

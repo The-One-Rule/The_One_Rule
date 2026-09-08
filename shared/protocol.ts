@@ -193,7 +193,7 @@ export const EMPTY_STATS: PlayerStats = {
  * Un réglage individuel de vitesse casserait la simultanéité — or c'est elle
  * qui fait le spectacle : on voit l'autre se figer PENDANT qu'on joue.
  */
-export type ModeSalon = "classique" | "duo" | "imposteur";
+export type ModeSalon = "classique" | "duo" | "imposteur" | "coop";
 
 export interface RoomSettings {
   speed: number;
@@ -241,8 +241,15 @@ export const SPEED_CHOICES = [1.7, 1.3, 1, 0.8, 0.65] as const;
 export const LIVES_CHOICES = [1, 3, 5] as const;
 export const ROTATION_CHOICES = [4, 8, 16, 999] as const;
 
-function lireMode(r: Partial<RoomSettings>): ModeSalon {
-  if (r.mode === "classique" || r.mode === "duo" || r.mode === "imposteur") return r.mode;
+export function lireMode(r: Partial<RoomSettings>): ModeSalon {
+  if (
+    r.mode === "classique" ||
+    r.mode === "duo" ||
+    r.mode === "imposteur" ||
+    r.mode === "coop"
+  ) {
+    return r.mode;
+  }
   // Absent, undefined, valeur inconnue : un client ancien n'envoie que `duo`.
   if (r.duo === true) return "duo";
   return "classique";
@@ -258,8 +265,10 @@ export function sanitizeSettings(raw: unknown): RoomSettings {
     lives: pick(r.lives, LIVES_CHOICES, 3),
     rotationEvery: pick(r.rotationEvery, ROTATION_CHOICES, 8),
     mode,
-    // Les deux ne se cumulent jamais : imposteur force duo à false, duo le
-    // force à true. `=== true` reste la doctrine pour un booléen orphelin.
+    // Les modes ne se cumulent jamais : duo force le booléen à true, tout
+    // le reste (classique, imposteur, coop) le force à false. Un client
+    // ancien qui n'envoie que `{ duo: true }` reste en duo — `lireMode`
+    // le déduit avant. `=== true` reste la doctrine pour un booléen orphelin.
     duo: mode === "duo",
   };
 }
@@ -447,7 +456,7 @@ export type ServerMsg =
         | "not_host"
         | "in_match"
         | "kicked"
-        /** Imposteur : l'effectif assis n'est pas dans [4, 8]. Absent des clients anciens. */
+        /** Imposteur [4, 8] ou coop [4, 6] : l'effectif assis n'y est pas. Absent des clients anciens. */
         | "need_players";
       detail?: string;
     }
@@ -471,6 +480,25 @@ export type ServerMsg =
    * manche. En classique / duo, on n'émet rien.
    */
   | { t: "acted"; idx: number; playerId: string }
+  /**
+   * Un clic coop a été jugé. FACULTATIF.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien ignore le cas, et c'est le bon défaut — absent = la vague
+   * n'a pas encore bougé à l'écran.
+   *
+   * `pris: true` : l'entité est consumed, score +1. `pris: false` : le
+   * cliqueur a enfreint SA règle, vie commune −1, l'entité RESTE.
+   * Jamais de coordonnées : le client reconstruit l'entité par index.
+   */
+  | {
+      t: "coop_clic";
+      idx: number;
+      i: number;
+      pris: boolean;
+      score: number;
+      vies: number;
+    }
   /**
    * Journal des dix manches. FACULTATIF. Une fois, à la fin.
    *
@@ -531,6 +559,14 @@ export type ServerMsg =
       deadline: number;
       /** présent uniquement quand la rotation vient d'avoir lieu */
       rules?: Record<string, string>;
+      /**
+       * Indices déjà consumed (mode coop). FACULTATIF.
+       *
+       * Absent = aucun. Un client ancien ignore le champ. Sert surtout
+       * à qui reprend une vague en cours : sans ça il verrait un plateau
+       * plein pendant que les autres voient un plateau entamé.
+       */
+      consumed?: number[];
     }
   | {
       t: "verdict";

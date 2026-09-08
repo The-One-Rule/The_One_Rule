@@ -337,6 +337,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "LANCER LA PARTIE",
+    "coop.vies": "VIES",
+    "coop.score": "SCORE",
     "salon.nom": "CHOISIR TON NOM",
     "salon.quitter": "QUITTER LE SALON",
     "vide.titre": "Seize règles t'attendent.",
@@ -525,6 +527,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "START THE MATCH",
+    "coop.vies": "LIVES",
+    "coop.score": "SCORE",
     "salon.nom": "PICK YOUR NAME",
     "salon.quitter": "LEAVE THE ROOM",
     "vide.titre": "Sixteen rules are waiting.",
@@ -830,14 +834,17 @@ type Dyn = {
   vitesseQuoi: (nom: string, delta: number) => string;
   vitesseQuoiRef: (nom: string, ms: number) => string;
   rythmeImposteur: string;
+  rythmeCoop: string;
   optJamais: string;
   optDuos: string;
   optChacun: string;
   optImposteur: string;
+  optCoop: string;
   plaqueAgi: string;
   plaqueRien: string;
   observeTour: (n: number, sur: number) => string;
   modeImposteurQuoi: string;
+  modeCoopQuoi: string;
   issueVillage: string;
   issueImposteur: string;
   imposteurEtait: (nom: string) => string;
@@ -849,6 +856,7 @@ type Dyn = {
   ariaDuos: string;
   ariaChacun: string;
   ariaImposteur: string;
+  ariaCoop: string;
   ariaSigne: (n: number, total: number) => string;
   ariaCouper: (qui: string) => string;
   ariaReactiver: (qui: string) => string;
@@ -1451,14 +1459,17 @@ const DYN: Record<Lang, Dyn> = {
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS À LA MANCHE 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS À LA MANCHE 20`,
     rythmeImposteur: "LE RYTHME APPARTIENT AU MODE · DÉCOUVERTE",
+    rythmeCoop: "LE RYTHME APPARTIENT AU MODE · VAGUES DE 20 À 40 S",
     optJamais: "JAMAIS",
     optDuos: "DUOS",
     optChacun: "CHACUN",
     optImposteur: "IMPOSTEUR",
+    optCoop: "COOP",
     plaqueAgi: "AGI",
     plaqueRien: "RIEN",
     observeTour: (n, sur) => `${n} / ${sur}`,
     modeImposteurQuoi: "DIX MANCHES · PERSONNE N'EST ÉLIMINÉ · UN IMPOSTEUR · UN VOTE",
+    modeCoopQuoi: "UNE VIE COMMUNE · CHACUN SON INTERDIT · 4 À 6 JOUEURS",
     issueVillage: "LE VILLAGE A TROUVÉ",
     issueImposteur: "L'IMPOSTEUR S'EN TIRE",
     imposteurEtait: (nom) => `L'IMPOSTEUR ÉTAIT ${nom}`,
@@ -1470,6 +1481,7 @@ const DYN: Record<Lang, Dyn> = {
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
     ariaChacun: "Chacun pour soi",
     ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
+    ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 4 à 6 joueurs",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
@@ -1993,14 +2005,17 @@ const DYN: Record<Lang, Dyn> = {
       `${nom} · ${delta > 0 ? "+" : ""}${delta} MS ON ROUND 20`,
     vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS ON ROUND 20`,
     rythmeImposteur: "THE PACE BELONGS TO THE MODE · DISCOVERY",
+    rythmeCoop: "THE PACE BELONGS TO THE MODE · WAVES OF 20 TO 40 S",
     optJamais: "NEVER",
     optDuos: "DUOS",
     optChacun: "EACH",
     optImposteur: "IMPOSTOR",
+    optCoop: "COOP",
     plaqueAgi: "ACTED",
     plaqueRien: "WAIT",
     observeTour: (n, sur) => `${n} / ${sur}`,
     modeImposteurQuoi: "TEN ROUNDS · NOBODY IS ELIMINATED · ONE IMPOSTOR · ONE VOTE",
+    modeCoopQuoi: "ONE SHARED LIFE · EACH PLAYER A FORBID · 4 TO 6 PLAYERS",
     issueVillage: "THE VILLAGE FOUND THEM",
     issueImposteur: "THE IMPOSTOR WALKS FREE",
     imposteurEtait: (nom) => `THE IMPOSTOR WAS ${nom}`,
@@ -2012,6 +2027,7 @@ const DYN: Record<Lang, Dyn> = {
     ariaDuos: "Duos: two players per team, one shared pool of lives",
     ariaChacun: "Every player for themselves",
     ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
+    ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 4 to 6 players",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,
@@ -2457,6 +2473,7 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     tapeInitiale: () => "TAPE L'INITIALE DE LA COULEUR",
     couleurPuis: (m) => `${m.couleur} PUIS ${m.couleur2}`,
     clicSauf: (m) => `CLIQUE PARTOUT SAUF SUR DU ${m.couleur}`,
+    "coop.nettoyez": () => "NETTOIEZ LE TERRAIN",
   },
   en: {
     clicCouleur: (m) => `CLICK THE ${m.couleur}`,
@@ -2488,6 +2505,7 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     tapeInitiale: () => "TYPE THE COLOUR'S INITIAL",
     couleurPuis: (m) => `${m.couleur} THEN ${m.couleur2}`,
     clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
+    "coop.nettoyez": () => "CLEAR THE FIELD",
   },
 };
 

@@ -14,10 +14,12 @@ import {
   RECONNECT_GRACE_MS,
   ROTATION_CHOICES,
   SPEED_CHOICES,
+  lireMode,
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
 import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
+import { peutLancerCoop, roundCoop, viesInitialesCoop } from "./engine/coop";
 import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
@@ -214,6 +216,10 @@ type MatchState = {
   modeImposteur: boolean;
   /** J'ai reçu le rôle. Les autres ne le savent pas. */
   imposteur: boolean;
+  /** Cette partie est en mode coop — scène unique, plusieurs clics par vague. */
+  modeCoop: boolean;
+  /** Indices consumed de la vague courante (coop). */
+  consumed: Set<number>;
 };
 
 const clamp01 = (n: number): number => (n < 0 ? 0 : n > 1 ? 1 : n);
@@ -431,10 +437,11 @@ function renderLobby(
   const me = players.find((p) => p.id === myId);
   const start = $<HTMLButtonElement>("btnMultiStart");
   start.classList.toggle("hidden", !me?.host || inMatch);
-  const modeImp =
-    (settings.mode ?? (settings.duo ? "duo" : "classique")) === "imposteur";
+  const mode = lireMode(settings);
   const assis = players.filter((p) => !p.spectator).length;
-  start.disabled = modeImp && !peutLancerImposteur(assis);
+  start.disabled =
+    (mode === "imposteur" && !peutLancerImposteur(assis)) ||
+    (mode === "coop" && !peutLancerCoop(assis));
 
   /*
    * Un joueur = une tuile, pas une ligne de tableau.
@@ -607,8 +614,9 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     );
   };
 
-  const imposteur = (settings.mode ?? (settings.duo ? "duo" : "classique")) === "imposteur";
-  const fige = locked || !isHost || imposteur;
+  const modeActuel = lireMode(settings);
+  const rythmeDuMode = modeActuel === "imposteur" || modeActuel === "coop";
+  const fige = locked || !isHost || rythmeDuMode;
 
   const vitesses = [...SPEED_CHOICES].sort((a, b) => b - a);
   /*
@@ -626,13 +634,16 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   const base = windowMs(MANCHE_TEMOIN);
   const mien = Math.round(base * settings.speed);
   const nom = nomVitesseEntier(settings.speed).toUpperCase();
-  $("speedQuoi").textContent = imposteur
-    ? tr("rythmeImposteur")
-    : settings.speed === 1
-      ? tr("vitesseQuoiRef")(nom, mien)
-      : tr("vitesseQuoi")(nom, mien - Math.round(base));
+  $("speedQuoi").textContent =
+    modeActuel === "imposteur"
+      ? tr("rythmeImposteur")
+      : modeActuel === "coop"
+        ? tr("rythmeCoop")
+        : settings.speed === 1
+          ? tr("vitesseQuoiRef")(nom, mien)
+          : tr("vitesseQuoi")(nom, mien - Math.round(base));
 
-  fill("optSpeed", vitesses, imposteur ? SPEED_CHOICES[0] : settings.speed, {
+  fill("optSpeed", vitesses, rythmeDuMode ? SPEED_CHOICES[0] : settings.speed, {
     label: (n) => nomVitesse(n),
     aria: (n) => tr("ariaVitesse")(nomVitesseEntier(n)),
     icon: "bars",
@@ -672,26 +683,32 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     disabled: fige,
   });
 
-  $("optSpeed").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
-  $("optLives").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
-  $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", imposteur);
+  $("optSpeed").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
+  $("optLives").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
+  $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
 
   /*
-   * MODE : trois valeurs exclusives, pas un second booléen.
+   * MODE : quatre valeurs exclusives, pas un second booléen.
    *
-   * CHACUN / DUOS / IMPOSTEUR. `fill` travaille sur des nombres — 0, 1, 2.
+   * CHACUN / DUOS / IMPOSTEUR / COOP. `fill` travaille sur des nombres.
    * Un client ancien n'envoyait que `duo` ; le sanitizer en déduit le mode.
    */
-  const modes: ModeSalon[] = ["classique", "duo", "imposteur"];
-  const modeActuel: ModeSalon = settings.mode ?? (settings.duo ? "duo" : "classique");
-  fill("optDuo", [0, 1, 2], modes.indexOf(modeActuel), {
-    label: (n) => (n === 2 ? tr("optImposteur") : n === 1 ? tr("optDuos") : tr("optChacun")),
-    aria: (n) => (n === 2 ? tr("ariaImposteur") : n === 1 ? tr("ariaDuos") : tr("ariaChacun")),
+  const modes: ModeSalon[] = ["classique", "duo", "imposteur", "coop"];
+  fill("optDuo", [0, 1, 2, 3], Math.max(0, modes.indexOf(modeActuel)), {
+    label: (n) =>
+      n === 3 ? tr("optCoop") : n === 2 ? tr("optImposteur") : n === 1 ? tr("optDuos") : tr("optChacun"),
+    aria: (n) =>
+      n === 3 ? tr("ariaCoop") : n === 2 ? tr("ariaImposteur") : n === 1 ? tr("ariaDuos") : tr("ariaChacun"),
     icon: "dots",
     level: (n) => n + 1,
-    steps: 3,
+    steps: 4,
   });
-  $("modeQuoi").textContent = imposteur ? tr("modeImposteurQuoi") : "";
+  $("modeQuoi").textContent =
+    modeActuel === "imposteur"
+      ? tr("modeImposteurQuoi")
+      : modeActuel === "coop"
+        ? tr("modeCoopQuoi")
+        : "";
 }
 
 function toWire(
@@ -1228,6 +1245,18 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   function rebuildViewRound(): void {
     if (!match || !net || match.idx < 0) return;
     const viewId = viewTargetId();
+    if (match.modeCoop) {
+      const rid = match.rules[viewId] ?? match.rules[net.myId];
+      const rule = rid ? ruleById(rid) : match.rule;
+      if (!rule) {
+        match.round = null;
+        return;
+      }
+      match.rule = rule;
+      match.round = roundCoop(match.seed, match.idx, match.consumed);
+      hud.setRule(rule);
+      return;
+    }
     if (match.modeImposteur) {
       const communeId = Object.values(match.rules)[0];
       const commune = communeId ? ruleById(communeId) : match.rule;
@@ -1711,10 +1740,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       swapRuleText(ruleText, liveTxt ?? ruleName);
       if (liveTxt) el.setAttribute("aria-label", `${p.name} · ${liveTxt}`);
       else el.removeAttribute("aria-label");
-      el.querySelector<HTMLElement>(".plate__lives")!.innerHTML = livesDots(
-        Math.max(0, p.lives),
-        match!.maxLives,
-      );
+      el.querySelector<HTMLElement>(".plate__lives")!.innerHTML = match!.modeCoop
+        ? ""
+        : livesDots(Math.max(0, p.lives), match!.maxLives);
       const stats = p.stats ?? EMPTY_STATS;
       const reactEl = el.querySelector<HTMLElement>(".plate__react");
       if (reactEl) {
@@ -1760,6 +1788,31 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     renderPlates();
   }
 
+  function peintCoopHud(): void {
+    if (!match || !match.modeCoop) {
+      $("coophud").classList.add("hidden");
+      return;
+    }
+    $("coopViesVal").textContent = String(match.lives);
+    $("coopScoreVal").textContent = String(match.score);
+    $("coophud").classList.remove("hidden");
+  }
+
+  function applyCoopClic(msg: Extract<ServerMsg, { t: "coop_clic" }>): void {
+    if (!match || !match.modeCoop || msg.idx !== match.idx) return;
+    if (msg.pris) match.consumed.add(msg.i);
+    match.lives = msg.vies;
+    match.score = msg.score;
+    match.players = match.players.map((p) =>
+      p.spectator ? p : { ...p, lives: msg.vies, score: msg.score },
+    );
+    lastPlayers = mergePlayers(lastPlayers, match.players);
+    if (!msg.pris) sfx.fail();
+    rebuildViewRound();
+    peintCoopHud();
+    renderPlates();
+  }
+
   function clearMatch(): void {
     hideDrama();
     hideObserve();
@@ -1773,6 +1826,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     setPlatesVisible(false);
     clearPlateCols();
     watchBar.classList.add("hidden");
+    $("coophud").classList.add("hidden");
     $("head").classList.remove("is-preview");
     hud.hideStamp();
     hud.clearRound();
@@ -1876,6 +1930,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       spanFactor: 1,
       modeImposteur: msg.settings?.mode === "imposteur",
       imposteur: jeSuisImposteur,
+      modeCoop: msg.settings?.mode === "coop",
+      consumed: new Set(),
     };
 
     if (match.watchingId) net.watch(match.watchingId);
@@ -1887,6 +1943,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.clearRound();
     if (jeSuisImposteur) hud.setRule(null, { vide: true });
     else hud.setRule(rule);
+    if (match.modeCoop) {
+      const n = lastPlayers.filter((p) => !p.spectator).length;
+      match.maxLives = Math.max(match.maxLives, viesInitialesCoop(n));
+      peintCoopHud();
+      $("coophud").classList.remove("hidden");
+    } else {
+      $("coophud").classList.add("hidden");
+    }
     syncFooter();
     hud.setMeta("");
     $("head").classList.remove("is-preview");
@@ -1930,6 +1994,15 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     plateActes.clear();
     hud.hideStamp();
     $("head").classList.remove("is-preview");
+    if (match.modeCoop) {
+      match.consumed = new Set(msg.consumed ?? []);
+      match.spanFactor = 1;
+      rebuildViewRound();
+      peintCoopHud();
+      renderPlates();
+      syncFooter();
+      return;
+    }
     rebuildViewRound();
     /*
      * La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
@@ -1960,6 +2033,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     match.preview = null;
     $("head").classList.remove("is-preview");
     applyPlayers(msg.players);
+    if (match.modeCoop) peintCoopHud();
 
     const mine = msg.outcomes[net.myId];
     match.authority = mine ?? null;
@@ -2556,6 +2630,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       }
       return;
     }
+    if (msg.t === "coop_clic") {
+      applyCoopClic(msg);
+      return;
+    }
     if (msg.t === "verdict") {
       applyVerdict(msg);
       return;
@@ -3062,7 +3140,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       !!match &&
       !!net &&
       match.phase === "round" &&
-      !match.localDone &&
+      (match.modeCoop || !match.localDone) &&
       match.lives > 0 &&
       !match.spectator &&
       !!match.round &&
@@ -3090,6 +3168,13 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * Le bandeau, lui, dit quoi faire — recharger.
      */
     if (!match.round || !match.rule) return { consumed: true };
+
+    if (match.modeCoop) {
+      if (action.kind !== "click") return { consumed: true };
+      if (action.ent && match.consumed.has(action.ent.idx)) return { consumed: true };
+      net.sendInput(match.idx, toWire(vueServeur(action)));
+      return { consumed: true };
+    }
 
     net.sendInput(match.idx, toWire(action));
 
@@ -3532,7 +3617,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!me?.host || lobbyInMatch) return;
     sfx.ui();
     if (key === "mode") {
-      const modes: ModeSalon[] = ["classique", "duo", "imposteur"];
+      const modes: ModeSalon[] = ["classique", "duo", "imposteur", "coop"];
       const mode = modes[value];
       if (!mode) return;
       net.setSettings({ mode });

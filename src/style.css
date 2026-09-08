@@ -740,6 +740,50 @@ body {
 }
 
 /* ------------------------------------------------------------------
+   HUD coop — hors flux dans `#stage`
+   ------------------------------------------------------------------ */
+.coophud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 8px 12px 0;
+  pointer-events: none;
+}
+
+.coophud.hidden {
+  display: none;
+}
+
+.coophud__ligne {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  background: var(--ink);
+  padding: 3px 8px;
+}
+
+.coophud__val {
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings__row.is-fige {
+  opacity: 0.45;
+}
+
+/* ------------------------------------------------------------------
    Tempo dramatique (kill-cam / duel) — signalétique stricte
    ------------------------------------------------------------------ */
 .drama {
