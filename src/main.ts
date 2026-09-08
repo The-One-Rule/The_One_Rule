@@ -3926,6 +3926,11 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
+  if (multi.observeTouche(e.key)) {
+    e.preventDefault();
+    return;
+  }
+
   if (e.key === " ") return; // espace = touche de maintien, jamais une réponse
   if (e.key === "Escape") {
     abandon();

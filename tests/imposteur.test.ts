@@ -23,6 +23,9 @@ import {
   IMPOSTEUR_PIEGES,
   IMPOSTEUR_PLANCHER_MS,
   IMPOSTEUR_VITESSE,
+  refuseZoneAuRendu,
+  renduObserve,
+  roundObserve,
   SANS_REGLE,
 } from "../src/engine/imposteur";
 import { applyRule, poolMulti } from "../src/engine/multiround";
@@ -161,16 +164,18 @@ describe("10 manches, personne n'est éliminé", () => {
   it("enchaîne 10 manches sans retirer de vie ni terminer avant l'index 9", () => {
     const m = matchImposteur(7, 4);
     const vies = m.seats.map((s) => s.lives);
+    let last: ReturnType<MatchLogic["closeRound"]> | null = null;
     for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
       m.openRound();
-      const res = m.closeRound();
+      last = m.closeRound();
       expect(m.seats.every((s) => !s.eliminated)).toBe(true);
       expect(m.seats.map((s) => s.lives)).toEqual(vies);
-      if (i < IMPOSTEUR_MANCHES - 1) expect(res.matchOver).toBe(false);
-      else expect(res.matchOver).toBe(true);
+      if (i < IMPOSTEUR_MANCHES - 1) expect(last.matchOver).toBe(false);
+      else expect(last.matchOver).toBe(true);
     }
     expect(m.roundIdx).toBe(IMPOSTEUR_MANCHES - 1);
     expect(m.journal).toHaveLength(IMPOSTEUR_MANCHES);
+    expect(last!.winnerId).toBeNull();
   });
 
   it("tensionAt n'entre pas dans la durée", () => {
@@ -283,3 +288,137 @@ function unGeste(m: MatchLogic, id: string): void {
   }
   m.input(id, m.roundIdx, { kind: "click", ent: round.ents[0] ?? null, x: 900, y: 10 }, 200);
 }
+
+describe("journal — une entrée par manche, sièges seulement", () => {
+  it("chaque tour porte idx, aAgit, outcome — pas de coordonnées, pas d'imposteurId", () => {
+    const m = matchImposteur(11, 4);
+    m.openRound();
+    unGeste(m, "p0");
+    m.closeRound();
+    expect(m.journal).toHaveLength(1);
+    const tour = m.journal[0]!;
+    expect(tour.idx).toBe(0);
+    expect(Object.keys(tour.sieges).sort()).toEqual(["p0", "p1", "p2", "p3"]);
+    expect(tour.sieges.p0!.aAgit).toBe(true);
+    expect(tour.sieges.p1!.aAgit).toBe(false);
+    expect(Object.keys(tour.sieges.p0!).sort()).toEqual(["aAgit", "outcome"]);
+    const json = JSON.stringify(m.journalPublic());
+    expect(json).not.toMatch(/imposteurId/);
+    expect(json).not.toMatch(/sansRegle/);
+    expect(json).not.toMatch(/"ents"/);
+    expect(json).not.toMatch(/"ox"/);
+  });
+
+  it("aAgit suit firstInputMs, et le repli acteDe si le siège n'avait pas d'état", () => {
+    const m = matchImposteur(3, 4);
+    m.setAway("p3", true);
+    m.openRound();
+    unGeste(m, "p1");
+    m.closeRound();
+    expect(m.journal[0]!.sieges.p1!.aAgit).toBe(true);
+    expect(m.journal[0]!.sieges.p3!.aAgit).toBe(false);
+    expect(m.journal[0]!.sieges.p3!.outcome.kind).toBe("idle");
+  });
+
+  it("le journal public ne distingue pas l'imposteur", () => {
+    const m = matchImposteur(5, 4);
+    m.openRound();
+    m.closeRound();
+    const ids = Object.keys(m.journalPublic()[0]!.sieges);
+    expect(ids).toContain(m.imposteurId!);
+    expect(ids).toHaveLength(4);
+  });
+});
+
+describe("observation — zone et transform coupés", () => {
+  it("renduObserve ne passe pas rule.zone au renderer", () => {
+    const gaucher = ONE_RULES.find((r) => r.id === "gaucher")!;
+    expect(gaucher.zone, "LE GAUCHER doit porter une zone").toBeTruthy();
+    const round = roundObserve(1, 0, gaucher);
+    const state = renduObserve(round);
+    refuseZoneAuRendu(state);
+    expect(state.rule).toBeNull();
+  });
+
+  it("tombe si la zone est passée — dents", () => {
+    const gaucher = ONE_RULES.find((r) => r.id === "gaucher")!;
+    expect(() => refuseZoneAuRendu({ rule: gaucher })).toThrow(/zone/);
+  });
+
+  it("tombe si un transform est passé — dents", () => {
+    const jumeau = ONE_RULES.find((r) => r.id === "jumeau")!;
+    expect(typeof jumeau.transform).toBe("function");
+    expect(() => refuseZoneAuRendu({ rule: jumeau })).toThrow(/transform/);
+  });
+
+  it("roundObserve n'applique pas transform", () => {
+    const acc = ONE_RULES.find((r) => r.id === "acceleration")!;
+    const shared = draftImposteur(1, 1, acc, poolMulti(false));
+    const coupe = roundObserve(1, 1, acc, poolMulti(false));
+    const deforme = applyRule(shared, acc, 1);
+    expect(coupe.durationMs).toBe(shared.durationMs);
+    expect(deforme.durationMs).toBe(Math.round(shared.durationMs * 0.7));
+  });
+
+  it("LES ANGLES non plus : zone coupée, scène reconstruite", () => {
+    const angles = ONE_RULES.find((r) => r.id === "angles")!;
+    expect(angles.zone?.length).toBe(4);
+    refuseZoneAuRendu(renduObserve(roundObserve(2, 4, angles)));
+  });
+
+  it("le client d'observation appelle renduObserve, pas match.rule", () => {
+    const src = readFileSync("src/multi.ts", "utf8");
+    expect(src).toMatch(/renduObserve\(match\.round\)/);
+    expect(src).toMatch(/match\.phase === "observe"/);
+  });
+
+  it("l'overlay est hors flux dans #stage — #cv ne change pas de géométrie", () => {
+    const html = readFileSync("index.html", "utf8");
+    const iCv = html.indexOf('id="cv"');
+    const iObs = html.indexOf('id="observe"');
+    const iStage = html.indexOf("</main>");
+    expect(iCv).toBeGreaterThan(0);
+    expect(iObs).toBeGreaterThan(iCv);
+    expect(iStage).toBeGreaterThan(iObs);
+    const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(css).toMatch(/\.observe\s*\{[^}]*position:\s*absolute/);
+    expect(css).toMatch(/\.observe\s*\{[^}]*pointer-events:\s*none/);
+    expect(html).not.toMatch(/id="observe"[\s\S]{0,800}ONE_RULES|id="observe"[\s\S]{0,800}carnet/);
+  });
+});
+
+describe("fil — journal une fois, pas dans le verdict, pas de match_end", () => {
+  it("PROTOCOL_VERSION reste à 1 après l'ajout des messages", () => {
+    expect(PROTOCOL_VERSION).toBe(1);
+  });
+
+  it("le type verdict ne porte pas le journal", () => {
+    const src = readFileSync("shared/protocol.ts", "utf8");
+    const verdict = src.slice(src.indexOf('t: "verdict"'), src.indexOf('t: "match_end"'));
+    expect(verdict).not.toMatch(/tours/);
+    expect(src).toMatch(/t: "journal"; tours: TourJournal\[\]/);
+    expect(src).toMatch(/t: "observe"/);
+  });
+
+  it("après les 10 manches le serveur ouvre observe, pas match_end", () => {
+    const src = readFileSync("server/index.ts", "utf8");
+    const close = src.slice(src.indexOf("function closeRound"), src.indexOf("Connexions"));
+    const iImp = close.search(/over && match\.imposteur/);
+    const iJournal = close.search(/t:\s*"journal"/);
+    const iObserve = close.search(/t:\s*"observe"/);
+    const iEnd = close.search(/t:\s*"match_end"/);
+    expect(iImp).toBeGreaterThan(0);
+    expect(iJournal).toBeGreaterThan(iImp);
+    expect(iObserve).toBeGreaterThan(iJournal);
+    expect(iEnd).toBeGreaterThan(iObserve);
+    expect(close).toMatch(/journalPublic\(\)/);
+  });
+
+  it("le chat du salon s'ouvre pendant l'observation — pas un second chat", () => {
+    const src = readFileSync("src/multi.ts", "utf8");
+    expect(src).toMatch(/enObservation\(\)/);
+    expect(src).toMatch(/screenOpen\(\) \|\| enObservation\(\)/);
+    expect(readFileSync("index.html", "utf8").match(/id="chat"/g)?.length).toBe(1);
+  });
+});
+

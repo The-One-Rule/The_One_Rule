@@ -419,6 +419,18 @@ function closeRound(room: Room): void {
   }
   broadcast(room, verdict);
 
+  if (over && match.imposteur) {
+    /*
+     * Personne n'est désigné. Les preuves se ferment, l'observation s'ouvre.
+     * Pas de `match_end` : cet écran nommerait un vainqueur. Le match RESTE
+     * : le client ne reprend pas tout seul (décision n°9), c'est `observe`
+     * qui ouvre le temps. Un client ancien ignore les deux messages.
+     */
+    broadcast(room, { t: "journal", tours: match.journalPublic() });
+    broadcast(room, { t: "observe" });
+    return;
+  }
+
   if (over) {
     broadcast(room, {
       t: "match_end",
@@ -674,6 +686,10 @@ wss.on("connection", (ws) => {
           });
           if (m.imposteur && m.imposteurId === client.id) {
             send(client, { t: "role", imposteur: true });
+          }
+          if (m.enObservation()) {
+            send(client, { t: "journal", tours: m.journalPublic() });
+            send(client, { t: "observe" });
           }
         }
         return;

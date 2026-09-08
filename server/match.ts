@@ -13,6 +13,7 @@ import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
 import {
+  acteDe,
   draftImposteur,
   dureeImposteur,
   IMPOSTEUR_MANCHES,
@@ -34,7 +35,7 @@ import {
   ROTATION_GRACE_FACTOR,
   STATS_MIN_SAMPLES,
 } from "../shared/protocol";
-import type { PlayerStats, RoomSettings, RoundOutcome } from "../shared/protocol";
+import type { PlayerStats, RoomSettings, RoundOutcome, TourJournal } from "../shared/protocol";
 
 /**
  * Pool de règles multijoueur.
@@ -223,10 +224,13 @@ export class MatchLogic {
   /** La règle commune — traps: true, une pour tout le monde. */
   readonly regleCommune: OneRule | null;
   /**
-   * Journal des dix manches. Lot 3 s'en servira ; ici on stocke, on ne
-   * rejoue rien à l'écran.
+   * Journal des dix manches — sièges seulement, pas de coordonnées.
+   *
+   * `openRound` fait `states.clear()` : sans ce tableau, l'observation
+   * n'aurait plus le premier geste ni le verdict. Le fil ne le porte
+   * qu'une fois, à la fin.
    */
-  readonly journal: Record<string, RoundOutcome>[] = [];
+  readonly journal: TourJournal[] = [];
 
   constructor(
     seed: number,
@@ -652,15 +656,41 @@ export class MatchLogic {
      * amputé continue de jouer — et c'est exactement le moment intéressant.
      */
     const equipes = this.teamsAlive;
-    const rec: Record<string, RoundOutcome> = {};
-    for (const [id, o] of outcomes) rec[id] = o;
-    this.journal.push(rec);
+    if (this.imposteur) {
+      const sieges: TourJournal["sieges"] = {};
+      for (const s of this.seats) {
+        const st = this.states.get(s.id);
+        const out = outcomes.get(s.id) ?? { kind: "idle" as const };
+        sieges[s.id] = {
+          aAgit: st ? st.firstInputMs !== null : acteDe(out) === "agi",
+          outcome: out,
+        };
+      }
+      this.journal.push({ idx: this.roundIdx, sieges });
+    }
     const matchOver = this.imposteur
       ? this.roundIdx >= IMPOSTEUR_MANCHES - 1
       : equipes.length === 0 || (this.teams.length > 1 && equipes.length <= 1) || alive.length === 0;
-    const winnerId = matchOver ? this.winner() : null;
+    /*
+     * Imposteur : personne n'est désigné. `winner()` rangerait un siège
+     * en tête par le score, et `match_end` l'afficherait. L'observation
+     * ouvre la discussion, elle ne clôt pas le match.
+     */
+    const winnerId = this.imposteur ? null : matchOver ? this.winner() : null;
     const interludeMs = matchOver ? 0 : this.pauseAfter(alive.length, outcomes);
     return { outcomes, matchOver, winnerId, interludeMs };
+  }
+
+  /**
+   * Ce qui voyage sur le fil. Sièges seulement — jamais `imposteurId`.
+   */
+  journalPublic(): TourJournal[] {
+    return this.journal;
+  }
+
+  /** Les dix manches sont closes : l'observation peut s'ouvrir. */
+  enObservation(): boolean {
+    return this.imposteur && this.journal.length >= IMPOSTEUR_MANCHES;
   }
 
   /**

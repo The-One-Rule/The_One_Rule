@@ -3,7 +3,7 @@
  * Aucune scène sur le fil : reconstruction locale via buildMultiRound.
  */
 
-import type { Glyph, ModeSalon, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg } from "../shared/protocol";
+import type { Glyph, ModeSalon, PlayerPublic, RoomSettings, RoundOutcome, ServerMsg, TourJournal } from "../shared/protocol";
 import {
   CHAT_MAX_LEN,
   DEFAULT_SETTINGS,
@@ -17,7 +17,7 @@ import {
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, poolMulti } from "./engine/multiround";
-import { draftImposteur, SANS_REGLE } from "./engine/imposteur";
+import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
 import { windowMs } from "./engine/difficulty";
 import { resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
@@ -34,7 +34,6 @@ import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
 import type { PlateActe, PlateFlash } from "./render/plate";
-import { acteDe } from "./engine/imposteur";
 import { seatClasses, seatStatus } from "./render/seat";
 import { musicApi, sfx, unlock } from "./audio";
 /*
@@ -113,6 +112,8 @@ export type MultiApi = {
   takeFx: () => MultiFx | null;
   /** Vrai uniquement quand un salon est rejoint — Enter ouvre alors le chat. */
   chatAvailable: () => boolean;
+  /** Navigation d'observation (flèches). Faux si on n'observe pas. */
+  observeTouche: (key: string) => boolean;
   focusChat: () => void;
   blurChat: () => void;
   /** Synchronise le déploiement du chat (écran ouvert vs manche). */
@@ -158,7 +159,7 @@ type MatchState = {
   rules: Record<string, string>;
   /** Le salon joue au clavier : le pool de consignes s'élargit. Voir `poolMulti`. */
   clavier: boolean;
-  phase: "countdown" | "round" | "frozen";
+  phase: "countdown" | "round" | "frozen" | "observe";
   firstRoundAt: number;
   /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
   countSec: number;
@@ -818,6 +819,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     syncFrame: () => null,
     takeFx: () => null,
     chatAvailable: () => false,
+    observeTouche: () => false,
     focusChat: () => {},
     blurChat: () => {},
     onScreen: () => {},
@@ -852,6 +854,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   let match: MatchState | null = null;
   /** Reçu en privé. Absent = villageois. Remis à zéro à chaque match. */
   let jeSuisImposteur = false;
+  /**
+   * Journal d'observation. Null hors imposteur, et pendant les dix manches.
+   * Les scènes se commandent ICI (précédent / suivant), pas par le serveur.
+   */
+  let observe: { tours: TourJournal[]; idx: number; detailId: string | null } | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -913,6 +920,102 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       match.camRound = null;
       match.camRule = null;
     }
+  }
+
+  function hideObserve(): void {
+    observe = null;
+    $("observe").classList.add("hidden");
+    $("observeDetail").textContent = "";
+    document.getElementById("app")?.classList.remove("is-observe");
+    syncChatChrome();
+  }
+
+  function peintObserveDetail(): void {
+    const el = $("observeDetail");
+    if (!observe || !observe.detailId || !match) {
+      el.textContent = "";
+      return;
+    }
+    const tour = observe.tours[observe.idx];
+    const entree = tour?.sieges[observe.detailId];
+    const p = match.players.find((x) => x.id === observe!.detailId);
+    if (!entree || !p) {
+      el.textContent = "";
+      return;
+    }
+    const nom = p.name;
+    if (entree.outcome.kind === "death") {
+      el.textContent = `${nom} · ${traduisMotif(entree.outcome.reason)}`;
+      return;
+    }
+    el.textContent = `${nom} · ${entree.aAgit ? tr("plaqueAgi") : tr("plaqueRien")}`;
+  }
+
+  function poseTour(n: number): void {
+    if (!match || !observe) return;
+    const max = Math.max(0, observe.tours.length - 1);
+    observe.idx = Math.max(0, Math.min(max, n));
+    observe.detailId = null;
+    const tour = observe.tours[observe.idx];
+    const idx = tour?.idx ?? observe.idx;
+    match.idx = idx;
+    const communeId = Object.values(match.rules)[0];
+    const commune = communeId ? ruleById(communeId) : match.rule;
+    match.round = commune
+      ? roundObserve(match.seed, idx, commune, poolMulti(match.clavier))
+      : null;
+    plateActes.clear();
+    if (tour) {
+      for (const [id, e] of Object.entries(tour.sieges)) {
+        if (e.aAgit) plateActes.add(id);
+      }
+    }
+    $("observeTour").textContent = tr("observeTour")(
+      observe.idx + 1,
+      observe.tours.length || IMPOSTEUR_MANCHES,
+    );
+    $<HTMLButtonElement>("btnObservePrev").disabled = observe.idx <= 0;
+    $<HTMLButtonElement>("btnObserveNext").disabled = observe.idx >= max;
+    peintObserveDetail();
+    renderPlates();
+  }
+
+  function beginObserve(): void {
+    if (!match) return;
+    hideDrama();
+    if (!observe) observe = { tours: [], idx: 0, detailId: null };
+    match.phase = "observe";
+    match.nextRoundAt = null;
+    match.localDone = true;
+    match.preview = null;
+    match.authority = null;
+    platePulse.clear();
+    document.getElementById("app")?.classList.add("is-observe");
+    $("observe").classList.remove("hidden");
+    hud.setRule(null, { vide: true });
+    hud.hideStamp();
+    $("head").classList.remove("is-preview");
+    poseTour(observe.idx);
+    syncChatChrome();
+  }
+
+  function applyJournal(msg: Extract<ServerMsg, { t: "journal" }>): void {
+    const tours = Array.isArray(msg.tours) ? msg.tours : [];
+    observe = { tours, idx: 0, detailId: null };
+    if (match?.phase === "observe") poseTour(0);
+  }
+
+  function observeTouche(key: string): boolean {
+    if (!match || match.phase !== "observe" || !observe) return false;
+    if (key === "ArrowLeft") {
+      poseTour(observe.idx - 1);
+      return true;
+    }
+    if (key === "ArrowRight") {
+      poseTour(observe.idx + 1);
+      return true;
+    }
+    return false;
   }
 
   function showKillCam(
@@ -1217,15 +1320,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * de match. Les messages reçus pendant la partie ne sont pas perdus, ils
    * s'affichent à la reprise.
    *
+   * L'observation imposteur est l'exception : les preuves sont fermées, la
+   * discussion commence. C'est LE chat du salon, pas un second.
+   *
    * Conséquence heureuse : le piège du clavier disparaît. `Entrée` ne peut plus
    * détourner les touches de jeu, puisqu'il n'y a rien à ouvrir en manche.
    */
+  function enObservation(): boolean {
+    return !!match && match.phase === "observe" && observe !== null;
+  }
+
   function chatAvailable(): boolean {
-    return !!roomCode && !!net?.connected && screenOpen();
+    return !!roomCode && !!net?.connected && (screenOpen() || enObservation());
   }
 
   function chatExpanded(): boolean {
-    return screenOpen() || document.activeElement === chatInput;
+    return screenOpen() || enObservation() || document.activeElement === chatInput;
   }
 
   function clearChatFade(): void {
@@ -1359,6 +1469,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // Le salon se repeint depuis le dernier état reçu, pas depuis le serveur :
     // changer de langue ne doit rien demander au réseau.
     paintLobby();
+    if (enObservation() && observe) {
+      poseTour(observe.idx);
+    }
   }
 
   function paintLobby(): void {
@@ -1518,7 +1631,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       const equipe = p.team;
       const enLive =
         match!.modeImposteur &&
-        (match!.phase === "round" || match!.phase === "frozen") &&
+        (match!.phase === "round" || match!.phase === "frozen" || match!.phase === "observe") &&
         !p.spectator;
       const acte: PlateActe | null = enLive ? (plateActes.has(p.id) ? "acted" : "wait") : null;
       el.className =
@@ -1594,6 +1707,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function clearMatch(): void {
     hideDrama();
+    hideObserve();
     match = null;
     jeSuisImposteur = false;
     lobbyInMatch = false;
@@ -1629,6 +1743,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // Plus personne d'observable : il n'y a vraiment rien à montrer.
     if (!rule) return;
 
+    hideObserve();
     endScreenOpen = false;
     roomSettings = msg.settings ?? roomSettings;
     lobbyInMatch = true;
@@ -2257,6 +2372,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       applyVerdict(msg);
       return;
     }
+    if (msg.t === "journal") {
+      applyJournal(msg);
+      return;
+    }
+    if (msg.t === "observe") {
+      beginObserve();
+      return;
+    }
     if (msg.t === "match_end") {
       endMatch(msg);
       return;
@@ -2785,6 +2908,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     syncFooter();
 
+    if (match.phase === "observe") {
+      hud.setRule(null, { vide: true });
+      hud.setMeta(
+        tr("observeTour")((observe?.idx ?? 0) + 1, observe?.tours.length || IMPOSTEUR_MANCHES),
+      );
+      if (match.round) hud.updateRound(match.round, 0, 0);
+      else hud.clearRound();
+      if (!match.round) return { round: null, rule: null, reveal: false };
+      return { ...renduObserve(match.round), reveal: false };
+    }
+
     if (match.phase === "countdown") {
       musicApi.lobby();
       const left = net.clock.toLocal(match.firstRoundAt) - Date.now();
@@ -3196,6 +3330,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   // conteneur, lui, peut être touché sur ses marges.
   $("codeIn").addEventListener("click", () => $<HTMLInputElement>("multiCode").focus());
 
+  $("btnObservePrev").addEventListener("click", () => {
+    if (observe) poseTour(observe.idx - 1);
+  });
+  $("btnObserveNext").addEventListener("click", () => {
+    if (observe) poseTour(observe.idx + 1);
+  });
+  platesEl.addEventListener("click", (ev) => {
+    if (!match || match.phase !== "observe" || !observe) return;
+    const plate = (ev.target as HTMLElement | null)?.closest?.(".plate");
+    if (!(plate instanceof HTMLElement) || !plate.dataset.id) return;
+    const id = plate.dataset.id;
+    observe.detailId = observe.detailId === id ? null : id;
+    peintObserveDetail();
+  });
+
   return {
     available: true,
     exitToMenu,
@@ -3229,6 +3378,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     syncFrame,
     takeFx,
     chatAvailable,
+    observeTouche,
     focusChat,
     blurChat,
     onScreen,

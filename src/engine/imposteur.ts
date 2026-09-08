@@ -14,7 +14,7 @@ import { windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import { MAX_ROUND_MS, SPEED_CHOICES } from "../../shared/protocol";
 import type { RoundOutcome } from "../../shared/protocol";
-import type { Instruction, OneRule, Want } from "./types";
+import type { Instruction, OneRule, Round, Want } from "./types";
 import type { SharedRound } from "./multiround";
 import { MOTIFS } from "./motifs";
 
@@ -146,4 +146,59 @@ export function draftImposteur(
   }
 
   return last;
+}
+
+/**
+ * Scène d'observation : même tirage que la manche jouée, SANS transform.
+ *
+ * Le pool imposteur n'en a pas aujourd'hui. La coupe reste : un ajout
+ * futur (LE MENTEUR, LE JUMEAU) ne doit pas fuiter sur le terrain
+ * pendant qu'on cherche qui a triché. Les hachures `rule.zone` ne
+ * vivent pas dans le `Round` — c'est le renderer qui les prend sur
+ * `rule`, et `renduObserve` lui passe `null`.
+ */
+export function roundObserve(
+  seed: number,
+  idx: number,
+  rule: OneRule,
+  pool?: Instruction[],
+): Round {
+  const shared = draftImposteur(seed, idx, rule, pool);
+  const ents = shared.ents.map((e) => ({ ...e }));
+  const trap = rule.forbids(shared.want, ents);
+  return {
+    instructionId: shared.instructionId,
+    text: shared.text,
+    phrase: shared.phrase,
+    sousPhrase: shared.sousPhrase,
+    sub: shared.sub,
+    glyph: shared.glyph,
+    colorWord: shared.colorWord,
+    ents,
+    steps: trap ? [] : compile(shared.want),
+    trap,
+    originalWant: trap ? shared.want : undefined,
+    durationMs: shared.durationMs,
+  };
+}
+
+/** Ce que le renderer a le droit de recevoir pendant l'observation. */
+export type RenduObserve = { round: Round; rule: null };
+
+export function renduObserve(round: Round): RenduObserve {
+  return { round, rule: null };
+}
+
+/**
+ * Filet du renderer d'observation.
+ *
+ * `drawZones` s'exécute dès que `rule.zone` est passé. GAUCHER et ANGLES
+ * se liraient alors sans réfléchir. Le test casse en passant la règle
+ * complète : ça doit tomber.
+ */
+export function refuseZoneAuRendu(state: {
+  rule: { zone?: unknown; transform?: unknown } | null;
+}): void {
+  if (state.rule?.zone) throw new Error("zone");
+  if (typeof state.rule?.transform === "function") throw new Error("transform");
 }

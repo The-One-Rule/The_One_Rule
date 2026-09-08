@@ -214,6 +214,20 @@
           <p class="tuto__aide" id="tutoAide"></p>
           <p class="tuto__note" id="tutoNote"></p>
         </div>
+
+        <!-- OBSERVATION IMPOSTEUR, HORS FLUX.
+             Après les dix manches : rejouer les scènes, règles masquées.
+             Absolu dans `#stage` comme `#tuto` : `#cv` ne bouge pas.
+             `pointer-events: none` sur le calque, `auto` sur les boutons. -->
+        <div id="observe" class="observe hidden" aria-live="polite">
+          <div class="observe__bar">
+            <button type="button" id="btnObservePrev" class="btn btn--ghost" data-i18n="observe.prev">PREVIOUS</button>
+            <p class="observe__tour" id="observeTour">1 / 10</p>
+            <button type="button" id="btnObserveNext" class="btn btn--ghost" data-i18n="observe.next">NEXT</button>
+          </div>
+          <p class="observe__quoi" data-i18n="observe.quoi">THE TEN ROUNDS. THE RULE STAYS HIDDEN.</p>
+          <p class="observe__detail" id="observeDetail"></p>
+        </div>
       </main>
 
       <div id="drama" class="drama hidden" aria-live="assertive" aria-hidden="true">

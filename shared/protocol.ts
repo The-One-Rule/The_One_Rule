@@ -282,6 +282,27 @@ export type RoundOutcome =
   | { kind: "death"; reason: string }
   | { kind: "idle" }; // spectateur ou déjà éliminé
 
+/**
+ * Un siège, une manche, après coup.
+ *
+ * `aAgit` est le binaire AGI / RIEN. `outcome` porte le motif pour le
+ * détail d'un siège, une fois les preuves fermées — pas pendant les
+ * dix manches, pas en tampon plein cadre.
+ *
+ * Aucune coordonnée, aucune liste d'entités : la scène se reconstruit
+ * (seed + idx + règle commune + pool).
+ */
+export type EntreeTour = {
+  aAgit: boolean;
+  outcome: RoundOutcome;
+};
+
+/** Une manche du journal imposteur. `idx` 0..9. Sièges seulement. */
+export type TourJournal = {
+  idx: number;
+  sieges: Record<string, EntreeTour>;
+};
+
 /* ------------------------------------------------------------------ *
  * Client → serveur
  * ------------------------------------------------------------------ */
@@ -418,6 +439,23 @@ export type ServerMsg =
    * manche. En classique / duo, on n'émet rien.
    */
   | { t: "acted"; idx: number; playerId: string }
+  /**
+   * Journal des dix manches. FACULTATIF. Une fois, à la fin.
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un client
+   * ancien ignore le cas, et c'est le bon défaut. Ne pas l'inclure dans
+   * chaque verdict : les preuves voyagent quand elles sont fermées.
+   */
+  | { t: "journal"; tours: TourJournal[] }
+  /**
+   * Ouvre le temps d'observation. FACULTATIF.
+   *
+   * Pas un setTimeout de reprise, pas de manche 11. Le client ne
+   * reprend pas tout seul (décision n°9) : c'est ce message qui ouvre
+   * la phase. Les scènes se commandent côté client (précédent / suivant)
+   * — MatchLogic n'a pas d'horloge interne.
+   */
+  | { t: "observe" }
   | { t: "room"; code: string; players: PlayerPublic[]; inMatch: boolean; settings: RoomSettings }
   | {
       t: "match_start";

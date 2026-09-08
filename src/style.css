@@ -1223,6 +1223,24 @@ body {
   pointer-events: none;
 }
 
+/*
+ * Observation : les plaques se cliquent pour ouvrir le motif. Le conteneur
+ * reste `none` — un clic dans le vide entre deux plaques atteint la scène,
+ * qui n'envoie plus d'input (`canAct` est faux).
+ */
+#app.has-gutters.is-observe .plate {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+#app.is-observe .plate {
+  cursor: pointer;
+}
+
+#app.is-observe #timer {
+  visibility: hidden;
+}
+
 #app.has-gutters .plates__col {
   position: absolute;
   top: 0;
@@ -8273,6 +8291,81 @@ button.chip:active:not(:disabled) {
   color: var(--paper-dim);
   background: var(--ink);
   padding: 3px 8px;
+}
+
+/* ==================================================================
+   OBSERVATION IMPOSTEUR
+
+   Hors flux dans `#stage`, comme `#tuto` : `#cv` ne change pas de
+   taille. Pas d'animation de défilement — `prefers-reduced-motion`
+   n'a rien à couper, les plaques restent lisibles.
+   ================================================================== */
+
+.observe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 0;
+  pointer-events: none;
+  text-align: center;
+}
+
+.observe.hidden {
+  display: none;
+}
+
+.observe__bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.observe__bar > button {
+  pointer-events: auto;
+  min-height: var(--tap);
+}
+
+.observe__tour {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--paper);
+  min-width: 4.5em;
+}
+
+.observe__quoi {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
+  color: var(--paper-dim);
+  background: var(--ink);
+  padding: 3px 8px;
+}
+
+.observe__detail {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  color: var(--signal-pale);
+  background: var(--ink);
+  border: 1px solid var(--signal);
+  padding: 6px 12px;
+  pointer-events: auto;
+  max-width: 42ch;
+}
+
+.observe__detail:empty {
+  display: none;
 }
 
 /* ==================================================================

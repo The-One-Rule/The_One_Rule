@@ -328,6 +328,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.dicteCode": "DICTE-LE À VOIX HAUTE, OU ENVOIE LE LIEN",
     "coupure.titre": "ON TE REMET EN JEU",
     "coupure.quoi": "Ta place est gardée 25 secondes et tu ne joues aucune manche pendant ce temps. Une coupure n'est pas une défaite.",
+    "observe.prev": "PRÉCÉDENT",
+    "observe.next": "SUIVANT",
+    "observe.quoi": "LES DIX MANCHES. LA RÈGLE RESTE CACHÉE.",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
     "salon.rotation": "ROTATION",
@@ -528,6 +531,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "salon.dicteCode": "SAY IT OUT LOUD, OR SEND THE LINK",
     "coupure.titre": "PUTTING YOU BACK IN",
     "coupure.quoi": "Your seat is held for 25 seconds and you play no round during that time. A cut is not a defeat.",
+    "observe.prev": "PREVIOUS",
+    "observe.next": "NEXT",
+    "observe.quoi": "THE TEN ROUNDS. THE RULE STAYS HIDDEN.",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
     "salon.rotation": "ROTATION",
@@ -846,6 +852,7 @@ type Dyn = {
   optImposteur: string;
   plaqueAgi: string;
   plaqueRien: string;
+  observeTour: (n: number, sur: number) => string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
   ariaRotationJamais: string;
@@ -1325,6 +1332,7 @@ const DYN: Record<Lang, Dyn> = {
     optImposteur: "IMPOSTEUR",
     plaqueAgi: "AGI",
     plaqueRien: "RIEN",
+    observeTour: (n, sur) => `${n} / ${sur}`,
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
@@ -1753,6 +1761,7 @@ const DYN: Record<Lang, Dyn> = {
     optImposteur: "IMPOSTOR",
     plaqueAgi: "ACTED",
     plaqueRien: "WAIT",
+    observeTour: (n, sur) => `${n} / ${sur}`,
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
     ariaRotationJamais: "Rules never rotate",
