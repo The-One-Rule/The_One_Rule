@@ -58,7 +58,7 @@ import {
   montreToast,
 } from "./render/micro";
 import { cibleDe, pilote } from "./game/attract";
-import { ecranAuChargement, ecranDe } from "./route";
+import { ecranAuChargement, ecranDe, estAdressable } from "./route";
 import type { EcranId } from "./route";
 import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
 import { tempsDeLecture } from "./game/lecture";
@@ -182,9 +182,19 @@ function syncField(): void {
    * colonnes, en reconstituant la hauteur de scène plaques hors flux. Cette
    * grandeur est la même dans les deux états : la boucle est rompue par
    * construction, plus par tempérament.
+   *
+   * Sous 720 px les plaques (et emotes / spectateur) sont TOUJOURS hors flux :
+   * `#liveHud` est `position: absolute`. `offsetHeight` du bandeau n'est PAS
+   * zéro — un abspos a encore une hauteur — mais il ne contribue plus au flex.
+   * Si `dansLeFlux` restait vrai, on additionnerait cette hauteur au canvas
+   * déjà plein : une gouttière fantôme, et la boucle reviendrait sur téléphone.
+   *
+   * `matchMedia` peut manquer (harnais jsdom) : l'absence vaut grand écran,
+   * même doctrine que `SANS_DEMO`.
    */
   const platesEl = $("plates");
-  const dansLeFlux = !gutters && !platesEl.classList.contains("hidden");
+  const tel = typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches;
+  const dansLeFlux = !gutters && !tel && !platesEl.classList.contains("hidden");
   const hHorsFlux = cv.clientHeight + (dansLeFlux ? platesEl.offsetHeight : 0);
   const next = wantsColumns(stableGutter(cv.clientWidth, hHorsFlux), gutters);
   if (next === gutters) return;
@@ -410,6 +420,12 @@ function peintReglAttract(regle: OneRule): void {
  * Une image de la démo. Appelée par la boucle de jeu, uniquement sur l'accueil.
  */
 function imageAttract(now: number): void {
+  /*
+   * ⚠️ UN ONGLET CACHÉ NE COMPOSE PAS. Peindre quand même ouvrirait une
+   * deuxième horloge (ou ferait tourner une Session pour rien). Au retour,
+   * `tick(now)` expire la manche et `lanceAttract()` reprend.
+   */
+  if (document.visibilityState === "hidden") return;
   if (!attract) return;
   const { session: sess, scene: sc } = attract;
 
@@ -454,6 +470,21 @@ function imageAttract(now: number): void {
     }
   }
 
+  /*
+   * ⚠️ SUR TÉLÉPHONE ON ZOOME, ON N'ÉTEINT PAS.
+   *
+   * Quinze pièces à 375 px font ~13 px : illisibles. Le zoom est indépendant
+   * de `SANS_DEMO` (mouvement réduit) — les deux questions n'ont rien à voir.
+   * `fieldRect()` reste la seule conversion du curseur, donc il suit.
+   */
+  const tel = typeof matchMedia === "function" && matchMedia("(max-width: 899px)").matches;
+  if (tel) {
+    const c = g.cible;
+    sc.cadrer(c ? c.x : FIELD_W / 2, c ? c.y : FIELD_H / 2, 2);
+  } else {
+    sc.cadrer(FIELD_W / 2, FIELD_H / 2, 1);
+  }
+
   peintAttract(now, ratio, g);
   sc.draw({ round: sess.round, rule: sess.rule, now, ratio });
 }
@@ -481,10 +512,11 @@ function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>):
   $("attractVerdict").textContent = v;
 
   /*
-   * « DÉMO · MANCHE 7 » puis « PERSONNE NE TIENT LA SOURIS ».
+   * « DÉMO · MANCHE 7 » puis « PERSONNE NE JOUE ICI ».
    *
    * ⚠️ La seconde ligne compte autant que la première : sans elle, un visiteur
-   * qui bouge sa souris et ne voit rien répondre croit que le site est cassé.
+   * qui bouge sa souris ou son doigt et ne voit rien répondre croit que le
+   * site est cassé. La phrase nomme les deux, pas seulement la souris.
    */
   const meta = $("attractMeta");
   meta.textContent = "";
@@ -522,25 +554,25 @@ function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>):
 
 /** La démo suit l'écran : elle ne tourne QUE sur l'accueil. */
 /*
- * ⚠️ **SUR TÉLÉPHONE, LA DÉMO NE TOURNE PAS — ET C'EST UNE SEULE SOURCE DE
- * VÉRITÉ QUI LE DIT, PAS DEUX.**
+ * ⚠️ **LE FOND DE NUIT EST LE REPLI DU MOUVEMENT RÉDUIT, PLUS DU TÉLÉPHONE.**
  *
- * Demandé : « sur téléphone supprime la démo en fond et garde juste un fond
- * animé très beau ». La raison tient en deux mesures : une manche compte quinze
- * pièces sur 1000 × 420, et un écran de 375 px de large les rend à un tiers de
- * leur taille — on ne lit ni la consigne, ni ce que la main fait, donc la démo
- * ne démontre rien. Et elle fait tourner une `Session` complète plus un canvas
- * plein écran sur la batterie de quelqu'un qui n'a encore rien demandé.
+ * Directive récente : l'accueil montre le vrai attract partout, y compris
+ * sous 900 px — 74 % des nouveaux repartent sans jouer, et une nuit animée
+ * à la place du jeu ne leur dit rien. Quinze pièces illisibles se règlent
+ * par un zoom (`cadrer`), pas en éteignant la démo.
  *
- * ⚠️ Le seuil est décidé **ici et nulle part ailleurs**, et la feuille de style
- * se contente de suivre la classe. Écrire la même largeur des deux côtés
- * marcherait aujourd'hui et divergerait au premier ajustement : on aurait alors
- * soit un canvas invisible qui consomme, soit un fond de nuit sous une partie
- * qui tourne. `matchMedia` est la seule mesure, et elle est écoutée — faire
- * pivoter le téléphone bascule d'un monde à l'autre.
+ * `prefers-reduced-motion` reste le cas où une `Session` + un canvas qui
+ * bougent sont un coût sans bénéfice : on pose alors `.attract--nuit`.
+ * L'ancienne justification « fond de nuit sur téléphone » reste vraie pour
+ * CE repli-là, et pour lui seulement.
+ *
+ * ⚠️ Le seuil est décidé **ici et nulle part ailleurs**, et la feuille de
+ * style se contente de suivre la classe. Une media query de largeur qui
+ * redéciderait la nuit afficherait un fond sous une partie qui tourne, ou
+ * l'inverse.
  */
 /*
- * ⚠️ `matchMedia` PEUT MANQUER, ET SON ABSENCE VAUT « GRAND ÉCRAN ».
+ * ⚠️ `matchMedia` PEUT MANQUER, ET SON ABSENCE VAUT « GRAND ÉCRAN / DÉMO ON ».
  *
  * Aucun navigateur en service ne s'en passe, mais le harnais de test monte
  * l'application dans un DOM simulé qui, lui, ne l'implémente pas — et un décor
@@ -552,7 +584,7 @@ function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>):
  */
 const SANS_DEMO: Pick<MediaQueryList, "matches" | "addEventListener"> =
   typeof matchMedia === "function"
-    ? matchMedia("(max-width: 899px)")
+    ? matchMedia("(prefers-reduced-motion: reduce)")
     : { matches: false, addEventListener: () => {} };
 
 function attractSuitEcran(id: ScreenId): void {
@@ -667,28 +699,74 @@ window.addEventListener("popstate", () => {
     /*
      * ⚠️ REVENIR EN ARRIÈRE PENDANT UNE PARTIE, C'EST L'ABANDONNER.
      *
-     * C'est déjà ce que fait ÉCHAP, et c'est la seule lecture honnête : le
-     * joueur a demandé à quitter cet écran. Laisser la session tourner derrière
-     * un menu produirait un run fantôme qui finirait par écrire un score que
-     * personne n'a joué.
+     * C'est déjà ce que fait ÉCHAP. Mais `abandon()` appelait `backHome()`,
+     * donc `show("home")`, puis `return` — l'URL était déjà reculée
+     * (`/entrainement`, `/solo`…) et `poseAdresse` est inerte pendant
+     * `enRetour`. L'écran disait accueil, la barre d'adresse autre chose.
+     *
+     * On tue la session SANS changer d'écran, puis on SUIT l'adresse.
      */
     if (session) {
-      abandon();
-      return;
+      session = null;
+      challenge = null;
+      ranked = null;
+      musicApi.stop();
+      $("ghost").classList.add("hidden");
+      hud.setRule(null);
+      hud.clearRound();
+      hud.hideStamp();
     }
     /*
      * ⚠️ ET QUITTER LE SALON EN PARTANT, SINON ON Y RESTE ASSIS.
      *
      * Le salon est un état RÉSEAU, pas seulement un écran : sortir sans
-     * prévenir laisserait un siège occupé par quelqu'un qui n'est plus là, et
-     * les autres attendraient un joueur fantôme au lancement.
+     * prévenir laisserait un siège occupé par quelqu'un qui n'est plus là.
+     * Pendant un match, `screen` est `null` : `isPlayingMulti()` le voit.
      */
-    if ((screen === "multi-lobby" || screen === "multi-end") && cible !== "multi-lobby") {
+    if (
+      (multi.isPlayingMulti() || screen === "multi-lobby" || screen === "multi-end") &&
+      cible !== "multi-lobby"
+    ) {
       multi.exitToMenu();
     }
-    show(cible === "partie" ? "home" : cible);
+    suitAdresse(cible);
   });
 });
+
+/**
+ * Ouvre l'écran que l'adresse désigne, et le PEINT.
+ *
+ * `show()` ne suffit pas — c'est le bug d'arrivée à froid. Le bouton
+ * précédent doit faire la même chose, sinon un retour sur `/cartes`
+ * montrerait une grille vide.
+ *
+ * ⚠️ `/partie` ne restaure PAS le run : il n'existe plus. On retombe sur
+ * SOLO, le parent, plutôt que sur un canvas mort.
+ *
+ * ⚠️ `/multi` au retour ne reclique PAS `#btnMulti` : ce clic ouvre
+ * l'identité si le nom manque, ou relance `openJoin`. On montre l'écran.
+ */
+function suitAdresse(cible: EcranId): void {
+  if (cible === "partie") {
+    renderSolo();
+    show("solo");
+    return;
+  }
+  if (cible === "multi-join") {
+    show("multi-join");
+    return;
+  }
+  if (cible === "home") {
+    renderHome();
+    show("home");
+    return;
+  }
+  if (estAdressable(cible)) {
+    ouvreAdresse(cible);
+    return;
+  }
+  show(cible as Exclude<EcranId, "partie">);
+}
 
 
 /*
@@ -6237,7 +6315,10 @@ function ouvreAdresse(id: EcranId): void {
       show("classement");
       return;
     case "compte":
-      renderCompte();
+      // `renderCompte()` ne montre pas l'écran — seul `ouvreCompte` le fait.
+      // Un retour ou une arrivée à froid sur `/compte` peignait un cadre
+      // caché et laissait l'accueil visible.
+      void ouvreCompte();
       return;
     case "reglages":
       renderReglages();

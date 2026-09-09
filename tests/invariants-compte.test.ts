@@ -251,10 +251,10 @@ describe("l'écran de compte", () => {
     const src = lit("src/main.ts")
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
-    // `show("compte")` ne doit apparaître que dans `ouvreCompte`, qui n'est
-    // appelée que par un clic. Un appel au démarrage ferait du compte la
-    // première chose que rencontre un joueur invité par un ami — exactement
-    // ce que l'ancien `prompt()` de nom faisait, et qu'on a retiré.
+    // `show("compte")` ne doit apparaître que dans `ouvreCompte`. L'adresse
+    // `/compte` passe par elle (un second `show` ici ferait un doublon, et un
+    // appel au démarrage hors adresse ferait du compte la première chose que
+    // rencontre un joueur invité — exactement l'ancien `prompt()` de nom).
     const ouvertures = src.match(/show\(\s*["']compte["']\s*\)/g) ?? [];
     expect(ouvertures).toHaveLength(1);
   });

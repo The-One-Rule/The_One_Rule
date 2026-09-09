@@ -324,6 +324,13 @@
         </div>
       </div>
 
+      <!--
+        Plaques, spectateur, emotes. `#liveHud` est `display: contents` :
+        sur bureau ils restent des enfants flex de `#app`, et `has-gutters`
+        pose encore les plaques dans les colonnes. Sous 720 px le calque
+        sort du flux et se pose au bas de `#stage`, au-dessus du pied.
+      -->
+      <div id="liveHud">
       <div id="plates" class="plates hidden" aria-label="Players" data-i18n-aria="aria.joueurs">
         <div class="plates__col" id="platesL"></div>
         <div class="plates__col" id="platesR"></div>
@@ -334,6 +341,7 @@
       </div>
 
       <div id="emotes" class="emotes hidden" aria-label="Reactions" data-i18n-aria="aria.emotes"></div>
+      </div>
 
       <!-- LE FIL DES CHUTES.
            Qui vient de tomber, et pourquoi — sans arrêter la partie. Le
@@ -437,13 +445,12 @@
           <!-- La chaleur : le cadre bat, et il rougit quand ca tourne mal. -->
           <span class="attract__chaleur" id="attractChaleur"></span>
 
-          <!-- ⚠️ LE FOND DE NUIT — CE QUI REMPLACE LA DEMO SUR TELEPHONE.
+          <!-- ⚠️ LE FOND DE NUIT — REPLI DU MOUVEMENT REDUIT, PLUS DU TELEPHONE.
                Il ne s'affiche que sous `.attract--nuit`, et c'est le JS qui pose
                cette classe : le seuil est decide a un seul endroit (voir
-               `SANS_DEMO` dans main.ts). Trois plans qui ne battent pas au meme
-               rythme, comme la fissure et comme `--heat` — une seule vitesse
-               donne une boucle qu'on reconnait, et ce qu'on reconnait on cesse
-               de le regarder. Rien que `transform` et `opacity`. -->
+               `SANS_DEMO` dans main.ts, `prefers-reduced-motion`). Trois plans
+               qui ne battent pas au meme rythme, comme la fissure et comme
+               `--heat`. Rien que `transform` et `opacity`. -->
           <span class="attract__nuit" id="attractNuit"></span>
         </div>
 
@@ -465,9 +472,9 @@
             <p class="home__verdict" id="attractVerdict"></p>
           </div>
 
-          <!-- « DEMO · MANCHE 7 / PERSONNE NE TIENT LA SOURIS ». La seconde
-               ligne compte autant que la premiere : sans elle, un visiteur
-               croit que le jeu ne repond pas a sa souris. -->
+          <!-- « DEMO · MANCHE 7 / PERSONNE NE JOUE ICI ». La seconde ligne
+               compte autant que la premiere : sans elle, un visiteur croit
+               que le jeu ne repond pas a sa souris ou a son doigt. -->
           <p class="home__demo" id="attractMeta"></p>
 
           <!-- ░ LE CENTRE DE GRAVITE ░

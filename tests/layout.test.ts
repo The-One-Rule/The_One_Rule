@@ -13,7 +13,12 @@ import { FIELD_H, FIELD_W } from "../src/engine/types";
  * pièces invisibles, plaques tantôt sur les côtés tantôt en bas.
  * ------------------------------------------------------------------ */
 
-/** Hauteur du bandeau de plaques quand il est dans le flux. */
+/** Hauteur du bandeau de plaques quand il est dans le flux.
+ *
+ * C'est l'ancien vol de hauteur (bandeau desktop). Sous 720 px le DOM ne
+ * le fait plus — les plaques sont hors flux — mais le cycle reste une
+ * propriété de `wantsColumns`, pas du DOM. Ne pas retirer « pour simplifier ».
+ */
 const BANDEAU = 96;
 
 /**

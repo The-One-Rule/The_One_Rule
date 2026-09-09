@@ -136,6 +136,42 @@ const HIT = 1.22;
  */
 export const FIELD_GUTTER = 24;
 
+/**
+ * Cadre une fenêtre du champ — attract téléphone.
+ *
+ * Le letterbox classique tient tout le 1000 × 420 dans le canvas : à 375 px
+ * de large, une pièce de rayon 40 fait 13 px. On zoome, puis on centre sur
+ * `(cx, cy)` en unités du champ, en recadrant pour ne pas montrer le vide.
+ *
+ * ⚠️ Ne pas appeler ça sur le canvas de JEU : `fieldRect()` changerait, et
+ * les plaques / collisions visuelles suivraient une géométrie qui n'est plus
+ * celle du moteur. L'attract a son propre `SceneRenderer`.
+ *
+ * `zoom <= 1` reproduit le letterbox de `resize()` centré, pour qu'un test
+ * puisse comparer les deux sans un canvas.
+ */
+export function poseCadre(
+  cssW: number,
+  cssH: number,
+  cx: number,
+  cy: number,
+  zoom: number,
+): { scale: number; offX: number; offY: number } {
+  const g = FIELD_GUTTER;
+  const usableW = Math.max(1, cssW - g * 2);
+  const usableH = Math.max(1, cssH - g * 2);
+  const scale = Math.min(usableW / FIELD_W, usableH / FIELD_H) * Math.max(1, zoom);
+  const fieldW = FIELD_W * scale;
+  const fieldH = FIELD_H * scale;
+  let offX = cssW / 2 - cx * scale;
+  let offY = cssH / 2 - cy * scale;
+  if (fieldW >= cssW) offX = Math.min(0, Math.max(cssW - fieldW, offX));
+  else offX = (cssW - fieldW) / 2;
+  if (fieldH >= cssH) offY = Math.min(0, Math.max(cssH - fieldH, offY));
+  else offY = (cssH - fieldH) / 2;
+  return { scale, offX, offY };
+}
+
 export class SceneRenderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -144,6 +180,11 @@ export class SceneRenderer {
   private scale = 1;
   private offX = 0;
   private offY = 0;
+  /**
+   * Recadrage attract. `null` = letterbox de jeu, inchangé.
+   * `draw()` peut rappeler `resize()` : le cadre doit survivre à cet appel.
+   */
+  private cadre: { cx: number; cy: number; zoom: number } | null = null;
   /**
    * Gouttière réservée au cadre de temps.
    *
@@ -277,6 +318,35 @@ export class SceneRenderer {
     return pat;
   }
 
+  /**
+   * Zoom + centre sur un point du champ. `zoom <= 1` rend le letterbox.
+   * Uniquement l'attract : le renderer de jeu ne l'appelle jamais.
+   *
+   * ⚠️ Ne passe PAS par `resize()` : poser `canvas.width` à chaque image
+   * viderait le buffer. Le cadre se recalcule, le buffer reste.
+   */
+  cadrer(cx: number, cy: number, zoom: number): void {
+    this.cadre = zoom > 1 ? { cx, cy, zoom } : null;
+    this.appliqueCadre();
+  }
+
+  /** Letterbox de jeu, ou fenêtre d'attract si un cadre est posé. */
+  private appliqueCadre(): void {
+    if (this.cadre) {
+      const c = poseCadre(this.cssW, this.cssH, this.cadre.cx, this.cadre.cy, this.cadre.zoom);
+      this.scale = c.scale;
+      this.offX = c.offX;
+      this.offY = c.offY;
+      return;
+    }
+    const g = SceneRenderer.GUTTER;
+    const usableW = Math.max(1, this.cssW - g * 2);
+    const usableH = Math.max(1, this.cssH - g * 2);
+    this.scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
+    this.offX = (this.cssW - FIELD_W * this.scale) / 2;
+    this.offY = (this.cssH - FIELD_H * this.scale) / 2;
+  }
+
   resize(): void {
     const rect = this.canvas.getBoundingClientRect();
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -284,12 +354,7 @@ export class SceneRenderer {
     this.cssH = rect.height;
     this.canvas.width = Math.max(1, Math.round(rect.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(rect.height * this.dpr));
-    const g = SceneRenderer.GUTTER;
-    const usableW = Math.max(1, this.cssW - g * 2);
-    const usableH = Math.max(1, this.cssH - g * 2);
-    this.scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
-    this.offX = (this.cssW - FIELD_W * this.scale) / 2;
-    this.offY = (this.cssH - FIELD_H * this.scale) / 2;
+    this.appliqueCadre();
   }
 
   /** Coordonnées écran → repère logique du moteur. */

@@ -166,3 +166,28 @@ describe("les autres orthographes qu'on peut taper", () => {
     expect(ecranAuChargement("/training")).toBe("solo");
   });
 });
+
+describe("le précédent suit l'adresse", () => {
+  const main = readFileSync("src/main.ts", "utf8");
+
+  it("⚠️ ABANDONNER UNE PARTIE N'ÉJECTE PLUS À L'ACCUEIL", () => {
+    /*
+     * `abandon(); return` dans le `popstate` faisait `backHome()` → accueil,
+     * alors que l'URL était déjà reculée. Écran et barre d'adresse divergeaient.
+     * ÉCHAP, lui, garde `abandon()` — on ne le cherche donc QUE dans ce handler.
+     */
+    const i = main.indexOf('addEventListener("popstate"');
+    expect(i, "handler popstate introuvable").toBeGreaterThan(0);
+    const brut = main.slice(i, main.indexOf("function suitAdresse", i));
+    const handler = brut.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(handler).not.toMatch(/abandon\s*\(/);
+    expect(main).toMatch(/function suitAdresse\(/);
+  });
+
+  it("une arrivée ou un retour sur /compte montre l'écran", () => {
+    // `renderCompte()` n'appelle pas `show`. Sans `ouvreCompte`, le cadre
+    // se peignait caché et l'accueil restait visible.
+    const branche = /case "compte":[\s\S]*?return;/.exec(main)?.[0] ?? "";
+    expect(branche, "branche compte introuvable").toMatch(/ouvreCompte/);
+  });
+});
