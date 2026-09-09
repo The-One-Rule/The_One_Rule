@@ -156,4 +156,86 @@ describe("ce qui bouge sur l'accueil", () => {
       /\.attract[^{]*\{[^}]*display:\s*none/,
     );
   });
+
+  it("aucun prefers-reduced-motion ne pose display:none sur .attract", () => {
+    /*
+     * Le test du dessus ne lit que le PREMIER bloc. Le dépôt en a plusieurs.
+     * Celui de l'accueil est en fin de feuille : un `display: none` y
+     * reviendrait sans que le premier le voie.
+     */
+    const re = /@media[^{]*prefers-reduced-motion[^{]*\{/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(css))) {
+      const debut = m.index + m[0].length;
+      let profondeur = 1;
+      let i = debut;
+      for (; i < css.length; i++) {
+        if (css[i] === "{") profondeur++;
+        else if (css[i] === "}") {
+          profondeur--;
+          if (profondeur === 0) break;
+        }
+      }
+      const corps = css.slice(debut, i);
+      expect(corps, "reduced-motion efface .attract").not.toMatch(
+        /\.attract[^{]*\{[^}]*display:\s*none/,
+      );
+    }
+  });
+});
+
+describe("identité Nocturne — pas de lampe sur l'accueil", () => {
+  function trancheAccueil(): string {
+    const debut = css.indexOf(".attract {");
+    const fin = css.indexOf(".micro {");
+    expect(debut, "le bloc .attract a disparu").toBeGreaterThan(0);
+    expect(fin, "le bloc .micro qui borne l'accueil a disparu").toBeGreaterThan(debut);
+    return css.slice(debut, fin);
+  }
+
+  it("PLAY garde l'ombre décalée et perd le bloom", () => {
+    const corps = regle(".play");
+    expect(corps, "le cadre 8 px a disparu").toMatch(/border:\s*8px\s+solid\s+var\(--signal\)/);
+    expect(corps, "le fond 12 % a disparu — on doit voir le champ à travers").toMatch(
+      /--signal\)\s*12%/,
+    );
+    expect(corps, "l'ombre décalée 12 px est l'identité").toMatch(/12px\s+12px\s+0\s+0/);
+    expect(corps, "le bloom 70 px est une lampe").not.toMatch(/0\s+0\s+70px/);
+    const hover = regle(".play:hover");
+    expect(hover, "le hover doit grandir le décalage, pas le glow").toMatch(
+      /18px\s+18px\s+0\s+0/,
+    );
+    expect(hover).not.toMatch(/0\s+0\s+110px/);
+  });
+
+  it("la chaleur est un liseré, pas un voile plein cadre", () => {
+    const corps = regle(".attract__chaleur");
+    expect(corps).toMatch(/inset\s+0\s+0\s+0\s+[12]px/);
+    expect(corps).not.toMatch(/110px/);
+    expect(regle(".attract__chaleur.est-chaud")).not.toMatch(/110px/);
+  });
+
+  it("la vignette est de l'encre, sans poche --signal", () => {
+    const corps = regle(".attract::after");
+    expect(corps, "la vignette a disparu — PLAY doit rester lisible sur le champ").toMatch(
+      /radial-gradient/,
+    );
+    expect(corps).toMatch(/var\(--ink\)/);
+    expect(corps).not.toMatch(/--signal/);
+  });
+
+  it("consigne et méta : ombre dure, pas un glow de 34 px", () => {
+    const instr = regle(".home__instr");
+    expect(instr).toMatch(/text-shadow:\s*2px\s+2px\s+0/);
+    expect(instr).not.toMatch(/34px/);
+    expect(regle(".home__demo")).toMatch(/text-shadow:\s*2px\s+2px\s+0/);
+    expect(trancheAccueil()).not.toMatch(/0\s+0\s+34px/);
+  });
+
+  it("la tranche accueil ne réintroduit pas les blooms coupés", () => {
+    const t = trancheAccueil();
+    expect(t).not.toMatch(/0\s+0\s+70px/);
+    expect(t).not.toMatch(/0\s+0\s+110px/);
+    expect(t).not.toMatch(/inset\s+0\s+0\s+110px/);
+  });
 });

@@ -42,20 +42,21 @@ describe("plaques téléphone hors flux", () => {
 
   it("hors has-gutters, #liveHud est un calque au-dessus du pied", () => {
     expect(css).toMatch(/#liveHud\s*\{[^}]*display:\s*contents/);
-    expect(tel).toMatch(/#app:not\(\.has-gutters\)\s+#liveHud\s*\{/);
-    const overlay = /#app:not\(\.has-gutters\)\s+#liveHud\s*\{([^}]*)\}/.exec(tel);
+    const overlay = /#app:not\(\.has-gutters\)\s+#liveHud\s*\{([^}]*)\}/.exec(css);
     expect(overlay, "règle d'overlay #liveHud introuvable").not.toBeNull();
     const corps = overlay![1]!;
     expect(corps).toMatch(/position:\s*absolute/);
     expect(corps).toMatch(/pointer-events:\s*none/);
     expect(corps).toMatch(/bottom:\s*var\(--foot-h\)/);
+    expect(corps).toMatch(/z-index:\s*8/);
   });
 
-  it("une rangée, overflow-x, pas overflow-y qui grandit", () => {
+  it("une rangée, overflow-x, bulle accueillie dans le padding — pas overflow-y auto qui grandit", () => {
     expect(tel).toMatch(/overflow-x:\s*auto/);
     expect(tel).not.toMatch(/overflow-y:\s*auto/);
     expect(tel).toMatch(/flex-wrap:\s*nowrap/);
     expect(tel).not.toMatch(/max-height:\s*26vh/);
+    expect(tel).toMatch(/padding:\s*32px 10px 6px/);
   });
 
   it("la règle adverse n'est plus masquée à 720 px — elle tenait déjà", () => {
@@ -75,11 +76,10 @@ describe("plaques téléphone hors flux", () => {
     expect(tel).not.toMatch(/#app\.has-gutters \.plates/);
   });
 
-  it("dansLeFlux est faux dès que le media 720 px s'applique", () => {
-    expect(main).toMatch(/matchMedia\(\s*["']\(max-width:\s*720px\)["']\s*\)/);
-    expect(main).toMatch(
-      /dansLeFlux = !gutters && !tel && !platesEl\.classList\.contains\("hidden"\)/,
-    );
+  it("dansLeFlux n'additionne plus offsetHeight — le calque est toujours hors flux", () => {
+    expect(main).toMatch(/hHorsFlux = cv\.clientHeight;/);
+    expect(main).not.toMatch(/platesEl\.offsetHeight/);
+    expect(main).not.toMatch(/dansLeFlux = !gutters && !tel/);
   });
 
   it("#liveHud enveloppe plaques, spectateur et emotes — le pied reste dehors", () => {
@@ -95,8 +95,10 @@ describe("plaques téléphone hors flux", () => {
     expect(iFoot).toBeGreaterThan(iFeed);
   });
 
-  it("emotes : cible pouce, gap 8 px", () => {
-    expect(tel).toMatch(/\.emotes \.chip[^{]*\{[^}]*min-height:\s*var\(--tap\)/);
-    expect(tel).toMatch(/\.emotes[^{]*\{[^}]*gap:\s*8px/);
+  it("emotes : cible pouce, gap 8 px, chips seulement", () => {
+    expect(css).toMatch(/#liveHud \.emotes \.chip[^{]*\{[^}]*min-height:\s*var\(--tap\)/);
+    expect(css).toMatch(/#liveHud \.emotes[^{]*\{[^}]*gap:\s*8px/);
+    const overlay = /#app:not\(\.has-gutters\)\s+#liveHud\s*\{([^}]*)\}/.exec(css);
+    expect(overlay![1]).toMatch(/pointer-events:\s*none/);
   });
 });

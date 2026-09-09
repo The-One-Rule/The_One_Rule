@@ -183,19 +183,11 @@ function syncField(): void {
    * grandeur est la même dans les deux états : la boucle est rompue par
    * construction, plus par tempérament.
    *
-   * Sous 720 px les plaques (et emotes / spectateur) sont TOUJOURS hors flux :
-   * `#liveHud` est `position: absolute`. `offsetHeight` du bandeau n'est PAS
-   * zéro — un abspos a encore une hauteur — mais il ne contribue plus au flex.
-   * Si `dansLeFlux` restait vrai, on additionnerait cette hauteur au canvas
-   * déjà plein : une gouttière fantôme, et la boucle reviendrait sur téléphone.
-   *
-   * `matchMedia` peut manquer (harnais jsdom) : l'absence vaut grand écran,
-   * même doctrine que `SANS_DEMO`.
+   * Les plaques ne sont plus jamais dans le flex : colonnes (`has-gutters`)
+   * ou calque `#liveHud`. `offsetHeight` d'un abspos n'est PAS zéro ; l'ajouter
+   * au canvas déjà plein recréerait la boucle de gouttières.
    */
-  const platesEl = $("plates");
-  const tel = typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches;
-  const dansLeFlux = !gutters && !tel && !platesEl.classList.contains("hidden");
-  const hHorsFlux = cv.clientHeight + (dansLeFlux ? platesEl.offsetHeight : 0);
+  const hHorsFlux = cv.clientHeight;
   const next = wantsColumns(stableGutter(cv.clientWidth, hHorsFlux), gutters);
   if (next === gutters) return;
 

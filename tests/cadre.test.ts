@@ -99,5 +99,7 @@ describe("lot C — sources", () => {
     expect(tel).not.toMatch(/\.home__demo[^{]*\{[^}]*display:\s*none/);
     expect(tel).not.toMatch(/attract--nuit/);
     expect(tel).toMatch(/\.profondeur\s*\{[^}]*display:\s*none/);
+    expect(tel).toMatch(/padding-bottom:\s*83px/);
+    expect(tel).toMatch(/#app\.has-topbar #home \.home/);
   });
 });

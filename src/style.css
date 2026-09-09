@@ -1204,20 +1204,23 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--sp-1);
+  gap: 2px;
   pointer-events: none;
-  max-width: min(52vw, 420px);
+  /* ~40 % du champ, pas 70 vw : trois lignes à 52 vw mangeaient la moitié
+     droite du terrain. `--field-w` est tenu pour les gouttières ; 40 vw
+     suit la largeur d'écran, plafonnée. */
+  max-width: min(40vw, 200px);
 }
 
 .feed__line {
   display: flex;
   align-items: baseline;
-  gap: var(--sp-2);
-  padding: 7px var(--sp-2);
+  gap: var(--sp-1);
+  padding: 4px 6px;
   background: color-mix(in srgb, var(--ink) 88%, transparent);
   border-left: var(--bd-thin) solid var(--dead);
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--paper-dim);
   animation: feedIn var(--d-base) var(--e-out);
 }
@@ -1241,8 +1244,8 @@ body {
 .feed__who {
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
+  font-size: var(--t-micro);
+  letter-spacing: var(--ls-micro);
   color: var(--paper);
   white-space: nowrap;
 }
@@ -1280,11 +1283,67 @@ body {
  *
  * `display: contents` : pas de boîte, les trois restent des flex items
  * de `#app`. C'est ce qui laisse `has-gutters` poser les plaques dans
- * les colonnes sans changer de HTML. Sous 720 px, la boîte existe et
- * sort du flux — voir le @media.
+ * les colonnes sans changer de HTML.
+ *
+ * Hors colonnes, le calque sort du flux et se pose au bas du champ,
+ * au-dessus du pied — y compris entre 721 px et `has-gutters`, où
+ * `display: contents` laissait les émotes DANS le flex, sous le canvas.
+ * z-index 8 : au-dessus du halo `#heat` (6). pointer-events: none, auto
+ * seulement sur les chips / cibles spectateur / plaques en observation.
  */
 #liveHud {
   display: contents;
+}
+
+#app:not(.has-gutters) #liveHud {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--foot-h);
+  z-index: 8;
+  pointer-events: none;
+  overflow: visible;
+}
+
+#app:not(.has-gutters) #liveHud .emotes .chip,
+#app:not(.has-gutters) #liveHud .watchbar__targets .chip {
+  pointer-events: auto;
+}
+
+#app:not(.has-gutters) #liveHud .emotes {
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 0;
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+
+#app:not(.has-gutters) #liveHud .emotes .chip {
+  flex: 0 0 auto;
+  min-width: var(--tap);
+  min-height: var(--tap);
+  padding: 0;
+  font-size: 22px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+#app:not(.has-gutters) #liveHud .watchbar {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-top: 0;
+  background: color-mix(in srgb, var(--ink) 88%, transparent);
+}
+
+#app:not(.has-gutters) #liveHud .watchbar__targets {
+  flex-wrap: nowrap;
 }
 
 .plates {
@@ -1623,9 +1682,10 @@ body {
   color: var(--signal-pale);
   font-family: var(--display);
   font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  padding: 4px 8px;
+  font-size: 22px;
+  letter-spacing: 0;
+  line-height: 1;
+  padding: 4px 6px;
   opacity: 0;
   pointer-events: none;
   z-index: 2;
@@ -2128,55 +2188,29 @@ body {
 }
 
 /*
- * Plaques, emotes, spectateur : hors flux sur téléphone.
+ * Plaques compactes sur téléphone.
  *
- * Mesuré sur un 375×812 : à six joueurs le bandeau occupait 261 px, soit
- * 32 % de la hauteur. `max-height: 26vh` + overflow-y était un filet, pas
- * une ergonomie — « on ne peut plus jouer ». `has-gutters` sort déjà les
- * plaques du flux en colonnes ; le téléphone n'avait jamais cette sortie.
+ * Le calque `#liveHud` n'est plus ici : hors `has-gutters` il s'applique
+ * à toute largeur, sinon entre 721 px et les colonnes les émotes
+ * restaient dans le flex, sous le canvas.
  *
- * Une rangée, overflow-x si besoin. Pas overflow-y : ça grandissait encore.
- * La règle adverse tient dans la hauteur déjà réservée par la plaque
- * (mesuré à 375×812, quatre plaques, 60 px avec ou sans) : on l'affiche
- * en ellipsis, on ne masque plus. React / série restent hors de la rangée.
- *
- * `#liveHud` se cale au-dessus du pied (`--foot-h`). `#app` porte déjà
- * `padding-bottom: env(safe-area-inset-bottom)`, donc les emotes restent
- * au-dessus de l'indicateur d'accueil sans doubler la marge. Le pied
- * reste dans le flux.
- *
- * pointer-events: none sur le calque ; auto sur les rangées (scroll
- * horizontal, chips, plaques en observation). Un clic au centre du champ
- * percute `#cv`.
+ * Une rangée, overflow-x si besoin. overflow-x: auto force overflow-y
+ * à auto (spec) : un `hidden` / `visible` en Y CLIPPE `.plate__emote`
+ * qui dépasse au-dessus. Le padding-top accueille la bulle DANS la
+ * boîte ; la marge négative remet la rangée au ras du pied.
  */
 @media (max-width: 720px) {
-  #app:not(.has-gutters) #liveHud {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: var(--foot-h);
-    z-index: 3;
-    pointer-events: none;
-  }
-
-  #app:not(.has-gutters) #liveHud .plates,
-  #app:not(.has-gutters) #liveHud .emotes,
-  #app:not(.has-gutters) #liveHud .watchbar {
-    pointer-events: auto;
-  }
-
   #app:not(.has-gutters) .plates {
     flex-wrap: nowrap;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 32px 10px 6px;
+    margin-top: -26px;
     max-height: none;
     overflow-x: auto;
     overflow-y: hidden;
     border-top: 0;
     background: color-mix(in srgb, var(--ink) 88%, transparent);
+    pointer-events: none;
   }
 
   #app:not(.has-gutters) .plates .plate {
@@ -2185,6 +2219,7 @@ body {
     max-width: none;
     padding: 5px 7px;
     gap: 2px;
+    pointer-events: auto;
   }
 
   #app:not(.has-gutters) .plates .plate__react,
@@ -2205,39 +2240,6 @@ body {
     content: "1RE";
     font-size: 8px;
     padding: 1px 4px;
-  }
-
-  #app:not(.has-gutters) .emotes {
-    flex-wrap: nowrap;
-    justify-content: center;
-    gap: 8px;
-    padding: 8px 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-top: 0;
-    background: color-mix(in srgb, var(--ink) 88%, transparent);
-  }
-
-  #app:not(.has-gutters) .emotes .chip {
-    flex: 0 0 auto;
-    min-width: var(--tap);
-    min-height: var(--tap);
-  }
-
-  #app:not(.has-gutters) .watchbar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    border-top: 0;
-    background: color-mix(in srgb, var(--ink) 88%, transparent);
-  }
-
-  #app:not(.has-gutters) .watchbar__targets {
-    flex-wrap: nowrap;
-  }
-
-  #app:not(.has-gutters) .watchbar__targets .chip {
-    pointer-events: auto;
   }
 }
 
@@ -5630,9 +5632,8 @@ button.chip:active:not(:disabled) {
     height: 9px;
   }
 
-  /* Le fil des chutes ne doit pas couvrir la moitié d'un écran de téléphone. */
+  /* Le fil des chutes : même plafond qu'ailleurs, plus de 70 vw. */
   .feed {
-    max-width: 70vw;
     right: var(--sp-1);
   }
 
@@ -13086,36 +13087,41 @@ button.chip:active:not(:disabled) {
  *
  * Première version : un rectangle rayé de 320 px, plus discret que la ligne de
  * repères juste au-dessous. Rapporté : « le halo de tu as battu ton record doit
- * être une vraie récompense, pas juste un petit carré comme ça ». C'est le
- * seul instant du run qui vaut d'être fêté, et il valait moins qu'une légende.
+ * être une vraie récompense, pas juste un petit carré comme ça ».
  *
- * Ce qui change, et pourquoi ce n'est pas juste « plus gros » :
+ * Mesuré à 1280 × 860, animations coupées : `.over__result` 490 px, le chiffre
+ * du score 86 px, `.exploit` 490 px — la barre REMPLIT la colonne résultat,
+ * elle n'est pas trop étroite. Ce qui ne prenait pas :
  *
- *   · il prend TOUTE la colonne et se pose SOUS le chiffre, là où l'œil est
- *     déjà — pas à côté ;
- *   · l'ambre devient un vrai aplat, avec sa lueur, au lieu d'une trame à 14 % ;
- *   · l'écart (« +8 ») devient le second plus gros chiffre de l'écran, après le
- *     score lui-même : c'est LUI la nouvelle, pas l'ancien record ;
- *   · il ARRIVE. Un objet déjà en place quand l'écran s'ouvre n'est pas une
- *     récompense, c'est une mention. L'animation est en `transform` et
- *     `opacity` seulement, et `prefers-reduced-motion` la pose à son état final
- *     plutôt que de la couper — le piège documenté du dépôt.
+ *   · le fond `ambre 12 %` + hachures `20 %` se calculait en olive boueux
+ *     (`0.19 0.19 0.16`), un voile, pas un aplat ;
+ *   · `0 0 46px` de bloom : même famille que le halo sous `.over__head`
+ *     (une ombre part de la BOÎTE). La boîte fait toute la colonne, le glow
+ *     partait de 46 px dans la gouttière de 52 px et paraissait décalé ;
+ *   · les stops 8 / 16 px sur une diagonale, `background-size: auto`.
+ *
+ * Donc : `width: 100%` de la colonne (même largeur utile que le tally et
+ * son label, qui sont des blocs), hachures OPAQUES ambre sur `--ink-2`,
+ * module `--px` (4 px : entier à 125 % et 200 % de DPR), ombre DÉCALÉE
+ * seulement. Pas d'arrondi, pas de dégradé lisse.
+ *
+ * L'écart (« +8 ») reste le second plus gros chiffre. L'arrivée est en
+ * `transform` et `opacity` seulement ; `prefers-reduced-motion` pose l'état
+ * final plutôt que de la couper.
  */
 .exploit {
   margin: 14px auto 2px;
   width: 100%;
   padding: 16px 18px;
-  border: 2px solid var(--ambre);
-  background:
-    repeating-linear-gradient(
-      -45deg,
-      color-mix(in srgb, var(--ambre) 20%, transparent) 0 8px,
-      transparent 8px 16px
-    ),
-    color-mix(in srgb, var(--ambre) 12%, var(--ink-2));
-  box-shadow:
-    8px 8px 0 0 color-mix(in srgb, var(--ambre) 34%, transparent),
-    0 0 46px color-mix(in srgb, var(--ambre) 26%, transparent);
+  border: var(--bd-thin) solid var(--ambre);
+  background-color: var(--ink-2);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--ambre) 0 var(--px),
+    transparent var(--px) calc(var(--px) * 4)
+  );
+  box-shadow: calc(var(--px) * 2) calc(var(--px) * 2) 0 0
+    color-mix(in srgb, var(--ambre) 55%, var(--ink));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -13145,7 +13151,7 @@ button.chip:active:not(:disabled) {
   font-size: var(--t-base);
   letter-spacing: var(--ls-intitule);
   color: var(--ambre);
-  text-shadow: 0 0 22px color-mix(in srgb, var(--ambre) 55%, transparent);
+  text-shadow: 2px 2px 0 var(--ink);
 }
 
 .exploit__chiffres {
@@ -13171,7 +13177,7 @@ button.chip:active:not(:disabled) {
   font-weight: 600;
   line-height: 1;
   color: var(--ambre);
-  text-shadow: 0 0 30px color-mix(in srgb, var(--ambre) 50%, transparent);
+  text-shadow: 2px 2px 0 var(--ink);
 }
 
 /* Rien à montrer : l'écart est nul (record égalé), la case reste vide. */
@@ -13666,15 +13672,21 @@ button.chip:active:not(:disabled) {
  *
  * Le §7 note qu'un vignettage radial ne marche pas sur l'écran de JEU : les
  * quatre coins du terrain y tombent à 85–102 % du rayon, donc en pleine zone
- * assombrie, et le jeu occupe presque toute la surface. Sur l'accueil c'est
- * l'inverse : le champ est un FOND, et il doit céder le centre au bouton. Le
- * dégradé est donc ce qui rend PLAY lisible par-dessus une scène qui bouge.
+ * assombrie. Sur l'accueil le champ est un FOND : une vignette FRANCHE (encre,
+ * pas `--signal`, pas une poche lumineuse autour de PLAY) assombrit les bords
+ * pour que le bouton reste lisible. Le stop est court — un voile doux de 30 %
+ * à 100 % se lisait comme un glow.
  */
 .attract::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(115% 78% at 50% 46%, transparent 30%, rgba(8, 11, 17, 0.78) 100%);
+  background: radial-gradient(
+    108% 76% at 50% 46%,
+    transparent 46%,
+    color-mix(in srgb, var(--ink) 72%, transparent) 62%,
+    color-mix(in srgb, var(--ink) 88%, transparent) 100%
+  );
 }
 
 /* Le curseur de la main qui joue. Placé en pixels par le JS. */
@@ -13697,26 +13709,23 @@ button.chip:active:not(:disabled) {
 }
 
 /*
- * LA CHALEUR — le cadre bat, et il rougit quand ça tourne mal.
+ * LA CHALEUR — un LISERÉ, pas un voile.
  *
- * Même principe que `--heat` en jeu : une seule grandeur publiée par la boucle,
- * et elle ne pilote que du décor hors flux. Seules `opacity` et les ombres
- * changent.
+ * Même grandeur que `--heat` en jeu (`--attract-heat`), hors flux. Un
+ * `inset 0 0 110px` se lisait comme un néon plein cadre — une lampe, pas de
+ * la tension. Le halo de BORD en jeu (`.heat__vignette`, 60 px) n'est pas
+ * touché : il vit dans la gouttière, pas sur l'accueil.
  */
 .attract__chaleur {
   position: absolute;
   inset: 0;
   z-index: 4;
   opacity: var(--attract-heat, 0);
-  box-shadow:
-    inset 0 0 110px 14px color-mix(in srgb, var(--signal) 26%, transparent),
-    inset 0 0 0 3px color-mix(in srgb, var(--signal) 55%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--signal) 55%, transparent);
 }
 
 .attract__chaleur.est-chaud {
-  box-shadow:
-    inset 0 0 110px 14px color-mix(in srgb, var(--rouge) 34%, transparent),
-    inset 0 0 0 3px color-mix(in srgb, var(--rouge) 70%, transparent);
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--rouge) 70%, transparent);
 }
 
 /* ==================================================================
@@ -14020,6 +14029,7 @@ button.chip:active:not(:disabled) {
   font-size: 18px;
   line-height: 1;
   color: var(--paper);
+  text-shadow: 2px 2px 0 var(--ink);
 }
 
 /* --- la consigne, posée sur le champ --- */
@@ -14044,9 +14054,8 @@ button.chip:active:not(:disabled) {
   line-height: 1;
   letter-spacing: 0.06em;
   color: var(--paper);
-  /* Le champ bouge derrière : sans cette ombre, la consigne devient illisible
-     dès qu'une pièce claire passe dessous. */
-  text-shadow: 0 3px 18px rgba(8, 11, 17, 0.95), 0 0 34px rgba(8, 11, 17, 0.8);
+  /* Ombre DÉCALÉE, flou 0 : un `0 0 34px` se lisait comme un glow. */
+  text-shadow: 2px 2px 0 var(--ink);
 }
 
 .home__chrono {
@@ -14089,16 +14098,37 @@ button.chip:active:not(:disabled) {
   color: var(--paper-dim);
   text-align: right;
   line-height: 1.7;
+  text-shadow: 2px 2px 0 var(--ink);
 }
 
 /* --- le centre de gravité --- */
 
+/*
+ * PLAY au centre de ce qu'on VOIT : le chapo se cale juste au-dessus, la
+ * mention juste en-dessous. Centrer le GROUPE descendait PLAY d'une demi-
+ * hauteur de chapo — et sur téléphone, dans une zone dont le bas passait
+ * sous la barre.
+ */
 .home__centre {
-  align-self: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
+  align-self: stretch;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr);
+  justify-items: center;
+  gap: 12px;
+  min-height: 0;
+}
+
+#home .home__centre .lede--court {
+  margin: 0;
+  text-align: center;
+  max-width: 34ch;
+  align-self: end;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.home__second {
+  align-self: start;
+  margin: 0;
 }
 
 /*
@@ -14115,9 +14145,8 @@ button.chip:active:not(:disabled) {
   padding: 0;
   background: color-mix(in srgb, var(--signal) 12%, transparent);
   border: 8px solid var(--signal);
-  box-shadow:
-    12px 12px 0 0 color-mix(in srgb, var(--signal) 42%, transparent),
-    0 0 70px color-mix(in srgb, var(--signal) 34%, transparent);
+  /* Ombre DÉCALÉE seulement. `0 0 70px` était une lampe, pas de la matière. */
+  box-shadow: 12px 12px 0 0 color-mix(in srgb, var(--signal) 42%, transparent);
   color: var(--paper);
   font-family: var(--mono);
   font-weight: 600;
@@ -14131,20 +14160,12 @@ button.chip:active:not(:disabled) {
   transform: translate(-4px, -4px);
   background: color-mix(in srgb, var(--signal) 22%, transparent);
   border-color: var(--signal-pale);
-  box-shadow:
-    18px 18px 0 0 color-mix(in srgb, var(--signal) 50%, transparent),
-    0 0 110px color-mix(in srgb, var(--signal-pale) 45%, transparent);
+  box-shadow: 18px 18px 0 0 color-mix(in srgb, var(--signal) 50%, transparent);
 }
 
 .play:active {
   transform: translate(6px, 6px);
   box-shadow: 4px 4px 0 0 color-mix(in srgb, var(--signal) 42%, transparent);
-}
-
-/* La mention sous PLAY. Elle portait un bouton au-dessus d'elle ; il menait
-   au meme endroit que PLAY, donc il est parti. */
-.home__second {
-  margin: 0;
 }
 
 /* --- la profondeur --- */
@@ -14226,10 +14247,44 @@ button.chip:active:not(:disabled) {
    * `83px` n'est pas un chiffre au jugé : c'est la hauteur mesurée de la barre
    * (729 → 812), et la seule valeur qui garantisse que rien ne se glisse
    * dessous quel que soit le contenu au-dessus.
+   *
+   * ⚠️ `#app.has-topbar .screen__scroll` pose `padding-bottom: 92px` (1,2,0).
+   * `.home` EST `.screen__scroll` : un `#home .home` à 83 px (1,1,0) perdait,
+   * et on mesurait 92. Il faut battre cette spécificité.
    */
   #home .home {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  #app.has-topbar #home .home {
     padding-bottom: 83px;
     grid-template-rows: auto minmax(0, 1fr);
+  }
+}
+
+/*
+ * ⚠️ SUR LARGE, LA BARRE EST EN HAUT. Un `padding-bottom: 83px` y ferait
+ * 83 px de vide pour une barre qui n'y est plus. On défait aussi le
+ * `align-content: start` et le `padding: 34px 28px 0` laissés par l'ancienne
+ * grille à deux colonnes — sinon PLAY n'est plus au centre de ce qu'on voit,
+ * et la profondeur colle le bord bas.
+ */
+@media (min-width: 900px) {
+  /*
+   * ⚠️ BATTRE `#app.barre-haute #home .screen__scroll { padding-bottom: 0 }`.
+   * Sans ça le shorthand `padding: 16px 28px 28px` (1,1,0) perdait le bas,
+   * et la profondeur s'alignait sur innerHeight — collée, pas posée.
+   */
+  #app.barre-haute #home .home {
+    align-content: stretch;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    padding: 16px 28px 28px;
+    gap: 16px;
+  }
+
+  .profondeur {
+    gap: 12px;
   }
 }
 

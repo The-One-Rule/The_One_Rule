@@ -3068,6 +3068,9 @@ export function nomVitesseEntier(valeur: number): string {
  * donc chacun les lit dans sa langue sans que rien ne change côté serveur.
  * Deux joueurs de langues différentes voient le même bouton, au même rang, et
  * s'envoient donc bien la même chose.
+ *
+ * Le visuel est un glyphe commun, pas le mot : six libellés longs ne tiennent
+ * pas une rangée de cibles `--tap` sur téléphone. `aria-label` garde le mot.
  * ------------------------------------------------------------------ */
 
 const EMOTES: Record<Lang, readonly string[]> = {
@@ -3075,4 +3078,9 @@ const EMOTES: Record<Lang, readonly string[]> = {
   en: ["HI", "NICE", "HA!", "OUCH", "SAW IT", "NO…"],
 };
 
+/** Même glyphe FR et EN. Le fil reste un index 0–5. */
+export const EMOTE_GLYPHE = ["👋", "👏", "😂", "💥", "👀", "🚫"] as const;
+
 export const emotes = (): readonly string[] => EMOTES[courante];
+
+export const emoteGlyphe = (k: number): string => EMOTE_GLYPHE[k] ?? "";

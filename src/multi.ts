@@ -9,6 +9,7 @@ import {
   CURSOR_COOLDOWN_MS,
   DEFAULT_SETTINGS,
   EMPTY_STATS,
+  EMOTE_COUNT,
   EMOTE_COOLDOWN_MS,
   LIVES_CHOICES,
   MAX_PLAYERS,
@@ -49,6 +50,7 @@ import { musicApi, sfx, unlock } from "./audio";
  */
 import {
   briefDeRegle,
+  emoteGlyphe,
   emotes,
   nomDeRegle,
   nomVitesse,
@@ -59,15 +61,6 @@ import {
 } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
-
-/**
- * Combien d'émotes, et rien d'autre.
- *
- * Les LIBELLÉS vivent dans `i18n` : le fil ne transporte que l'index, donc
- * chacun lit le sien dans sa langue et deux joueurs qui appuient sur le même
- * bouton s'envoient bien la même chose.
- */
-const EMOTE_COUNT = 6;
 
 /**
  * Cet appareil peut-il jouer une consigne au clavier ?
@@ -1364,9 +1357,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * Une chute au fil des événements.
    *
    * N'invente aucune donnée : le nom et le motif viennent du verdict que le
-   * serveur envoie déjà. Trois lignes au plus à l'écran — au-delà, la plus
-   * ancienne s'efface : un fil qui s'allonge devient un mur de texte, et le
-   * but est exactement l'inverse.
+   * serveur envoie déjà. Deux lignes au plus — au-delà, la plus ancienne
+   * s'efface. Trois recouvraient le terrain sur téléphone (70 vw), et le
+   * champ EST du gameplay.
    */
   function pushFeed(nom: string, motif: string, elim: boolean, moi: boolean): void {
     const ligne = document.createElement("div");
@@ -1380,7 +1373,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     pourquoi.textContent = elim ? tr("elimineSous")(motif) : motif;
     ligne.append(qui, pourquoi);
     feedEl.appendChild(ligne);
-    while (feedEl.children.length > 3) feedEl.firstElementChild?.remove();
+    while (feedEl.children.length > 2) feedEl.firstElementChild?.remove();
 
     const t = setTimeout(() => {
       ligne.classList.add("is-out");
@@ -1618,7 +1611,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       bubble.className = "plate__emote";
       plate.appendChild(bubble);
     }
-    bubble.textContent = emotes()[k] ?? "";
+    bubble.textContent = emoteGlyphe(k);
     // Même relance d'animation que hud.showStamp : deux réactions coup sur coup
     // doivent se voir toutes les deux.
     bubble.classList.remove("is-on");
@@ -1648,8 +1641,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       btn.type = "button";
       btn.className = "chip";
       btn.dataset.k = String(k);
-      btn.textContent = label;
       btn.setAttribute("aria-label", label);
+      const visuel = document.createElement("span");
+      visuel.setAttribute("aria-hidden", "true");
+      visuel.textContent = emoteGlyphe(k);
+      btn.appendChild(visuel);
       emotesEl.appendChild(btn);
     });
   }
