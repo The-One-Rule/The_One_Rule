@@ -37,6 +37,15 @@ export interface Envoi {
   inputs: LoggedInput[];
   /** Horodatage local de la mise en file — sert à jeter ce qui est périmé. */
   pose: number;
+  /**
+   * Score du run, pour ne pas jeter un 34 au profit d'un 23.
+   *
+   * Absent des files écrites avant : sans lui on ne COMPARE pas, on GARDE
+   * les deux et `posePerf` départage. Voir `nouveauGagne`.
+   */
+  valeur?: number;
+  /** Durée du run en ms — départage à score égal, même ordre que `posePerf`. */
+  valeur2?: number;
 }
 
 function lit(): Envoi[] {
@@ -60,17 +69,63 @@ function ecrit(f: Envoi[]): void {
 }
 
 /**
+ * `true` si `nouveau` doit remplacer `ancien`, `false` s'il faut garder
+ * `ancien`, `null` si on ne peut pas trancher — alors on garde les deux et
+ * `posePerf` départage.
+ *
+ * Même ordre que `posePerf` : score décroissant, puis durée croissante.
+ */
+export function nouveauGagne(nouveau: Envoi, ancien: Envoi): boolean | null {
+  if (nouveau.valeur == null || ancien.valeur == null) return null;
+  if (nouveau.valeur !== ancien.valeur) return nouveau.valeur > ancien.valeur;
+  if (nouveau.valeur2 == null || ancien.valeur2 == null) return null;
+  if (nouveau.valeur2 !== ancien.valeur2) return nouveau.valeur2 < ancien.valeur2;
+  return false;
+}
+
+function memeCase(a: Envoi, b: Envoi): boolean {
+  return a.mode === b.mode && a.jour === b.jour;
+}
+
+function empreinte(e: Envoi): string {
+  return `${e.mode}|${e.jour}|${e.pose}|${e.inputs.length}|${e.valeur ?? ""}|${JSON.stringify(e.inputs)}`;
+}
+
+/**
+ * Une case (mode+jour) ne garde que le MEILLEUR journal, dès qu'on peut
+ * comparer. Incomparables : on les laisse tous — envoyer un 23 par-dessus
+ * un 34 sans score connu les ferait tous les deux partir, et `posePerf`
+ * retient le meilleur.
+ */
+function fusionneMeilleurs(liste: Envoi[]): Envoi[] {
+  const out: Envoi[] = [];
+  for (const e of liste) {
+    const i = out.findIndex((x) => memeCase(x, e));
+    if (i < 0) {
+      out.push(e);
+      continue;
+    }
+    const gagne = nouveauGagne(e, out[i]!);
+    if (gagne === true) out[i] = e;
+    else if (gagne === null) out.push(e);
+  }
+  return out;
+}
+
+/**
  * Met un run en file.
  *
  * Appelée même quand le joueur n'a PAS de compte : s'il en crée un dans la
  * foulée — et c'est exactement le moment où l'invitation le lui propose — son
  * run part au premier vidage. Sans ça, l'invitation lui promettrait
  * d'enregistrer une performance déjà perdue.
+ *
+ * ⚠️ ON NE REMPLACE PAS UN 34 PAR UN 23. L'ancienne version jetait toute
+ * entrée du même jour pour pousser la dernière : le troisième essai raté
+ * effaçait le journal du meilleur, et `vide()` après connexion posait 23.
  */
 export function enfile(e: Envoi): void {
-  const f = lit().filter((x) => !(x.mode === e.mode && x.jour === e.jour));
-  f.push(e);
-  ecrit(f);
+  ecrit(fusionneMeilleurs([...lit(), e]));
 }
 
 export interface Resultat {
@@ -80,20 +135,28 @@ export interface Resultat {
   dureeMs: number;
   verdict: string;
   /**
-   * ⚠️ POURQUOI LE SERVEUR A REFUSE, quand il a refuse.
+   * POURQUOI LE SERVEUR A REFUSÉ — un vrai refus seulement.
    *
-   * Sans ce champ, les deux chemins d'echec de la soumission etaient MUETS :
-   * un 4xx faisait jeter l'entree sans laisser de trace, et un `enregistre:
-   * false` revenait dans un 200 que personne ne lisait. Le joueur voyait donc
-   * son score local et le serveur en gardait un autre — exactement ce qui a
-   * ete rapporte : « 34 aujourd'hui » a l'ecran, meilleur run du jour a 23
-   * cote serveur.
-   *
-   * Une perte de donnees silencieuse est le pire des defauts : personne ne
-   * peut la signaler, donc personne ne la corrige.
+   * Un 4xx (journal invalide, jour trop ancien) porte ce champ. Un 200
+   * `enregistre: false` ne le porte PAS : `posePerf` n'améliore pas, le
+   * meilleur est déjà en base, ce n'est pas une perte.
    */
   refus?: string;
 }
+
+/**
+ * Un 200 `enregistre: false` n'est PAS un refus.
+ *
+ * Recoller `refus = "non enregistre"` sur tout `false` faisait toaster une
+ * non-amélioration — le joueur lisait que son 34 était perdu, alors que le
+ * serveur gardait déjà un 40, ou le même 34.
+ */
+export function estRefusReel(r: Resultat): boolean {
+  return Boolean(r.refus);
+}
+
+/** La promesse en vol — un seul passage à la fois, comme `rafraichitClassement`. */
+let enVol: Promise<Resultat[]> | null = null;
 
 /**
  * Vide la file. Renvoie les résultats obtenus.
@@ -104,12 +167,25 @@ export interface Resultat {
  * ancien, le réessayer indéfiniment ne ferait que garder une file pleine. Une
  * panne réseau, elle, la conserve : la distinction est tout l'intérêt d'avoir
  * une file plutôt qu'un envoi.
+ *
+ * ⚠️ UN SEUL PASSAGE À LA FOIS. Deux `vide()` dans le même lot de microtâches
+ * liraient la même file, l'enverraient deux fois, et le second `ecrit(restants)`
+ * écraserait une `enfile` arrivée entre-temps.
  */
-export async function vide(): Promise<Resultat[]> {
-  if (!compte()) return [];
+export function vide(): Promise<Resultat[]> {
+  if (!compte()) return Promise.resolve([]);
+  if (enVol) return enVol;
+  enVol = videUne().finally(() => {
+    enVol = null;
+  });
+  return enVol;
+}
+
+async function videUne(): Promise<Resultat[]> {
   const f = lit();
   if (!f.length) return [];
 
+  const lot = new Set(f.map(empreinte));
   const restants: Envoi[] = [];
   const resultats: Resultat[] = [];
 
@@ -127,9 +203,8 @@ export async function vide(): Promise<Resultat[]> {
       });
       if (res.ok) {
         const r = (await res.json()) as Resultat;
-        // ⚠️ Un 200 ne veut PAS dire enregistre : `posePerf` n'ameliore que
-        // ce qui merite de l'etre, et rend `false` sinon. On le fait remonter.
-        if (!r.enregistre) r.refus = r.refus ?? "non enregistre";
+        // ⚠️ On ne recolle PAS un refus sur `enregistre: false` : c'est
+        // `posePerf` qui n'améliore pas, pas un rejet.
         resultats.push(r);
         continue; // envoyé : on ne le remet pas
       }
@@ -138,8 +213,8 @@ export async function vide(): Promise<Resultat[]> {
         restants.push(e);
       } else {
         /*
-         * ⚠️ ON JETTE, MAIS ON LE DIT. Le run est refuse pour de bon — journal
-         * incoherent, jour trop ancien, mode non enregistrable. Le laisser
+         * ⚠️ ON JETTE, MAIS ON LE DIT. Le run est refusé pour de bon — journal
+         * incohérent, jour trop ancien, mode non enregistrable. Le laisser
          * partir sans un mot, c'est perdre le score de quelqu'un en silence.
          */
         let raison = `HTTP ${res.status}`;
@@ -163,9 +238,17 @@ export async function vide(): Promise<Resultat[]> {
     }
   }
 
-  ecrit(restants);
+  /*
+   * Relire AVANT d'écrire : une `enfile` pendant le fetch n'est pas dans
+   * `restants`, et un `ecrit(restants)` seul l'écraserait.
+   */
+  const reprises = lit().filter((x) => !lot.has(empreinte(x)));
+  ecrit(fusionneMeilleurs([...restants, ...reprises]));
   return resultats;
 }
 
 /** Tests et diagnostic. */
 export const enAttente = (): number => lit().length;
+
+/** Tests : ce que la file enverrait, sans la vider. */
+export const fileCourante = (): Envoi[] => lit().map((e) => ({ ...e, inputs: e.inputs.slice() }));

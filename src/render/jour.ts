@@ -63,3 +63,19 @@ export function vueDuJour(s: Save, jour: number): VueJour {
         : "reste";
   return { etat, restants, acquis, verrouille: restants === 0 };
 }
+
+/**
+ * Le score LOCAL du jour demandé, ou `null`.
+ *
+ * ⚠️ CE N'EST PAS `s.daily.score`. Un onglet resté ouvert, une synchro qui
+ * n'a pas encore appelé `ensureDay`, un appareil à `day: -1` : le champ porte
+ * encore le 34 d'hier. `vueJ.acquis || s.daily.score > 0` l'affichait comme
+ * aujourd'hui, parce que le score est positif même si ce n'est pas le bon jour.
+ *
+ * `vueDuJour` dit l'ÉTAT de la carte. Celle-ci dit le CHIFFRE. Les deux
+ * gardent le jour ; ni l'un ni l'autre ne suffit à recoller l'ancien OU.
+ */
+export function scoreDuJour(s: Save, jour: number): number | null {
+  if (s.daily.day !== jour) return null;
+  return s.daily.score > 0 ? s.daily.score : null;
+}

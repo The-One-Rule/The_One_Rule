@@ -235,6 +235,18 @@ describe("REJOUER — le run du jour se rejoue tant qu'il reste un essai", () =>
     expect(source, "et désactiver COMMENCER en conséquence").toMatch(/go\.disabled = closeJour/);
   });
 
+  it("lanceRun refuse un jour verrouillé — le point de passage commun", () => {
+    /*
+     * Les boutons et le clavier peuvent mentir. Le lancement, lui, ne doit
+     * pas. Sans cette garde, le battement de lecture (3 s) laissait la
+     * sync recoller « 0 / 3 » puis lançait quand même.
+     */
+    const debut = source.indexOf("function lanceRun()");
+    expect(debut, "lanceRun a disparu").toBeGreaterThan(-1);
+    const corpsLance = source.slice(debut, source.indexOf("\n}", debut) + 2);
+    expect(corpsLance, "lanceRun ne consulte plus verrouille").toMatch(/verrouille/);
+  });
+
   it("le clavier du brief respecte l'état de COMMENCER", () => {
     /*
      * ESPACE et ENTRÉE appelaient `startRun()` sans regarder le bouton, donc

@@ -152,6 +152,17 @@ describe("le record lu sur l'accueil", () => {
     expect(vueBut(siennes(null, recordDeSonAllure(s)), null).sien).toBe(23);
   });
 
+  it("⚠️ à DÉBUT le haut dit 40 et bestTraining dit 0 — une seule source pour TON record", () => {
+    /*
+     * La fiche compte peignait la grille avec `recordDeSonAllure` et la ligne
+     * `cptRecordEntrainement` avec `s.bestTraining`. Symptôme : 40 en haut,
+     * 0 en bas. Recoller `bestTraining` sur « TON record » fait tomber ça.
+     */
+    const s = sauve({ trainingPace: 2, records: { [cleEntrainement(2)]: 40 }, bestTraining: 0 });
+    expect(s.bestTraining).toBe(0);
+    expect(recordDeSonAllure(s)).toBe(40);
+  });
+
   it("ne mélange jamais deux allures", () => {
     const s = sauve({ trainingPace: 2, records: { [cleEntrainement(0.8)]: 99 } });
     expect(recordDeSonAllure(s)).toBe(0);

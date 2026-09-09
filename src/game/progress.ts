@@ -461,9 +461,52 @@ export function recordRun(
  * Absent vaut « ce que `played` dit » : la doctrine habituelle, appliquée à un
  * champ ajouté après coup. Sans ce repli, toute sauvegarde antérieure
  * repartirait à zéro essai le jour du déploiement.
+ *
+ * ⚠️ UN SCORE SANS COMPTEUR A QUAND MÊME CONSOMMÉ UN ESSAI.
+ *
+ * `entier()` côté serveur pose `0` quand le champ manque. Un compte ouvert
+ * avant que `jour.essais` ne voyage porte donc `{ score: 28, essais: 0 }`.
+ * Sur un navigateur neuf, `??` verrait 0 — une valeur présente — et
+ * rendrait trois essais tout neufs, alors que le téléphone affiche « 0 / 3 ».
+ * Un score, un `cleared` ou un `played` pose donc un plancher à 1.
  */
-export const essaisDuJour = (s: Save): number =>
-  s.daily.essais ?? (s.daily.played ? 1 : 0);
+export const essaisDuJour = (s: Save): number => {
+  const repli = s.daily.played || s.daily.cleared || s.daily.score > 0 ? 1 : 0;
+  const n = s.daily.essais === undefined ? repli : Math.max(s.daily.essais, repli);
+  return Math.min(DAILY_ESSAIS, n);
+};
+
+/**
+ * Une perf VÉRIFIÉE du jour dit qu'au moins un essai a été consommé.
+ *
+ * Sur un navigateur neuf, `localStorage` est vide : trois essais tout neufs,
+ * alors que le téléphone vient d'afficher « 0 / 3 ». Le compteur voyage dans
+ * les agrégats, mais les comptes ouverts avant ce champ — et les syncs
+ * ratées — portent `essais: 0` à côté d'un score. Sans ce plancher, le
+ * nouveau navigateur redonne la journée.
+ *
+ * On ne peut pas reconstituer 3 depuis une seule ligne de perf (le serveur
+ * n'en garde qu'une). On pose donc AU MOINS 1, et `essaisDuJour` relève
+ * aussi le cas `score > 0` sans compteur. Si les agrégats ont déjà 3, le
+ * maximum les garde.
+ */
+export function posePreuveDuJour(s: Save, jour: number, score: number): void {
+  if (score <= 0) return;
+  if (s.daily.day > jour) return;
+  if (s.daily.day < jour) {
+    s.daily = {
+      day: jour,
+      played: true,
+      score,
+      cleared: false,
+      essais: 1,
+    };
+    return;
+  }
+  s.daily.played = true;
+  s.daily.score = Math.max(s.daily.score, score);
+  s.daily.essais = Math.min(DAILY_ESSAIS, Math.max(essaisDuJour(s), 1));
+}
 
 /**
  * Ce qu'une tentative du jour laisse derrière elle.
@@ -575,22 +618,44 @@ export function appliqueAgregats(s: Save, a: Agregats): void {
   s.streak.lastDay = fusionnes.serie.lastDay;
   s.records = fusionnes.records;
   /*
-   * ⚠️ ON NE REDESCEND QUE LA JOURNÉE EN COURS.
+   * ⚠️ ON NE COLLE JAMAIS UN JOUR A SUR UNE GRAINE B.
    *
-   * `fusionneJour` a déjà tranché entre les deux dates ; si celle qui gagne
-   * n'est pas celle de cet appareil, l'écrire écraserait la sienne par une
-   * autre — c'est-à-dire poser le score d'un autre jour sur la graine
-   * d'aujourd'hui. `ensureDay` remettra les compteurs à zéro à l'ouverture,
-   * mais il ne doit pas avoir à réparer ce qu'on vient d'écrire.
+   * Trois cas, et un seul piège :
+   *
+   *   · même jour           → maximum, comme le reste de la fusion ;
+   *   · compte PLUS RÉCENT  → ÉCRIRE cette journée. L'appareil était à -1
+   *     (sauvegarde neuve) ou à hier : c'est aujourd'hui côté compte, et
+   *     jeter 28 / 300 parce que `s.daily.day` n'était pas encore à 300
+   *     laissait le profil local vide après une synchro réussie ;
+   *   · compte PLUS ANCIEN  → ne rien écrire. Poser le 40 d'hier sur la
+   *     graine d'aujourd'hui est le chiffre faux que `fusionneJour` existe
+   *     pour interdire.
+   *
+   * `ensureDay` remettra les compteurs à zéro si l'horloge locale a déjà
+   * dépassé ce jour-là ; il ne doit pas avoir à réparer un collage.
    */
-  if (fusionnes.jour && fusionnes.jour.jour === s.daily.day) {
-    s.daily = {
-      day: s.daily.day,
-      played: fusionnes.jour.essais > 0 || s.daily.played,
-      score: Math.max(s.daily.score, fusionnes.jour.score),
-      cleared: s.daily.cleared || fusionnes.jour.cleared,
-      essais: Math.max(essaisDuJour(s), fusionnes.jour.essais),
-    };
+  if (fusionnes.jour) {
+    if (fusionnes.jour.jour === s.daily.day) {
+      s.daily = {
+        day: s.daily.day,
+        played: fusionnes.jour.essais > 0 || s.daily.played,
+        score: Math.max(s.daily.score, fusionnes.jour.score),
+        cleared: s.daily.cleared || fusionnes.jour.cleared,
+        essais: Math.max(essaisDuJour(s), fusionnes.jour.essais),
+      };
+    } else if (fusionnes.jour.jour > s.daily.day) {
+      s.daily = {
+        day: fusionnes.jour.jour,
+        played: fusionnes.jour.essais > 0,
+        score: fusionnes.jour.score,
+        cleared: fusionnes.jour.cleared,
+        essais: fusionnes.jour.essais,
+      };
+    }
+    // Un score collé avec `essais: 0` (nettoyage d'avant le plancher) doit
+    // s'écrire à 1, pas rester à 0 dans la sauvegarde.
+    s.daily.essais = essaisDuJour(s);
+    if (s.daily.essais > 0) s.daily.played = true;
   }
   s.bestTraining = Math.max(
     s.bestTraining,

@@ -151,11 +151,19 @@ export function litAgregats(brut: unknown): Agregats {
    */
   if (o.jour && typeof o.jour === "object") {
     const j = o.jour as Record<string, unknown>;
+    const score = entier(j.score, MAX_VALEUR);
+    const cleared = j.cleared === true;
     const journee = {
       jour: entier(j.jour, MAX_SERIE * 10),
-      score: entier(j.score, MAX_VALEUR),
-      cleared: j.cleared === true,
-      essais: entier(j.essais, DAILY_ESSAIS),
+      score,
+      cleared,
+      /*
+       * Un score sans compteur a quand même consommé un essai. `entier`
+       * pose 0 quand le champ manque : sans ce plancher, un compte d'avant
+       * `jour.essais` redescendrait trois essais neufs sur chaque nouvel
+       * appareil — le bug « après 0, sur un nouveau navigateur ».
+       */
+      essais: Math.max(entier(j.essais, DAILY_ESSAIS), score > 0 || cleared ? 1 : 0),
     };
     if (journee.jour > 0) a.jour = journee;
   }

@@ -47,7 +47,7 @@ import { Hud } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import { stableGutter, wantsColumns } from "./render/layout";
-import { vueDuJour } from "./render/jour";
+import { scoreDuJour, vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueBut } from "./render/but";
 import {
   cacheMicro,
@@ -88,7 +88,7 @@ import {
   rafraichit,
   supprimeCompte,
 } from "./compte";
-import { enfile, vide } from "./compte/file";
+import { enfile, estRefusReel, vide } from "./compte/file";
 import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
@@ -282,6 +282,16 @@ let queueing = false;
 /** Dernier point cliqué : sert d'origine aux particules de réussite. */
 let lastClick = { x: 500, y: 210, color: "#EFEAE0" };
 let day = dayIndex();
+/**
+ * Le boot du compte. On n'attend PAS ça pour afficher ni pour rejoindre
+ * un salon (décision n°12). On l'attend AVANT de lancer un run du jour
+ * quand on est connecté : sinon un navigateur neuf joue trois essais
+ * pendant que la sync n'a pas encore recollé le « 0 / 3 » de l'autre
+ * appareil.
+ */
+let compteBootFini = false;
+let attenteCompte = false;
+let bootCompte: Promise<void> | null = null;
 
 /* ------------------------------------------------------------------ *
  * Écrans
@@ -591,6 +601,56 @@ function attractSuitEcran(id: ScreenId): void {
 // Pivoter le téléphone, ou étirer la fenêtre : on repasse par le même chemin.
 SANS_DEMO.addEventListener("change", () => attractSuitEcran(screen));
 
+/**
+ * `day` n'est plus une constante de session.
+ *
+ * Un onglet laissé ouvert après minuit UTC jouait encore la graine d'hier
+ * et l'affichait comme aujourd'hui : `day = dayIndex()` ne courait qu'au
+ * chargement. Chaque écran qui LIT le jour passe ici d'abord.
+ *
+ * ⚠️ PAS pendant une partie (`id === null`) NI sur l'écran de fin : le run
+ * qui vient de se terminer appartient au jour de sa GRAINE, pas à l'horloge
+ * du moment où on montre le score.
+ */
+function rafraichitJour(): void {
+  day = dayIndex();
+  const s = P.load();
+  ensureDay(s, day);
+  P.save(s);
+}
+
+/**
+ * Le run du jour est-il épuisé, à l'instant du lancement ?
+ *
+ * ⚠️ LE GARDE APPARTIENT À `startRun` / `lanceRun`, PAS AUX BOUTONS.
+ * `vueDuJour().verrouille` était posé sur COMMENCER et REJOUER, jamais
+ * sur le lancement lui-même. Un bouton actif par erreur, un ESPACE, une
+ * sync qui n'a pas encore recollé les essais : le quatrième run partait.
+ */
+function jourDuRunClos(): boolean {
+  if (pendingMode !== "daily" || challenge || ranked) return false;
+  rafraichitJour();
+  return vueDuJour(P.load(), day).verrouille;
+}
+
+/**
+ * Repeint l'écran visible s'il lit les chiffres que la sync / la file
+ * viennent de bouger.
+ *
+ * `ouvreCompte` peignait tout de suite et n'attendait pas `synchronise()`.
+ * `demarreCompte` ne repeignait que l'accueil. `finishRun` faisait
+ * `void synchronise()` sans rien remettre à jour. Le joueur voyait un
+ * profil désynchronisé alors que le pont de données avait déjà fait son
+ * travail.
+ */
+function repeintChiffres(): void {
+  if (screen === "compte") renderCompte();
+  else if (screen === "home") renderHome();
+  else if (screen === "solo") renderSolo();
+  else if (screen === "classement") renderClassement();
+  else if (screen === "over" && lastRun?.mode === "daily") renderPodium("daily");
+}
+
 function show(id: ScreenId): void {
   /*
    * Quitter le brief ANNULE le battement de lecture.
@@ -605,6 +665,11 @@ function show(id: ScreenId): void {
    * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
    */
   if (lecture && id !== null) annuleLecture();
+  /*
+   * Le jour se relit ICI, pas une fois au chargement. Sauf le jeu et
+   * l'écran de fin : voir `rafraichitJour`.
+   */
+  if (id !== null && id !== "over") rafraichitJour();
   cacheMicro();
   cachePastille();
   cacheToast();
@@ -789,9 +854,8 @@ const multi = initMulti((id) => {
  * dire aurait été le seul vrai coût de ce découpage.
  */
 function renderHome(): void {
+  rafraichitJour();
   const s = P.load();
-  ensureDay(s, day);
-  P.save(s);
 
   /*
    * LA LANGUE D'ABORD, LE RESTE ENSUITE.
@@ -811,7 +875,7 @@ function renderHome(): void {
   hud.setRule(null);
   hud.clearRound();
   hud.setMeta("");
-  hud.setFooter(0, s.bestTraining, "—");
+  hud.setFooter(0, P.recordDeSonAllure(s), "—");
 
   /*
    * ⚠️ LE SALON HORS LIGNE SE DIT SUR SA CARTE, PLUS EN HAUT DE PAGE.
@@ -905,9 +969,8 @@ function choisitLangue(lang: Lang): void {
  * quêtes, carnet — là où il a la place d'exister et où on vient le chercher.
  */
 function renderSolo(): void {
+  rafraichitJour();
   const s = P.load();
-  ensureDay(s, day);
-  P.save(s);
 
   const rule = ruleOfDay(day);
 
@@ -1008,7 +1071,7 @@ function renderSolo(): void {
   $("cardEscaladeState").textContent = t("escaladeEtat");
   $("cardTrainingState").textContent = neuf
     ? t("trainingNeuf")
-    : t("trainingRecord")(s.bestTraining);
+    : t("trainingRecord")(P.recordDeSonAllure(s));
 
   /*
    * Un nouveau venu ne doit PAS voir le run du jour comme action évidente.
@@ -1525,6 +1588,7 @@ function ligneCompte(quoi: string, valeur: string, signe?: string): HTMLElement 
 }
 
 function renderCompte(): void {
+  rafraichitJour();
   const s = P.load();
   const c = compte();
   const connecte = c !== null;
@@ -1622,9 +1686,9 @@ function renderCompte(): void {
      * parait donc que si le serveur a bien rejoue ce run — sinon on affiche le
      * score sans le presenter comme une preuve.
      */
-    const vueJ = vueDuJour(s, day);
-    $("cptJourVal").textContent = vueJ.acquis || s.daily.score > 0
-      ? t("cptJourFait")(s.daily.score)
+    const mienDuJourHaut = monScoreDuJour(s);
+    $("cptJourVal").textContent = mienDuJourHaut != null
+      ? t("cptJourFait")(mienDuJourHaut)
       : t("cptJourRien");
     $("cptJourNote").textContent = "";
     $("cptOpposable").classList.add("hidden");
@@ -1642,7 +1706,15 @@ function renderCompte(): void {
     hote.appendChild(
       ligneCompte(t("cptSerie"), t("cptJours")(s.streak.count)),
     );
-    hote.appendChild(ligneCompte(t("cptRecordEntrainement"), t("cptManches")(s.bestTraining)));
+    /*
+     * ⚠️ UNE SEULE SOURCE POUR « TON RECORD ».
+     *
+     * La grille du haut lit `recordDeSonAllure`. Cette ligne lisait
+     * `s.bestTraining` — l'allure de référence, où un joueur à DÉBUT a 0
+     * alors que son vrai record est 40. Le libellé ne nomme pas l'allure
+     * de référence, donc ce n'est pas le chiffre de `bestTraining`.
+     */
+    hote.appendChild(ligneCompte(t("cptRecordEntrainement"), t("cptManches")(monRecord)));
 
     /*
      * L'historique des runs du jour, chargé après coup.
@@ -1654,8 +1726,9 @@ function renderCompte(): void {
      * invérifiables. Ne pas le confondre avec les trois lignes du dessus, qui
      * sont des affirmations de l'appareil.
      */
+    const jourDemande = day;
     void mesPerfs().then((perfs) => {
-      if (screen !== "compte") return;
+      if (screen !== "compte" || jourDemande !== day) return;
       /*
        * ⚠️ ON NE GARDE QUE LE RUN DU JOUR, et les deux lignes le disent.
        *
@@ -1667,11 +1740,17 @@ function renderCompte(): void {
        * l'etiquette du jour. C'est le chiffre faux que `render/but.ts` existe
        * pour interdire, laisse en clair a deux lignes de la mention qui dit
        * qu'on ne melange pas les epreuves.
+       *
+       * ⚠️ L'ÉCART SE CALCULE CONTRE LA PERF DU MÊME JOUR, jamais le max
+       * de carrière. Un 40 d'hier sous « meilleur run du jour » à côté d'un
+       * 12 d'aujourd'hui est le même chiffre faux, juste déplacé.
        */
       const duJour = perfs.filter((p) => p.mode === "daily");
       if (!duJour.length) return;
       hote.appendChild(ligneCompte(t("cptRunsEnregistres"), `${duJour.length}`));
-      const meilleur = duJour.reduce((m, p) => (p.valeur > m.valeur ? p : m));
+      const aujourdHui = duJour.filter((p) => p.jour === jourDemande);
+      if (!aujourdHui.length) return;
+      const meilleur = aujourdHui.reduce((m, p) => (p.valeur > m.valeur ? p : m));
       hote.appendChild(ligneCompte(t("cptMeilleurRun"), t("cptManches")(meilleur.valeur)));
       /*
        * ⚠️ ET ON SIGNALE L'ECART AVEC LE CHIFFRE LOCAL.
@@ -1757,8 +1836,16 @@ function renderCompte(): void {
 
 async function ouvreCompte(): Promise<void> {
   await chargeFournisseurs();
+  /*
+   * Doctrine n°12 : un échec réseau n'empêche PAS d'afficher. On peint
+   * local tout de suite, on repeint quand `synchronise()` revient — si
+   * l'on est encore sur cet écran.
+   */
+  rafraichitJour();
   renderCompte();
   show("compte");
+  await synchronise();
+  if (screen === "compte") renderCompte();
 }
 
 /**
@@ -1895,6 +1982,7 @@ function peintPodium(quoi: string, ecran: ScreenId): void {
  * vrai.
  */
 function renderClassement(): void {
+  rafraichitJour();
   const s = P.load();
   /*
    * ⚠️ LES DEUX CHIFFRES, ET C'EST LE MODULE QUI CHOISIT.
@@ -2205,6 +2293,7 @@ function renderPick(): void {
  * Lancement d'un run
  * ------------------------------------------------------------------ */
 function openBrief(mode: Mode): void {
+  rafraichitJour();
   const s = P.load();
   pendingMode = mode;
   /*
@@ -2425,6 +2514,35 @@ function startRun(avecLecture = true): void {
    * serait remplacé par un chiffre, et le resterait.
    */
   if (lecture) return;
+  /*
+   * NAVIGATEUR NEUF + COMPTE : la sync n'a pas encore écrit les essais.
+   *
+   * `demarreCompte` est lancé sans être attendu — c'est juste pour
+   * l'accueil et le salon (n°12). Le run du jour, lui, se compare : on
+   * attend que le compte ait parlé, puis on relance. Un échec réseau
+   * pose `compteBootFini` quand même, et on joue en local.
+   */
+  if (
+    pendingMode === "daily" &&
+    !challenge &&
+    !ranked &&
+    estConnecte() &&
+    !compteBootFini &&
+    bootCompte
+  ) {
+    if (attenteCompte) return;
+    attenteCompte = true;
+    $<HTMLButtonElement>("btnGo").disabled = true;
+    void bootCompte.finally(() => {
+      attenteCompte = false;
+      startRun(avecLecture);
+    });
+    return;
+  }
+  if (jourDuRunClos()) {
+    openBrief("daily");
+    return;
+  }
   if (pendingRule.watchRelease === " " && !spaceDown) {
     $("briefWarn").textContent = t("briefEspace");
     $("briefWarn").classList.remove("hidden");
@@ -2518,6 +2636,26 @@ function annuleLecture(): void {
 
 function lanceRun(): void {
   if (!pendingRule) return;
+  /*
+   * Un onglet laissé sur le brief après minuit UTC ne doit plus lancer
+   * la graine d'hier. On relit le jour ICI, et on aligne la règle sur
+   * la graine — sinon le brief dirait LE SANG et le run jouerait LA POINTE.
+   */
+  if (pendingMode === "daily" && !challenge && !ranked) {
+    rafraichitJour();
+    pendingRule = regleJouableIci(ruleOfDay(day));
+    /*
+     * ⚠️ LE POINT DE PASSAGE COMMUN. La lecture a pu durer 3 s, pendant
+     * lesquelles la sync recollait « 0 / 3 ». Sans cette garde, le
+     * rebours mènerait un quatrième essai. `startRun` a déjà refusé
+     * avant le battement ; on refuse encore ICI, parce que la REVANCHE
+     * et la fin du rebours arrivent sans y repasser.
+     */
+    if (vueDuJour(P.load(), day).verrouille) {
+      openBrief("daily");
+      return;
+    }
+  }
   const s = P.load();
   // Un duel rejoue la graine de l'adversaire : les deux joueurs affrontent
   // exactement la même suite de manches, sinon la comparaison ne vaut rien.
@@ -2607,7 +2745,7 @@ function lanceRun(): void {
           PALIER_MAX
         : // Sur un palier, ce qu'on vise est le palier — pas son record
           // d'entraînement, qui a été fait à une autre allure et sans cadence.
-          (palier?.manches ?? s.bestTraining),
+          (palier?.manches ?? P.recordDeSonAllure(s)),
     pendingMode === "daily" ? t("piedDaily")(day) : pendingMode === "escalade" ? t("modeEscalade") : t("modeTraining"),
     pendingMode === "daily" ? t("piedSur") : pendingMode === "escalade" ? t("piedRegles") : t("piedRecord"),
   );
@@ -2878,21 +3016,29 @@ const FRAICHEUR_CLASSEMENT_MS = 30_000;
  * le savoir — et une perte silencieuse ne se signale pas, donc ne se corrige
  * jamais.
  *
- * On ne cache plus rien : accepte, on rafraichit le classement ; refuse, on le
- * DIT et on l'enregistre dans la mesure avec sa raison, pour qu'un relevé
- * puisse compter combien de runs se perdent et pourquoi.
+ * On ne cache plus rien : accepte, on rafraîchit le classement ; un vrai
+ * refus (4xx, journal invalide, jour trop ancien), on le DIT. Un 200
+ * `enregistre: false` — `posePerf` n'améliore pas — est silencieux : ce
+ * n'est pas une perte, le meilleur est déjà en base. On rafraîchit quand
+ * même le classement pour l'afficher.
  */
 function traiteEnvois(resultats: readonly Resultat[]): void {
   if (!resultats.length) return;
-  const perdus = resultats.filter((r) => !r.enregistre);
+  const perdus = resultats.filter(estRefusReel);
   for (const r of perdus) {
     track("perf_refusee", { raison: r.refus ?? "?", score: r.score });
   }
   if (perdus.length) {
     montreToast(t("perfRefusee"), perdus[0]!.refus ?? "", 3200);
   }
-  // Un seul run accepte suffit a rendre le classement faux : on redemande.
-  if (resultats.some((r) => r.enregistre)) void rafraichitClassement(true);
+  /*
+   * Un run accepté rend le classement faux. Un 200 `enregistre: false`
+   * aussi : le meilleur est déjà en base, et c'est LUI qu'il faut afficher.
+   * Un vrai refus (4xx), lui, n'a rien posé.
+   */
+  if (resultats.some((r) => r.enregistre || !estRefusReel(r))) {
+    void rafraichitClassement(true);
+  }
 }
 
 async function rafraichitClassement(force = false): Promise<void> {
@@ -3002,8 +3148,7 @@ function peintBut(sien: number | null, duJour: number | null): void {
  * le chiffre d'hier n'a plus rien à comparer.
  */
 function monScoreDuJour(s: P.Save): number | null {
-  if (s.daily.day !== day) return null;
-  return s.daily.score > 0 ? s.daily.score : null;
+  return scoreDuJour(s, day);
 }
 
 /** La règle dont la fiche est ouverte — pour que RETOUR sache d'où l'on vient. */
@@ -4110,7 +4255,15 @@ function finishRun(): void {
    * (même graine, même règle pour tout le monde). Voir api/perf.ts.
    */
   if (mode === "daily" && !challenge) {
-    enfile({ mode: "daily", jour: day, inputs: session.log, pose: Date.now() });
+    const duree = session.log.length ? session.log[session.log.length - 1]!.t : 0;
+    enfile({
+      mode: "daily",
+      jour: day,
+      inputs: session.log,
+      pose: Date.now(),
+      valeur: end.score,
+      valeur2: duree,
+    });
     /*
      * Le run qui vient de finir a pu prendre la tête du classement : la valeur
      * en mémoire n'est plus sûre, on la jette. Sans cela, l'accueil continuait
@@ -4141,7 +4294,7 @@ function finishRun(): void {
      */
     void vide().then((r) => {
       traiteEnvois(r);
-      if (screen === "over") renderPodium("daily");
+      repeintChiffres();
     });
   }
 
@@ -4154,8 +4307,12 @@ function finishRun(): void {
    *
    * Non attendu, et sans consequence s'il echoue : la fusion est une union et
    * un maximum, donc le prochain run, ou la prochaine ouverture, rattrapera.
+   * On repeint quand elle revient : c'est l'écran visible qui lisait encore
+   * les chiffres d'avant.
    */
-  void synchronise();
+  void synchronise().then(() => {
+    repeintChiffres();
+  });
 
   track("run_end", {
     mode,
@@ -4405,7 +4562,7 @@ function finishRun(): void {
    * changeaient d'état. Après un palier, quatre n'avaient aucun sens et le
    * cinquième portait un mot faux : « REJOUER » lançait le palier SUIVANT.
    */
-  const essaisRestants = mode === "daily" ? Math.max(0, DAILY_ESSAIS - P.essaisDuJour(s)) : 0;
+  const essaisRestants = mode === "daily" ? vueDuJour(s, day).restants : 0;
   const suiteMontee = palFini
     ? ESC.palierCourant(P.escalierDe(s, rule.id))
     : undefined;
@@ -5989,11 +6146,28 @@ function loop(now: number): void {
           montrePastille(t("pastilleRecord")(session.level), t("pastilleSur")(session.level - recAv));
         }
       } else {
+        const st = P.load();
+        const ciblePied =
+          session.mode === "daily"
+            ? DAILY_LENGTH
+            : session.mode === "escalade"
+              ? PALIER_MAX
+              : session.mode === "training" && Number.isFinite(session.maxRounds)
+                ? session.maxRounds
+                : P.recordDeSonAllure(st);
         hud.setFooter(
           session.level,
-          session.mode === "daily" ? DAILY_LENGTH : P.load().bestTraining,
-          session.mode === "daily" ? t("piedDaily")(day) : t("modeTraining"),
-          session.mode === "daily" ? t("piedSur") : t("piedRecord"),
+          ciblePied,
+          session.mode === "daily"
+            ? t("piedDaily")(day)
+            : session.mode === "escalade"
+              ? t("modeEscalade")
+              : t("modeTraining"),
+          session.mode === "daily"
+            ? t("piedSur")
+            : session.mode === "escalade"
+              ? t("piedRegles")
+              : t("piedRecord"),
         );
       }
       /*
@@ -6230,39 +6404,55 @@ retourCompte = litRetourConnexion();
  * jamais retarder d'une frame le chemin « code/lien → rejoindre → jouer ».
  */
 async function demarreCompte(): Promise<void> {
-  await rafraichit();
-  await chargeFournisseurs();
-  // Le bouton de compte dépend de ce qu'on vient d'apprendre : l'accueil a
-  // déjà été peint sans lui, il faut le repeindre.
-  if (screen === "home") renderHome();
+  try {
+    await rafraichit();
+    await chargeFournisseurs();
+    // Le bouton de compte dépend de ce qu'on vient d'apprendre : l'accueil a
+    // déjà été peint sans lui, il faut le repeindre — et l'écran d'arrivée
+    // n'est pas forcément l'accueil (adresse `/solo`, `/compte`, `/classement`).
+    repeintChiffres();
 
-  if (!estConnecte()) return;
+    if (!estConnecte()) return;
 
-  /*
-   * La revendication.
-   *
-   * On la tente à CHAQUE ouverture et pas seulement au retour de connexion :
-   * un aller-retour raté ne doit pas coûter sa progression à quelqu'un, et
-   * elle est idempotente — union et maximum de bout en bout. Le marquage
-   * `compte.revendiquePar` fait qu'elle ne s'exécute réellement qu'une fois.
-   */
-  const issue = await revendiqueSiNecessaire();
-  if (issue.quoi === "faite") {
-    track("compte_lie", { neuf: retourCompte.quoi === "connecte" });
-  } else if (issue.quoi === "deja") {
-    // Appareil déjà rattaché : la synchronisation fait monter ce qui a été
-    // joué depuis, et descendre ce que les autres appareils ont ajouté. Elle
-    // sait aussi ne RIEN faire monter depuis l'appareil d'un autre.
-    await synchronise();
+    /*
+     * La revendication.
+     *
+     * On la tente à CHAQUE ouverture et pas seulement au retour de connexion :
+     * un aller-retour raté ne doit pas coûter sa progression à quelqu'un, et
+     * elle est idempotente — union et maximum de bout en bout. Le marquage
+     * `compte.revendiquePar` fait qu'elle ne s'exécute réellement qu'une fois.
+     */
+    const issue = await revendiqueSiNecessaire();
+    if (issue.quoi === "faite") {
+      track("compte_lie", { neuf: retourCompte.quoi === "connecte" });
+    } else if (issue.quoi === "deja") {
+      // Appareil déjà rattaché : la synchronisation fait monter ce qui a été
+      // joué depuis, et descendre ce que les autres appareils ont ajouté. Elle
+      // sait aussi ne RIEN faire monter depuis l'appareil d'un autre.
+      await synchronise();
+    }
+    /*
+     * Une perf du jour VÉRIFIÉE dit qu'au moins un essai a été consommé.
+     *
+     * Les agrégats peuvent porter `essais: 0` à côté d'un score (champ
+     * ajouté après). Sur un navigateur neuf, ça rendait trois essais
+     * alors que l'autre appareil affichait « 0 / 3 ».
+     */
+    const jour = dayIndex();
+    const perfs = await mesPerfs();
+    const preuve = perfs.find((p) => p.mode === "daily" && p.jour === jour);
+    if (preuve) P.mutate((st) => P.posePreuveDuJour(st, jour, preuve.valeur));
+    // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
+    // ou joué avant que le compte n'existe.
+    traiteEnvois(await vide());
+    // Se connecter change ce que le classement peut nous dire — ne serait-ce que
+    // pour marquer notre propre ligne — et un run en attente vient peut-etre
+    // d'entrer dans la table.
+    await rafraichitClassement(true);
+    repeintChiffres();
+  } finally {
+    compteBootFini = true;
   }
-  // Ce qui attendait dans la file part maintenant : un run joué hors ligne,
-  // ou joué avant que le compte n'existe.
-  traiteEnvois(await vide());
-  // Se connecter change ce que le classement peut nous dire — ne serait-ce que
-  // pour marquer notre propre ligne — et un run en attente vient peut-etre
-  // d'entrer dans la table.
-  await rafraichitClassement(true);
-  if (screen === "home") renderHome();
 }
 
 renderHome();
@@ -6383,7 +6573,7 @@ multi.onIdentite((nom, glyphe) => {
   });
 });
 
-void demarreCompte();
+bootCompte = demarreCompte();
 
 const invite = readInvite();
 

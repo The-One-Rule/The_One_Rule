@@ -17,7 +17,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { DAILY_ESSAIS } from "../src/engine/difficulty";
-import { vueDuJour } from "../src/render/jour";
+import { vueDuJour, scoreDuJour } from "../src/render/jour";
 import type { Save } from "../src/game/progress";
 
 const AUJ = 300;
@@ -90,6 +90,23 @@ describe("ce que la carte du jour annonce", () => {
     expect(v.restants).toBe(DAILY_ESSAIS);
   });
 
+  it("⚠️ un score d'un autre jour ne s'affiche pas — la fiche compte", () => {
+    /*
+     * `cptJourVal` faisait `vueJ.acquis || s.daily.score > 0`. `acquis` est
+     * gardé par le jour, le score NU ne l'est pas : un 34 d'hier allumait
+     * « 34 aujourd'hui » dès que le OU basculait.
+     *
+     * DENTS : recoller l'ancien OU fait passer `ancien` à true pour
+     * aujourd'hui, alors que `scoreDuJour` reste null.
+     */
+    const hier = sauve({ day: AUJ - 1, played: true, score: 34, cleared: true, essais: 1 });
+    expect(scoreDuJour(hier, AUJ), "le 34 d'hier passe encore").toBeNull();
+    expect(scoreDuJour(hier, AUJ - 1)).toBe(34);
+
+    const ancien = vueDuJour(hier, AUJ).acquis || hier.daily.score > 0;
+    expect(ancien, "l'ancienne formule ne ment plus ?").toBe(true);
+  });
+
   it("un compteur bricolé ne rend pas d'essai négatif", () => {
     // Il s'afficherait tel quel : « −2 ESSAIS RESTANTS ».
     expect(vueDuJour(sauve({ played: true, essais: 99 }), AUJ).restants).toBe(0);
@@ -101,5 +118,20 @@ describe("ce que la carte du jour annonce", () => {
     const v = vueDuJour({ daily: { day: AUJ, played: true, score: 12, cleared: false } } as Save, AUJ);
     expect(v.etat).toBe("reste");
     expect(v.restants).toBe(DAILY_ESSAIS - 1);
+  });
+
+  it("⚠️ score sans compteur : plus vierge, pas trois essais neufs", () => {
+    /*
+     * Le cas du nouvel onglet. `essais: 0` est une valeur présente, donc
+     * l'ancien `??` ne retombait pas sur `played`. La carte disait VIERGE
+     * avec 3 restants, COMMENCER actif, et on rejouait le jour.
+     *
+     * DENTS : retirer le plancher de `essaisDuJour` fait retomber `etat`
+     * à vierge et `restants` à 3.
+     */
+    const v = vueDuJour(sauve({ essais: 0, score: 28, played: false }), AUJ);
+    expect(v.etat, "un 28 d'aujourd'hui n'est pas une journée vierge").not.toBe("vierge");
+    expect(v.restants, "trois essais neufs après un score").toBe(DAILY_ESSAIS - 1);
+    expect(v.verrouille).toBe(false);
   });
 });

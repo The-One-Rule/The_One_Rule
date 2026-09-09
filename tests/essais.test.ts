@@ -20,7 +20,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { DAILY_ESSAIS } from "../src/engine/difficulty";
-import { essaisDuJour, majJour } from "../src/game/progress";
+import { essaisDuJour, majJour, posePreuveDuJour } from "../src/game/progress";
 import type { Save } from "../src/game/progress";
 
 const sauve = (daily: Partial<Save["daily"]>): Save =>
@@ -60,6 +60,19 @@ describe("le compteur d'essais", () => {
     // Un compteur qui dépasserait — sauvegarde bricolée — ne rend pas d'essai
     // négatif, qui s'afficherait tel quel : « −2 ESSAIS RESTANTS ».
     expect(restants(essaisDuJour(sauve({ essais: 99 })))).toBe(0);
+  });
+
+  it("⚠️ un score sans compteur a quand même consommé un essai", () => {
+    /*
+     * Navigateur neuf + compte : les agrégats portent score 28 et essais 0
+     * (`entier()` pose 0 quand le champ manque). `??` verrait 0 — une valeur
+     * présente — et rendrait trois essais tout neufs.
+     *
+     * DENTS : retirer le plancher `score > 0` fait tomber ça à 0.
+     */
+    expect(essaisDuJour(sauve({ essais: 0, score: 28, played: false }))).toBe(1);
+    expect(essaisDuJour(sauve({ essais: 0, score: 0, played: false }))).toBe(0);
+    expect(essaisDuJour(sauve({ essais: 3, score: 12, played: true }))).toBe(3);
   });
 });
 
@@ -116,5 +129,28 @@ describe("ce que le jour retient", () => {
     expect(aujourdhui.score).toBe(6);
     expect(aujourdhui.cleared).toBe(false);
     expect(aujourdhui.essais).toBe(1);
+  });
+});
+
+describe("une perf vérifiée recolle le jour sur un appareil vierge", () => {
+  it("pose au moins un essai, et le score", () => {
+    const s = sauve({ day: -1, played: false, score: 0, essais: 0 });
+    posePreuveDuJour(s, 300, 28);
+    expect(s.daily.day, "le jour de la perf n'a pas été écrit").toBe(300);
+    expect(s.daily.score, "le 28 vérifié a été jeté").toBe(28);
+    expect(essaisDuJour(s), "un navigateur neuf rejoue la journée").toBeGreaterThanOrEqual(1);
+  });
+
+  it("ne réduit pas un compteur déjà à 3", () => {
+    const s = sauve({ essais: DAILY_ESSAIS, score: 12, played: true });
+    posePreuveDuJour(s, 300, 12);
+    expect(essaisDuJour(s)).toBe(DAILY_ESSAIS);
+  });
+
+  it("ne colle pas une perf d'un jour plus ancien", () => {
+    const s = sauve({ day: 300, score: 5, essais: 1, played: true });
+    posePreuveDuJour(s, 299, 40);
+    expect(s.daily.day).toBe(300);
+    expect(s.daily.score).toBe(5);
   });
 });

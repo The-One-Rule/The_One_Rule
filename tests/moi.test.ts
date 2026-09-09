@@ -184,6 +184,18 @@ describe("bornes sur des agrégats non vérifiables", () => {
     expect(lu.records.z).toBe(40);
   });
 
+  it("⚠️ un score du jour sans essais en compte au moins un", () => {
+    /*
+     * `entier(undefined)` pose 0. Sans le plancher, un compte d'avant
+     * `jour.essais` redescendrait trois essais neufs sur chaque nouvel
+     * appareil.
+     */
+    const lu = litAgregats({ jour: { jour: 300, score: 28, cleared: false } });
+    expect(lu.jour!.essais, "un 28 sans compteur rejoue la journée").toBeGreaterThanOrEqual(1);
+    const vierge = litAgregats({ jour: { jour: 300, score: 0, cleared: false } });
+    expect(vierge.jour!.essais, "une journée sans score ne consomme rien").toBe(0);
+  });
+
   it("jette les clés impossibles", () => {
     const lu = litAgregats({
       carnet: { ["x".repeat(40)]: { best: 5, cleared: false }, "": { best: 5, cleared: false } },

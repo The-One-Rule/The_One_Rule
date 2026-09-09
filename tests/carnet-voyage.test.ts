@@ -214,6 +214,62 @@ describe("le RUN DU JOUR change d'appareil lui aussi", () => {
     expect(meme.daily.essais, "et le compteur d'essais le plus haut").toBe(2);
   });
 
+  it("⚠️ un appareil en retard PREND la journée du compte — local -1 + compte 300/28", () => {
+    /*
+     * L'ancienne garde `fusionnes.jour.jour === s.daily.day` jetait le 28 :
+     * l'appareil neuf a `daily.day === -1` (sauvegarde par défaut), le compte
+     * porte aujourd'hui. Ne rien écrire laissait le profil local vide après
+     * une synchro réussie.
+     *
+     * ⚠️ DENTS : recoller le `===` seul fait tomber les deux expect.
+     */
+    const local = avecJour({ day: -1, played: false, score: 0, essais: 0 });
+    appliqueAgregats(local, {
+      ...agregatsVides(),
+      jour: { jour: 300, score: 28, cleared: false, essais: 1 },
+    });
+    expect(local.daily.day, "le jour du compte n'a pas été écrit").toBe(300);
+    expect(local.daily.score, "le 28 du compte a été jeté").toBe(28);
+    expect(local.daily.essais).toBe(1);
+
+    // Hier sur l'appareil, aujourd'hui sur le compte : on ÉCRIT, on ne max pas
+    // le 5 d'hier avec le 28 d'aujourd'hui sous le mauvais jour.
+    const hier = avecJour({ day: 299, score: 5, essais: 1 });
+    appliqueAgregats(hier, {
+      ...agregatsVides(),
+      jour: { jour: 300, score: 28, cleared: false, essais: 1 },
+    });
+    expect(hier.daily.day).toBe(300);
+    expect(hier.daily.score).toBe(28);
+
+    // Et on ne colle TOUJOURS PAS un jour A sur une graine B plus récente.
+    const deja = avecJour({ day: 300, score: 5, essais: 1 });
+    appliqueAgregats(deja, {
+      ...agregatsVides(),
+      jour: { jour: 299, score: 40, cleared: true, essais: 3 },
+    });
+    expect(deja.daily.day).toBe(300);
+    expect(deja.daily.score).toBe(5);
+  });
+
+  it("⚠️ un score collé avec essais: 0 ne redescend pas trois essais neufs", () => {
+    /*
+     * Le nettoyage serveur pose 0 quand le champ manque. Sur un appareil
+     * vierge (day: -1), écrire tel quel laissait vueDuJour à 3 restants.
+     *
+     * DENTS : retirer `s.daily.essais = essaisDuJour(s)` après le collage
+     * laisse essais à 0.
+     */
+    const local = avecJour({ day: -1, played: false, score: 0, essais: 0 });
+    appliqueAgregats(local, {
+      ...agregatsVides(),
+      jour: { jour: 300, score: 28, cleared: false, essais: 0 },
+    });
+    expect(local.daily.day).toBe(300);
+    expect(local.daily.score).toBe(28);
+    expect(local.daily.essais, "un 28 avec essais 0 rejoue la journée").toBeGreaterThanOrEqual(1);
+  });
+
   it("⚠️ un compteur d'essais trafiqué est borné par le mode", () => {
     // Un compteur qui dépasse sa propre limite rend faux tout ce qui en dérive :
     // « restants » passerait négatif et s'afficherait tel quel.
