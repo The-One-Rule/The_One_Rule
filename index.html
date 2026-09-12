@@ -356,7 +356,13 @@
       <footer id="foot">
         <div class="foot__cell">
           <b class="foot__value" id="fScore">0</b>
-          <span class="foot__label" data-i18n="hud.manche">ROUND</span>
+          <!-- ⚠️ L'INTITULE EST DYNAMIQUE DEPUIS QU'IL Y A LE COOP.
+               En solo et en classique ce chiffre est bien un nombre de manches
+               tenues. En COOP c'est le SCORE DU GROUPE — des pieces nettoyees —
+               et l'appeler MANCHE en faisait un chiffre faux. `data-i18n` reste
+               la source du mot par defaut : le HUD le relit dans la meme table
+               plutot que d'en garder une seconde copie. -->
+          <span class="foot__label" id="fScoreLabel" data-i18n="hud.manche">ROUND</span>
         </div>
         <div class="foot__cell foot__cell--mid">
           <b class="foot__value" id="fBest">0</b>

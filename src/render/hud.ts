@@ -1,5 +1,5 @@
 import { colorHex } from "./scene";
-import { briefCourtDeRegle, composePhrase, composeSous, nomDeRegle, t } from "../i18n";
+import { briefCourtDeRegle, CHAINES, composePhrase, composeSous, langue, nomDeRegle, t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -12,6 +12,16 @@ export function livesDots(n: number, max: number): string {
   }
   return html;
 }
+
+/**
+ * Le mot par defaut de la cellule de gauche du pied.
+ *
+ * ⚠️ Lu dans `CHAINES`, c'est-a-dire la table que `data-i18n` utilise deja pour
+ * ce meme span. Le recopier dans le dictionnaire dynamique aurait donne deux
+ * sources pour un seul mot, et le depot sait ou ca mene : la divergence ne se
+ * voit que dans la langue qu'on ne relit jamais.
+ */
+const motManche = (): string => CHAINES[langue()]["hud.manche"] ?? "";
 
 export class Hud {
   private band = $("band");
@@ -28,6 +38,7 @@ export class Hud {
   private fBest = $("fBest");
   private fMode = $("fMode");
   private fMidLabel = $("fMidLabel");
+  private fScoreLabel = $("fScoreLabel");
   private stamp = $("stamp");
   private stampText = $("stampText");
 
@@ -208,6 +219,11 @@ export class Hud {
   }
 
   setFooter(score: number, best: number, mode: string, midLabel = t("piedRecord")): void {
+    // Le coop a pu poser SCORE ici : on rend son mot a la cellule, sinon il
+    // resterait sur l'ecran d'apres. Meme discipline que le libelle du bouton
+    // COMMENCER apres un rebours — une cellule au repos ne garde jamais le mot
+    // d'un autre mode.
+    this.fScoreLabel.textContent = motManche();
     this.fScore.textContent = String(score);
     this.fBest.className = "foot__value";
     this.fBest.textContent = String(best);
@@ -227,6 +243,7 @@ export class Hud {
    * case qui change de mot. Rien à mesurer parce que rien ne bouge.
    */
   setFooterRecord(score: number, avance: number, mode: string): void {
+    this.fScoreLabel.textContent = motManche();
     this.fScore.textContent = String(score);
     this.fBest.className = "foot__value foot__value--record";
     this.fBest.textContent = `+${avance}`;
@@ -241,7 +258,18 @@ export class Hud {
    * entre deux manches et pas pendant. Le pied garde le score et le mode ; la
    * case du milieu redevient ce qu'elle dit être.
    */
-  setFooterLives(score: number, lives: number, max: number, mode: string): void {
+  /**
+   * @param gauche Ce que compte la cellule de GAUCHE. Absent = « MANCHE »,
+   * vrai partout sauf en coop, ou le chiffre est le score du groupe.
+   */
+  setFooterLives(
+    score: number,
+    lives: number,
+    max: number,
+    mode: string,
+    gauche = motManche(),
+  ): void {
+    this.fScoreLabel.textContent = gauche;
     this.fScore.textContent = String(score);
     this.fMidLabel.textContent = t("piedVies");
     this.fBest.className = "foot__value";

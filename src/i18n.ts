@@ -737,6 +737,8 @@ type Dyn = {
   piedSur: string;
   piedRegles: string;
   piedRecord: string;
+  /** Cellule gauche du pied en COOP : des pieces nettoyees, pas des manches. */
+  piedScore: string;
   briefEscalade: (palier: number) => string;
   briefDailyLignes: (manches: number) => string;
   briefEscaladeLignes: (max: number) => string;
@@ -1367,6 +1369,7 @@ const DYN: Record<Lang, Dyn> = {
     piedSur: "SUR",
     piedRegles: "RÈGLES",
     piedRecord: "RECORD",
+    piedScore: "SCORE",
     briefEscalade: (p) =>
       `Tu commences avec une règle. Toutes les ${p} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`,
     briefDailyLignes: (m) => `${m} MANCHES · LE MEILLEUR DE TES ESSAIS COMPTE`,
@@ -1927,6 +1930,7 @@ const DYN: Record<Lang, Dyn> = {
     piedSur: "OF",
     piedRegles: "RULES",
     piedRecord: "BEST",
+    piedScore: "SCORE",
     briefEscalade: (p) =>
       `You start with one rule. Every ${p} rounds another one is added — and you hold them all. How far?`,
     briefDailyLignes: (m) => `${m} ROUNDS · YOUR BEST ATTEMPT COUNTS`,

@@ -528,7 +528,7 @@ function renderLobby(
    * Elle disparait pendant le match : a ce moment-la, la place restante ne
    * change plus rien pour personne.
    */
-  if (!inMatch && players.length < MAX_PLAYERS) {
+  if (!inMatch && players.length < placesDuMode(settings)) {
     const libre = document.createElement("div");
     libre.className = "seat seat--libre";
     libre.setAttribute("aria-hidden", "true");
@@ -561,13 +561,38 @@ function renderLobby(
   $("multiLobbyTitle").textContent = seul ? tr("inviteQuelquun") : tr("enAttente");
   // L'effectif est chiffré à côté du titre : c'est la question qu'on se pose
   // en regardant cet écran, et elle a une réponse exacte.
-  $("multiLobbyCount").textContent = tr("salonJoueurs")(players.length, MAX_PLAYERS);
+  $("multiLobbyCount").textContent = tr("salonJoueurs")(players.length, placesDuMode(settings));
   $("multiInviteHint").textContent = seul ? tr("salonSeulHint") : "";
   $("multiInviteHint").classList.toggle("hidden", !seul);
   // Seul dans un salon, la seule action qui a du sens est d'inviter.
   $("btnMultiInvite").classList.toggle("btn--primary", seul);
 
   renderSettings(settings, !!me?.host, inMatch);
+}
+
+/**
+ * Combien de sieges CE MODE accepte.
+ *
+ * ⚠️ **LE SALON ANNONCAIT « 4 / 10 JOUEURS » DANS UN SALON COOP PLAFONNE A 6.**
+ *
+ * `MAX_PLAYERS` est le plafond du mode CLASSIQUE. Il etait ecrit en dur dans le
+ * compteur du salon et dans la rangee « une place libre », donc les deux
+ * mentaient dans les deux modes qui ont leur propre effectif : COOP tient 4 a 6,
+ * IMPOSTEUR 4 a 8. L'hote lisait « / 10 », invitait jusqu'a dix, et les joueurs
+ * en trop devenaient spectateurs — ce que `idsAssis` fait deja cote serveur,
+ * en silence.
+ *
+ * Mesure a l'ecran, salon COOP a quatre joueurs : « 4 / 10 JOUEURS ».
+ *
+ * Le chiffre vient donc du MODE, comme la borne de lancement quelques lignes
+ * plus bas (`peutLancerCoop` / `peutLancerImposteur`) : deux sources pour la
+ * meme question finissent par diverger, et c'est exactement ce qui s'est passe.
+ */
+export function placesDuMode(settings: RoomSettings): number {
+  const mode = lireMode(settings);
+  if (mode === "coop") return COOP_MAX_ASIS;
+  if (mode === "imposteur") return IMPOSTEUR_MAX_ASIS;
+  return MAX_PLAYERS;
 }
 
 function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean): void {
@@ -1232,7 +1257,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       if (!rotating) hud.setMeta(tr("jeRegarde")(shown.name));
       return;
     }
-    hud.setFooterLives(match.score, Math.max(0, match.lives), match.maxLives, tr("piedMulti"));
+    hud.setFooterLives(
+      match.score,
+      Math.max(0, match.lives),
+      match.maxLives,
+      tr("piedMulti"),
+      // En coop ce chiffre compte les PIECES nettoyees par le groupe, pas des
+      // manches. Mesure a l'ecran : « 8 MANCHE » apres huit pieces prises,
+      // en vague 1 sur 12.
+      lireMode(roomSettings) === "coop" ? tr("piedScore") : undefined,
+    );
   }
 
   function setPlatesVisible(on: boolean): void {
@@ -1562,6 +1596,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function onLangue(): void {
     populateEmotes();
+    // Le pied porte trois mots traduits (MANCHE / SCORE, VIES, MULTI) et
+    // personne ne les repeignait : ils restaient dans la langue d'avant
+    // jusqu'a la manche suivante.
+    syncFooter();
     // Le salon se repeint depuis le dernier état reçu, pas depuis le serveur :
     // changer de langue ne doit rien demander au réseau.
     paintLobby();
@@ -3614,6 +3652,31 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   async function ouvreSalon(mode: ModeSalon): Promise<void> {
     sfx.ui();
     setJoinErr(null);
+    /*
+     * ⚠️ **SANS NOM, CES CINQ BOUTONS NE FAISAIENT RIEN — SANS UN MOT.**
+     *
+     * `ensureConnected` rend `null` quand `savedName()` est vide, et les deux
+     * appelants sortaient là-dessus en silence. Cliquer OUVRIR UN SALON ne
+     * produisait alors aucun écran, aucune erreur, aucun son de refus : le
+     * bouton était mort.
+     *
+     * Le chemin normal ne le montrait pas, parce que `#btnMulti` posait déjà
+     * la garde. Mais depuis que `/multi` est une ADRESSE, on y arrive sans
+     * passer par ce bouton — lien partagé, marque-page, rechargement,
+     * bouton précédent. `suitAdresse` le dit d'ailleurs en toutes lettres :
+     * « `/multi` au retour ne reclique PAS `#btnMulti` ». La conséquence
+     * n'avait pas été tirée : l'écran qu'il montre est alors inerte.
+     *
+     * La garde appartient donc à l'ACTION, pas à la porte qui y mène — c'est
+     * la même leçon que le brief du run du jour, où le verrou de la journée
+     * close a dû descendre sur le point de passage commun plutôt que sur
+     * chacune des portes.
+     *
+     * ⚠️ Le MODE voyage dans la reprise. Sans `() => ouvreSalon(mode)`, se
+     * nommer depuis la porte COOP rouvrirait un salon classique : le joueur
+     * aurait choisi un mode et obtenu l'autre.
+     */
+    if (needIdentity(() => void ouvreSalon(mode))) return;
     // Jamais d'envoi direct : sur mobile, le navigateur tue la socket dès
     // que l'app passe en arrière-plan. Un send() sur socket morte ne fait
     // RIEN, silencieusement — c'était le « je clique, pas de réponse ».
@@ -3638,6 +3701,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         return;
       }
       setJoinErr(null);
+      // Même trou que les cinq portes ci-dessous : sans nom, `ensureConnected`
+      // rendait `null` et ce `?.` avalait le clic. Le code saisi survit à
+      // l'aller-retour — il est dans le champ, et `needIdentity` n'y touche pas.
+      if (needIdentity(() => $("btnMultiJoin").click())) return;
       const client = await ensureConnected();
       entreeSalon = "rejoint";
       client?.joinRoom(code);

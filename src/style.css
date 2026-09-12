@@ -2832,6 +2832,32 @@ body {
  * porte un champ de saisie.
  */
 @media (max-width: 899px) {
+/*
+ * ⚠️ LE TITRE D'UNE PORTE DE MODE DOIT TENIR DANS SA BOITE.
+ *
+ * Mesure a 375 px : « IMPOSTEUR » reclame 126 px de texte dans une boite de
+ * 121 — il debordait de 5 px sur son propre cadre. Les quatre portes sont une
+ * grille a deux colonnes sur telephone : la boite est fixee par la grille,
+ * c'est donc au mot de ceder. Les titres a plusieurs mots (« SEUL CONTRE
+ * TOUS ») passaient a la ligne et ne se voyaient pas ; un mot seul ne le
+ * peut pas.
+ *
+ * 19 px laissent 11 % de marge sur le plus long des quatre — assez pour un
+ * nom de mode a venir, et pour l'anglais, qui n'est pas toujours plus court.
+ * `overflow-wrap` est le dernier recours : un nom encore plus long se coupera
+ * au lieu de sortir du cadre. Un debordement silencieux est pire qu'une
+ * cesure laide.
+ *
+ * ⚠️ **UNIQUEMENT EN ETROIT, ET C'EST UNE ERREUR DEJA FAITE.** Posee en
+ * global au premier essai, la regle rabotait aussi le large : mesure a
+ * 1280 px, les quatre titres tombaient a 19 px dans des boites de 480, ou
+ * ils avaient toute la place. Verifie aux DEUX largeurs cette fois.
+ */
+  .panel:not(.panel--large) .panel__title {
+    font-size: 19px;
+    overflow-wrap: anywhere;
+  }
+
   .join {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
