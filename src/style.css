@@ -101,50 +101,75 @@
      ---------------------------------------------------------------- */
 
   /** Mentions, méta, unités. Le plancher du lisible. */
-  --t-micro: 11px;
+  --t-micro: 13px;
   --ls-micro: 0.08em;
 
   /** Texte secondaire : états de carte, valeurs, aides. */
-  --t-petit: 12px;
+  --t-petit: 13px;
   --ls-petit: 0.1em;
 
   /** Texte courant, phrases. Peu d'écartement : ce sont des mots. */
-  --t-base: 13px;
+  --t-base: 14px;
   --ls-base: 0.04em;
 
   /** Lecture posée : briefs, descriptions longues. */
-  --t-lire: 15px;
+  --t-lire: 16px;
   --ls-lire: 0.02em;
 
   /** Intitulés en capitales — le seul endroit où l'écartement informe. */
-  --t-intitule: 9.5px;
+  --t-intitule: 12px;
   --ls-intitule: 0.18em;
 
   /* ----------------------------------------------------------------
-     ⚠️ L'ECHELLE DE LA MAQUETTE, RELEVEE SUR SA SOURCE
+     ⚠️ **L'ECHELLE DE LA MAQUETTE A ETE REPRISE, ET VOICI POURQUOI.**
 
-     Sur les 2 500 lignes des vues mobiles de `TOR Redesign.dc.html`, les
-     tailles les plus employees sont 10 px (130 fois), 9,5 (101) et 9 (95) —
-     bien sous le plancher de 11 que ce depot s'etait donne. Cette densite
-     n'est pas un detail de style : c'est ce qui fait tenir quatre blocs dans
-     une colonne de 464, et c'est la difference la plus visible entre le rendu
-     et le dessin.
+     Ce bloc disait : « les tailles les plus employees de la maquette sont
+     10 px, 9,5 et 9 — bien sous le plancher de 11 que ce depot s'etait
+     donne », et il abaissait le plancher pour s'y conformer. Il posait une
+     garde : « QU'AUX INTITULES EN CAPITALES, jamais aux phrases ».
 
-     Elle ne s'applique QU'AUX INTITULES EN CAPITALES, jamais aux phrases.
-     Un mot de six lettres espace de 0,16em se lit a 9,5 px ; un paragraphe
-     non. Les jetons de LECTURE (`--t-base`, `--t-lire`) ne bougent pas.
+     Rapporte par Pierre : « il y a des infos importantes dans des tailles
+     derisoires, des mots difficiles a lire ». Releve a l'ecran, sur le
+     build, 120 elements de texte des ecrans de menu :
+
+         8,5 px  x1      9,5 px  x30     11 px  x4     13 px  x30
+         9,5 px le plus employe          10 px  x19    15 px  x11
+
+     Soit **50 elements sur 120 sous 11 px**, et 88 sur 120 sous 14. La
+     garde n'avait pas tenu : `.rgl__note` est une PHRASE a 9,5 px, `#btnLangFr`
+     est un BOUTON a 9,5, `#tallyLabel` nomme le score d'un run a 9,5, et
+     `.mur__kicker` dit « TON MIEUX » a 8,5. Et sous les jetons vivaient
+     **62 litteraux en dur**, dont trois a 7,5 px — plus petit que ce
+     qu'aucune plateforme n'autorise.
+
+     ⚠️ **L'ERREUR DE METHODE, POUR NE PAS LA REFAIRE** : une maquette est
+     un dessin, ses pixels ne sont pas des pixels CSS. Relever 9,5 dans un
+     fichier de design et l'ecrire tel quel dans une feuille de style, c'est
+     confondre deux unites. Le plancher revient donc a une regle qui se
+     verifie sur un appareil, pas dans un dessin : **12 px**, soit le
+     plancher d'iOS et de Material, et un cran au-dessus parce que tout ici
+     est en CAPITALES ESPACEES — ce qui se lit plus lentement qu'un bas de
+     casse, la forme du mot ayant disparu.
+
+     L'echelle compte desormais QUATRE crans — 12 / 13 / 14 / 16 — au lieu
+     de sept separes par un demi-pixel. Deux tailles a 0,5 px d'ecart ne
+     hierarchisent rien, elles donnent seulement deux facons d'etre petit.
+
+     L'ecran de JEU garde ses valeurs propres : sa densite est du gameplay
+     (decision n°10), et toute croissance y rogne le champ. Il est traite a
+     part, mesure a l'appui.
      ---------------------------------------------------------------- */
 
   /** Etiquette d'un bloc : « TA COLLECTION », « RUN DU JOUR ». */
-  --t-etiquette: 9.5px;
+  --t-etiquette: 12px;
   --ls-etiquette: 0.18em;
 
   /** Libelle court : « UNE SEULE REGLE », « A MATER ». */
-  --t-lab: 10px;
+  --t-lab: 12px;
   --ls-lab: 0.16em;
 
   /** Destination, bouton de barre, valeur d'option. */
-  --t-nav: 11px;
+  --t-nav: 12px;
   --ls-nav: 0.14em;
 
   /* ----------------------------------------------------------------
@@ -498,7 +523,7 @@ body {
 }
 
 .band__tag {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.24em;
   color: var(--paper-dim);
   white-space: nowrap;
@@ -626,7 +651,7 @@ body {
 #sub {
   margin-top: 10px;
   min-height: 15px;
-  font-size: 11px;
+  font-size: var(--t-micro);
   letter-spacing: 0.2em;
   color: var(--paper-dim);
 }
@@ -703,7 +728,7 @@ body {
   align-items: center;
   gap: 10px;
   margin-top: 9px;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.18em;
   color: var(--signal-pale);
 }
@@ -1002,7 +1027,7 @@ body {
 
 .drama__rule {
   margin-top: 12px;
-  font-size: 11px;
+  font-size: var(--t-micro);
   letter-spacing: 0.22em;
   color: var(--signal-pale);
   min-height: 1em;
@@ -1414,7 +1439,7 @@ body {
  * dispose d'environ 84 px, et un nom de regle est un repere, pas une lecture.
  */
 #app:not(.has-gutters) .plates--compact .plate__rule {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   min-height: 0;
   overflow: hidden;
@@ -1845,7 +1870,7 @@ body {
   right: -1px;
   padding: 2px 6px;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.12em;
   color: var(--ink);
   background: var(--signal);
@@ -2091,7 +2116,7 @@ body {
 }
 
 .foot__label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   line-height: 1;
   color: var(--paper-dim);
@@ -2247,7 +2272,7 @@ body {
   }
 
   #app:not(.has-gutters) .plates .plate__name {
-    font-size: 11px;
+    font-size: 12px;
   }
 
   #app:not(.has-gutters) .plates .plate__lives i {
@@ -2257,7 +2282,7 @@ body {
 
   #app:not(.has-gutters) .plates .plate--rookie::before {
     content: "1RE";
-    font-size: 8px;
+    font-size: 11px;
     padding: 1px 4px;
   }
 }
@@ -3110,7 +3135,7 @@ body {
   background: none;
   border: none;
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.1em;
   color: var(--paper-dim);
   cursor: pointer;
@@ -3467,7 +3492,7 @@ body {
 .brief__meme {
   margin: 0 0 8px;
   font-family: var(--mono);
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
   color: var(--signal-pale);
 }
@@ -9082,7 +9107,7 @@ button.chip:active:not(:disabled) {
 }
 
 .band__viesLabel {
-  font-size: 8.5px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--paper-dim);
   white-space: nowrap;
@@ -9775,7 +9800,7 @@ button.chip:active:not(:disabled) {
 }
 
 .nav__lab {
-  font-size: 8.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.12em;
   line-height: 1;
   white-space: nowrap;
@@ -9831,7 +9856,7 @@ button.chip:active:not(:disabled) {
   display: block;
   margin-top: 5px;
   font-family: var(--mono);
-  font-size: 8.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.12em;
   line-height: 1.35;
   color: var(--signal-pale);
@@ -9973,7 +9998,7 @@ button.chip:active:not(:disabled) {
   background: var(--ink-2);
   border-bottom: 1px solid var(--line);
   font-family: var(--mono);
-  font-size: 7.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
   color: var(--paper-dim);
 }
@@ -10022,7 +10047,7 @@ button.chip:active:not(:disabled) {
 .carte__etat {
   margin: 0;
   font-family: var(--mono);
-  font-size: 8px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.1em;
   color: var(--paper-dim);
 }
@@ -11835,7 +11860,7 @@ button.chip:active:not(:disabled) {
   #home .but__unite {
     margin: 4px 0 0;
     font-family: var(--mono);
-    font-size: 9.5px;
+    font-size: var(--t-etiquette);
     letter-spacing: 0.18em;
     color: var(--paper-dim);
   }
@@ -11855,7 +11880,7 @@ button.chip:active:not(:disabled) {
   #home .but__quoi {
     margin: 0;
     font-family: var(--mono);
-    font-size: 9.5px;
+    font-size: var(--t-etiquette);
     letter-spacing: 0.18em;
     color: var(--paper-dim);
   }
@@ -11960,7 +11985,7 @@ button.chip:active:not(:disabled) {
     padding: 12px 13px;
     min-height: 44px;
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: var(--t-micro);
     letter-spacing: 0.14em;
     color: var(--paper-dim);
   }
@@ -11995,7 +12020,7 @@ button.chip:active:not(:disabled) {
   #app.barre-haute .topbar__right .btn--top {
     padding: 12px 13px;
     min-height: 44px;
-    font-size: 11px;
+    font-size: var(--t-micro);
     letter-spacing: 0.14em;
   }
 
@@ -12045,7 +12070,7 @@ button.chip:active:not(:disabled) {
   }
 
   #home .etat .eyebrow {
-    font-size: 9.5px;
+    font-size: var(--t-etiquette);
     letter-spacing: 0.18em;
     color: var(--signal-pale);
   }
@@ -12149,7 +12174,7 @@ button.chip:active:not(:disabled) {
   #home .etat__paire .etat__note {
     margin-top: 6px;
     font-family: var(--mono);
-    font-size: 9.5px;
+    font-size: var(--t-etiquette);
     letter-spacing: 0.12em;
   }
 
@@ -12179,7 +12204,7 @@ button.chip:active:not(:disabled) {
     border: 0;
     background: none;
     font-family: var(--mono);
-    font-size: 11.5px;
+    font-size: var(--t-micro);
     letter-spacing: 0.06em;
     color: var(--paper-dim);
     min-height: 0;
@@ -12348,7 +12373,7 @@ button.chip:active:not(:disabled) {
 
 #band .band__quoi,
 .band__eyebrow {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.24em;
   line-height: 1;
 }
@@ -12363,12 +12388,12 @@ button.chip:active:not(:disabled) {
 #bandBrief,
 .band__brief {
   margin: 3px 0 0;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.08em;
 }
 
 .band__meta {
-  font-size: 8.5px;
+  font-size: 11px;
   letter-spacing: 0.16em;
 }
 
@@ -12384,12 +12409,24 @@ button.chip:active:not(:disabled) {
 
 #sub {
   margin: 9px 0 0;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
 }
 
+/*
+ * ⚠️ **LE PIED REND AU CHAMP CE QUE SES INTITULES VIENNENT DE LUI PRENDRE.**
+ *
+ * `.foot__label` passe de 9 a 11 px — MANCHE, RECORD, VIES etaient les trois
+ * mots les plus petits d'un ecran qu'on lit en 200 ms. Mesure a 375 x 812 :
+ * le pied grandissait de 54 a 56 px, donc le canvas tombait de 606 a 604.
+ *
+ * La taille du champ EST du gameplay (decision n°10), et la meme decision dit
+ * quoi faire : « chaque gain de presence doit etre mesure contre ce cout et
+ * RENDU ailleurs ». Un pixel de retrait en haut et un en bas rendent
+ * exactement les deux. Verifie : canvas a 606 px avant et apres.
+ */
 #foot {
-  padding: 9px 14px;
+  padding: 8px 14px;
 }
 
 .foot__value {
@@ -12404,7 +12441,7 @@ button.chip:active:not(:disabled) {
 
 .foot__label {
   margin-top: 2px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
 }
 
@@ -12437,7 +12474,7 @@ button.chip:active:not(:disabled) {
 
 #over .because {
   margin: 9px 0 0;
-  font-size: 11px;
+  font-size: var(--t-micro);
   letter-spacing: 0.14em;
 }
 
@@ -12449,7 +12486,7 @@ button.chip:active:not(:disabled) {
 
 #over #tallyLabel {
   margin: 4px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.18em;
 }
 
@@ -12505,7 +12542,7 @@ button.chip:active:not(:disabled) {
 
 #codex .codexbar__ligne,
 #codex .codexbar__note {
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.12em;
 }
 
@@ -12514,7 +12551,7 @@ button.chip:active:not(:disabled) {
 }
 
 .filtre {
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.1em;
   padding: 11px;
   min-height: var(--tap);
@@ -12526,7 +12563,7 @@ button.chip:active:not(:disabled) {
 
 .carte__famille,
 .carte__cases {
-  font-size: 7.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
 }
 
@@ -12544,7 +12581,7 @@ button.chip:active:not(:disabled) {
 }
 
 .carte__etat {
-  font-size: 7.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
@@ -12584,7 +12621,7 @@ button.chip:active:not(:disabled) {
 
 .cpt__via {
   margin: 7px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
@@ -12605,13 +12642,13 @@ button.chip:active:not(:disabled) {
 
 .cpt__lab {
   margin-top: 5px;
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
 }
 
 .account__on > .eyebrow {
   margin: 20px 0 0;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
 }
 
@@ -12629,7 +12666,7 @@ button.chip:active:not(:disabled) {
 }
 
 .cpt__repartition {
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.1em;
 }
 
@@ -12643,19 +12680,19 @@ button.chip:active:not(:disabled) {
 
 .cpt__jourNote {
   margin: 4px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.12em;
 }
 
 .cpt__badge {
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
   padding: 4px 7px;
 }
 
 .cpt__fine {
   margin: 14px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.1em;
   line-height: 1.6;
 }
@@ -12676,7 +12713,7 @@ button.chip:active:not(:disabled) {
 
 #compteAnon #cptGrilleAnon .cpt__lab {
   margin-top: 4px;
-  font-size: 8.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
@@ -12695,7 +12732,7 @@ button.chip:active:not(:disabled) {
 
 .rgl__groupe {
   margin: 18px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.18em;
 }
 
@@ -12709,14 +12746,14 @@ button.chip:active:not(:disabled) {
 
 .rgl__quoi {
   margin: 3px 0 0;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.06em;
 }
 
 .rgl__inter i {
   width: 38px;
   min-height: 34px;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
 }
 
 .rgl__apercu {
@@ -12730,7 +12767,7 @@ button.chip:active:not(:disabled) {
 
 .rgl__note {
   margin: 9px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.06em;
 }
 
@@ -12763,7 +12800,7 @@ button.chip:active:not(:disabled) {
 }
 
 .room__count {
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
@@ -12786,23 +12823,23 @@ button.chip:active:not(:disabled) {
 }
 
 .seat__status {
-  font-size: 8.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
 .settings__who {
   margin: 16px 0 0;
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.18em;
 }
 
 .settings__label {
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
 }
 
 .settings--seg .opt {
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.06em;
   padding: 12px 2px;
   min-height: var(--tap);
@@ -12810,7 +12847,7 @@ button.chip:active:not(:disabled) {
 
 .settings__quoi {
   margin: 8px 0 0;
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.08em;
 }
 
@@ -12820,7 +12857,7 @@ button.chip:active:not(:disabled) {
 }
 
 .chat__qui {
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.14em;
 }
 
@@ -12845,7 +12882,7 @@ button.chip:active:not(:disabled) {
 }
 
 .mur__cible .mur__kicker {
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
 }
 
@@ -12874,7 +12911,7 @@ button.chip:active:not(:disabled) {
 
 .mur__moi .mur__kicker {
   margin: 3px 0 0;
-  font-size: 8.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
 }
 
@@ -12898,7 +12935,7 @@ button.chip:active:not(:disabled) {
 }
 
 #onb .eyebrow {
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
 }
 
@@ -12910,7 +12947,7 @@ button.chip:active:not(:disabled) {
 }
 
 .onb__kicker {
-  font-size: 9.5px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.18em;
 }
 
@@ -12947,7 +12984,7 @@ button.chip:active:not(:disabled) {
 
 .onb__pied {
   margin: 12px 0 0;
-  font-size: 10px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.12em;
 }
 
@@ -12983,7 +13020,7 @@ button.chip:active:not(:disabled) {
 #briefPiege {
   margin: 12px 0 0;
   padding: 9px 12px;
-  font-size: 11px;
+  font-size: var(--t-micro);
   letter-spacing: 0.1em;
 }
 
@@ -13002,7 +13039,7 @@ button.chip:active:not(:disabled) {
 }
 
 .briefstats__lab {
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
 }
 
@@ -13024,7 +13061,7 @@ button.chip:active:not(:disabled) {
 }
 
 .fiche__case {
-  font-size: 11px;
+  font-size: var(--t-micro);
   letter-spacing: 0.04em;
 }
 
@@ -14562,7 +14599,7 @@ button.chip:active:not(:disabled) {
 
 .pastille span {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
   color: var(--ambre);
 }
