@@ -1,6 +1,7 @@
 import { FIELD_H, FIELD_W } from "../engine/types";
 import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
 import { MOTIFS, encrePour } from "./motif";
+import { policeMono } from "./polices";
 import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
 
 /**
@@ -117,7 +118,7 @@ export function drawNeedBadge(
     cx += cranW + gap;
   }
   ctx.fillStyle = NEED_BADGE.signal;
-  ctx.font = "700 10px 'JetBrains Mono', ui-monospace, monospace";
+  ctx.font = policeMono(700, 10);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(n > 0 ? `${n}/${need}` : String(need), bx + s / 2, by + s / 2 + 1);

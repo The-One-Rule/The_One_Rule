@@ -26,6 +26,7 @@
  * coupe, rien ne serait vérifiable : jsdom n'a pas de canvas.
  */
 import { t } from "../i18n";
+import { policeDisplay, policeMono } from "./polices";
 
 /** Ce que la carte dit. Des chaînes déjà composées, aucune décision au pinceau. */
 export interface DonneesCarte {
@@ -150,8 +151,8 @@ export function dessineCarte(cvs: HTMLCanvasElement, d: DonneesCarte): void {
   const g = cvs.getContext("2d");
   if (!g) return;
 
-  const mono = '600 28px "JetBrains Mono", ui-monospace, monospace';
-  const disp = (px: number): string => `600 ${px}px "Inter", system-ui, sans-serif`;
+  const mono = policeMono(600, 28);
+  const disp = (px: number): string => policeDisplay(600, px);
 
   g.fillStyle = INK;
   g.fillRect(0, 0, S, S);
@@ -226,7 +227,7 @@ export function dessineCarte(cvs: HTMLCanvasElement, d: DonneesCarte): void {
     // La silhouette, comme dans le jeu : la frise est la seule surface qui ne
     // disait son affaire que par la teinte.
     g.fillStyle = INK;
-    g.font = '700 22px "Inter", system-ui, sans-serif';
+    g.font = policeDisplay(700, 22);
     g.textAlign = "center";
     g.fillText(info.glyphe, x + cote / 2, y + 8);
     g.textAlign = "left";

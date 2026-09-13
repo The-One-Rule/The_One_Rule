@@ -3696,7 +3696,17 @@ function renderPalier(): void {
    * si on le presse pour accepter quelque chose. La phrase est allée sous la
    * montée, où elle répond à la vraie question ; le bouton, lui, revient.
    */
-  $("btnPalBack").textContent = `\u25c2 ${t("escRetour")}`;
+  /*
+   * \u26a0\ufe0f `\u2039` ET NON `\u25c2` : DM MONO NE PORTE PAS LE TRIANGLE PLEIN.
+   *
+   * Mesur\u00e9 au canvas \u2014 largeur du glyphe dans \u00ab DM Mono \u00bb seule, contre la
+   * pile compl\u00e8te : `\u25c2` retombait sur la mono du syst\u00e8me. La fl\u00e8che se
+   * dessinait donc dans une AUTRE police que le mot qu'elle accompagne, et
+   * son rendu changeait d'un appareil \u00e0 l'autre. C'est ce que le d\u00e9p\u00f4t a d\u00e9j\u00e0
+   * tranch\u00e9 pour les pictogrammes des portes \u2014 \u00ab le rendu d'un emoji change
+   * d'un syst\u00e8me \u00e0 l'autre \u00bb \u2014 appliqu\u00e9 \u00e0 un chevron.
+   */
+  $("btnPalBack").textContent = `\u2039 ${t("escRetour")}`;
 }
 
 $("btnEscBack").addEventListener("click", () => {

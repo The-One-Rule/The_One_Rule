@@ -588,6 +588,51 @@ function renderLobby(
  * plus bas (`peutLancerCoop` / `peutLancerImposteur`) : deux sources pour la
  * meme question finissent par diverger, et c'est exactement ce qui s'est passe.
  */
+/**
+ * L'ORDRE DES MODES SUR LE FIL. Ne jamais reordonner.
+ *
+ * La barre MODE envoie un INDICE, pas un nom (`net.setSettings({ mode })` le
+ * traduit). Deplacer une entree changerait donc le sens des messages deja en
+ * vol et de tout client d'une version anterieure.
+ *
+ * ⚠️ Cette liste etait ecrite DEUX FOIS — une dans `renderSettings`, une dans
+ * le gestionnaire de clic — a quatre cents lignes d'ecart. Deux sources pour
+ * la meme correspondance, et le symptome d'une divergence aurait ete : on
+ * clique COOP, on obtient IMPOSTEUR.
+ */
+export const MODES: readonly ModeSalon[] = ["classique", "duo", "imposteur", "coop"];
+
+/**
+ * Ce que la barre MODE PROPOSE — ce n'est pas la meme question.
+ *
+ * ⚠️ **L'IMPOSTEUR N'EST PLUS OFFERT.** Playtest : les joueurs n'aiment pas et
+ * preferent le coop. La cause est dans le moteur, pas dans l'habillage —
+ * `IMPOSTEUR_PIEGES` contient l'indice 0, donc la premiere manche est un piege
+ * force, et l'imposteur doit obeir : il se designe lui-meme avant que personne
+ * n'ait rien appris. Retirer la porte de l'ecran d'entree sans retirer ce
+ * segment n'aurait rien change, puisque c'est ici que les hotes changent de
+ * mode.
+ *
+ * Le mode reste ENTIER dans le moteur, le serveur et les tests : c'est une
+ * porte qu'on ferme.
+ */
+export const MODES_OFFERTS: readonly ModeSalon[] = ["classique", "duo", "coop"];
+
+/**
+ * Les indices a afficher, sachant le mode COURANT.
+ *
+ * Un salon deja en imposteur — un lien ancien, un client d'une autre version —
+ * doit rester lisible et modifiable : on rouvre alors le segment, sinon la
+ * barre n'allumerait rien et l'hote ne saurait ni ou il est ni comment en
+ * sortir.
+ */
+export function indicesDeMode(courant: ModeSalon): number[] {
+  const offerts = MODES.map((m, i) => (MODES_OFFERTS.includes(m) ? i : -1)).filter((i) => i >= 0);
+  const iCourant = MODES.indexOf(courant);
+  if (iCourant >= 0 && !offerts.includes(iCourant)) offerts.push(iCourant);
+  return offerts.sort((a, b) => a - b);
+}
+
 export function placesDuMode(settings: RoomSettings): number {
   const mode = lireMode(settings);
   if (mode === "coop") return COOP_MAX_ASIS;
@@ -719,20 +764,23 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
   $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
 
   /*
-   * MODE : quatre valeurs exclusives, pas un second booléen.
+   * MODE : des valeurs exclusives, pas un second booléen. `fill` travaille sur
+   * des nombres, et ces nombres sont les INDICES DE `MODES` — c'est ce que le
+   * fil transporte.
    *
-   * CHACUN / DUOS / IMPOSTEUR / COOP. `fill` travaille sur des nombres.
-   * Un client ancien n'envoyait que `duo` ; le sanitizer en déduit le mode.
+   * ⚠️ La jauge se compte sur les segments AFFICHÉS, pas sur l'indice : avec
+   * l'imposteur retiré, `level: (n) => n + 1` aurait sauté un cran entre DUOS
+   * et COOP, et la barre aurait montré un trou là où il n'y a rien à montrer.
    */
-  const modes: ModeSalon[] = ["classique", "duo", "imposteur", "coop"];
-  fill("optDuo", [0, 1, 2, 3], Math.max(0, modes.indexOf(modeActuel)), {
+  const indices = indicesDeMode(modeActuel);
+  fill("optDuo", indices, MODES.indexOf(modeActuel), {
     label: (n) =>
       n === 3 ? tr("optCoop") : n === 2 ? tr("optImposteur") : n === 1 ? tr("optDuos") : tr("optChacun"),
     aria: (n) =>
       n === 3 ? tr("ariaCoop") : n === 2 ? tr("ariaImposteur") : n === 1 ? tr("ariaDuos") : tr("ariaChacun"),
     icon: "dots",
-    level: (n) => n + 1,
-    steps: 4,
+    level: (_n, i) => i + 1,
+    steps: indices.length,
   });
   $("modeQuoi").textContent =
     modeActuel === "imposteur"
@@ -3689,7 +3737,6 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   $("btnMultiCreate").addEventListener("click", () => void ouvreSalon("classique"));
   $("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon("duo"));
-  $("btnMultiCreateImposteur").addEventListener("click", () => void ouvreSalon("imposteur"));
   $("btnMultiCreateCoop").addEventListener("click", () => void ouvreSalon("coop"));
 
   $("btnMultiJoin").addEventListener("click", () => {
@@ -3796,8 +3843,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (!me?.host || lobbyInMatch) return;
     sfx.ui();
     if (key === "mode") {
-      const modes: ModeSalon[] = ["classique", "duo", "imposteur", "coop"];
-      const mode = modes[value];
+      // MEME liste que la barre : elle est exportee pour qu'il n'y en ait
+      // qu'une. Voir `MODES`.
+      const mode = MODES[value];
       if (!mode) return;
       net.setSettings({ mode });
       return;

@@ -744,7 +744,7 @@
                  l'exercice qui comble la prochaine case, et c'est la réponse
                  la plus courte. La montée est l'engagement long. -->
             <button class="btn" id="btnFicheEsc"></button>
-            <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">◂ COLLECTION</button>
+            <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">‹ COLLECTION</button>
           </div>
         </div>
       </section>
@@ -1700,18 +1700,31 @@
             </div>
           </div>
 
-          <!-- IMPOSTEUR / COOP : mêmes portes que DUO, même geste. Le mode
-               se pose à l'ouverture ; la barre MODE du salon reste. -->
-          <div class="col panel">
-            <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
-            <h3 class="panel__title" data-i18n="multi.imposteur">IMPOSTOR</h3>
-            <p class="panel__text" data-i18n="multi.imposteur.desc">One rule for everyone. One liar. Ten rounds, one vote. 4 to 8.</p>
-            <div class="btnrow">
-              <button class="btn" id="btnMultiCreateImposteur" data-i18n="multi.ouvrir">OPEN A ROOM</button>
-            </div>
-          </div>
+          <!-- ⚠️ **LA PORTE IMPOSTEUR A ETE RETIREE, LE MODE EXISTE TOUJOURS.**
 
+               Playtest : les joueurs n'aiment pas, et preferent le coop, « plus
+               simple a comprendre ». Le defaut n'est pas d'habillage, il est
+               dans le moteur : `IMPOSTEUR_PIEGES` contient l'indice 0, donc la
+               PREMIERE manche est un piege force — et l'imposteur, qui n'a pas
+               de regle (`SANS_REGLE.forbids` rend toujours faux), doit obeir.
+               Les villageois se figent, lui agit, et les plaques disent AGI /
+               RIEN en direct. La partie est decidee avant que personne n'ait
+               rien appris. Quand ce n'est pas trivial, c'est du bruit :
+               `acteDe()` range « mort au temps » et « piege dejoue » dans la
+               meme case, donc un joueur lent est indiscernable d'un joueur qui
+               s'est retenu.
+
+               Moteur, serveur et tests restent en place — c'est une porte
+               qu'on ferme, pas du code qu'on jette. La barre MODE du salon ne
+               l'offre plus non plus (voir `MODES_OFFERTS`), sinon la retirer
+               d'ici n'aurait rien change : c'est la que les hotes changent de
+               mode. Un salon deja en imposteur reste representable et
+               modifiable.
+
+               COOP garde sa porte : preuve immediate, pas de deduction, et le
+               piege y reste central. -->
           <div class="col panel">
+
             <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
             <h3 class="panel__title" data-i18n="multi.coop">COOP</h3>
             <p class="panel__text" data-i18n="multi.coop.desc">One shared life. Each player a forbid. Twelve waves. 4 to 6.</p>

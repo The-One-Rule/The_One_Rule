@@ -11,9 +11,10 @@
    hors ligne) et limitées à deux graisses.
    ================================================================== */
 
-@import "@fontsource/inter/latin-500.css";
-@import "@fontsource/inter/latin-600.css";
-@import "@fontsource/jetbrains-mono/latin-400.css";
+@import "@fontsource/chakra-petch/latin-500.css";
+@import "@fontsource/chakra-petch/latin-600.css";
+@import "@fontsource/dm-mono/latin-400.css";
+@import "@fontsource/dm-mono/latin-500.css";
 
 :root {
   --ink: #0e1520;
@@ -42,8 +43,26 @@
      volontairement distinct de la garance jouable #F74058. */
   --rouge: #b01732;
 
-  --display: "Inter", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  /*
+   * ⚠️ **INTER + UNE MONO D'IDE, C'ETAIT LA SIGNATURE D'UN OUTIL D'IA.**
+   *
+   * Rapporte par un mentor : « la police fait trop Claude-like ». Le reproche
+   * est juste et il est precis — Inter sur un fond presque noir avec un accent
+   * violet est l'habillage par defaut de tous les outils de ce genre. Le
+   * probleme n'est pas qu'Inter soit mauvaise : c'est qu'elle n'a pas de point
+   * de vue, donc le jeu se lisait comme un tableau de bord.
+   *
+   * CHAKRA PETCH est carree et technique : elle a les memes angles droits que
+   * le reste de l'identite (§7), et elle tient les capitales, qui sont partout
+   * ici. DM MONO remplace JetBrains Mono, qui est une police d'editeur de code
+   * et le disait.
+   *
+   * ⚠️ Ces deux noms sont ecrits AUSSI dans `src/render/polices.ts`, parce que
+   * le canvas ne peut pas lire une variable CSS. `tests/polices.test.ts` refuse
+   * que les deux declarations divergent.
+   */
+  --display: "Chakra Petch", system-ui, -apple-system, sans-serif;
+  --mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   --gap: 18px;
 

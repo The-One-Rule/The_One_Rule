@@ -16,6 +16,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { indicesDeMode, MODES, MODES_OFFERTS } from "../src/multi";
 
 const src = readFileSync("src/multi.ts", "utf8");
 
@@ -93,26 +94,62 @@ describe("le verrou d'identité reste là où il a un sens", () => {
   });
 });
 
-describe("quatre portes d'ouverture, separees et nommees", () => {
-  it("SEUL CONTRE TOUS, DUO, IMPOSTEUR et COOP sont quatre portes, pas un reglage cache", () => {
-    // IMPOSTEUR et COOP n'existaient que dans la barre MODE du salon : il
-    // fallait connaitre le mode pour le trouver. Ils sont desormais une
-    // intention annoncee a l'entree, a egalite avec DUO.
+describe("trois portes d'ouverture, separees et nommees", () => {
+  it("SEUL CONTRE TOUS, DUO et COOP sont trois portes, pas un reglage cache", () => {
+    // COOP n'existait que dans la barre MODE du salon : il fallait connaitre
+    // le mode pour le trouver. Il est desormais une intention annoncee a
+    // l'entree, a egalite avec DUO.
     const html = readFileSync("index.html", "utf8");
     const iJoin = html.indexOf('id="btnMultiJoin"');
     const iClassique = html.indexOf('id="btnMultiCreate"');
     const iDuo = html.indexOf('id="btnMultiCreateDuo"');
-    const iImp = html.indexOf('id="btnMultiCreateImposteur"');
     const iCoop = html.indexOf('id="btnMultiCreateCoop"');
     expect(iJoin).toBeGreaterThan(0);
     expect(iClassique).toBeGreaterThan(iJoin);
     expect(iDuo).toBeGreaterThan(iClassique);
-    expect(iImp).toBeGreaterThan(iDuo);
-    expect(iCoop).toBeGreaterThan(iImp);
+    expect(iCoop).toBeGreaterThan(iDuo);
     // Le document est servi en ANGLAIS ; le français vit dans le
     // dictionnaire et revient à l'affichage pour un navigateur français.
     expect(html).toContain("FREE FOR ALL");
-    expect(html).toContain("IMPOSTOR");
+  });
+
+  /*
+   * ⚠️ LA PORTE IMPOSTEUR EST FERMEE, ET CE TEST GARDE LA PORTE FERMEE.
+   *
+   * Playtest : les joueurs n'aiment pas et preferent le coop. La cause est
+   * dans le moteur — `IMPOSTEUR_PIEGES` contient l'indice 0, donc la premiere
+   * manche est un piege force et l'imposteur, qui doit obeir, se designe
+   * lui-meme avant que personne n'ait rien appris.
+   *
+   * On verifie les DEUX portes, parce que fermer la premiere sans la seconde
+   * n'aurait rien change : c'est dans la barre MODE du salon que les hotes
+   * changent de mode.
+   */
+  it("l'imposteur n'est offert NI a l'entree NI dans la barre MODE", () => {
+    const html = readFileSync("index.html", "utf8");
+    expect(html).not.toContain("btnMultiCreateImposteur");
+    expect(html).not.toContain("IMPOSTOR");
+    expect(MODES_OFFERTS).not.toContain("imposteur");
+  });
+
+  /*
+   * Mais le mode reste ENTIER : c'est une porte qu'on ferme, pas du code
+   * qu'on jette. Et l'ordre du fil ne bouge pas — la barre envoie un indice.
+   */
+  it("le mode existe toujours, et sa place sur le fil n'a pas bouge", () => {
+    expect(MODES).toEqual(["classique", "duo", "imposteur", "coop"]);
+    expect(MODES.indexOf("coop")).toBe(3);
+  });
+
+  /*
+   * Un salon deja en imposteur — un lien ancien, un client d'une autre
+   * version — doit rester lisible ET modifiable. Sans ce rattrapage la barre
+   * n'allumerait aucun segment, et l'hote ne saurait ni ou il est ni comment
+   * en sortir.
+   */
+  it("un salon deja en imposteur garde son segment", () => {
+    expect(indicesDeMode("coop")).toEqual([0, 1, 3]);
+    expect(indicesDeMode("imposteur")).toEqual([0, 1, 2, 3]);
   });
 
   it("ouvrir pose le mode, et seulement si on l'a demande", () => {
@@ -125,21 +162,26 @@ describe("quatre portes d'ouverture, separees et nommees", () => {
     expect(f).not.toContain("{ duo: true }");
   });
 
-  it("les quatre boutons passent par le meme chemin", () => {
-    // Quatre implementations de « ouvrir un salon » finiraient par diverger,
+  it("les trois boutons passent par le meme chemin", () => {
+    // Trois implementations de « ouvrir un salon » finiraient par diverger,
     // et le symptome serait un mode qui marche et l'autre non.
     expect(src).toContain('$("btnMultiCreate").addEventListener("click", () => void ouvreSalon("classique"))');
     expect(src).toContain('$("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon("duo"))');
-    expect(src).toContain('$("btnMultiCreateImposteur").addEventListener("click", () => void ouvreSalon("imposteur"))');
     expect(src).toContain('$("btnMultiCreateCoop").addEventListener("click", () => void ouvreSalon("coop"))');
     expect(src).toContain('fait: () => void ouvreSalon("classique")');
+    /*
+     * ⚠️ Le gestionnaire du bouton disparu doit partir AVEC lui. `$()` rend
+     * `null` en silence, donc un `addEventListener` sur un identifiant absent
+     * ne signale rien a la lecture — il jette au chargement, et c'est tout
+     * `initMulti` qui ne s'installe pas : plus un seul ecran multijoueur.
+     */
+    expect(src).not.toContain("btnMultiCreateImposteur");
   });
 
   it("l'accent primaire reste sur SEUL CONTRE TOUS, pas sur les quatre portes", () => {
     const accent = corps("function syncJoinAccent(): void {");
     expect(accent).toContain('$("btnMultiCreate").classList.toggle("btn--primary"');
     expect(accent).not.toContain("btnMultiCreateDuo");
-    expect(accent).not.toContain("btnMultiCreateImposteur");
     expect(accent).not.toContain("btnMultiCreateCoop");
   });
 
