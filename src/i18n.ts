@@ -2948,6 +2948,7 @@ const MOTIFS_EN: Record<MotifId, string> = {
   sequence: "SEQUENCE UNFINISHED",
   piegeRate: "THE ORDER BROKE YOUR ONE RULE — YOU HAD TO DO NOTHING",
   rienFaire: "YOU HAD TO DO NOTHING",
+  dejoueATort: "IT WAS NOT A TRAP",
   fallaitTaper: "YOU HAD TO TYPE, NOT CLICK",
   fallaitCliquer: "YOU HAD TO CLICK, NOT TYPE",
   mauvaiseTouche: "WRONG KEY",

@@ -3,7 +3,7 @@ import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
 import { pileA } from "../engine/escalade";
-import { resolveAction, resolveTimeout } from "../engine/resolve";
+import { resolveAction, resolveTimeout, resoudreDejoue } from "../engine/resolve";
 import type { Action, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
 import type { LoggedInput } from "../engine/verify";
 
@@ -20,6 +20,10 @@ export interface SessionEnd {
   marks: string[];
   trapsSurvived: number;
   usedKeyboard: boolean;
+  /** Manches terminées par le raccourci DÉJOUER. Toujours 0 hors entraînement. */
+  dejoues: number;
+  /** Dont celles qui étaient de vrais PIÈGES — le geste que le jeu existe pour apprendre. */
+  piegesDejoues: number;
 }
 
 const FREEZE_MS = 520;
@@ -83,6 +87,12 @@ export class Session {
   private readonly longueur?: number;
   /** ESCALIER : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
   private readonly forcePiege?: (level: number) => boolean;
+  /** Le raccourci DÉJOUER est-il permis dans ce run ? Jamais hors entraînement. */
+  readonly dejoueActif: boolean;
+  /** Lettre retirée du tirage parce qu'elle déjoue. `undefined` partout ailleurs. */
+  private readonly toucheReservee?: string;
+  dejoues = 0;
+  piegesDejoues = 0;
 
   private runStart: number;
 
@@ -144,6 +154,20 @@ export class Session {
      */
     longueur?: number;
     forcePiege?: (level: number) => boolean;
+    /**
+     * LE RACCOURCI DÉJOUER — voir `resoudreDejoue`.
+     *
+     * ⚠️ Il ne s'allume qu'en ENTRAÎNEMENT, quoi que l'appelant demande : le
+     * run du jour, le classé et l'escalade doivent rester les mêmes épreuves
+     * pour tout le monde. Décision de Pierre : « raccourci, et non partout ».
+     */
+    dejoue?: boolean;
+    /**
+     * La lettre qui déjoue au clavier, retirée du tirage. Ignorée sur un appareil
+     * tactile : le pool n'y contient aucune consigne clavier, et le raccourci y
+     * passe par un bouton.
+     */
+    toucheDejoue?: string;
   }) {
     this.mode = opts.mode;
     this.pile = opts.pile?.length ? opts.pile : [opts.rule];
@@ -167,6 +191,11 @@ export class Session {
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
     this.longueur = opts.longueur;
     this.forcePiege = opts.forcePiege;
+    this.dejoueActif = opts.mode === "training" && opts.dejoue === true;
+    this.toucheReservee =
+      this.dejoueActif && !opts.touchOnly && opts.toucheDejoue
+        ? opts.toucheDejoue.toUpperCase()
+        : undefined;
     this.majRegle();
     this.nextRound(opts.now);
   }
@@ -248,6 +277,7 @@ export class Session {
       this.pool,
       this.pace,
       this.forcePiege,
+      this.toucheReservee,
     );
     this.progress = { step: 0 };
     this.roundStart = now;
@@ -308,7 +338,34 @@ export class Session {
       marks: this.marks,
       trapsSurvived: this.trapsSurvived,
       usedKeyboard: this.usedKeyboard,
+      dejoues: this.dejoues,
+      piegesDejoues: this.piegesDejoues,
     };
+  }
+
+  /**
+   * Le raccourci DÉJOUER : « la bonne réponse était de ne rien faire, je l'ai vu ».
+   *
+   * ⚠️ **HORS DU JOURNAL, ET C'EST VOULU.** `log` est ce que le serveur rejoue
+   * pour valider un run du jour ou un match classé ; le déjouage n'existe dans
+   * aucun des deux. Un run d'entraînement n'est jamais soumis. L'y écrire
+   * obligerait `verifyRun` à connaître une action qui ne doit pas exister de
+   * son côté.
+   *
+   * Une erreur pendant l'échauffement est pardonnée comme les autres : aucune
+   * action n'est passée à `die`, donc `pardonnable` n'a rien à refuser.
+   */
+  dejouer(now: number): Outcome {
+    if (this.phase !== "playing" || !this.dejoueActif) return { kind: "pending" };
+    const outcome = resoudreDejoue(this.round);
+    if (outcome.kind === "survive") {
+      this.dejoues++;
+      if (this.round.trap) this.piegesDejoues++;
+      this.survive(now);
+    } else if (outcome.kind === "death") {
+      this.die(outcome, now);
+    }
+    return outcome;
   }
 
   /** Une action du joueur. Retourne le verdict pour que l'UI puisse réagir. */

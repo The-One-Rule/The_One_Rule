@@ -87,6 +87,46 @@ export function resolveAction(
   return { outcome: { kind: "pending" }, progress: next };
 }
 
+/**
+ * DÉJOUER — le raccourci de l'abstention. Entraînement SEULEMENT.
+ *
+ * Rapporté par le jury Ystart : « l'écran ne rien faire gâche le peps, ça doit
+ * aller vite ». Mesuré : un piège dure TOUTE sa fenêtre — c'est la seule façon
+ * de savoir que le joueur a tenu — donc le meilleur geste du jeu, résister, se
+ * payait du plus long temps mort.
+ *
+ * Le joueur peut désormais DIRE qu'il a vu que la bonne réponse était de ne
+ * rien faire. Deux cas, et un seul verdict chacun :
+ *
+ *   · la manche ne demandait AUCUN geste (piège, « NE FAIS RIEN », « NE CLIQUE
+ *     PAS ») → il a raison, la manche se termine tout de suite ;
+ *   · la manche demandait un geste → il s'est trompé, c'était une consigne
+ *     légitime.
+ *
+ * ⚠️ **DÉJOUER NE SAUVE JAMAIS UNE MANCHE QUE L'ATTENTE AURAIT PERDUE.** Il ne
+ * réussit que là où `resolveTimeout` aurait aussi rendu une survie : il
+ * avance l'instant, il ne change aucune issue. C'est ce qui le rend
+ * inoffensif pour les records — le score maximal atteignable est le même avec
+ * ou sans lui — et `tests/dejoue.test.ts` le vérifie sur des milliers de
+ * manches.
+ *
+ * ⚠️ **IL N'EST PAS DANS `resolveAction`, ET C'EST DÉLIBÉRÉ.** `resolveAction`
+ * est partagé avec `verifyRun`, qui rejoue les journaux du run du jour — où le
+ * temps départage les ex æquo. Un « déjouer » connu du moteur partagé
+ * laisserait un journal forgé gagner du temps sur l'épreuve qui se compare.
+ * Le raccourci vit donc dans la `Session` d'entraînement, et nulle part
+ * ailleurs.
+ *
+ * ⚠️ Aucune règle unique ne le juge : ce n'est pas un GESTE de jeu (un clic,
+ * une touche, un relâchement), c'est une déclaration. LA SECONDE interdit
+ * d'agir avant 400 ms ; déjouer un piège à 100 ms ne lui fait rien, puisque
+ * sur un piège l'abstention était de toute façon la bonne réponse.
+ */
+export function resoudreDejoue(round: Round): Outcome {
+  if (round.steps.length === 0) return { kind: "survive", trap: round.trap };
+  return { kind: "death", cause: "wrong", reason: MOTIFS.dejoueATort };
+}
+
 /** Verdict quand la fenêtre expire sans que la manche soit résolue. */
 export function resolveTimeout(round: Round, progress: RoundProgress): Outcome {
   if (round.steps.length === 0) return { kind: "survive", trap: round.trap };
