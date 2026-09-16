@@ -246,6 +246,17 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
     "rgl.allureQuoi": "Elle ne vaut que pour l'entraînement. Le run du jour est le même pour tout le monde.",
+    "rgl.dejoue": "DÉJOUER · ENTRAÎNEMENT",
+    "rgl.dejoueNom": "RACCOURCI DÉJOUER",
+    "rgl.dejoueQuoi": "Tu as repéré un piège ? Dis-le, la manche s'arrête aussitôt. Si une action était demandée, tu perds.",
+    "rgl.dejoueTouche": "TOUCHE",
+    "rgl.dejoueToucheQuoi": "Clique ici, puis appuie sur une lettre. Aucune consigne ne la demandera.",
+    "rgl.dejoueCote": "BOUTON SUR TÉLÉPHONE",
+    "rgl.dejoueCoteQuoi": "Du côté de ton pouce.",
+    "rgl.gauche": "GAUCHE",
+    "rgl.droite": "DROITE",
+    "dejoue.mot": "DÉJOUER",
+    "dejoue.aria": "Déjouer : la manche ne demandait rien",
     "rgl.langue": "LANGUE",
     "rgl.mesure": "MESURE",
     "rgl.compter": "COMPTER MES PARTIES",
@@ -438,6 +449,17 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.motifsQuoi": "Every colour also carries a texture.",
     "rgl.allure": "DEFAULT PACE · TRAINING",
     "rgl.allureQuoi": "It only applies to training. The daily run is the same for everyone.",
+    "rgl.dejoue": "OUTSMART · TRAINING",
+    "rgl.dejoueNom": "OUTSMART SHORTCUT",
+    "rgl.dejoueQuoi": "Spotted a trap? Say so and the round ends at once. If an action was expected, you lose.",
+    "rgl.dejoueTouche": "KEY",
+    "rgl.dejoueToucheQuoi": "Click, then press a letter. No order will ever ask for it.",
+    "rgl.dejoueCote": "PHONE BUTTON",
+    "rgl.dejoueCoteQuoi": "On your thumb's side.",
+    "rgl.gauche": "LEFT",
+    "rgl.droite": "RIGHT",
+    "dejoue.mot": "OUTSMART",
+    "dejoue.aria": "Outsmart: this round asked for nothing",
     "rgl.langue": "LANGUAGE",
     "rgl.mesure": "METRICS",
     "rgl.compter": "COUNT MY GAMES",
@@ -729,6 +751,10 @@ type Dyn = {
   modeDaily: (jour: number) => string;
   modeEscalade: string;
   modeTraining: string;
+  /** L'annonce du raccourci sur le brief : la lettre, ou `null` au pouce. */
+  briefDejoue: (touche: string | null) => string;
+  /** Pendant la capture d'une nouvelle touche, dans les réglages. */
+  dejoueCapture: string;
   piedDaily: (jour: number) => string;
   piedSur: string;
   piedRegles: string;
@@ -1361,6 +1387,11 @@ const DYN: Record<Lang, Dyn> = {
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
     modeEscalade: "ESCALADE",
     modeTraining: "ENTRAÎNEMENT",
+    briefDejoue: (touche) =>
+      touche
+        ? `Piège repéré ? Appuie sur ${touche} : la manche s'arrête tout de suite.`
+        : "Piège repéré ? Touche DÉJOUER : la manche s'arrête tout de suite.",
+    dejoueCapture: "…",
     piedDaily: (j) => `JOUR #${j}`,
     piedSur: "SUR",
     piedRegles: "RÈGLES",
@@ -1922,6 +1953,11 @@ const DYN: Record<Lang, Dyn> = {
     modeDaily: (j) => `DAILY RUN · #${j}`,
     modeEscalade: "CLIMB",
     modeTraining: "TRAINING",
+    briefDejoue: (touche) =>
+      touche
+        ? `Spotted a trap? Press ${touche}: the round ends right away.`
+        : "Spotted a trap? Tap OUTSMART: the round ends right away.",
+    dejoueCapture: "…",
     piedDaily: (j) => `DAY #${j}`,
     piedSur: "OF",
     piedRegles: "RULES",

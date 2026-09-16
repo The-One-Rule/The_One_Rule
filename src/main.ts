@@ -26,6 +26,7 @@ import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
+import { toucheAcceptable } from "./game/dejoue";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
 import type { Mode } from "./game/session";
@@ -137,6 +138,16 @@ const scene = new SceneRenderer(cv);
 const appEl = $("app");
 let gutters = false;
 let lastKey = "";
+/**
+ * L'appareil a-t-il un pointeur grossier, même à côté d'une souris ?
+ *
+ * `TOUCH_ONLY` répond « SEULEMENT du tactile » et décide du pool de consignes.
+ * Le bouton DÉJOUER pose une autre question : peut-on le toucher du pouce ? Un
+ * portable à écran tactile dit oui ici et non là-bas, et c'est juste.
+ */
+const TACTILE =
+  typeof matchMedia !== "undefined" && matchMedia("(any-pointer: coarse)").matches;
+
 /** Verrou anti-oscillation de la mise en page — voir syncField(). */
 let lastGutterToggle = -Infinity;
 let gutterRecheck: ReturnType<typeof setTimeout> | null = null;
@@ -150,6 +161,7 @@ const GUTTER_LOCK_MS = 450;
  */
 function syncField(): void {
   scene.resize();
+  if (session) poseDejoue();
   const f = scene.fieldRect();
   const a = appEl.getBoundingClientRect();
   const c = cv.getBoundingClientRect();
@@ -675,6 +687,9 @@ function show(id: ScreenId): void {
   cacheToast();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  // Le bouton DÉJOUER ne vit que sur l'écran de jeu : quitter la partie le
+  // retire, quel que soit le chemin de sortie.
+  if (id !== null) $("btnDejouer").classList.add("hidden");
   /*
    * La barre haute vit HORS FLUX et disparait pendant la partie.
    *
@@ -1108,6 +1123,97 @@ function renderReglages(): void {
   appliqueMotifs(s.daltonien);
   refreshMetricsButton();
   renderAllureDefaut();
+  renderDejoue();
+}
+
+/**
+ * Le bloc DÉJOUER des réglages.
+ *
+ * Un téléphone n'a pas de lettre, un PC n'a pas de pouce : chaque ligne ne
+ * paraît que là où elle règle quelque chose. Un appareil hybride (écran
+ * tactile ET clavier) voit les deux, et c'est juste — il peut se servir des
+ * deux.
+ */
+function renderDejoue(): void {
+  const d = P.load().dejoue;
+  poseInter("btnDejoue", d.on);
+  $("rglDejoueTouche").classList.toggle("hidden", TOUCH_ONLY);
+  $("rglDejoueCote").classList.toggle("hidden", !TACTILE);
+  if (!captureTouche) $("btnDejoueTouche").textContent = d.touche;
+  for (const [id, cote] of [
+    ["btnDejoueGauche", "gauche"],
+    ["btnDejoueDroite", "droite"],
+  ] as const) {
+    const b = $(id);
+    b.classList.toggle("is-on", d.cote === cote);
+    b.setAttribute("aria-pressed", String(d.cote === cote));
+  }
+}
+
+/** Vrai pendant qu'on attend la lettre qui remplacera la touche du déjouage. */
+let captureTouche = false;
+
+function finCapture(): void {
+  captureTouche = false;
+  $("btnDejoueTouche").classList.remove("is-capture");
+  renderDejoue();
+}
+
+$("btnDejoue").addEventListener("click", () => {
+  P.mutate((st) => {
+    st.dejoue.on = !st.dejoue.on;
+  });
+  sfx.ui();
+  renderDejoue();
+});
+$("btnDejoueTouche").addEventListener("click", () => {
+  sfx.ui();
+  captureTouche = true;
+  const b = $("btnDejoueTouche");
+  b.classList.add("is-capture");
+  b.textContent = t("dejoueCapture");
+});
+$("btnDejoueTouche").addEventListener("blur", () => {
+  if (captureTouche) finCapture();
+});
+/*
+ * ⚠️ EN PHASE DE CAPTURE, ET AVANT TOUT LE RESTE.
+ * Le gestionnaire du jeu écoute la même fenêtre : sans `stopImmediatePropagation`
+ * ÉCHAP ramènerait à l'accueil au lieu d'annuler la saisie.
+ */
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (!captureTouche) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (e.key === "Escape") {
+      finCapture();
+      return;
+    }
+    if (!toucheAcceptable(e.key)) {
+      sfx.grace();
+      return;
+    }
+    P.mutate((st) => {
+      st.dejoue.touche = e.key.toUpperCase();
+    });
+    sfx.ui();
+    finCapture();
+  },
+  true,
+);
+for (const [id, cote] of [
+  ["btnDejoueGauche", "gauche"],
+  ["btnDejoueDroite", "droite"],
+] as const) {
+  $(id).addEventListener("click", () => {
+    P.mutate((st) => {
+      st.dejoue.cote = cote;
+    });
+    sfx.ui();
+    renderDejoue();
+  });
 }
 
 /*
@@ -2355,6 +2461,12 @@ function openBrief(mode: Mode): void {
   }
 
   $("briefMeme").classList.toggle("hidden", mode !== "daily");
+  {
+    const reglage = s.dejoue;
+    const bd = $("briefDejoue");
+    bd.classList.toggle("hidden", mode !== "training" || !reglage.on);
+    bd.textContent = t("briefDejoue")(TOUCH_ONLY ? null : reglage.touche);
+  }
   $("briefEyebrow").textContent =
     mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
   $("briefName").textContent =
@@ -2731,6 +2843,13 @@ function lanceRun(): void {
     // `buildRound` répondent exactement ce qu'ils répondaient hier.
     longueur: palier?.manches,
     forcePiege: palier ? (l) => ESC.piegeIci(palier, l) : undefined,
+    /*
+     * DÉJOUER — entraînement seulement, et jamais sur un défi : un duel rejoue
+     * la graine d'un autre, et la lettre réservée changerait ses manches. La
+     * `Session` refuse d'elle-même tous les autres modes.
+     */
+    dejoue: !challenge && !ranked && s.dejoue.on,
+    toucheDejoue: s.dejoue.touche,
   });
   finEchauffementDite = false;
   hud.setRule(session.rule);
@@ -2770,6 +2889,7 @@ function lanceRun(): void {
    * qu'au changement de manche, comme avant.
    */
   majGouttieres();
+  poseDejoue();
   sfx.runStart();
   musicApi.start();
   // `duel` distingue un défi relevé d'un entraînement ordinaire : les deux
@@ -4064,6 +4184,12 @@ function finishRun(): void {
   if (!session?.end) return;
   const { end, rule, mode } = session;
   const pace = session.pace;
+  /*
+   * ⚠️ UNE PARTIE JOUÉE AVEC LE DÉJOUAGE NE DEVIENT PAS UN DÉFI.
+   * Avec une lettre réservée, ses manches ne sont plus celles de sa graine ;
+   * et un déjouage avance les temps de passage que le fantôme rejouerait.
+   */
+  const defiFidele = !session.toucheReservee && end.dejoues === 0;
   lastRun = { end, rule, mode, seed: session.seed };
   // Les VRAIES règles de la pile, avant que la session ne soit libérée.
   const reglesTenues = session.reglesTenues;
@@ -4331,6 +4457,8 @@ function finishRun(): void {
     cause: end.cause,
     cleared: end.cleared,
     traps: end.trapsSurvived,
+    dejoues: end.dejoues,
+    piegesDejoues: end.piegesDejoues,
   });
 
   const claimedBefore = P.load().quests.claimed.length;
@@ -4583,7 +4711,7 @@ function finishRun(): void {
     palierFranchi: end.cleared,
     palierSuivant: suiteMontee !== undefined,
     essaisRestants,
-    duelPossible: end.splits.length >= 3,
+    duelPossible: end.splits.length >= 3 && defiFidele,
   });
 
   const again = $<HTMLButtonElement>("btnAgain");
@@ -5086,6 +5214,112 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
   );
 }
 
+/**
+ * DÉJOUER — le joueur DIT qu'il a vu qu'il ne fallait rien faire.
+ *
+ * Le verdict est celui du moteur (`Session.dejouer`) ; ici on ne fait que le
+ * faire SENTIR. Une réussite est la célébration du piège déjoué, en plus fort :
+ * c'est le seul geste du jeu qui prouve qu'on a lu la règle au lieu d'attendre
+ * que le temps passe. Un « NE FAIS RIEN » déjoué a droit au même éclat, plus
+ * discret — ce n'était pas un piège, mais c'était bien vu.
+ */
+function dejoue(): void {
+  if (!session || session.phase !== "playing" || !session.dejoueActif) return;
+  const combo = session.level;
+  const manche = session.round;
+  const out = session.dejouer(performance.now());
+  if (out.kind !== "survive") {
+    react(out, combo, manche);
+    return;
+  }
+  const t0 = performance.now();
+  if (out.trap) sfx.trapAvoided();
+  else sfx.success(combo);
+  scene.burstScreen(out.trap ? "#CFC9F2" : "#8F86C9");
+  scene.flashViolet(t0);
+  scene.kick(t0, out.trap ? 0.6 : 0.3);
+  vibrePiegeDejoue();
+  appEl.classList.remove("a-dejoue");
+  void appEl.offsetWidth;
+  appEl.classList.add("a-dejoue");
+}
+
+/**
+ * Pose le bouton DÉJOUER dans la plus grande place libre À CÔTÉ du terrain.
+ *
+ * ⚠️ JAMAIS SUR LE TERRAIN. Un bouton posé sur le champ volerait des pièces,
+ * et la taille du champ est du gameplay (n°10) : il se loge donc dans ce que
+ * le terrain laisse libre, et le champ ne bouge pas d'un pixel qu'il soit là
+ * ou non. Trois places, par ordre de préférence :
+ *
+ *   1. la gouttière latérale du côté choisi, quand elle est assez large — le
+ *      pouce y tombe sans quitter le bord ;
+ *   2. la bande sous le terrain, dans le coin du côté choisi ;
+ *   3. à défaut, par-dessus le tiers du pied de ce côté.
+ *
+ * ⚠️ PAS À CHAQUE IMAGE, et jamais avant `scene.resize()`. Premier essai
+ * mémoïsé sur la clé de `syncField` et appelé par la boucle : au lancement, la
+ * boîte du canvas avait déjà grandi (606 → 710 px) mais le terrain calculé
+ * datait encore de l'ancienne taille — le bouton s'est posé 53 px trop haut,
+ * SUR le terrain, et la mémoïsation l'y a gardé. Mesuré à 375 × 812. Il est
+ * donc appelé par `syncField` après le redimensionnement, et aux changements
+ * d'état (lancement, fin, écran, côté), avec un `resize` explicite.
+ */
+function poseDejoue(): void {
+  const b = $("btnDejouer");
+  const voir = TACTILE && screen === null && !!session?.dejoueActif;
+  const cote = P.load().dejoue.cote;
+  b.classList.toggle("hidden", !voir);
+  b.classList.toggle("dejoue--gauche", cote === "gauche");
+  if (!voir) return;
+
+  scene.resize();
+  const MARGE = 8;
+  const MIN = 60;
+  const f = scene.fieldRect();
+  const a = appEl.getBoundingClientRect();
+  const c = cv.getBoundingClientRect();
+  const cx = c.left - a.left;
+  const cy = c.top - a.top;
+  const libreG = f.x;
+  const libreD = c.width - f.x - f.w;
+  const libreSous = c.height - f.y - f.h;
+  const lateral = cote === "gauche" ? libreG : libreD;
+  let x: number, y: number, w: number, h: number;
+  let forme: "haut" | "large";
+  if (lateral >= MIN + 2 * MARGE) {
+    forme = "haut";
+    w = Math.min(lateral - 2 * MARGE, 104);
+    h = Math.max(MIN, Math.min(f.h * 0.42, 220));
+    x = cote === "gauche" ? cx + (libreG - w) / 2 : cx + f.x + f.w + (libreD - w) / 2;
+    y = cy + f.y + f.h - h;
+  } else if (libreSous >= MIN + 2 * MARGE) {
+    forme = "large";
+    h = Math.min(libreSous - 2 * MARGE, 76);
+    w = Math.min(c.width * 0.46, 200);
+    y = cy + f.y + f.h + MARGE;
+    x = cote === "gauche" ? cx + MARGE : cx + c.width - MARGE - w;
+  } else {
+    forme = "large";
+    const p = $("foot").getBoundingClientRect();
+    h = p.height;
+    w = p.width / 3;
+    y = p.top - a.top;
+    x = cote === "gauche" ? p.left - a.left : p.right - a.left - w;
+  }
+  b.classList.toggle("dejoue--haut", forme === "haut");
+  b.style.left = `${Math.round(x)}px`;
+  b.style.top = `${Math.round(y)}px`;
+  b.style.width = `${Math.round(w)}px`;
+  b.style.height = `${Math.round(h)}px`;
+}
+
+$("btnDejouer").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
+  unlock();
+  dejoue();
+});
+
 function send(action: Action): void {
   if (!session || session.phase !== "playing") return;
   const combo = session.level;
@@ -5212,6 +5446,12 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    // La touche du déjouage n'est jamais une réponse : elle est sortie du
+    // tirage, donc aucune consigne ne peut la demander.
+    if (session?.dejoueActif && e.key.toUpperCase() === session.toucheReservee) {
+      dejoue();
+      return;
+    }
     sendOrMulti({ kind: "key", key: e.key.toUpperCase() });
   } else if (e.key.startsWith("Arrow")) {
     e.preventDefault();
@@ -5320,6 +5560,8 @@ function loadChallenge(r: Replay): void {
   // bruit, pas l'adhésion. Le `run_start` qui suit dira s'il a aussi joué.
   track("duel_opened", { rule: rule.id, target: ghostFinal(r) });
   challenge = r;
+  // Un défi se joue sans le raccourci : voir `lanceRun`.
+  $("briefDejoue").classList.add("hidden");
   pendingMode = "training";
   pendingRule = rule;
   $("briefEyebrow").textContent = r.who ? t("defiDe")(r.who.toUpperCase()) : t("defiRecu");
@@ -6044,6 +6286,7 @@ function loop(now: number): void {
     if (session.phase === "over") {
       finishRun();
       session = null;
+      poseDejoue();
       $("gout").classList.add("hidden");
     } else if (session.phase === "playing") {
       const key = `${session.mode}:${runId}:${session.level}`;

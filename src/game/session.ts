@@ -90,7 +90,7 @@ export class Session {
   /** Le raccourci DÉJOUER est-il permis dans ce run ? Jamais hors entraînement. */
   readonly dejoueActif: boolean;
   /** Lettre retirée du tirage parce qu'elle déjoue. `undefined` partout ailleurs. */
-  private readonly toucheReservee?: string;
+  readonly toucheReservee?: string;
   dejoues = 0;
   piegesDejoues = 0;
 
