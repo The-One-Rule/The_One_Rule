@@ -60,12 +60,17 @@ const GOUTTIERE = FIELD_GUTTER;
  *
  * ⚠️ UNE CONSTANTE, PAS UNE MESURE DE LA CONSIGNE. La consigne change à chaque
  * manche : caler le terrain sur sa hauteur le ferait bouger d'une manche à
- * l'autre, et la taille du champ est du gameplay (n°10). Mesuré à 375 px avec
- * la plus longue du pool tactile, « CLIQUE CELUI QUI N'EST PAS UN TRIANGLE »
- * (deux lignes à 34 px, plus « 1 GESTE ») : elle finit à 102 px. 112 laisse
- * 10 px d'air.
+ * l'autre, et la taille du champ est du gameplay (n°10).
+ *
+ * ⚠️ ELLE COMPTE LA BARRE DE TEMPS, ET C'EST UN DÉFAUT PAYÉ. La première
+ * version ne mesurait que la consigne et sa sous-ligne — 102 px, d'où 112.
+ * Mais `#timer` est DANS `#head`, sous elles : avec la plus longue consigne du
+ * pool tactile sur deux lignes (« CLIQUE CELUI QUI N'EST PAS UN TRIANGLE »),
+ * la barre de temps descendait à 124 px et se posait sur le terrain. Mesuré à
+ * 375 × 812, en partie : barre à 165-172 pour un champ qui commence à 160.
+ * 128 laisse 4 px d'air, et le terrain ne perd que 20 px de haut.
  */
-export const RESERVE_CONSIGNE = 112;
+export const RESERVE_CONSIGNE = 128;
 
 /**
  * La bande laissée aux PLAQUES et aux émotes sous le terrain debout, en
