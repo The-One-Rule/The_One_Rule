@@ -321,6 +321,19 @@ sur deux passages.
     dans `utilisateur.agregats`, qui sont des affirmations du client. Mélanger
     les deux ferait démarrer un futur classement sur des faits invérifiables.
 
+15. **DÉJOUER n'entre jamais dans `resolveAction`.** Il est partagé avec
+    `verifyRun`, qui rejoue le run du jour où le TEMPS départage les ex æquo :
+    un « déjouer » connu du moteur partagé laisserait un journal forgé gagner
+    du temps sur la seule épreuve qui se compare. Le raccourci vit dans la
+    `Session`, n'est pas journalisé, et n'existe qu'en entraînement. Une
+    partie jouée avec une lettre réservée ne devient pas un défi.
+16. **Le terrain debout est une transformation d'AFFICHAGE, jamais de jeu.**
+    Tout ce qui convertit entre champ et écran passe par
+    `render/orientation.ts` — dessin, clic, curseurs, gouttières. Une
+    conversion écrite « par axe » (`x / FIELD_W * w`) est fausse debout. Les
+    bandes réservées (consigne 112 px, plaques/tutoriel 150 px) sont des
+    CONSTANTES : caler le terrain sur un contenu le ferait bouger en partie.
+
 ---
 
 ## 7. La couche visuelle
@@ -2347,6 +2360,49 @@ remettant la faute : deux assertions tombent.
 
 ⚠️ **Aucune donnée n'est corrompue.** Les sauvegardes touchées portent
 `{ palier: 1 }` : les joueurs reprennent au palier 2 et progressent normalement.
+
+### Le lot Ystart — sept chantiers, jamais vus par un joueur
+
+Retours du jury Ystart (entretien de présentation) et directive de Pierre : « raccourci,
+et non partout », puis « retravaille l'UI sur téléphone, carte blanche ».
+Branche `claude/chasse-bugs-0912`, sept commits, **rien de déployé**.
+
+- **DÉJOUER** (décision n°15). Survie seulement là où `resolveTimeout` aurait
+  déjà rendu une survie : il avance l'instant, il ne change aucune issue.
+  Lettre réservée (F par défaut, R refusée : c'est REJOUER) sortie du tirage
+  SANS toucher au flux du RNG quand elle est absente — testé manche par manche.
+  Bouton au pouce posé à côté du terrain, jamais dessus, jamais allumé par un
+  piège (n°5).
+- **Terrain debout** (n°16). 325 × 137 → 241 × 574 px à 375 × 812. Critère
+  identique à la feuille : `max-width: 680px` et portrait, décidé sur la
+  FENÊTRE (n°2). Debout, « le plus à gauche » se dit « le plus en haut » et
+  LE GAUCHER interdit « la bande du haut » ; `text` reste le français couché.
+- **Flammes** (`render/flammes.ts`, feu de DOOM). Ardeur = avancée seulement,
+  nulle pendant l'échauffement, pleine à la manche 30. Terrain, consigne, nom
+  de règle, vies et pied sont des cases interdites. Trois réglages mesurés :
+  foyers intermittents (sinon un liseré blanc), vent vers le centre (sinon
+  3 cases de profondeur sur 16), force plafonnée sous le blanc (sinon des murs).
+  ⚠️ Jamais vues à haute manche en jeu réel : volet sans images.
+- **Tutoriel en jouant**. Plus AUCUN écran d'explication : obéir, résister,
+  déjouer, sur le vrai terrain, puis la partie démarre. L'écran `#onb` et sa
+  route ont disparu. PASSER est dans l'angle bas-droit, et un test exige
+  qu'aucune scène du tutoriel n'y pose de pièce.
+- **Avis après deux parties** (`game/avis.ts`). Une fois, jamais sur le même
+  écran que le bandeau de mesure, jamais si la mesure est coupée. ⚠️
+  `api/collect.ts` coupe tout à 40 caractères SAUF `texte` dans `avis_mot`
+  (280) — nommé par l'événement ET la clé. En local `VITE_COLLECT_URL` est
+  vide, donc l'avis ne paraît pas : c'est voulu.
+- **Écrans téléphone**. L'audit mécanique était propre (débordements, tailles,
+  cibles) ; les défauts étaient de COMPOSITION. Accueil : la démo plein écran
+  passait sous l'accroche et JOUER → vitrine encadrée. Brief et fin : l'action
+  principale avait la taille d'un lien → pleine largeur.
+
+⚠️ **Piège de mesure payé trois fois sur ce lot** : une copie locale de
+`index.html` avec un `requestAnimationFrame` de secours permet de jouer dans
+le volet qui ne compose pas d'images — mais elle PÉRIME à chaque changement
+du HTML, et une copie périmée fait croire qu'un élément manque. La régénérer
+avant chaque mesure. Et une boîte masquée par le JS local (`VITE_*` vides) ne
+prouve rien du déploiement.
 
 ### Backlog
 
