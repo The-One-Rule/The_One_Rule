@@ -774,14 +774,22 @@ Pierre** ; ce qui est mesuré ici est un fait de produit.
 Une seule sollicitation par écran : quand le bandeau paraît, l'invitation au
 compte cède sa place pour ce run-là.
 
-⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
-rien perdu` (scénario DUO) a échoué une fois sur deux lancements consécutifs,
-sans qu'aucun code de match ait changé. Elle attend `v3 === 3` après une
-attente de 9 s pendant laquelle D3 ne joue pas : dès que l'échauffement se
-termine dans cette fenêtre, D3 perd des vies et l'assertion tombe. Le
-récapitulatif de l'e2e ne la voit PAS — il ne surveille que les marges des
-grandeurs mesurées, et celle-ci est une égalité. À reprendre : soit borner
-l'attente, soit lire les vies de D3 avant la fin de l'échauffement.
+⚠️ **L'assertion INTERMITTENTE du scénario DUO est réparée.** `l'autre equipe
+n'a rien perdu` lisait les vies de D3 APRÈS neuf secondes d'attente — or D3
+joue, et rien ne garantit qu'il ne faute jamais sur neuf secondes. Elle
+tombait une fois sur deux lancements, et le récapitulatif ne la voyait pas :
+il ne surveille que les marges des grandeurs mesurées, et celle-ci est une
+égalité. Ce qu'elle doit prouver n'est pas « D3 ne faute jamais » mais « les
+réserves sont SÉPARÉES » : elle lit donc D3 à l'instant EXACT où la réserve de
+l'autre équipe baisse pour la première fois. **La leçon vaut pour la
+prochaine : une égalité mesurée à un instant CHOISI, jamais après une
+attente.**
+
+⚠️ **L'e2e est sensible à la CHARGE DE LA MACHINE.** Lancé pendant qu'un
+serveur de salons tournait déjà, il a rendu deux échecs — `[001] match_end
+reçu sans leave forcé` et `[005] CHLOE éliminée par timeouts` — puis 110/110
+dès le serveur arrêté. Ses clients jugent des délais réels : un autre
+processus qui mange le CPU produit de faux échecs. **Le lancer seul.**
 
 ⚠️ **Casser le correctif pour éprouver un test ne marche plus partout** : le
 classificateur de permissions refuse de lancer les tests quand une
