@@ -26,6 +26,7 @@ import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
+import * as F from "./render/flammes";
 import { toucheAcceptable } from "./game/dejoue";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
@@ -5201,6 +5202,8 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
+      // Tenu jusqu'au bout : le feu s'attise, moins qu'un déjouage déclaré.
+      attiseFlammes(0.6);
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
@@ -5251,6 +5254,7 @@ function dejoue(): void {
   scene.burstScreen(out.trap ? "#CFC9F2" : "#8F86C9");
   scene.flashViolet(t0);
   scene.kick(t0, out.trap ? 0.6 : 0.3);
+  attiseFlammes(out.trap ? 1 : 0.5);
   vibrePiegeDejoue();
   appEl.classList.remove("a-dejoue");
   void appEl.offsetWidth;
@@ -6223,6 +6227,108 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
+/* ------------------------------------------------------------------ *
+ * Les flammes — voir `render/flammes.ts`
+ *
+ * Le calque ne coûte rien quand il ne brûle pas : il est masqué et la boucle
+ * ne le touche plus dès que la grille est éteinte. Hors d'une partie solo,
+ * l'ardeur tombe à zéro et le feu s'éteint de lui-même en une seconde — il ne
+ * se coupe pas net, ce qui se lirait comme un bug.
+ * ------------------------------------------------------------------ */
+const flammesCv = $<HTMLCanvasElement>("flammes");
+const flammesCtx = flammesCv.getContext("2d");
+const FLAMMES_COUPEES =
+  typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let feu: F.Grille = F.nouvelleGrille(0, 0);
+let feuImage: ImageData | null = null;
+let feuFoyerSocle = 0;
+let feuHautTerrain = 0;
+let feuVisible = false;
+let feuMasqueDans = 0;
+/** L'éclat d'un piège déjoué : 1 → 0 en ~700 ms. */
+let feuRafale = 0;
+let feuGraine = 0x9e37;
+const feuHasard = (): number => {
+  feuGraine ^= feuGraine << 7;
+  feuGraine ^= feuGraine >> 9;
+  feuGraine ^= feuGraine << 8;
+  feuGraine &= 0xffff;
+  return feuGraine || (feuGraine = 0x9e37);
+};
+
+/**
+ * Taille la grille sur `#app` et repose les zones interdites.
+ *
+ * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change
+ * de hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit
+ * APRÈS le changement de manche — une mesure prise à cet instant lirait la
+ * consigne précédente, et le feu mordrait sur la nouvelle.
+ */
+function geometrieFeu(): void {
+  const a = appEl.getBoundingClientRect();
+  const w = Math.ceil(a.width / F.CASE);
+  const h = Math.ceil(a.height / F.CASE);
+  if (w !== feu.w || h !== feu.h) {
+    feu = F.nouvelleGrille(w, h);
+    flammesCv.width = w;
+    flammesCv.height = h;
+    feuImage = flammesCtx ? flammesCtx.createImageData(Math.max(1, w), Math.max(1, h)) : null;
+  }
+  const rel = (el: Element): { x: number; y: number; w: number; h: number } => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height };
+  };
+  const c = rel(cv);
+  const f = scene.fieldRect();
+  const terrain = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
+  const zones = [F.zoneDe(terrain, 1), F.zoneDe(rel($("foot")), 0)];
+  for (const id of ["instr", "sub", "bandRule", "bandVies"]) {
+    const el = document.getElementById(id);
+    if (el && el.getBoundingClientRect().width > 0) zones.push(F.zoneDe(rel(el), 2));
+  }
+  F.poseInterdits(feu, zones);
+  feuFoyerSocle = Math.min(h - 1, Math.floor((c.y + c.h) / F.CASE) - 1);
+  feuHautTerrain = Math.max(0, Math.floor(terrain.y / F.CASE));
+}
+
+function majFlammes(): void {
+  if (FLAMMES_COUPEES || !flammesCtx) return;
+  const ardeur =
+    session && screen === null && session.phase === "playing"
+      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.6)
+      : 0;
+  feuRafale = Math.max(0, feuRafale - 0.024);
+  if (ardeur === 0 && !feuVisible) return;
+  if (!feuVisible) {
+    feuVisible = true;
+    flammesCv.classList.remove("hidden");
+    feuMasqueDans = 0;
+  }
+  if (feuMasqueDans-- <= 0) {
+    geometrieFeu();
+    feuMasqueDans = 15;
+  }
+  F.pasDeFeu(feu, F.foyersPour(ardeur, feuFoyerSocle, feuHautTerrain), ardeur, feuHasard);
+  if (ardeur === 0 && F.eteint(feu)) {
+    feuVisible = false;
+    flammesCv.classList.add("hidden");
+    return;
+  }
+  if (!feuImage) return;
+  /*
+   * Le BLANC est l'éclat, pas l'état. Mesuré à pleine ardeur avec une poussée
+   * de 0,5 : les deux marges devenaient des murs blancs. La chaleur de fond ne
+   * pousse que d'un cran ; le blanc franc est réservé au piège déjoué.
+   */
+  F.peins(feu, feuImage, Math.min(1, ardeur * 0.15 + feuRafale));
+  flammesCtx.putImageData(feuImage, 0, 0);
+}
+
+/** Le feu s'embrase : un piège vient d'être déjoué. */
+function attiseFlammes(force: number): void {
+  feuRafale = Math.min(1, feuRafale + force);
+}
+
 /** Le record du joueur AVANT le run en cours — photographié au lancement. */
 let recordAvantRun = 0;
 /** La pastille de dépassement ne flash qu'une fois par run. */
@@ -6280,6 +6386,7 @@ function loop(now: number): void {
    * couper — l'accueil est en `display: none` dès qu'on joue.
    */
   if (screen === "home") imageAttract(now);
+  majFlammes();
 
   /*
    * DEBOUT, LE MULTIJOUEUR RÉSERVE LA BANDE DES PLAQUES sous le terrain.

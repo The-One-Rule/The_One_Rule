@@ -14838,3 +14838,24 @@ button.chip:active:not(:disabled) {
     flex: 0 0 auto;
   }
 }
+
+/* Les flammes : un buffer d'une case pour 4 px, agrandi SANS lissage — une
+   flamme floue jurerait avec les angles droits. */
+.heat__flammes {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.heat__flammes.hidden {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heat__flammes {
+    display: none;
+  }
+}

@@ -111,6 +111,10 @@
       <div id="heat" aria-hidden="true">
         <div class="heat__vignette"></div>
         <div class="heat__frame"></div>
+        <!-- LES FLAMMES. Un feu pixel autour du terrain, qui monte avec la
+             partie (`render/flammes.ts`). Le terrain, la consigne, le nom de
+             la règle et le pied sont des zones où il ne brûle JAMAIS. -->
+        <canvas class="heat__flammes hidden" id="flammes"></canvas>
       </div>
 
       <!-- LA RÈGLE UNIQUE.
