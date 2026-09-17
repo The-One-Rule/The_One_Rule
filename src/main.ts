@@ -100,7 +100,7 @@ import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
 import { composePhrase, poseDebout } from "./i18n";
-import { RESERVE_HUD_MULTI } from "./render/orientation";
+import { RESERVE_AIDE_TUTO, RESERVE_HUD_MULTI } from "./render/orientation";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -215,8 +215,14 @@ function syncField(): void {
    * au canvas déjà plein recréerait la boucle de gouttières.
    */
   const hHorsFlux = cv.clientHeight;
+  /*
+   * ⚠️ LA DÉCISION SE PREND SANS LA RÉSERVE, et c'est la décision n°2 : la
+   * réserve n'existe QUE hors colonnes, donc la compter ici ferait décider sur
+   * une grandeur que la décision modifie. `stableGutter` répond toujours à la
+   * même question — « quelle gouttière produirait le mode colonnes ? ».
+   */
   const next = wantsColumns(
-    stableGutter(cv.clientWidth, hHorsFlux, scene.debout ? "portrait" : "paysage", reserveMulti),
+    stableGutter(cv.clientWidth, hHorsFlux, scene.debout ? "portrait" : "paysage"),
     gutters,
   );
   if (next === gutters) return;
@@ -6470,15 +6476,30 @@ function loop(now: number): void {
   majFlammes();
 
   /*
-   * DEBOUT, TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE :
-   * les plaques d'un salon, ou la ligne d'aide et PASSER du tutoriel. Mesuré à
-   * 375 × 812 : le calque du tutoriel faisait 147 px et couvrait le bas du
-   * terrain, PASSER compris — donc des touchers volés. Le test ne dépend ni de
-   * la manche ni de l'interlude : la réserve est posée à l'entrée sur l'écran de
-   * jeu et ne bouge plus jusqu'à la sortie.
+   * TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE : les plaques
+   * d'un salon, ou la ligne d'aide et PASSER du tutoriel.
+   *
+   * ⚠️ DANS LES DEUX SENS depuis le bug rapporté par Pierre — « le canvas est
+   * traversé par les glyphes des joueurs ». Mesuré à 1280 × 800 : 152 px de
+   * terrain sous les plaques. Voir `RESERVE_HUD_MULTI`.
+   *
+   * ⚠️ SAUF EN COLONNES : quand `has-gutters` est posé, les plaques vivent dans
+   * les gouttières latérales et ne touchent plus le champ — y réserver une
+   * bande lui volerait de la hauteur pour rien.
+   *
+   * Le test ne dépend ni de la manche ni de l'interlude : la réserve est posée
+   * à l'entrée sur l'écran de jeu et ne bouge plus jusqu'à la sortie.
    */
-  if (screen === null) {
-    const r = !session ? RESERVE_HUD_MULTI : 0;
+  {
+    // Hors de l'écran de jeu, la réserve se RELÂCHE : sinon elle survit au
+    // match et rogne un champ que plus personne ne regarde — mesuré, un champ
+    // de 31 px sur l'écran de fin d'un salon.
+    const r =
+      screen !== null || session || gutters
+        ? 0
+        : tuto
+          ? RESERVE_AIDE_TUTO
+          : RESERVE_HUD_MULTI;
     if (r !== reserveMulti) {
       reserveMulti = r;
       scene.poseReserveBas(r);

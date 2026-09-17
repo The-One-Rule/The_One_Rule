@@ -68,12 +68,45 @@ describe("la géométrie", () => {
     expect(r.w / r.h).toBeCloseTo(FIELD_H / FIELD_W, 10);
   });
 
-  it("en multi debout, la bande des plaques reste libre sous le terrain", () => {
-    const r = rectEcran(cadrePour(373, 710, "portrait", RESERVE_HUD_MULTI));
-    expect(r.y).toBeGreaterThanOrEqual(RESERVE_CONSIGNE);
-    expect(r.y + r.h).toBeLessThanOrEqual(710 - RESERVE_HUD_MULTI + 1e-9);
-    // et couché, la réserve ne change rien : le paysage garde sa formule
-    expect(cadrePour(1000, 460, "paysage", RESERVE_HUD_MULTI)).toEqual(cadrePour(1000, 460, "paysage"));
+  it("⚠️ la bande des plaques reste libre sous le terrain — DANS LES DEUX SENS", () => {
+    /*
+     * Rapporté par Pierre : « le canvas est traversé par les glyphes des
+     * joueurs ». La réserve ne valait qu'en portrait ; couché, le champ remplit
+     * presque tout le canvas et les plaques se posaient dessus — mesuré à
+     * 1280 × 800 : 152 px de terrain, avec ses pièces, sous le HUD.
+     */
+    const debout = rectEcran(cadrePour(373, 710, "portrait", RESERVE_HUD_MULTI));
+    expect(debout.y).toBeGreaterThanOrEqual(RESERVE_CONSIGNE);
+    expect(debout.y + debout.h).toBeLessThanOrEqual(710 - RESERVE_HUD_MULTI + 1e-9);
+
+    const couche = rectEcran(cadrePour(1278, 567, "paysage", RESERVE_HUD_MULTI));
+    expect(couche.y).toBeGreaterThanOrEqual(FIELD_GUTTER - 1e-9);
+    expect(couche.y + couche.h, "le champ mord sur la bande des plaques").toBeLessThanOrEqual(
+      567 - RESERVE_HUD_MULTI + 1e-9,
+    );
+    // À cette taille le champ est limité par la HAUTEUR : il occupe tout ce qui
+    // reste entre la gouttière du haut et la bande, donc il commence pile à 24.
+    expect(Math.round(couche.y)).toBe(FIELD_GUTTER);
+  });
+
+  it("⚠️ la bande basse ne peut pas écraser le terrain", () => {
+    // Mesuré sans borne : sur un canvas de 235 px de haut, 180 px de réserve
+    // laissaient un champ de 31 px. Un terrain illisible est pire qu'un HUD
+    // qui le touche — elle ne prend jamais plus du tiers du canvas.
+    const couche = rectEcran(cadrePour(874, 235, "paysage", RESERVE_HUD_MULTI));
+    expect(couche.h, "couché : terrain écrasé").toBeGreaterThan(235 / 4);
+    // Debout, un canvas est toujours haut (`orientationPour` l'exige) : on
+    // éprouve le plus court qui puisse exister, un 375 × 500.
+    const debout = rectEcran(cadrePour(373, 400, "portrait", RESERVE_HUD_MULTI));
+    expect(debout.h, "debout : terrain écrasé").toBeGreaterThan(100);
+  });
+
+  it("sans réserve, le paysage garde sa formule au pixel", () => {
+    // La réserve n'existe que hors colonnes et hors partie solo : partout
+    // ailleurs, `cadrePour` doit répondre exactement ce qu'il répondait hier.
+    const ref = rectEcran(cadrePour(1000, 460, "paysage"));
+    expect([ref.x, ref.y, ref.w, ref.h].map(Math.round)).toEqual([24, 30, 952, 400]);
+    expect(cadrePour(1000, 460, "paysage", 0)).toEqual(cadrePour(1000, 460, "paysage"));
   });
 
   it("⚠️ l'écran et le champ se convertissent l'un dans l'autre sans perte", () => {
