@@ -111,6 +111,10 @@
       <div id="heat" aria-hidden="true">
         <div class="heat__vignette"></div>
         <div class="heat__frame"></div>
+        <!-- LES FLAMMES. Un feu pixel autour du terrain, qui monte avec la
+             partie (`render/flammes.ts`). Le terrain, la consigne, le nom de
+             la règle et le pied sont des zones où il ne brûle JAMAIS. -->
+        <canvas class="heat__flammes hidden" id="flammes"></canvas>
       </div>
 
       <!-- LA RÈGLE UNIQUE.
@@ -262,6 +266,9 @@
         <div id="tuto" class="tuto hidden" aria-live="polite">
           <p class="tuto__aide" id="tutoAide"></p>
           <p class="tuto__note" id="tutoNote"></p>
+          <!-- PASSER vit SUR le terrain : il n'y a plus d'écran d'explication
+               où le poser. Le seul élément cliquable du calque. -->
+          <button type="button" class="tuto__passer" id="btnTutoPasser" data-i18n="tuto.passer">SKIP</button>
         </div>
 
         <!-- OBSERVATION IMPOSTEUR, HORS FLUX.
@@ -356,7 +363,13 @@
       <footer id="foot">
         <div class="foot__cell">
           <b class="foot__value" id="fScore">0</b>
-          <span class="foot__label" data-i18n="hud.manche">ROUND</span>
+          <!-- ⚠️ L'INTITULE EST DYNAMIQUE DEPUIS QU'IL Y A LE COOP.
+               En solo et en classique ce chiffre est bien un nombre de manches
+               tenues. En COOP c'est le SCORE DU GROUPE — des pieces nettoyees —
+               et l'appeler MANCHE en faisait un chiffre faux. `data-i18n` reste
+               la source du mot par defaut : le HUD le relit dans la meme table
+               plutot que d'en garder une seconde copie. -->
+          <span class="foot__label" id="fScoreLabel" data-i18n="hud.manche">ROUND</span>
         </div>
         <div class="foot__cell foot__cell--mid">
           <b class="foot__value" id="fBest">0</b>
@@ -367,6 +380,15 @@
           <span class="foot__label" data-i18n="hud.mode">MODE</span>
         </div>
       </footer>
+
+      <!-- DÉJOUER au pouce. HORS FLUX : il se pose dans la place libre à côté
+           du terrain, jamais dessus, et sa présence ne change pas un pixel du
+           champ (n°10). Son aspect ne dépend JAMAIS de la manche : un bouton
+           qui s'allumerait sur un piège le révélerait (n°5). -->
+      <button type="button" class="dejoue hidden" id="btnDejouer" aria-label="Outsmart: this round asked for nothing" data-i18n-aria="dejoue.aria">
+        <span class="dejoue__glyphe" aria-hidden="true"></span>
+        <span class="dejoue__mot" data-i18n="dejoue.mot">OUTSMART</span>
+      </button>
 
       <div id="tier" class="tier" aria-live="polite"></div>
 
@@ -615,101 +637,6 @@
            Les temps 3 et 5 ne sont PAS ici : ils se jouent sur le vrai
            terrain, avec le vrai canvas et le vrai test de clic. Ce qu'on
            apprend doit être ce qu'on retrouvera. -->
-      <section class="screen hidden" id="onb">
-        <div class="screen__scroll onb">
-          <!-- Six crans, un par temps. Decorative : l'etape est deja dite
-               par l'intitule. Les temps 3 et 5 se jouent sur le terrain,
-               donc la jauge ne les voit pas — c'est voulu. -->
-          <div class="onb__jauge" id="onbJauge" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i><i></i>
-          </div>
-          <p class="eyebrow" id="onbEtape"></p>
-
-          <!-- 1 · LA RÈGLE, AVANT TOUT LE RESTE -->
-          <div class="onb__temps hidden" id="onbT1">
-            <h2 class="onb__titre">
-              <span data-i18n="onb.t1.avant">The game gives you</span>
-              <span class="onb__sujet" data-i18n="onb.t1.sujet">one single rule</span>
-            </h2>
-            <p class="lede" data-i18n="onb.t1.lede">It stays on screen. The whole run.</p>
-            <div class="onb__regle">
-              <p class="onb__kicker" data-i18n="onb.regleUnique">YOUR ONE RULE</p>
-              <p class="onb__nom" id="onbT1Nom"></p>
-              <div class="onb__embleme" id="onbT1Embleme" aria-hidden="true"></div>
-              <p class="onb__brief" id="onbT1Brief"></p>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t1.pied">NO CLOCK HAS STARTED YET</p>
-          </div>
-
-          <!-- 2 · CE QU'ON VA TE DEMANDER -->
-          <div class="onb__temps hidden" id="onbT2">
-            <h2 class="onb__titre">
-              <span data-i18n="onb.t2.avant">On top of it, an</span>
-              <span class="onb__sujet" data-i18n="onb.t2.sujet">order</span>
-              <span data-i18n="onb.t2.apres">arrives every two seconds.</span>
-            </h2>
-            <div class="onb__cas">
-              <div class="onb__cas1">
-                <p class="onb__kicker" data-i18n="onb.t2.cas1">CASE 1 · THE ORDER FITS YOUR RULE</p>
-                <p class="onb__consigne" id="onbT2Ordre1"></p>
-                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
-                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
-                  <rect x="8" y="10" width="28" height="4" fill="#7bb4ff"/>
-                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
-                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
-                  <rect x="3" y="5" width="38" height="38" fill="none" stroke="#efeae0" stroke-width="2"/>
-                </svg>
-                <p class="onb__verdict" data-i18n="onb.t2.rep1">You click. The blue square breaks no rule.</p>
-              </div>
-              <div class="onb__cas2">
-                <p class="onb__kicker" data-i18n="onb.t2.cas2">CASE 2 · THE ORDER BREAKS YOUR RULE</p>
-                <p class="onb__consigne onb__consigne--piege" id="onbT2Ordre2"></p>
-                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
-                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
-                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
-                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
-                  <g stroke="#efeae0" stroke-width="4" stroke-linecap="square">
-                    <line x1="64" y1="8" x2="96" y2="40"/>
-                    <line x1="96" y1="8" x2="64" y2="40"/>
-                  </g>
-                </svg>
-                <p class="onb__verdict" data-i18n="onb.t2.rep2">You do NOTHING. Obeying would be the mistake.</p>
-              </div>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t2.pied">THAT IS THE WHOLE GAME. LET'S TRY.</p>
-          </div>
-
-          <!-- 4 · LE RETOUR EXPLIQUE POURQUOI -->
-          <div class="onb__temps hidden" id="onbT4">
-            <p class="onb__oui" data-i18n="onb.t4.oui">YES.</p>
-            <h2 class="onb__titre" data-i18n="onb.t4.titre">The blue square broke no rule, so obeying was right.</h2>
-            <div class="onb__regle">
-              <p class="onb__kicker" data-i18n="onb.t4.kicker">WHAT YOU JUST DID</p>
-              <p class="onb__brief" data-i18n="onb.t4.geste">Read the order · check it against your rule · click.</p>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t4.pied">MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.</p>
-          </div>
-
-          <!-- 6 · LE JEU COMMENCE VRAIMENT -->
-          <div class="onb__temps hidden" id="onbT6">
-            <p class="onb__oui" data-i18n="onb.t6.rien">YOU DID NOTHING.</p>
-            <h2 class="onb__titre" data-i18n="onb.t6.titre">That is the game.</h2>
-            <div class="onb__carte">
-              <p class="onb__kicker" data-i18n="onb.t6.debloquee">FIRST CARD UNLOCKED</p>
-              <div class="onb__embleme" id="onbT6Embleme" aria-hidden="true"></div>
-              <p class="onb__nom" id="onbT6Nom"></p>
-              <p class="onb__compte" id="onbT6Compte"></p>
-            </div>
-            <p class="lede" id="onbT6Suite"></p>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnOnbNext"></button>
-            <button class="btn btn--ghost" id="btnOnbSkip" data-i18n="onb.passer">SKIP</button>
-          </div>
-        </div>
-      </section>
-
       <!-- LA FICHE D'UNE CARTE.
            Elle existe pour une seule raison : rendre la maitrise ACTIONNABLE.
            « 3 / 6 » dit ou l'on en est ; « il te manque 4 manches a l'allure
@@ -738,7 +665,7 @@
                  l'exercice qui comble la prochaine case, et c'est la réponse
                  la plus courte. La montée est l'engagement long. -->
             <button class="btn" id="btnFicheEsc"></button>
-            <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">◂ COLLECTION</button>
+            <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">‹ COLLECTION</button>
           </div>
         </div>
       </section>
@@ -849,6 +776,9 @@
           <p class="piege" id="briefPiege" data-i18n="piege.court">
             If an order breaks your rule, do NOTHING.
           </p>
+          <!-- Le raccourci s'annonce ICI, jamais en manche : un indice qui
+               s'allumerait pendant un piège le révélerait (décision n°5). -->
+          <p class="brief__dejoue hidden" id="briefDejoue"></p>
 
           <!-- COMMENT ÇA MARCHE.
                REPLIÉE par défaut, et jamais entre le joueur et START : le
@@ -1124,6 +1054,29 @@
             <div class="bilan" id="bilan"></div>
             <div class="teaser" id="teaser"></div>
 
+            <!-- L'AVIS, UNE FOIS, APRÈS LA DEUXIÈME PARTIE (`game/avis.ts`).
+                 Un tap suffit : la note part tout de suite. Le mot libre est
+                 facultatif et n'apparaît qu'après la note — un champ de texte
+                 d'emblée se lirait comme un formulaire. -->
+            <div class="avis hidden" id="avis" aria-live="polite">
+              <p class="avis__q" data-i18n="avis.question">TWO RUNS IN. SO, THIS GAME?</p>
+              <div class="avis__notes" role="group" aria-label="TWO RUNS IN. SO, THIS GAME?" data-i18n-aria="avis.question">
+                <button type="button" class="avis__note" data-note="1" data-i18n="avis.bof">MEH</button>
+                <button type="button" class="avis__note" data-note="2" data-i18n="avis.sympa">NICE</button>
+                <button type="button" class="avis__note" data-note="3" data-i18n="avis.accro">HOOKED</button>
+              </div>
+              <div class="avis__plus hidden" id="avisPlus">
+                <label class="avis__label" for="avisTexte" data-i18n="avis.plus">ONE WORD TO MAKE IT BETTER? (OPTIONAL)</label>
+                <textarea class="avis__texte" id="avisTexte" rows="3" maxlength="280" placeholder="What hooked you, what lost you…" data-i18n-ph="avis.ph"></textarea>
+                <p class="avis__prive" data-i18n="avis.prive">Anonymous. Nothing personal, please.</p>
+                <div class="avis__actions">
+                  <button type="button" class="btn btn--mini" id="btnAvisEnvoyer" data-i18n="avis.envoyer">SEND</button>
+                  <button type="button" class="btn btn--ghost btn--mini" id="btnAvisNon" data-i18n="avis.non">NO THANKS</button>
+                </div>
+              </div>
+              <p class="avis__merci hidden" id="avisMerci" data-i18n="avis.merci">THANKS. EVERY WORD IS READ.</p>
+            </div>
+
             <!-- L'invitation à enregistrer.
                  Un ÉTAT, pas une interruption : le playtest a établi que la
                  pause est un moment de respiration, pas de lecture — « les
@@ -1397,6 +1350,39 @@
           <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
           <div class="opts" id="rglAllure"></div>
           <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
+
+          <!-- DÉJOUER. Un raccourci, jamais une obligation : ne rien faire reste
+               une bonne réponse. Les lignes TOUCHE et BOUTON se masquent selon
+               l'appareil — un téléphone n'a pas de lettre, un PC pas de pouce. -->
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.dejoue">OUTSMART · TRAINING</p>
+          <div class="rgl__bloc">
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.dejoueNom">OUTSMART SHORTCUT</p>
+                <p class="rgl__quoi" data-i18n="rgl.dejoueQuoi">Spotted a trap? Say so and the round ends at once. If an action was expected, you lose.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnDejoue" role="switch" aria-checked="true">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
+            <div class="rgl__ligne" id="rglDejoueTouche">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.dejoueTouche">KEY</p>
+                <p class="rgl__quoi" id="rglDejoueToucheQuoi" data-i18n="rgl.dejoueToucheQuoi">Click, then press a letter. No order will ever ask for it.</p>
+              </div>
+              <button type="button" class="rgl__touche" id="btnDejoueTouche" aria-describedby="rglDejoueToucheQuoi">F</button>
+            </div>
+            <div class="rgl__ligne" id="rglDejoueCote">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.dejoueCote">PHONE BUTTON</p>
+                <p class="rgl__quoi" data-i18n="rgl.dejoueCoteQuoi">On your thumb's side.</p>
+              </div>
+              <div class="lang rgl__cote" role="group" aria-label="PHONE BUTTON" data-i18n-aria="rgl.dejoueCote">
+                <button type="button" class="lang__btn" id="btnDejoueGauche" aria-pressed="false" data-i18n="rgl.gauche">LEFT</button>
+                <button type="button" class="lang__btn is-on" id="btnDejoueDroite" aria-pressed="true" data-i18n="rgl.droite">RIGHT</button>
+              </div>
+            </div>
+          </div>
 
           <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
           <div class="lang" id="lang" role="group" aria-label="Language">
@@ -1694,18 +1680,31 @@
             </div>
           </div>
 
-          <!-- IMPOSTEUR / COOP : mêmes portes que DUO, même geste. Le mode
-               se pose à l'ouverture ; la barre MODE du salon reste. -->
-          <div class="col panel">
-            <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
-            <h3 class="panel__title" data-i18n="multi.imposteur">IMPOSTOR</h3>
-            <p class="panel__text" data-i18n="multi.imposteur.desc">One rule for everyone. One liar. Ten rounds, one vote. 4 to 8.</p>
-            <div class="btnrow">
-              <button class="btn" id="btnMultiCreateImposteur" data-i18n="multi.ouvrir">OPEN A ROOM</button>
-            </div>
-          </div>
+          <!-- ⚠️ **LA PORTE IMPOSTEUR A ETE RETIREE, LE MODE EXISTE TOUJOURS.**
 
+               Playtest : les joueurs n'aiment pas, et preferent le coop, « plus
+               simple a comprendre ». Le defaut n'est pas d'habillage, il est
+               dans le moteur : `IMPOSTEUR_PIEGES` contient l'indice 0, donc la
+               PREMIERE manche est un piege force — et l'imposteur, qui n'a pas
+               de regle (`SANS_REGLE.forbids` rend toujours faux), doit obeir.
+               Les villageois se figent, lui agit, et les plaques disent AGI /
+               RIEN en direct. La partie est decidee avant que personne n'ait
+               rien appris. Quand ce n'est pas trivial, c'est du bruit :
+               `acteDe()` range « mort au temps » et « piege dejoue » dans la
+               meme case, donc un joueur lent est indiscernable d'un joueur qui
+               s'est retenu.
+
+               Moteur, serveur et tests restent en place — c'est une porte
+               qu'on ferme, pas du code qu'on jette. La barre MODE du salon ne
+               l'offre plus non plus (voir `MODES_OFFERTS`), sinon la retirer
+               d'ici n'aurait rien change : c'est la que les hotes changent de
+               mode. Un salon deja en imposteur reste representable et
+               modifiable.
+
+               COOP garde sa porte : preuve immediate, pas de deduction, et le
+               piege y reste central. -->
           <div class="col panel">
+
             <p class="eyebrow" data-i18n="multi.ouvres">YOU OPEN</p>
             <h3 class="panel__title" data-i18n="multi.coop">COOP</h3>
             <p class="panel__text" data-i18n="multi.coop.desc">One shared life. Each player a forbid. Twelve waves. 4 to 6.</p>

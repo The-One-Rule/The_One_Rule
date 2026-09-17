@@ -5,6 +5,8 @@ import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
 import type { Agregats, EscalierEntree } from "../../shared/compte";
 import { ESCALIER_VIERGE, majEscalier } from "./escalier";
+import { normaliseDejoue, reglageDejoueDefaut } from "./dejoue";
+import type { ReglageDejoue } from "./dejoue";
 
 const KEY = "oneRule.save.v1";
 
@@ -136,6 +138,18 @@ export interface Save {
    */
   trainingPace: number;
   /**
+   * Le raccourci DÉJOUER de l'entraînement (voir `game/dejoue.ts`).
+   *
+   * Absent des sauvegardes écrites avant lui : `load` le reconstruit, donc
+   * tout le monde le reçoit activé sur F, côté droit.
+   */
+  dejoue: ReglageDejoue;
+  /**
+   * L'avis a-t-il déjà été demandé (`game/avis.ts`) ? Absent vaut non : les
+   * joueurs déjà venus le verront une fois, à leur prochaine fin de partie.
+   */
+  avisVu?: boolean;
+  /**
    * La première arrivée a-t-elle été vue ?
    *
    * ⚠️ Absent vaut FAUX, donc un joueur déjà venu la verra une fois — c'est
@@ -240,6 +254,7 @@ const fresh = (): Save => ({
    * record : passer à NORMAL ne se compare pas à un score fait à DÉBUT.
    */
   trainingPace: 2,
+  dejoue: reglageDejoueDefaut(),
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
   records: {},
   compte: { revendiquePar: null, glyphe: null },
@@ -256,6 +271,7 @@ export function load(): Save {
       if (parsed.v === 1) {
         const s = { ...fresh(), ...parsed };
         if (s.lang !== "fr" && s.lang !== "en") s.lang = "fr";
+        s.dejoue = normaliseDejoue(parsed.dejoue);
         cache = s;
         return s;
       }

@@ -26,6 +26,10 @@ import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
+import * as F from "./render/flammes";
+import { toucheAcceptable } from "./game/dejoue";
+import { doitDemanderAvis, nettoieAvis } from "./game/avis";
+import type { NoteAvis } from "./game/avis";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
 import type { Mode } from "./game/session";
@@ -71,7 +75,9 @@ import { cleEntrainement, cleEscalade } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
+  TEMPS_JOUES,
   jugeClic,
+  jugeDejoue,
   mancheDe,
 } from "./game/onboarding";
 import type { MancheTuto, Temps } from "./game/onboarding";
@@ -93,7 +99,8 @@ import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
-import { composePhrase } from "./i18n";
+import { composePhrase, poseDebout } from "./i18n";
+import { RESERVE_HUD_MULTI } from "./render/orientation";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -134,9 +141,26 @@ const isTyping = (t: EventTarget | null): boolean =>
 const hud = new Hud();
 const cv = $<HTMLCanvasElement>("cv");
 const scene = new SceneRenderer(cv);
+// Le terrain de JEU peut se mettre debout sur un téléphone tenu droit ; celui
+// de l'attract, non. Voir `render/orientation.ts`.
+scene.permetPortrait = true;
+scene.resize();
+poseDebout(scene.debout);
 const appEl = $("app");
 let gutters = false;
 let lastKey = "";
+/** La bande basse réservée aux plaques du multi debout — voir la boucle. */
+let reserveMulti = 0;
+/**
+ * L'appareil a-t-il un pointeur grossier, même à côté d'une souris ?
+ *
+ * `TOUCH_ONLY` répond « SEULEMENT du tactile » et décide du pool de consignes.
+ * Le bouton DÉJOUER pose une autre question : peut-on le toucher du pouce ? Un
+ * portable à écran tactile dit oui ici et non là-bas, et c'est juste.
+ */
+const TACTILE =
+  typeof matchMedia !== "undefined" && matchMedia("(any-pointer: coarse)").matches;
+
 /** Verrou anti-oscillation de la mise en page — voir syncField(). */
 let lastGutterToggle = -Infinity;
 let gutterRecheck: ReturnType<typeof setTimeout> | null = null;
@@ -150,6 +174,9 @@ const GUTTER_LOCK_MS = 450;
  */
 function syncField(): void {
   scene.resize();
+  // Le texte suit le terrain : debout, « à gauche » se dit « en haut ».
+  poseDebout(scene.debout);
+  if (session) poseDejoue();
   const f = scene.fieldRect();
   const a = appEl.getBoundingClientRect();
   const c = cv.getBoundingClientRect();
@@ -188,7 +215,10 @@ function syncField(): void {
    * au canvas déjà plein recréerait la boucle de gouttières.
    */
   const hHorsFlux = cv.clientHeight;
-  const next = wantsColumns(stableGutter(cv.clientWidth, hHorsFlux), gutters);
+  const next = wantsColumns(
+    stableGutter(cv.clientWidth, hHorsFlux, scene.debout ? "portrait" : "paysage", reserveMulti),
+    gutters,
+  );
   if (next === gutters) return;
 
   /*
@@ -222,7 +252,6 @@ function syncField(): void {
 
 const SCREENS = [
   "home",
-  "onb",
   "fiche",
   "escalier",
   "solo",
@@ -675,6 +704,9 @@ function show(id: ScreenId): void {
   cacheToast();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  // Le bouton DÉJOUER ne vit que sur l'écran de jeu : quitter la partie le
+  // retire, quel que soit le chemin de sortie.
+  if (id !== null) $("btnDejouer").classList.add("hidden");
   /*
    * La barre haute vit HORS FLUX et disparait pendant la partie.
    *
@@ -1108,6 +1140,97 @@ function renderReglages(): void {
   appliqueMotifs(s.daltonien);
   refreshMetricsButton();
   renderAllureDefaut();
+  renderDejoue();
+}
+
+/**
+ * Le bloc DÉJOUER des réglages.
+ *
+ * Un téléphone n'a pas de lettre, un PC n'a pas de pouce : chaque ligne ne
+ * paraît que là où elle règle quelque chose. Un appareil hybride (écran
+ * tactile ET clavier) voit les deux, et c'est juste — il peut se servir des
+ * deux.
+ */
+function renderDejoue(): void {
+  const d = P.load().dejoue;
+  poseInter("btnDejoue", d.on);
+  $("rglDejoueTouche").classList.toggle("hidden", TOUCH_ONLY);
+  $("rglDejoueCote").classList.toggle("hidden", !TACTILE);
+  if (!captureTouche) $("btnDejoueTouche").textContent = d.touche;
+  for (const [id, cote] of [
+    ["btnDejoueGauche", "gauche"],
+    ["btnDejoueDroite", "droite"],
+  ] as const) {
+    const b = $(id);
+    b.classList.toggle("is-on", d.cote === cote);
+    b.setAttribute("aria-pressed", String(d.cote === cote));
+  }
+}
+
+/** Vrai pendant qu'on attend la lettre qui remplacera la touche du déjouage. */
+let captureTouche = false;
+
+function finCapture(): void {
+  captureTouche = false;
+  $("btnDejoueTouche").classList.remove("is-capture");
+  renderDejoue();
+}
+
+$("btnDejoue").addEventListener("click", () => {
+  P.mutate((st) => {
+    st.dejoue.on = !st.dejoue.on;
+  });
+  sfx.ui();
+  renderDejoue();
+});
+$("btnDejoueTouche").addEventListener("click", () => {
+  sfx.ui();
+  captureTouche = true;
+  const b = $("btnDejoueTouche");
+  b.classList.add("is-capture");
+  b.textContent = t("dejoueCapture");
+});
+$("btnDejoueTouche").addEventListener("blur", () => {
+  if (captureTouche) finCapture();
+});
+/*
+ * ⚠️ EN PHASE DE CAPTURE, ET AVANT TOUT LE RESTE.
+ * Le gestionnaire du jeu écoute la même fenêtre : sans `stopImmediatePropagation`
+ * ÉCHAP ramènerait à l'accueil au lieu d'annuler la saisie.
+ */
+window.addEventListener(
+  "keydown",
+  (e) => {
+    if (!captureTouche) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (e.key === "Escape") {
+      finCapture();
+      return;
+    }
+    if (!toucheAcceptable(e.key)) {
+      sfx.grace();
+      return;
+    }
+    P.mutate((st) => {
+      st.dejoue.touche = e.key.toUpperCase();
+    });
+    sfx.ui();
+    finCapture();
+  },
+  true,
+);
+for (const [id, cote] of [
+  ["btnDejoueGauche", "gauche"],
+  ["btnDejoueDroite", "droite"],
+] as const) {
+  $(id).addEventListener("click", () => {
+    P.mutate((st) => {
+      st.dejoue.cote = cote;
+    });
+    sfx.ui();
+    renderDejoue();
+  });
 }
 
 /*
@@ -1875,6 +1998,69 @@ const ENDPOINT_MESURE = cleanEnv(import.meta.env.VITE_COLLECT_URL as string | un
  * compte attend le run suivant. Deux demandes empilées sur l'écran de fin, ce
  * serait exactement le mur qu'on vient de retirer de l'accueil.
  */
+/** La note choisie, tant que l'avis de cet écran n'est pas clos. */
+let avisNote: NoteAvis | null = null;
+
+/** L'avis, une fois dans la vie du joueur — voir `game/avis.ts`. */
+function proposeAvis(mesureDemandee: boolean): boolean {
+  const s = P.load();
+  const boite = $("avis");
+  const montrer = doitDemanderAvis({
+    runsAcheves: s.recent.length,
+    dejaVu: !!s.avisVu,
+    mesureOn: s.metrics.on,
+    mesureDemandee,
+    collecte: !!ENDPOINT_MESURE,
+  });
+  if (!montrer) {
+    boite.classList.add("hidden");
+    return false;
+  }
+  // Vu dès qu'il paraît : répondu ou non, il ne reviendra pas.
+  P.mutate((st) => {
+    st.avisVu = true;
+  });
+  avisNote = null;
+  boite.classList.remove("hidden");
+  $("avisPlus").classList.add("hidden");
+  $("avisMerci").classList.add("hidden");
+  boite.querySelector(".avis__notes")!.classList.remove("hidden");
+  $<HTMLTextAreaElement>("avisTexte").value = "";
+  return true;
+}
+
+function closAvis(): void {
+  avisNote = null;
+  $("avisPlus").classList.add("hidden");
+  $("avis").querySelector(".avis__notes")!.classList.add("hidden");
+  $("avisMerci").classList.remove("hidden");
+}
+
+for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>(".avis__note"))) {
+  b.addEventListener("click", () => {
+    const note = Number(b.dataset.note) as NoteAvis;
+    sfx.ui();
+    // La note part TOUT DE SUITE : un joueur qui ferme l'onglet après son tap
+    // a quand même répondu.
+    track("avis", { note });
+    avisNote = note;
+    for (const autre of Array.from(document.querySelectorAll(".avis__note"))) {
+      autre.classList.toggle("is-on", autre === b);
+    }
+    $("avisPlus").classList.remove("hidden");
+  });
+}
+$("btnAvisEnvoyer").addEventListener("click", () => {
+  const texte = nettoieAvis($<HTMLTextAreaElement>("avisTexte").value);
+  if (texte && avisNote !== null) track("avis_mot", { note: avisNote, texte });
+  sfx.ui();
+  closAvis();
+});
+$("btnAvisNon").addEventListener("click", () => {
+  sfx.ui();
+  closAvis();
+});
+
 function proposeMesure(): boolean {
   const s = P.load();
   if (s.metrics.asked || !ENDPOINT_MESURE) return false;
@@ -2355,6 +2541,12 @@ function openBrief(mode: Mode): void {
   }
 
   $("briefMeme").classList.toggle("hidden", mode !== "daily");
+  {
+    const reglage = s.dejoue;
+    const bd = $("briefDejoue");
+    bd.classList.toggle("hidden", mode !== "training" || !reglage.on);
+    bd.textContent = t("briefDejoue")(TOUCH_ONLY ? null : reglage.touche);
+  }
   $("briefEyebrow").textContent =
     mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
   $("briefName").textContent =
@@ -2731,6 +2923,13 @@ function lanceRun(): void {
     // `buildRound` répondent exactement ce qu'ils répondaient hier.
     longueur: palier?.manches,
     forcePiege: palier ? (l) => ESC.piegeIci(palier, l) : undefined,
+    /*
+     * DÉJOUER — entraînement seulement, et jamais sur un défi : un duel rejoue
+     * la graine d'un autre, et la lettre réservée changerait ses manches. La
+     * `Session` refuse d'elle-même tous les autres modes.
+     */
+    dejoue: !challenge && !ranked && s.dejoue.on,
+    toucheDejoue: s.dejoue.touche,
   });
   finEchauffementDite = false;
   hud.setRule(session.rule);
@@ -2770,6 +2969,7 @@ function lanceRun(): void {
    * qu'au changement de manche, comme avant.
    */
   majGouttieres();
+  poseDejoue();
   sfx.runStart();
   musicApi.start();
   // `duel` distingue un défi relevé d'un entraînement ordinaire : les deux
@@ -3696,7 +3896,17 @@ function renderPalier(): void {
    * si on le presse pour accepter quelque chose. La phrase est allée sous la
    * montée, où elle répond à la vraie question ; le bouton, lui, revient.
    */
-  $("btnPalBack").textContent = `\u25c2 ${t("escRetour")}`;
+  /*
+   * \u26a0\ufe0f `\u2039` ET NON `\u25c2` : DM MONO NE PORTE PAS LE TRIANGLE PLEIN.
+   *
+   * Mesur\u00e9 au canvas \u2014 largeur du glyphe dans \u00ab DM Mono \u00bb seule, contre la
+   * pile compl\u00e8te : `\u25c2` retombait sur la mono du syst\u00e8me. La fl\u00e8che se
+   * dessinait donc dans une AUTRE police que le mot qu'elle accompagne, et
+   * son rendu changeait d'un appareil \u00e0 l'autre. C'est ce que le d\u00e9p\u00f4t a d\u00e9j\u00e0
+   * tranch\u00e9 pour les pictogrammes des portes \u2014 \u00ab le rendu d'un emoji change
+   * d'un syst\u00e8me \u00e0 l'autre \u00bb \u2014 appliqu\u00e9 \u00e0 un chevron.
+   */
+  $("btnPalBack").textContent = `\u2039 ${t("escRetour")}`;
 }
 
 $("btnEscBack").addEventListener("click", () => {
@@ -3742,17 +3952,22 @@ $("btnPalGo").addEventListener("click", () => {
  * qui n'existe pas. L'aide est un calque HORS FLUX posé sur la scène, donc
  * `fieldRect()` ne bouge pas (décision n°10).
  * ------------------------------------------------------------------ */
-const ONB_TOTAL = 6;
+/**
+ * Le tutoriel en cours. `manche` vaut `null` pendant la RESPIRATION qui suit un
+ * temps réussi : le terrain se vide, la ligne d'aide dit ce qui vient de se
+ * passer, puis `suite` ouvre le temps d'après. Tout est porté par la boucle de
+ * jeu, jamais par un `setTimeout` — un décor ne court pas sur un onglet qui ne
+ * compose pas, et `smoke.test.ts` déroule les images à la main.
+ */
+let tuto: {
+  temps: Temps;
+  manche: MancheTuto | null;
+  debut: number;
+  suite: { a: number; faire: () => void } | null;
+} | null = null;
 
-let tuto: { temps: Temps; manche: MancheTuto | null; debut: number } | null = null;
-
-/** Ce que le bouton d'un temps dit, et ce qu'il fait ensuite. */
-const ONB_BOUTON: Record<number, () => string> = {
-  1: () => t("onbSuivant"),
-  2: () => t("onbEssayer"),
-  4: () => t("onbMontre"),
-  6: () => t("onbLancer"),
-};
+/** La respiration entre deux temps : assez pour lire une ligne, pas plus. */
+const TUTO_RESPIRE_MS = 1400;
 
 function regleTuto(): OneRule {
   // Le tutoriel enseigne LE SANG : la couleur est le canal perceptif le plus
@@ -3761,71 +3976,26 @@ function regleTuto(): OneRule {
   return ONE_RULES.find((r) => r.id === REGLE_TUTO) ?? ONE_RULES[0]!;
 }
 
-function poseTemps(n: Temps): void {
-  const regle = regleTuto();
-  $("onbEtape").textContent = t("onbEtape")(n, ONB_TOTAL);
-  for (const k of [1, 2, 4, 6]) {
-    $(`onbT${k}`).classList.toggle("hidden", k !== n);
-  }
-
-  const crans = $("onbJauge").querySelectorAll("i");
-  crans.forEach((cran, i) => cran.classList.toggle("is-on", i < n));
-
-  if (n === 1) {
-    $("onbT1Nom").textContent = nomDeRegle(regle.id, regle.name);
-    $("onbT1Brief").textContent = briefDeRegle(regle.id, regle.brief);
-    $("onbT1Embleme").innerHTML =
-      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
-  }
-  if (n === 2) {
-    // Les deux consignes d'exemple sont COMPOSÉES comme celles du jeu : elles
-    // doivent être mot pour mot ce que le joueur lira en partie.
-    $("onbT2Ordre1").textContent = composePhrase({ cle: "clicFormeCouleur", forme: "carre", couleur: "azur" }, "CLIQUE LE CARRÉ BLEU");
-    $("onbT2Ordre2").textContent = composePhrase({ cle: "clicCouleur", couleur: "garance" }, "CLIQUE LE ROUGE");
-  }
-  if (n === 6) {
-    $("onbT6Nom").textContent = nomDeRegle(regle.id, regle.name);
-    /*
-     * ⚠️ LA VRAIE CARTE, celle qu'il retrouvera dans sa collection.
-     *
-     * Cet écran montrait un embleme SVG genere — et c'etait le SEUL endroit du
-     * jeu a le faire. Les cinq autres surfaces qui montrent une carte (la
-     * collection, la fiche, la gouttiere de partie, « celle qui te resiste »,
-     * l'etat a mater) affichent l'image `/cartes/<id>.png`.
-     *
-     * Le joueur gagnait donc sa premiere carte sous une forme, et la retrouvait
-     * sous une autre au premier passage par la collection. C'est le moment
-     * precis ou l'on veut qu'il reconnaisse l'objet : le tutoriel existe pour
-     * raccorder l'arrivee a la collection, et il montrait autre chose qu'elle.
-     *
-     * `decoding="async"` et pas `loading="lazy"` : l'image est visible des que
-     * le temps s'ouvre, donc rien a differer — et une carte qui arrive apres
-     * coup est exactement le defaut qu'on vient de corriger sur la gouttiere.
-     */
-    $("onbT6Embleme").innerHTML =
-      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
-    const vues = Object.keys(P.load().encountered).length;
-    $("onbT6Compte").textContent = t("onbCompte")(Math.max(1, vues), ONE_RULES.length);
-    $("onbT6Suite").textContent = t("onbSuite")(ONE_RULES.length - Math.max(1, vues));
-  }
-
-  $("btnOnbNext").textContent = (ONB_BOUTON[n] ?? (() => t("onbSuivant")))();
-  show("onb");
+/** La lettre du déjouage telle que le joueur la tape, ou `null` au pouce. */
+function toucheTuto(): string | null {
+  return TOUCH_ONLY ? null : P.load().dejoue.touche;
 }
 
-/** Ouvre un temps JOUÉ : on quitte les écrans, on passe sur le terrain. */
+/** Ouvre un temps : on est sur le vrai terrain, avec la vraie règle au bandeau. */
 function joueTemps(n: Temps): void {
   const m = mancheDe(n);
-  if (!m) return;
-  tuto = { temps: n, manche: m, debut: performance.now() };
+  tuto = { temps: n, manche: m, debut: performance.now(), suite: null };
   hud.setRule(regleTuto());
   hud.hideStamp();
   hud.clearRound();
-  hud.setMeta("");
+  hud.setMeta(t("tutoEtape")(n, TEMPS_JOUES.length));
   hud.setFooter(0, 0, "—");
   $("tuto").classList.remove("hidden");
-  poseAideTuto(n === 3 ? t("tutoVasy") : t("tutoRelis"), n === 3 ? t("tutoSansChrono") : t("tutoRalenti"));
+  if (n === 1) poseAideTuto(t("tutoObeis"), t("tutoSansChrono"));
+  else if (n === 2) poseAideTuto(t("tutoRelis"), t("tutoRalenti"));
+  else poseAideTuto(t("tutoDejoue")(toucheTuto()), t("tutoDejoueNote"));
   show(null);
+  poseDejoue();
 }
 
 function poseAideTuto(aide: string, note: string): void {
@@ -3833,62 +4003,104 @@ function poseAideTuto(aide: string, note: string): void {
   $("tutoNote").textContent = note;
 }
 
+/** Un temps est gagné : on dit pourquoi, le terrain se vide, puis on enchaîne. */
+function reussitTemps(aide: string, note: string, faire: () => void): void {
+  if (!tuto) return;
+  tuto.manche = null;
+  tuto.suite = { a: performance.now() + TUTO_RESPIRE_MS, faire };
+  hud.clearRound();
+  poseAideTuto(aide, note);
+}
+
 function fermeTuto(): void {
   tuto = null;
   $("tuto").classList.add("hidden");
+  $("btnDejouer").classList.add("hidden");
   hud.setRule(null);
+  hud.setMeta("");
   hud.clearRound();
 }
 
+/** Après le temps 2 : la règle entre au carnet. */
+function apresPiege(): void {
+  // La première carte se débloque en JOUANT, pas en lisant.
+  P.recordRun(REGLE_TUTO, 0, false, 1);
+  // Le raccourci désactivé dans les réglages ? On ne l'enseigne pas.
+  if (P.load().dejoue.on) joueTemps(3);
+  else finitOnboarding(false);
+}
+
 /**
- * Un clic pendant un temps joué.
+ * Un clic pendant un temps.
  *
- * ⚠️ Rien ne TUE ici, et c'est le sujet : au temps 3 une erreur se corrige et
- * on recommence, au temps 5 elle explique le piège et on recommence aussi. Un
- * tutoriel qui punit renvoie le joueur au menu avec la même incompréhension.
+ * ⚠️ Rien ne TUE ici, et c'est le sujet : une erreur est NOMMÉE et la manche
+ * reprend. Un tutoriel qui punit renvoie le joueur au menu avec la même
+ * incompréhension.
  */
 function tutoClic(idx: number | null): void {
   if (!tuto?.manche) return;
   const m = tuto.manche;
   const verdict = jugeClic(m, idx);
 
-  if (tuto.temps === 3) {
+  if (tuto.temps === 1) {
     if (verdict === "juste") {
       sfx.success(1);
-      fermeTuto();
-      poseTemps(4);
+      reussitTemps(t("tutoOui"), t("tutoOuiNote"), () => joueTemps(2));
       return;
     }
-    // On NOMME l'erreur. « Raté » n'apprend rien ; « ta règle interdit le
-    // rouge » apprend la règle au moment exact où elle vient de servir.
+    // « Raté » n'apprend rien ; « ta règle interdit le rouge » apprend la
+    // règle au moment exact où elle vient de servir.
     sfx.fail();
-    poseAideTuto(
-      verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"),
-      t("tutoSansChrono"),
-    );
+    poseAideTuto(verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"), t("tutoSansChrono"));
     return;
   }
 
-  // Temps 5 : TOUT clic est une faute, y compris celui que la consigne demande.
+  // Temps 2 et 3 : TOUT clic est une faute, y compris celui que la consigne demande.
   sfx.fail();
-  poseAideTuto(t("tutoInterdit"), t("tutoRienFaire"));
+  poseAideTuto(t("tutoInterdit"), tuto.temps === 2 ? t("tutoRienFaire") : t("tutoDejoueNote"));
   tuto.debut = performance.now();
 }
 
-/** Le temps 5 se gagne en LAISSANT le chrono s'écouler. */
-function majTuto(now: number): void {
+/** DÉJOUER pendant le tutoriel — la touche ou le bouton. */
+function tutoDejoue(): void {
   if (!tuto?.manche) return;
-  if (tuto.temps !== 5) return;
-  const ecoule = now - tuto.debut;
-  if (ecoule >= CHRONO_PIEGE_MS) {
-    // Le son du piège DÉJOUÉ, pas celui d'une manche réussie : c'est un geste
-    // différent, et le jeu le distingue déjà à l'oreille.
-    sfx.trapAvoided();
-    fermeTuto();
-    // La règle entre au carnet : la première carte se débloque en JOUANT, pas
-    // en lisant. C'est le raccord entre l'arrivée et la collection.
-    P.recordRun(REGLE_TUTO, 0, false, 1);
-    poseTemps(6);
+  if (jugeDejoue(tuto.manche) === "pasUnPiege") {
+    sfx.fail();
+    poseAideTuto(t("tutoPasUnPiege"), t("tutoSansChrono"));
+    return;
+  }
+  const t0 = performance.now();
+  sfx.trapAvoided();
+  scene.burstScreen("#CFC9F2");
+  scene.flashViolet(t0);
+  attiseFlammes(1);
+  vibrePiegeDejoue();
+  const temps = tuto.temps;
+  reussitTemps(t("tutoDejoueBravo"), t("tutoPret"), () =>
+    temps === 2 ? apresPiege() : finitOnboarding(false),
+  );
+}
+
+/** Le piège se gagne aussi en LAISSANT le chrono s'écouler. */
+function majTuto(now: number): void {
+  if (!tuto) return;
+  if (tuto.suite) {
+    if (now >= tuto.suite.a) {
+      const faire = tuto.suite.faire;
+      tuto.suite = null;
+      faire();
+    }
+    return;
+  }
+  if (!tuto.manche || tuto.temps === 1) return;
+  if (now - tuto.debut < CHRONO_PIEGE_MS) return;
+  // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
+  sfx.trapAvoided();
+  attiseFlammes(0.6);
+  if (tuto.temps === 2) {
+    reussitTemps(t("tutoRienFaitBravo"), t("tutoRienFaitNote"), apresPiege);
+  } else {
+    reussitTemps(t("tutoRienFaitBravo"), t("tutoPret"), () => finitOnboarding(false));
   }
 }
 
@@ -3898,9 +4110,7 @@ function majTuto(now: number): void {
  * ⚠️ Deux conditions et non une. `onboarded` est absent des sauvegardes déjà
  * écrites, donc il vaut faux pour TOUT LE MONDE, y compris pour quelqu'un qui a
  * deux cents manches au compteur. Sans la seconde condition, le déploiement
- * renverrait tous les habitués au tutoriel. C'est le même piège que `essais` il
- * y a deux jours : un champ ajouté après coup doit toujours se demander ce que
- * son absence veut dire.
+ * renverrait tous les habitués au tutoriel.
  */
 function estNouveau(): boolean {
   const s = P.load();
@@ -3909,10 +4119,16 @@ function estNouveau(): boolean {
 
 function ouvreOnboarding(): void {
   track("onb_start", {});
-  poseTemps(1);
+  joueTemps(1);
 }
 
-/** Sortie — par le bouton PASSER, ou au terme du sixième temps. */
+/**
+ * Sortie — par PASSER (ou ÉCHAP), ou au terme du dernier temps.
+ *
+ * ⚠️ AU TERME, LA PARTIE DÉMARRE. Pas de menu, pas de brief à relire : le joueur
+ * vient de jouer trois manches sous LE SANG, il sait ce qu'il fait. Le
+ * battement de lecture du brief lui laisse quand même voir sa règle.
+ */
 function finitOnboarding(passe: boolean): void {
   fermeTuto();
   P.mutate((st) => {
@@ -3925,18 +4141,11 @@ function finitOnboarding(passe: boolean): void {
     return;
   }
   openBrief("training");
+  startRun();
 }
 
-$("btnOnbNext").addEventListener("click", () => {
-  sfx.ui();
-  const courant = [1, 2, 4, 6].find((k) => !$(`onbT${k}`).classList.contains("hidden")) ?? 1;
-  if (courant === 1) poseTemps(2);
-  else if (courant === 2) joueTemps(3);
-  else if (courant === 4) joueTemps(5);
-  else finitOnboarding(false);
-});
-
-$("btnOnbSkip").addEventListener("click", () => {
+$("btnTutoPasser").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
   sfx.ui();
   finitOnboarding(true);
 });
@@ -4054,6 +4263,12 @@ function finishRun(): void {
   if (!session?.end) return;
   const { end, rule, mode } = session;
   const pace = session.pace;
+  /*
+   * ⚠️ UNE PARTIE JOUÉE AVEC LE DÉJOUAGE NE DEVIENT PAS UN DÉFI.
+   * Avec une lettre réservée, ses manches ne sont plus celles de sa graine ;
+   * et un déjouage avance les temps de passage que le fantôme rejouerait.
+   */
+  const defiFidele = !session.toucheReservee && end.dejoues === 0;
   lastRun = { end, rule, mode, seed: session.seed };
   // Les VRAIES règles de la pile, avant que la session ne soit libérée.
   const reglesTenues = session.reglesTenues;
@@ -4321,6 +4536,8 @@ function finishRun(): void {
     cause: end.cause,
     cleared: end.cleared,
     traps: end.trapsSurvived,
+    dejoues: end.dejoues,
+    piegesDejoues: end.piegesDejoues,
   });
 
   const claimedBefore = P.load().quests.claimed.length;
@@ -4573,7 +4790,7 @@ function finishRun(): void {
     palierFranchi: end.cleared,
     palierSuivant: suiteMontee !== undefined,
     essaisRestants,
-    duelPossible: end.splits.length >= 3,
+    duelPossible: end.splits.length >= 3 && defiFidele,
   });
 
   const again = $<HTMLButtonElement>("btnAgain");
@@ -4589,7 +4806,10 @@ function finishRun(): void {
             ? t("finPalierReprendre")(palFini?.n ?? 0)
             : actes.principale === "demain"
               ? t("goReviensDemain")
-              : t("goRejouer");
+              : // « · R » est un raccourci CLAVIER : au doigt, c'est du bruit.
+                TOUCH_ONLY
+                ? t("goRejouer").replace(/\s*·\s*R$/, "")
+                : t("goRejouer");
 
   $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
   $("btnVersEscalier").textContent = t("finVersEscalier");
@@ -4607,7 +4827,11 @@ function finishRun(): void {
   const recordBattu = battu;
   // Le bandeau de mesure d'abord, une seule fois dans la vie du joueur ; il
   // fait céder l'invitation au compte pour ce run-là.
-  renderInvite(end.score, recordBattu, proposeMesure());
+  const mesureDemandee = proposeMesure();
+  // L'avis cède au bandeau de mesure, et l'invitation au compte cède aux deux :
+  // une seule sollicitation par écran.
+  const avisDemande = proposeAvis(mesureDemandee);
+  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande);
   renderPodium(mode);
   /*
    * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
@@ -5050,6 +5274,8 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
+      // Tenu jusqu'au bout : le feu s'attise, moins qu'un déjouage déclaré.
+      attiseFlammes(0.6);
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
@@ -5075,6 +5301,123 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
         : t("tamponRate"),
   );
 }
+
+/**
+ * DÉJOUER — le joueur DIT qu'il a vu qu'il ne fallait rien faire.
+ *
+ * Le verdict est celui du moteur (`Session.dejouer`) ; ici on ne fait que le
+ * faire SENTIR. Une réussite est la célébration du piège déjoué, en plus fort :
+ * c'est le seul geste du jeu qui prouve qu'on a lu la règle au lieu d'attendre
+ * que le temps passe. Un « NE FAIS RIEN » déjoué a droit au même éclat, plus
+ * discret — ce n'était pas un piège, mais c'était bien vu.
+ */
+function dejoue(): void {
+  if (!session || session.phase !== "playing" || !session.dejoueActif) return;
+  const combo = session.level;
+  const manche = session.round;
+  const out = session.dejouer(performance.now());
+  if (out.kind !== "survive") {
+    react(out, combo, manche);
+    return;
+  }
+  const t0 = performance.now();
+  if (out.trap) sfx.trapAvoided();
+  else sfx.success(combo);
+  scene.burstScreen(out.trap ? "#CFC9F2" : "#8F86C9");
+  scene.flashViolet(t0);
+  scene.kick(t0, out.trap ? 0.6 : 0.3);
+  attiseFlammes(out.trap ? 1 : 0.5);
+  vibrePiegeDejoue();
+  appEl.classList.remove("a-dejoue");
+  void appEl.offsetWidth;
+  appEl.classList.add("a-dejoue");
+}
+
+/**
+ * Pose le bouton DÉJOUER dans la plus grande place libre À CÔTÉ du terrain.
+ *
+ * ⚠️ JAMAIS SUR LE TERRAIN. Un bouton posé sur le champ volerait des pièces,
+ * et la taille du champ est du gameplay (n°10) : il se loge donc dans ce que
+ * le terrain laisse libre, et le champ ne bouge pas d'un pixel qu'il soit là
+ * ou non. Trois places, par ordre de préférence :
+ *
+ *   1. la gouttière latérale du côté choisi, quand elle est assez large — le
+ *      pouce y tombe sans quitter le bord ;
+ *   2. la bande sous le terrain, dans le coin du côté choisi ;
+ *   3. à défaut, par-dessus le tiers du pied de ce côté.
+ *
+ * ⚠️ PAS À CHAQUE IMAGE, et jamais avant `scene.resize()`. Premier essai
+ * mémoïsé sur la clé de `syncField` et appelé par la boucle : au lancement, la
+ * boîte du canvas avait déjà grandi (606 → 710 px) mais le terrain calculé
+ * datait encore de l'ancienne taille — le bouton s'est posé 53 px trop haut,
+ * SUR le terrain, et la mémoïsation l'y a gardé. Mesuré à 375 × 812. Il est
+ * donc appelé par `syncField` après le redimensionnement, et aux changements
+ * d'état (lancement, fin, écran, côté), avec un `resize` explicite.
+ */
+function poseDejoue(): void {
+  const b = $("btnDejouer");
+  const voir =
+    TACTILE &&
+    screen === null &&
+    (!!session?.dejoueActif || (tuto !== null && tuto.temps === 3 && P.load().dejoue.on));
+  const cote = P.load().dejoue.cote;
+  b.classList.toggle("hidden", !voir);
+  b.classList.toggle("dejoue--gauche", cote === "gauche");
+  if (!voir) return;
+
+  scene.resize();
+  const MARGE = 8;
+  const MIN = 60;
+  const f = scene.fieldRect();
+  const a = appEl.getBoundingClientRect();
+  const c = cv.getBoundingClientRect();
+  const cx = c.left - a.left;
+  const cy = c.top - a.top;
+  const libreG = f.x;
+  const libreD = c.width - f.x - f.w;
+  const libreSous = c.height - f.y - f.h;
+  const lateral = cote === "gauche" ? libreG : libreD;
+  let x: number, y: number, w: number, h: number;
+  let forme: "haut" | "large";
+  /*
+   * Debout, le terrain laisse ~66 px de chaque côté à 375 px : assez pour un
+   * doigt (44 px, `--tap`), pas pour la marge du cas général. La bande
+   * latérale n'a donc que 5 px d'air — c'est elle que le pouce trouve sans
+   * regarder, et la hauteur compense la largeur.
+   */
+  if (lateral >= 56) {
+    forme = "haut";
+    w = Math.min(lateral - 10, 104);
+    h = Math.max(MIN, Math.min(f.h * 0.42, 220));
+    x = cote === "gauche" ? cx + (libreG - w) / 2 : cx + f.x + f.w + (libreD - w) / 2;
+    y = cy + f.y + f.h - h;
+  } else if (libreSous >= MIN + 2 * MARGE) {
+    forme = "large";
+    h = Math.min(libreSous - 2 * MARGE, 76);
+    w = Math.min(c.width * 0.46, 200);
+    y = cy + f.y + f.h + MARGE;
+    x = cote === "gauche" ? cx + MARGE : cx + c.width - MARGE - w;
+  } else {
+    forme = "large";
+    const p = $("foot").getBoundingClientRect();
+    h = p.height;
+    w = p.width / 3;
+    y = p.top - a.top;
+    x = cote === "gauche" ? p.left - a.left : p.right - a.left - w;
+  }
+  b.classList.toggle("dejoue--haut", forme === "haut");
+  b.style.left = `${Math.round(x)}px`;
+  b.style.top = `${Math.round(y)}px`;
+  b.style.width = `${Math.round(w)}px`;
+  b.style.height = `${Math.round(h)}px`;
+}
+
+$("btnDejouer").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
+  unlock();
+  if (tuto) tutoDejoue();
+  else dejoue();
+});
 
 function send(action: Action): void {
   if (!session || session.phase !== "playing") return;
@@ -5197,11 +5540,22 @@ window.addEventListener("keydown", (e) => {
   }
 
   if (e.key === " ") return; // espace = touche de maintien, jamais une réponse
+  if (tuto) {
+    if (e.key === "Escape") finitOnboarding(true);
+    else if (e.key.length === 1 && e.key.toUpperCase() === P.load().dejoue.touche && P.load().dejoue.on) tutoDejoue();
+    return;
+  }
   if (e.key === "Escape") {
     abandon();
     return;
   }
   if (e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    // La touche du déjouage n'est jamais une réponse : elle est sortie du
+    // tirage, donc aucune consigne ne peut la demander.
+    if (session?.dejoueActif && e.key.toUpperCase() === session.toucheReservee) {
+      dejoue();
+      return;
+    }
     sendOrMulti({ kind: "key", key: e.key.toUpperCase() });
   } else if (e.key.startsWith("Arrow")) {
     e.preventDefault();
@@ -5310,6 +5664,8 @@ function loadChallenge(r: Replay): void {
   // bruit, pas l'adhésion. Le `run_start` qui suit dira s'il a aussi joué.
   track("duel_opened", { rule: rule.id, target: ghostFinal(r) });
   challenge = r;
+  // Un défi se joue sans le raccourci : voir `lanceRun`.
+  $("briefDejoue").classList.add("hidden");
   pendingMode = "training";
   pendingRule = rule;
   $("briefEyebrow").textContent = r.who ? t("defiDe")(r.who.toUpperCase()) : t("defiRecu");
@@ -5952,6 +6308,108 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
+/* ------------------------------------------------------------------ *
+ * Les flammes — voir `render/flammes.ts`
+ *
+ * Le calque ne coûte rien quand il ne brûle pas : il est masqué et la boucle
+ * ne le touche plus dès que la grille est éteinte. Hors d'une partie solo,
+ * l'ardeur tombe à zéro et le feu s'éteint de lui-même en une seconde — il ne
+ * se coupe pas net, ce qui se lirait comme un bug.
+ * ------------------------------------------------------------------ */
+const flammesCv = $<HTMLCanvasElement>("flammes");
+const flammesCtx = flammesCv.getContext("2d");
+const FLAMMES_COUPEES =
+  typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+let feu: F.Grille = F.nouvelleGrille(0, 0);
+let feuImage: ImageData | null = null;
+let feuFoyerSocle = 0;
+let feuHautTerrain = 0;
+let feuVisible = false;
+let feuMasqueDans = 0;
+/** L'éclat d'un piège déjoué : 1 → 0 en ~700 ms. */
+let feuRafale = 0;
+let feuGraine = 0x9e37;
+const feuHasard = (): number => {
+  feuGraine ^= feuGraine << 7;
+  feuGraine ^= feuGraine >> 9;
+  feuGraine ^= feuGraine << 8;
+  feuGraine &= 0xffff;
+  return feuGraine || (feuGraine = 0x9e37);
+};
+
+/**
+ * Taille la grille sur `#app` et repose les zones interdites.
+ *
+ * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change
+ * de hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit
+ * APRÈS le changement de manche — une mesure prise à cet instant lirait la
+ * consigne précédente, et le feu mordrait sur la nouvelle.
+ */
+function geometrieFeu(): void {
+  const a = appEl.getBoundingClientRect();
+  const w = Math.ceil(a.width / F.CASE);
+  const h = Math.ceil(a.height / F.CASE);
+  if (w !== feu.w || h !== feu.h) {
+    feu = F.nouvelleGrille(w, h);
+    flammesCv.width = w;
+    flammesCv.height = h;
+    feuImage = flammesCtx ? flammesCtx.createImageData(Math.max(1, w), Math.max(1, h)) : null;
+  }
+  const rel = (el: Element): { x: number; y: number; w: number; h: number } => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height };
+  };
+  const c = rel(cv);
+  const f = scene.fieldRect();
+  const terrain = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
+  const zones = [F.zoneDe(terrain, 1), F.zoneDe(rel($("foot")), 0)];
+  for (const id of ["instr", "sub", "bandRule", "bandVies"]) {
+    const el = document.getElementById(id);
+    if (el && el.getBoundingClientRect().width > 0) zones.push(F.zoneDe(rel(el), 2));
+  }
+  F.poseInterdits(feu, zones);
+  feuFoyerSocle = Math.min(h - 1, Math.floor((c.y + c.h) / F.CASE) - 1);
+  feuHautTerrain = Math.max(0, Math.floor(terrain.y / F.CASE));
+}
+
+function majFlammes(): void {
+  if (FLAMMES_COUPEES || !flammesCtx) return;
+  const ardeur =
+    session && screen === null && session.phase === "playing"
+      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.6)
+      : 0;
+  feuRafale = Math.max(0, feuRafale - 0.024);
+  if (ardeur === 0 && !feuVisible) return;
+  if (!feuVisible) {
+    feuVisible = true;
+    flammesCv.classList.remove("hidden");
+    feuMasqueDans = 0;
+  }
+  if (feuMasqueDans-- <= 0) {
+    geometrieFeu();
+    feuMasqueDans = 15;
+  }
+  F.pasDeFeu(feu, F.foyersPour(ardeur, feuFoyerSocle, feuHautTerrain), ardeur, feuHasard);
+  if (ardeur === 0 && F.eteint(feu)) {
+    feuVisible = false;
+    flammesCv.classList.add("hidden");
+    return;
+  }
+  if (!feuImage) return;
+  /*
+   * Le BLANC est l'éclat, pas l'état. Mesuré à pleine ardeur avec une poussée
+   * de 0,5 : les deux marges devenaient des murs blancs. La chaleur de fond ne
+   * pousse que d'un cran ; le blanc franc est réservé au piège déjoué.
+   */
+  F.peins(feu, feuImage, Math.min(1, ardeur * 0.15 + feuRafale));
+  flammesCtx.putImageData(feuImage, 0, 0);
+}
+
+/** Le feu s'embrase : un piège vient d'être déjoué. */
+function attiseFlammes(force: number): void {
+  feuRafale = Math.min(1, feuRafale + force);
+}
+
 /** Le record du joueur AVANT le run en cours — photographié au lancement. */
 let recordAvantRun = 0;
 /** La pastille de dépassement ne flash qu'une fois par run. */
@@ -6009,6 +6467,24 @@ function loop(now: number): void {
    * couper — l'accueil est en `display: none` dès qu'on joue.
    */
   if (screen === "home") imageAttract(now);
+  majFlammes();
+
+  /*
+   * DEBOUT, TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE :
+   * les plaques d'un salon, ou la ligne d'aide et PASSER du tutoriel. Mesuré à
+   * 375 × 812 : le calque du tutoriel faisait 147 px et couvrait le bas du
+   * terrain, PASSER compris — donc des touchers volés. Le test ne dépend ni de
+   * la manche ni de l'interlude : la réserve est posée à l'entrée sur l'écran de
+   * jeu et ne bouge plus jusqu'à la sortie.
+   */
+  if (screen === null) {
+    const r = !session ? RESERVE_HUD_MULTI : 0;
+    if (r !== reserveMulti) {
+      reserveMulti = r;
+      scene.poseReserveBas(r);
+      syncField();
+    }
+  }
 
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.
@@ -6034,6 +6510,7 @@ function loop(now: number): void {
     if (session.phase === "over") {
       finishRun();
       session = null;
+      poseDejoue();
       $("gout").classList.add("hidden");
     } else if (session.phase === "playing") {
       const key = `${session.mode}:${runId}:${session.level}`;
@@ -6249,13 +6726,17 @@ function loop(now: number): void {
      * valide en arrivant au bout.
      */
     const m = tuto.manche;
-    hud.updateRound(m.round, now - tuto.debut, tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
+    const chrono = tuto.temps !== 1;
+    hud.updateRound(m.round, now - tuto.debut, chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
     scene.draw({
       round: m.round,
       rule: regleTuto(),
       now,
-      ratio: tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
+      ratio: chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
     });
+  } else if (tuto) {
+    // La respiration entre deux temps : le terrain reste, vide.
+    scene.draw({ round: null, rule: regleTuto(), now });
   } else if (session) {
     scene.draw({
       round: session.round,

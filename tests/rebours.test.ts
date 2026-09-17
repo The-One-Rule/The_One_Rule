@@ -95,7 +95,7 @@ describe("LE REBOURS DU BRIEF — le bouton doit retrouver son mot", () => {
     await import("../src/main.ts");
     const btn = () => document.getElementById("btnGo") as HTMLButtonElement;
     document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    document.getElementById("btnOnbSkip")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnTutoPasser")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     
 
