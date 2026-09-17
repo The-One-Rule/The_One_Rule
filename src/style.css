@@ -14995,3 +14995,136 @@ button.chip:active:not(:disabled) {
   letter-spacing: var(--ls-petit);
   color: var(--signal-pale);
 }
+
+/* ==================================================================
+ * L'ACCUEIL SUR TÉLÉPHONE TENU DROIT — la démo devient une VITRINE
+ *
+ * Directive de Pierre : « sur téléphone l'UI rend très mal ». Mesuré à
+ * 375 × 812 : le canvas de démo couvrait tout l'écran, et son cadrage téléphone
+ * (zoom × 2) posait la bande de terrain — ~273 px — pile derrière l'accroche et
+ * JOUER. Les pièces animées passaient sous le texte et sous le bouton, et la
+ * consigne de démo (y 60-113) se posait sur « TA RÈGLE ».
+ *
+ * Sur un bureau le champ plein écran est un fond ; sur un téléphone il n'a pas
+ * la place d'en être un. Il devient donc un objet : une vitrine encadrée entre
+ * la règle et le bouton, où la consigne se lit EN HAUT DU TERRAIN, comme en
+ * partie. Le bouton ne recouvre plus rien.
+ *
+ * ⚠️ Même critère que le terrain debout (`render/orientation.ts`).
+ * ================================================================== */
+@media (max-width: 680px) and (orientation: portrait) {
+  #home {
+    --vitrine-haut: 140px;
+    --vitrine-h: clamp(220px, 32vh, 290px);
+  }
+
+  #home .attract {
+    inset: auto 0 auto 0;
+    top: var(--vitrine-haut);
+    height: var(--vitrine-h);
+    border-top: var(--bd-hair) solid var(--line);
+    border-bottom: var(--bd-hair) solid var(--line);
+  }
+
+  /* Le vignettage plein écran assombrissait les BORDS DE L'ÉCRAN ; dans une
+     vitrine il mangerait le terrain. Un fondu haut et bas suffit à lire la
+     consigne posée dessus. */
+  #home .attract::after {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ink) 78%, transparent) 0,
+      transparent 34%,
+      transparent 80%,
+      color-mix(in srgb, var(--ink) 70%, transparent) 100%
+    );
+  }
+
+  /* `.screen__scroll` commence sous la barre haute (56 px) : les positions
+     absolues s'y rapportent. */
+  #home .home__consigne {
+    top: calc(var(--vitrine-haut) - 56px + 10px);
+  }
+
+  #home .home__demo {
+    top: calc(var(--vitrine-haut) - 56px + var(--vitrine-h) - 50px);
+    right: 10px;
+  }
+
+  #home .home__centre {
+    margin-top: calc(var(--vitrine-haut) - 132px + var(--vitrine-h) + 12px);
+    grid-template-rows: auto auto auto;
+    align-content: start;
+  }
+
+  #home .home__centre .lede--court {
+    align-self: auto;
+  }
+
+  #home .play {
+    min-height: 76px;
+  }
+}
+
+/* ==================================================================
+ * LE BRIEF SUR TÉLÉPHONE TENU DROIT
+ *
+ * Mesuré à 375 × 812 : COMMENCER faisait 131 × 56 px à côté de RETOUR, dans une
+ * colonne de 325 — l'action de l'écran avait la taille d'un lien. Et le libellé
+ * ALLURE flottait à gauche d'une grille 2 × 2 au lieu de la titrer.
+ * ================================================================== */
+@media (max-width: 680px) and (orientation: portrait) {
+  #brief .btnrow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+
+  #brief #btnGo {
+    width: 100%;
+    min-height: 60px;
+    font-size: var(--t-lire);
+  }
+
+  #brief .settings__row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  /* ⚠️ Sa base flexible de 65 px devient une HAUTEUR en colonne : mesuré, un
+     vide de 50 px entre le libellé et ses boutons. */
+  #brief .settings__label {
+    flex: none;
+  }
+
+  /* Quatre allures en 2 × 2 égal, pas 3 + 1 : une rangée orpheline se lit
+     comme un oubli. */
+  #brief .settings__opts > * {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+/* ==================================================================
+ * L'ÉCRAN DE FIN SUR TÉLÉPHONE TENU DROIT
+ *
+ * Mesuré à 375 × 812 : ENCORE faisait 132 × 44 px, au milieu de trois boutons
+ * secondaires de même taille. REJOUER est la fin de partie la plus fréquente du
+ * jeu ; au pouce, il prend la largeur, et le reste passe en deux colonnes.
+ * ================================================================== */
+@media (max-width: 680px) and (orientation: portrait) {
+  #over .over__foot .btnrow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  #over .over__foot .btnrow > .btn.hidden {
+    display: none;
+  }
+
+  #over #btnAgain {
+    grid-column: 1 / -1;
+    min-height: 60px;
+    font-size: var(--t-lire);
+  }
+}

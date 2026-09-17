@@ -4806,7 +4806,10 @@ function finishRun(): void {
             ? t("finPalierReprendre")(palFini?.n ?? 0)
             : actes.principale === "demain"
               ? t("goReviensDemain")
-              : t("goRejouer");
+              : // « · R » est un raccourci CLAVIER : au doigt, c'est du bruit.
+                TOUCH_ONLY
+                ? t("goRejouer").replace(/\s*·\s*R$/, "")
+                : t("goRejouer");
 
   $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
   $("btnVersEscalier").textContent = t("finVersEscalier");
