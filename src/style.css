@@ -14812,3 +14812,29 @@ button.chip:active:not(:disabled) {
     animation: none;
   }
 }
+
+/* ==================================================================
+ * LE TERRAIN DEBOUT, CÔTÉ FEUILLE
+ *
+ * ⚠️ MÊME MEDIA QUERY que le repli de la consigne et que `orientationPour` :
+ * c'est ce qui fait que le rendu, la consigne et les plaques décident la même
+ * chose au même pixel.
+ *
+ * Les plaques restent sur UNE rangée qui défile : le terrain debout leur
+ * réserve une bande de hauteur FIXE (`RESERVE_HUD_MULTI`). Si elles passaient
+ * à la ligne, un salon de dix recouvrirait le bas du champ.
+ * ================================================================== */
+@media (max-width: 680px) and (orientation: portrait) {
+  #app:not(.has-gutters):not(.has-topbar) #liveHud .plates {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* PAS de `pointer-events: auto` : la boîte de la rangée déborde de 20 px
+       sur le bas du terrain (mesuré), elle y volerait des touchers. */
+    scrollbar-width: none;
+  }
+
+  #app:not(.has-gutters):not(.has-topbar) #liveHud .plates > * {
+    flex: 0 0 auto;
+  }
+}

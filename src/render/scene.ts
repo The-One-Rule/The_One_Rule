@@ -3,6 +3,8 @@ import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
 import { MOTIFS, encrePour } from "./motif";
 import { policeMono } from "./polices";
 import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
+import { FIELD_GUTTER, cadrePour, decalage, orientationPour, rectEcran, versChamp, versEcran } from "./orientation";
+import type { Cadre, Orientation } from "./orientation";
 
 /**
  * Palette de jeu.
@@ -128,14 +130,8 @@ export function drawNeedBadge(
 /** Hitbox 22 % plus large que le visuel. Rater un clic de 3 px fait désinstaller. */
 const HIT = 1.22;
 
-/**
- * Gouttière réservée au cadre de temps, de chaque côté du champ.
- *
- * Exportée parce que la mise en page en dépend : main.ts doit pouvoir calculer
- * la même géométrie que le renderer pour décider où placer les plaques. Deux
- * copies de ce nombre divergeraient au premier réglage.
- */
-export const FIELD_GUTTER = 24;
+// La gouttière vit avec la géométrie du champ : voir `render/orientation.ts`.
+export { FIELD_GUTTER };
 
 /**
  * Cadre une fenêtre du champ — attract téléphone.
@@ -187,14 +183,26 @@ export class SceneRenderer {
    */
   private cadre: { cx: number; cy: number; zoom: number } | null = null;
   /**
-   * Gouttière réservée au cadre de temps.
+   * LE TERRAIN PEUT-IL SE METTRE DEBOUT ? Seul le canvas de JEU le permet.
    *
-   * Une forme L mobile peut atteindre x ≈ −12 dans le repère du champ
-   * (jitter de cellule 31, puis MOVE_AMP_X = 22, moins le rayon 59) : les
-   * pièces débordent du champ. Sans marge réservée, un liseré épais
-   * recouvrirait une cible cliquable.
+   * L'attract de l'accueil a son propre cadrage (`cadrer`) et garde le
+   * paysage : c'est une vitrine, pas une partie. Voir `render/orientation.ts`.
    */
-  private static readonly GUTTER = FIELD_GUTTER;
+  permetPortrait = false;
+  /** L'orientation du dernier cadrage. Toujours paysage hors du jeu. */
+  private orientation: Orientation = "paysage";
+  /** Bande basse réservée sous le terrain debout — voir `RESERVE_HUD_MULTI`. */
+  private reserveBas = 0;
+
+  /**
+   * Réserve (ou libère) la bande basse. Recadre sans toucher au buffer : ne
+   * passe pas par `resize()`, qui viderait le canvas.
+   */
+  poseReserveBas(px: number): void {
+    if (px === this.reserveBas) return;
+    this.reserveBas = px;
+    this.appliqueCadre();
+  }
   /** Lu une fois : le rendu n'a pas à interroger le média à chaque frame. */
   private reduced =
     typeof matchMedia !== "undefined" &&
@@ -340,12 +348,35 @@ export class SceneRenderer {
       this.offY = c.offY;
       return;
     }
-    const g = SceneRenderer.GUTTER;
-    const usableW = Math.max(1, this.cssW - g * 2);
-    const usableH = Math.max(1, this.cssH - g * 2);
-    this.scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
-    this.offX = (this.cssW - FIELD_W * this.scale) / 2;
-    this.offY = (this.cssH - FIELD_H * this.scale) / 2;
+    const o: Orientation =
+      this.permetPortrait && typeof window !== "undefined"
+        ? orientationPour(window.innerWidth, window.innerHeight)
+        : "paysage";
+    const c = cadrePour(this.cssW, this.cssH, o, this.reserveBas);
+    this.orientation = o;
+    this.scale = c.scale;
+    this.offX = c.offX;
+    this.offY = c.offY;
+  }
+
+  /** Le cadrage courant, tel que `render/orientation.ts` le décrit. */
+  private get cadreCourant(): Cadre {
+    return { orientation: this.orientation, scale: this.scale, offX: this.offX, offY: this.offY };
+  }
+
+  /** Le terrain est-il debout ? Les textes qui disent « gauche » en dépendent. */
+  get debout(): boolean {
+    return this.orientation === "portrait";
+  }
+
+  /**
+   * Point du champ → pixels CSS dans le canvas.
+   *
+   * ⚠️ LA SEULE conversion dans ce sens. Un curseur qui refait le calcul avec
+   * `x / FIELD_W * w` pointe à côté dès que le terrain est debout.
+   */
+  versEcran(fx: number, fy: number): { x: number; y: number } {
+    return versEcran(this.cadreCourant, fx, fy);
   }
 
   resize(): void {
@@ -364,10 +395,7 @@ export class SceneRenderer {
     if (Math.abs(r.width - this.cssW) > 0.5 || Math.abs(r.height - this.cssH) > 0.5) {
       this.resize();
     }
-    return {
-      x: (clientX - r.left - this.offX) / this.scale,
-      y: (clientY - r.top - this.offY) / this.scale,
-    };
+    return versChamp(this.cadreCourant, clientX - r.left, clientY - r.top);
   }
 
   /**
@@ -377,8 +405,8 @@ export class SceneRenderer {
    * letterbox. Sans cette mesure, il devrait la deviner, et une plaque finirait
    * par recouvrir une cible cliquable.
    */
-  fieldRect(): { x: number; y: number; w: number; h: number } {
-    return { x: this.offX, y: this.offY, w: FIELD_W * this.scale, h: FIELD_H * this.scale };
+  fieldRect(): { x: number; y: number; w: number; h: number; debout: boolean } {
+    return { ...rectEcran(this.cadreCourant), debout: this.debout };
   }
 
   hit(ents: Entity[], x: number, y: number): Entity | null {
@@ -439,8 +467,14 @@ export class SceneRenderer {
       p.life -= dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vy += 520 * dt;
-      p.vx *= 0.965;
+      // La pesanteur tire vers le BAS DE L'ÉCRAN, qui est +x du champ debout.
+      if (this.orientation === "portrait") {
+        p.vx += 520 * dt;
+        p.vy *= 0.965;
+      } else {
+        p.vy += 520 * dt;
+        p.vx *= 0.965;
+      }
     }
   }
 
@@ -569,9 +603,15 @@ export class SceneRenderer {
     } else if (e.shape === "carre") {
       ctx.rect(x - r * 0.88, y - r * 0.88, r * 1.76, r * 1.76);
     } else {
-      ctx.moveTo(x, y - r);
-      ctx.lineTo(x + r * 0.92, y + r * 0.72);
-      ctx.lineTo(x - r * 0.92, y + r * 0.72);
+      // La pointe vers le HAUT DE L'ÉCRAN, terrain couché ou debout : un
+      // triangle qui pointerait de côté serait une autre forme à l'œil.
+      const o = this.orientation;
+      const [ax, ay] = decalage(o, 0, -r);
+      const [bx, by] = decalage(o, r * 0.92, r * 0.72);
+      const [cx, cy] = decalage(o, -r * 0.92, r * 0.72);
+      ctx.moveTo(x + ax, y + ay);
+      ctx.lineTo(x + bx, y + by);
+      ctx.lineTo(x + cx, y + cy);
       ctx.closePath();
     }
   }
@@ -602,8 +642,9 @@ export class SceneRenderer {
       // la barre du signe : le refus d'agir
       ctx.lineWidth = 7;
       ctx.beginPath();
-      ctx.moveTo(e.x - e.r * 0.95, e.y + e.r * 0.95);
-      ctx.lineTo(e.x + e.r * 0.95, e.y - e.r * 0.95);
+      const [dx0, dy0] = decalage(this.orientation, -e.r * 0.95, e.r * 0.95);
+      ctx.moveTo(e.x + dx0, e.y + dy0);
+      ctx.lineTo(e.x - dx0, e.y - dy0);
       ctx.stroke();
       ctx.restore();
     }
@@ -734,11 +775,11 @@ export class SceneRenderer {
       oy = (Math.random() * 2 - 1) * amp;
     }
     const s = this.scale * this.dpr;
-    ctx.setTransform(
-      s, 0, 0, s,
-      (this.offX + ox * this.scale) * this.dpr,
-      (this.offY + oy * this.scale) * this.dpr,
-    );
+    const ex = (this.offX + ox * this.scale) * this.dpr;
+    const ey = (this.offY + oy * this.scale) * this.dpr;
+    // Debout, la matrice TRANSPOSE : x du champ → bas de l'écran, y → droite.
+    if (this.orientation === "portrait") ctx.setTransform(0, s, s, 0, ex, ey);
+    else ctx.setTransform(s, 0, 0, s, ex, ey);
 
     // Le terrain d'abord, toujours : il reste posé entre deux manches, ce qui
     // évite qu'un interlude ne fasse disparaître l'aire de jeu.
@@ -786,7 +827,8 @@ export class SceneRenderer {
         const r = e.r * scale;
 
         ctx.save();
-        ctx.translate(0, e.r * 0.14);
+        const [odx, ody] = decalage(this.orientation, 0, e.r * 0.14);
+        ctx.translate(odx, ody);
         ctx.fillStyle = OMBRE;
         this.path(e, r);
         ctx.fill();
@@ -814,13 +856,18 @@ export class SceneRenderer {
 
         const need = needs?.get(e.idx);
         if (need && need >= 2) {
-          drawNeedBadge(
-            ctx,
-            e.x + e.r * 0.62,
-            e.y - e.r * 0.72,
-            need,
-            charges?.get(e.idx)?.n ?? 0,
-          );
+          const [bdx, bdy] = decalage(this.orientation, e.r * 0.62, -e.r * 0.72);
+          if (this.orientation === "portrait") {
+            // Le badge porte un CHIFFRE : sous la transposition il se lirait
+            // en miroir. On transpose une seconde fois autour de lui.
+            ctx.save();
+            ctx.translate(e.x + bdx, e.y + bdy);
+            ctx.transform(0, 1, 1, 0, 0, 0);
+            drawNeedBadge(ctx, 0, 0, need, charges?.get(e.idx)?.n ?? 0);
+            ctx.restore();
+          } else {
+            drawNeedBadge(ctx, e.x + bdx, e.y + bdy, need, charges?.get(e.idx)?.n ?? 0);
+          }
         }
       }
       if (reveal) this.drawReveal(round, now);

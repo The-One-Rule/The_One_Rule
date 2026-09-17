@@ -110,7 +110,7 @@ export type MultiApi = {
   /** Position de curseur coop, coordonnées de champ. No-op hors coop. */
   sendCursor: (x: number, y: number) => void;
   /** Peint le calque des curseurs (hors flux). */
-  paintCursors: (now: number, rect: { x: number; y: number; w: number; h: number }) => void;
+  paintCursors: (now: number, rect: { x: number; y: number; w: number; h: number; debout?: boolean }) => void;
   /** Met à jour HUD / compte à rebours ; retourne l'état de dessin ou null. */
   syncFrame: () => MultiDraw | null;
   /** Consomme les effets scène en attente (appelé par main après syncFrame). */
@@ -3323,7 +3323,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     net.sendCursor(x, y);
   }
 
-  function paintCursorsFrame(now: number, rect: { x: number; y: number; w: number; h: number }): void {
+  function paintCursorsFrame(
+    now: number,
+    rect: { x: number; y: number; w: number; h: number; debout?: boolean },
+  ): void {
     const root = $("cursors");
     if (!match || !match.modeCoop || !net) {
       root.classList.add("hidden");

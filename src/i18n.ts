@@ -1486,7 +1486,7 @@ const DYN: Record<Lang, Dyn> = {
     pastilleSur: (n) => `+${n} SUR TON MIEUX`,
     pastilleRecord: (n) => `RECORD DÉPASSÉ · ${n}`,
     hudVite: "VITE",
-    puceDe: (id) => PUCES.fr[id] ?? "",
+    puceDe: (id) => (debout && id === "gaucher" ? GAUCHER_DEBOUT.fr.puce : (PUCES.fr[id] ?? "")),
     allureRef: "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD",
     alluurePlus: (r) => `PLUS DE TEMPS POUR APPRENDRE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
     allureMoins: (r) => `MOINS DE TEMPS QUE LA RÉFÉRENCE · LE RECORD NE S'INSCRIT QU'EN ${r}`,
@@ -2042,7 +2042,7 @@ const DYN: Record<Lang, Dyn> = {
     pastilleSur: (n) => `+${n} OVER YOUR BEST`,
     pastilleRecord: (n) => `RECORD BEATEN · ${n}`,
     hudVite: "FAST",
-    puceDe: (id) => PUCES.en[id] ?? "",
+    puceDe: (id) => (debout && id === "gaucher" ? GAUCHER_DEBOUT.en.puce : (PUCES.en[id] ?? "")),
     allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",
     alluurePlus: (r) => `MORE TIME TO LEARN · ONLY ${r} SETS YOUR BEST`,
     allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
@@ -2334,6 +2334,58 @@ export function poseLangue(l: Lang): void {
   courante = l;
 }
 
+/*
+ * ------------------------------------------------------------------
+ * LE TERRAIN DEBOUT — ce qui se DIT autrement quand il est transposé.
+ *
+ * Sur un téléphone tenu droit, le champ est transposé (`render/orientation.ts`) :
+ * son axe x court vers le bas de l'écran. Le moteur ne change pas d'un iota —
+ * LE GAUCHER interdit toujours `x < 200` — mais « à gauche » devient FAUX à
+ * l'écran : la bande interdite est en haut.
+ *
+ * ⚠️ Une consigne qui décrit l'écran de travers est pire qu'une consigne
+ * absente : « CLIQUE LE PLUS À GAUCHE » ferait cliquer une autre pièce que
+ * celle que le moteur attend. D'où ces variantes, choisies À L'AFFICHAGE.
+ *
+ * ⚠️ `text` reste le français canonique, couché : LE MENTEUR compare des
+ * textes, et `tests/consignes.test.ts` exige que la composition redonne
+ * exactement `text`. Seul ce qui se lit change.
+ * ------------------------------------------------------------------
+ */
+let debout = false;
+
+/** Posée par le rendu à chaque recadrage : le texte suit le terrain. */
+export function poseDebout(d: boolean): void {
+  debout = d;
+}
+
+export const estDebout = (): boolean => debout;
+
+/** Clé de consigne couchée → clé debout. */
+const PHRASE_DEBOUT: Record<string, string> = {
+  clicGauche: "clicHaut",
+  clicDroite: "clicBas",
+};
+
+/** Ce que LE GAUCHER dit debout, sur chaque surface. */
+const GAUCHER_DEBOUT: Record<
+  Lang,
+  { puce: string; brief: string; court: string; accroche: [string, string] }
+> = {
+  fr: {
+    puce: "PAS EN HAUT",
+    brief: "Ne clique jamais la bande du haut. Elle est hachurée, aucun clic n'y est toléré.",
+    court: "Jamais la bande du haut",
+    accroche: ["Le haut est un terrain miné.", "Un bord de l'écran te déteste."],
+  },
+  en: {
+    puce: "NOT AT THE TOP",
+    brief: "Never click the top strip. It is hatched, and no click is tolerated there.",
+    court: "Never the top strip",
+    accroche: ["The top is a minefield.", "One edge of the screen hates you."],
+  },
+};
+
 /** Un accès à une table déjà construite. Rien n'alloue, rien ne parcourt. */
 export function t<K extends keyof Dyn>(cle: K): Dyn[K] {
   return DYN[courante][cle];
@@ -2523,6 +2575,9 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     clicMobile: () => "CLIQUE CELUI QUI BOUGE",
     clicGauche: () => "CLIQUE LE PLUS À GAUCHE",
     clicDroite: () => "CLIQUE LE PLUS À DROITE",
+    // Terrain debout : voir `PHRASE_DEBOUT`.
+    clicHaut: () => "CLIQUE LE PLUS EN HAUT",
+    clicBas: () => "CLIQUE LE PLUS EN BAS",
     clicPlusGrosCouleur: (m) => `CLIQUE LE PLUS GROS ${m.couleur}`,
     clicPlusPetitCouleur: (m) => `CLIQUE LE PLUS PETIT ${m.couleur}`,
     tapeInitiale: () => "TAPE L'INITIALE DE LA COULEUR",
@@ -2550,6 +2605,8 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     clicMobile: () => "CLICK THE ONE THAT'S MOVING",
     clicGauche: () => "CLICK THE LEFTMOST",
     clicDroite: () => "CLICK THE RIGHTMOST",
+    clicHaut: () => "CLICK THE TOPMOST",
+    clicBas: () => "CLICK THE BOTTOMMOST",
     clicPlusGrosCouleur: (m) => `CLICK THE BIGGEST ${m.couleur}`,
     clicPlusPetitCouleur: (m) => `CLICK THE SMALLEST ${m.couleur}`,
     /*
@@ -2673,7 +2730,8 @@ const ACCROCHES: Record<Lang, Record<string, [string, string]>> = {
 
 /** L'accroche du jour pour une règle, dans la langue courante. */
 export function accrocheDuJour(ruleId: string, jour: number): string {
-  const paire = ACCROCHES[courante][ruleId];
+  const paire =
+    debout && ruleId === "gaucher" ? GAUCHER_DEBOUT[courante].accroche : ACCROCHES[courante][ruleId];
   return paire ? paire[jour % 2 === 0 ? 0 : 1] : DYN[courante].teaserDefaut;
 }
 
@@ -2834,6 +2892,7 @@ export const NOMS_REGLES = NOMS;
  * sans explication serait pire qu'une règle mal traduite.
  */
 export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
   return BRIEFS[courante][ruleId] ?? secours;
 }
 
@@ -2911,6 +2970,7 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
  * un bandeau muet serait pire qu'un bandeau trop long.
  */
 export function briefCourtDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].court;
   return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
 }
 
@@ -2948,7 +3008,8 @@ export function composePhrase(
   lang: Lang = courante,
 ): string {
   if (!phrase) return secours;
-  const compo = PHRASES[lang][phrase.cle];
+  const cle = debout ? (PHRASE_DEBOUT[phrase.cle] ?? phrase.cle) : phrase.cle;
+  const compo = PHRASES[lang][cle];
   if (!compo) return secours;
   const mots = MOTS[lang];
   return compo({

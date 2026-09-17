@@ -94,7 +94,8 @@ import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
-import { composePhrase } from "./i18n";
+import { composePhrase, poseDebout } from "./i18n";
+import { RESERVE_HUD_MULTI } from "./render/orientation";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -135,9 +136,16 @@ const isTyping = (t: EventTarget | null): boolean =>
 const hud = new Hud();
 const cv = $<HTMLCanvasElement>("cv");
 const scene = new SceneRenderer(cv);
+// Le terrain de JEU peut se mettre debout sur un téléphone tenu droit ; celui
+// de l'attract, non. Voir `render/orientation.ts`.
+scene.permetPortrait = true;
+scene.resize();
+poseDebout(scene.debout);
 const appEl = $("app");
 let gutters = false;
 let lastKey = "";
+/** La bande basse réservée aux plaques du multi debout — voir la boucle. */
+let reserveMulti = 0;
 /**
  * L'appareil a-t-il un pointeur grossier, même à côté d'une souris ?
  *
@@ -161,6 +169,8 @@ const GUTTER_LOCK_MS = 450;
  */
 function syncField(): void {
   scene.resize();
+  // Le texte suit le terrain : debout, « à gauche » se dit « en haut ».
+  poseDebout(scene.debout);
   if (session) poseDejoue();
   const f = scene.fieldRect();
   const a = appEl.getBoundingClientRect();
@@ -200,7 +210,10 @@ function syncField(): void {
    * au canvas déjà plein recréerait la boucle de gouttières.
    */
   const hHorsFlux = cv.clientHeight;
-  const next = wantsColumns(stableGutter(cv.clientWidth, hHorsFlux), gutters);
+  const next = wantsColumns(
+    stableGutter(cv.clientWidth, hHorsFlux, scene.debout ? "portrait" : "paysage", reserveMulti),
+    gutters,
+  );
   if (next === gutters) return;
 
   /*
@@ -5287,9 +5300,15 @@ function poseDejoue(): void {
   const lateral = cote === "gauche" ? libreG : libreD;
   let x: number, y: number, w: number, h: number;
   let forme: "haut" | "large";
-  if (lateral >= MIN + 2 * MARGE) {
+  /*
+   * Debout, le terrain laisse ~66 px de chaque côté à 375 px : assez pour un
+   * doigt (44 px, `--tap`), pas pour la marge du cas général. La bande
+   * latérale n'a donc que 5 px d'air — c'est elle que le pouce trouve sans
+   * regarder, et la hauteur compense la largeur.
+   */
+  if (lateral >= 56) {
     forme = "haut";
-    w = Math.min(lateral - 2 * MARGE, 104);
+    w = Math.min(lateral - 10, 104);
     h = Math.max(MIN, Math.min(f.h * 0.42, 220));
     x = cote === "gauche" ? cx + (libreG - w) / 2 : cx + f.x + f.w + (libreD - w) / 2;
     y = cy + f.y + f.h - h;
@@ -6261,6 +6280,21 @@ function loop(now: number): void {
    * couper — l'accueil est en `display: none` dès qu'on joue.
    */
   if (screen === "home") imageAttract(now);
+
+  /*
+   * DEBOUT, LE MULTIJOUEUR RÉSERVE LA BANDE DES PLAQUES sous le terrain.
+   * Le canvas de jeu sans session solo ni tutoriel, c'est un salon. Le test ne
+   * dépend ni de la manche ni de l'interlude : la réserve est posée à l'entrée
+   * sur l'écran de jeu et ne bouge plus jusqu'à la sortie.
+   */
+  if (screen === null) {
+    const r = !session && !tuto ? RESERVE_HUD_MULTI : 0;
+    if (r !== reserveMulti) {
+      reserveMulti = r;
+      scene.poseReserveBas(r);
+      syncField();
+    }
+  }
 
   // Le battement de lecture du solo, avant tout le reste : tant qu'il court,
   // aucune session n'existe encore.

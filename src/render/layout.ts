@@ -21,8 +21,8 @@
  * les deux états. La boucle n'est pas amortie, elle n'existe plus.
  */
 
-import { FIELD_H, FIELD_W } from "../engine/types";
-import { FIELD_GUTTER } from "./scene";
+import { cadrePour, rectEcran } from "./orientation";
+import type { Orientation } from "./orientation";
 
 /**
  * Sous cette largeur, une colonne rogne la plaque : `.plate` a min-width
@@ -53,12 +53,21 @@ export const COLUMN_ENTER = 232;
  * l'appelant la reconstitue en rajoutant la hauteur du bandeau quand il est
  * encore dans le flux. C'est ce qui rend le résultat indépendant de l'état.
  */
-export function stableGutter(canvasW: number, stageHeightNoPlates: number): number {
-  const usableW = canvasW - FIELD_GUTTER * 2;
-  const usableH = stageHeightNoPlates - FIELD_GUTTER * 2;
-  if (usableW <= 0 || usableH <= 0) return 0;
-  const scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
-  return Math.max(0, Math.round((canvasW - FIELD_W * scale) / 2));
+export function stableGutter(
+  canvasW: number,
+  stageHeightNoPlates: number,
+  /**
+   * ⚠️ Le terrain debout n'a pas la même gouttière : c'est la MÊME fonction
+   * que le renderer (`cadrePour`) qui la calcule, jamais une copie de sa
+   * formule. Absent vaut paysage — c'est ce que tous les tests d'hier
+   * mesuraient.
+   */
+  orientation: Orientation = "paysage",
+  reserveBas = 0,
+): number {
+  if (canvasW <= 48 || stageHeightNoPlates <= 48) return 0;
+  const r = rectEcran(cadrePour(canvasW, stageHeightNoPlates, orientation, reserveBas));
+  return Math.max(0, Math.round((canvasW - r.w) / 2));
 }
 
 /** Hystérésis : on entre haut, on sort bas. */

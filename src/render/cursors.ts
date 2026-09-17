@@ -26,7 +26,8 @@ export function paintCursors(opts: {
   joueurs: readonly { id: string; name: string; glyph: Glyph }[];
   myId: string;
   now: number;
-  rect: { x: number; y: number; w: number; h: number };
+  /** `debout` : le terrain est transposé (voir `render/orientation.ts`). */
+  rect: { x: number; y: number; w: number; h: number; debout?: boolean };
   reduced: boolean;
 }): void {
   const { root, cibles, affiches, joueurs, myId, now, rect, reduced } = opts;
@@ -77,12 +78,13 @@ export function paintCursors(opts: {
     const nom = el.querySelector(".curseur__nom");
     if (nom) nom.textContent = (joueur?.name ?? "").slice(0, 14).toUpperCase();
     el.style.setProperty("--cur", joueur ? glyphHex(joueur.glyph) : "#EFEAE0");
-    el.style.transform = `translate(${versCss(cur.x, rect, "x")}px, ${versCss(cur.y, rect, "y")}px)`;
+    const ici = versCss(cur.x, cur.y, rect);
+    el.style.transform = `translate(${ici.x}px, ${ici.y}px)`;
     el.classList.add("is-on");
 
     const traces = el.querySelectorAll<HTMLElement>(".curseur__trace");
-    const ox = versCss(cur.x, rect, "x");
-    const oy = versCss(cur.y, rect, "y");
+    const ox = ici.x;
+    const oy = ici.y;
     for (let t = 0; t < traces.length; t++) {
       const tr = traces[t]!;
       const p = cur.trail[cur.trail.length - 1 - t];
@@ -91,18 +93,27 @@ export function paintCursors(opts: {
         continue;
       }
       tr.style.opacity = String(0.28 - t * 0.08);
-      const dx = versCss(p.x, rect, "x") - ox;
-      const dy = versCss(p.y, rect, "y") - oy;
+      const la = versCss(p.x, p.y, rect);
+      const dx = la.x - ox;
+      const dy = la.y - oy;
       tr.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
     }
   }
 }
 
-function versCss(
-  field: number,
-  rect: { x: number; y: number; w: number; h: number },
-  axe: "x" | "y",
-): number {
-  if (axe === "x") return rect.x + (field / FIELD_W) * rect.w;
-  return rect.y + (field / FIELD_H) * rect.h;
+/**
+ * Point du champ → pixels CSS.
+ *
+ * ⚠️ UN POINT, PLUS UN AXE. La version par axe (`x` avec `w`, `y` avec `h`)
+ * supposait le terrain couché : debout, le x du champ court vers le BAS de
+ * l'écran, et un curseur converti axe par axe pointait à côté de la pièce que
+ * le coéquipier visait vraiment.
+ */
+export function versCss(
+  fx: number,
+  fy: number,
+  rect: { x: number; y: number; w: number; h: number; debout?: boolean },
+): { x: number; y: number } {
+  if (rect.debout) return { x: rect.x + (fy / FIELD_H) * rect.w, y: rect.y + (fx / FIELD_W) * rect.h };
+  return { x: rect.x + (fx / FIELD_W) * rect.w, y: rect.y + (fy / FIELD_H) * rect.h };
 }

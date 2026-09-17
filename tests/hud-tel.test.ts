@@ -116,10 +116,17 @@ describe("HUD téléphone — bandeau et consigne", () => {
     expect(tel).toMatch(/\.foot__value\s*\{[^}]*font-size:\s*17px/);
   });
 
-  it("fieldRect() et HIT ne bougent pas — le letterbox est du CSS, pas du moteur", () => {
+  /*
+   * ⚠️ Cette garde lisait la formule paysage de `fieldRect()` au caractère
+   * près. Depuis que le terrain se met DEBOUT sur un téléphone tenu droit
+   * (directive de Pierre : « l'UI rend très mal sur téléphone »), la formule
+   * vit dans `render/orientation.ts`, et le paysage y est gardé AU PIXEL par
+   * `tests/orientation.test.ts` ({24, 30, 952, 400}). Ce qui reste vrai ici :
+   * le HIT ne bouge pas, et `fieldRect()` passe par la même conversion que le
+   * dessin.
+   */
+  it("HIT ne bouge pas, et fieldRect() passe par la géométrie partagée", () => {
     expect(scene).toMatch(/const HIT = 1\.22/);
-    expect(scene).toContain(
-      "return { x: this.offX, y: this.offY, w: FIELD_W * this.scale, h: FIELD_H * this.scale }",
-    );
+    expect(scene).toContain("rectEcran(this.cadreCourant)");
   });
 });
