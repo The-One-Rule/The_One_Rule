@@ -139,21 +139,27 @@ describe("application", () => {
      * l'est par les portes de jeu, parce que le joueur doit avoir choisi de
      * jouer. On vérifie les deux moitiés de cette règle.
      */
+    /*
+     * ⚠️ PLUS D'ÉCRAN D'EXPLICATION : il arrive DIRECTEMENT sur le terrain, en
+     * train de jouer sa première manche (retour du jury Ystart, « un tuto qui
+     * se passe en jouant »).
+     */
     expect(
-      document.getElementById("onb")!.classList.contains("hidden"),
-      "un joueur neuf qui clique JOUER arrive sur la première arrivée",
+      document.getElementById("tuto")!.classList.contains("hidden"),
+      "un joueur neuf qui clique JOUER arrive sur le terrain, tutoriel en cours",
     ).toBe(false);
     expect(
       document.getElementById("brief")!.classList.contains("hidden"),
       "…et pas directement sur l'annonce de la règle",
     ).toBe(true);
-    // Le premier temps montre la RÈGLE, et rien d'autre : c'est tout le sujet.
-    expect(document.getElementById("onbT1")!.classList.contains("hidden")).toBe(false);
-    expect(document.getElementById("onbT1Nom")!.textContent!.length).toBeGreaterThan(2);
+    // Le premier temps dit la RÈGLE en jouant : elle est au bandeau, et la
+    // ligne d'aide la rappelle.
+    expect(document.getElementById("bandRule")!.textContent!.length).toBeGreaterThan(2);
+    expect(document.getElementById("tutoAide")!.textContent!.length).toBeGreaterThan(8);
 
     // PASSER remet le joueur sur l'accueil sans rien casser, et le marque comme
     // ayant vu l'arrivée : le reste du parcours redevient celui d'un habitué.
-    document.getElementById("btnOnbSkip")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    document.getElementById("btnTutoPasser")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
 
     // Une fois l'arrivée vue, PLAY mène droit au brief : c'est le chemin le

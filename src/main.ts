@@ -73,7 +73,9 @@ import { cleEntrainement, cleEscalade } from "./game/perfs";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
+  TEMPS_JOUES,
   jugeClic,
+  jugeDejoue,
   mancheDe,
 } from "./game/onboarding";
 import type { MancheTuto, Temps } from "./game/onboarding";
@@ -248,7 +250,6 @@ function syncField(): void {
 
 const SCREENS = [
   "home",
-  "onb",
   "fiche",
   "escalier",
   "solo",
@@ -3886,17 +3887,22 @@ $("btnPalGo").addEventListener("click", () => {
  * qui n'existe pas. L'aide est un calque HORS FLUX posé sur la scène, donc
  * `fieldRect()` ne bouge pas (décision n°10).
  * ------------------------------------------------------------------ */
-const ONB_TOTAL = 6;
+/**
+ * Le tutoriel en cours. `manche` vaut `null` pendant la RESPIRATION qui suit un
+ * temps réussi : le terrain se vide, la ligne d'aide dit ce qui vient de se
+ * passer, puis `suite` ouvre le temps d'après. Tout est porté par la boucle de
+ * jeu, jamais par un `setTimeout` — un décor ne court pas sur un onglet qui ne
+ * compose pas, et `smoke.test.ts` déroule les images à la main.
+ */
+let tuto: {
+  temps: Temps;
+  manche: MancheTuto | null;
+  debut: number;
+  suite: { a: number; faire: () => void } | null;
+} | null = null;
 
-let tuto: { temps: Temps; manche: MancheTuto | null; debut: number } | null = null;
-
-/** Ce que le bouton d'un temps dit, et ce qu'il fait ensuite. */
-const ONB_BOUTON: Record<number, () => string> = {
-  1: () => t("onbSuivant"),
-  2: () => t("onbEssayer"),
-  4: () => t("onbMontre"),
-  6: () => t("onbLancer"),
-};
+/** La respiration entre deux temps : assez pour lire une ligne, pas plus. */
+const TUTO_RESPIRE_MS = 1400;
 
 function regleTuto(): OneRule {
   // Le tutoriel enseigne LE SANG : la couleur est le canal perceptif le plus
@@ -3905,71 +3911,26 @@ function regleTuto(): OneRule {
   return ONE_RULES.find((r) => r.id === REGLE_TUTO) ?? ONE_RULES[0]!;
 }
 
-function poseTemps(n: Temps): void {
-  const regle = regleTuto();
-  $("onbEtape").textContent = t("onbEtape")(n, ONB_TOTAL);
-  for (const k of [1, 2, 4, 6]) {
-    $(`onbT${k}`).classList.toggle("hidden", k !== n);
-  }
-
-  const crans = $("onbJauge").querySelectorAll("i");
-  crans.forEach((cran, i) => cran.classList.toggle("is-on", i < n));
-
-  if (n === 1) {
-    $("onbT1Nom").textContent = nomDeRegle(regle.id, regle.name);
-    $("onbT1Brief").textContent = briefDeRegle(regle.id, regle.brief);
-    $("onbT1Embleme").innerHTML =
-      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
-  }
-  if (n === 2) {
-    // Les deux consignes d'exemple sont COMPOSÉES comme celles du jeu : elles
-    // doivent être mot pour mot ce que le joueur lira en partie.
-    $("onbT2Ordre1").textContent = composePhrase({ cle: "clicFormeCouleur", forme: "carre", couleur: "azur" }, "CLIQUE LE CARRÉ BLEU");
-    $("onbT2Ordre2").textContent = composePhrase({ cle: "clicCouleur", couleur: "garance" }, "CLIQUE LE ROUGE");
-  }
-  if (n === 6) {
-    $("onbT6Nom").textContent = nomDeRegle(regle.id, regle.name);
-    /*
-     * ⚠️ LA VRAIE CARTE, celle qu'il retrouvera dans sa collection.
-     *
-     * Cet écran montrait un embleme SVG genere — et c'etait le SEUL endroit du
-     * jeu a le faire. Les cinq autres surfaces qui montrent une carte (la
-     * collection, la fiche, la gouttiere de partie, « celle qui te resiste »,
-     * l'etat a mater) affichent l'image `/cartes/<id>.png`.
-     *
-     * Le joueur gagnait donc sa premiere carte sous une forme, et la retrouvait
-     * sous une autre au premier passage par la collection. C'est le moment
-     * precis ou l'on veut qu'il reconnaisse l'objet : le tutoriel existe pour
-     * raccorder l'arrivee a la collection, et il montrait autre chose qu'elle.
-     *
-     * `decoding="async"` et pas `loading="lazy"` : l'image est visible des que
-     * le temps s'ouvre, donc rien a differer — et une carte qui arrive apres
-     * coup est exactement le defaut qu'on vient de corriger sur la gouttiere.
-     */
-    $("onbT6Embleme").innerHTML =
-      `<img class="onb__carte" src="/cartes/${regle.id}.png" width="64" height="64" alt="" decoding="async" />`;
-    const vues = Object.keys(P.load().encountered).length;
-    $("onbT6Compte").textContent = t("onbCompte")(Math.max(1, vues), ONE_RULES.length);
-    $("onbT6Suite").textContent = t("onbSuite")(ONE_RULES.length - Math.max(1, vues));
-  }
-
-  $("btnOnbNext").textContent = (ONB_BOUTON[n] ?? (() => t("onbSuivant")))();
-  show("onb");
+/** La lettre du déjouage telle que le joueur la tape, ou `null` au pouce. */
+function toucheTuto(): string | null {
+  return TOUCH_ONLY ? null : P.load().dejoue.touche;
 }
 
-/** Ouvre un temps JOUÉ : on quitte les écrans, on passe sur le terrain. */
+/** Ouvre un temps : on est sur le vrai terrain, avec la vraie règle au bandeau. */
 function joueTemps(n: Temps): void {
   const m = mancheDe(n);
-  if (!m) return;
-  tuto = { temps: n, manche: m, debut: performance.now() };
+  tuto = { temps: n, manche: m, debut: performance.now(), suite: null };
   hud.setRule(regleTuto());
   hud.hideStamp();
   hud.clearRound();
-  hud.setMeta("");
+  hud.setMeta(t("tutoEtape")(n, TEMPS_JOUES.length));
   hud.setFooter(0, 0, "—");
   $("tuto").classList.remove("hidden");
-  poseAideTuto(n === 3 ? t("tutoVasy") : t("tutoRelis"), n === 3 ? t("tutoSansChrono") : t("tutoRalenti"));
+  if (n === 1) poseAideTuto(t("tutoObeis"), t("tutoSansChrono"));
+  else if (n === 2) poseAideTuto(t("tutoRelis"), t("tutoRalenti"));
+  else poseAideTuto(t("tutoDejoue")(toucheTuto()), t("tutoDejoueNote"));
   show(null);
+  poseDejoue();
 }
 
 function poseAideTuto(aide: string, note: string): void {
@@ -3977,62 +3938,104 @@ function poseAideTuto(aide: string, note: string): void {
   $("tutoNote").textContent = note;
 }
 
+/** Un temps est gagné : on dit pourquoi, le terrain se vide, puis on enchaîne. */
+function reussitTemps(aide: string, note: string, faire: () => void): void {
+  if (!tuto) return;
+  tuto.manche = null;
+  tuto.suite = { a: performance.now() + TUTO_RESPIRE_MS, faire };
+  hud.clearRound();
+  poseAideTuto(aide, note);
+}
+
 function fermeTuto(): void {
   tuto = null;
   $("tuto").classList.add("hidden");
+  $("btnDejouer").classList.add("hidden");
   hud.setRule(null);
+  hud.setMeta("");
   hud.clearRound();
 }
 
+/** Après le temps 2 : la règle entre au carnet. */
+function apresPiege(): void {
+  // La première carte se débloque en JOUANT, pas en lisant.
+  P.recordRun(REGLE_TUTO, 0, false, 1);
+  // Le raccourci désactivé dans les réglages ? On ne l'enseigne pas.
+  if (P.load().dejoue.on) joueTemps(3);
+  else finitOnboarding(false);
+}
+
 /**
- * Un clic pendant un temps joué.
+ * Un clic pendant un temps.
  *
- * ⚠️ Rien ne TUE ici, et c'est le sujet : au temps 3 une erreur se corrige et
- * on recommence, au temps 5 elle explique le piège et on recommence aussi. Un
- * tutoriel qui punit renvoie le joueur au menu avec la même incompréhension.
+ * ⚠️ Rien ne TUE ici, et c'est le sujet : une erreur est NOMMÉE et la manche
+ * reprend. Un tutoriel qui punit renvoie le joueur au menu avec la même
+ * incompréhension.
  */
 function tutoClic(idx: number | null): void {
   if (!tuto?.manche) return;
   const m = tuto.manche;
   const verdict = jugeClic(m, idx);
 
-  if (tuto.temps === 3) {
+  if (tuto.temps === 1) {
     if (verdict === "juste") {
       sfx.success(1);
-      fermeTuto();
-      poseTemps(4);
+      reussitTemps(t("tutoOui"), t("tutoOuiNote"), () => joueTemps(2));
       return;
     }
-    // On NOMME l'erreur. « Raté » n'apprend rien ; « ta règle interdit le
-    // rouge » apprend la règle au moment exact où elle vient de servir.
+    // « Raté » n'apprend rien ; « ta règle interdit le rouge » apprend la
+    // règle au moment exact où elle vient de servir.
     sfx.fail();
-    poseAideTuto(
-      verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"),
-      t("tutoSansChrono"),
-    );
+    poseAideTuto(verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"), t("tutoSansChrono"));
     return;
   }
 
-  // Temps 5 : TOUT clic est une faute, y compris celui que la consigne demande.
+  // Temps 2 et 3 : TOUT clic est une faute, y compris celui que la consigne demande.
   sfx.fail();
-  poseAideTuto(t("tutoInterdit"), t("tutoRienFaire"));
+  poseAideTuto(t("tutoInterdit"), tuto.temps === 2 ? t("tutoRienFaire") : t("tutoDejoueNote"));
   tuto.debut = performance.now();
 }
 
-/** Le temps 5 se gagne en LAISSANT le chrono s'écouler. */
-function majTuto(now: number): void {
+/** DÉJOUER pendant le tutoriel — la touche ou le bouton. */
+function tutoDejoue(): void {
   if (!tuto?.manche) return;
-  if (tuto.temps !== 5) return;
-  const ecoule = now - tuto.debut;
-  if (ecoule >= CHRONO_PIEGE_MS) {
-    // Le son du piège DÉJOUÉ, pas celui d'une manche réussie : c'est un geste
-    // différent, et le jeu le distingue déjà à l'oreille.
-    sfx.trapAvoided();
-    fermeTuto();
-    // La règle entre au carnet : la première carte se débloque en JOUANT, pas
-    // en lisant. C'est le raccord entre l'arrivée et la collection.
-    P.recordRun(REGLE_TUTO, 0, false, 1);
-    poseTemps(6);
+  if (jugeDejoue(tuto.manche) === "pasUnPiege") {
+    sfx.fail();
+    poseAideTuto(t("tutoPasUnPiege"), t("tutoSansChrono"));
+    return;
+  }
+  const t0 = performance.now();
+  sfx.trapAvoided();
+  scene.burstScreen("#CFC9F2");
+  scene.flashViolet(t0);
+  attiseFlammes(1);
+  vibrePiegeDejoue();
+  const temps = tuto.temps;
+  reussitTemps(t("tutoDejoueBravo"), t("tutoPret"), () =>
+    temps === 2 ? apresPiege() : finitOnboarding(false),
+  );
+}
+
+/** Le piège se gagne aussi en LAISSANT le chrono s'écouler. */
+function majTuto(now: number): void {
+  if (!tuto) return;
+  if (tuto.suite) {
+    if (now >= tuto.suite.a) {
+      const faire = tuto.suite.faire;
+      tuto.suite = null;
+      faire();
+    }
+    return;
+  }
+  if (!tuto.manche || tuto.temps === 1) return;
+  if (now - tuto.debut < CHRONO_PIEGE_MS) return;
+  // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
+  sfx.trapAvoided();
+  attiseFlammes(0.6);
+  if (tuto.temps === 2) {
+    reussitTemps(t("tutoRienFaitBravo"), t("tutoRienFaitNote"), apresPiege);
+  } else {
+    reussitTemps(t("tutoRienFaitBravo"), t("tutoPret"), () => finitOnboarding(false));
   }
 }
 
@@ -4042,9 +4045,7 @@ function majTuto(now: number): void {
  * ⚠️ Deux conditions et non une. `onboarded` est absent des sauvegardes déjà
  * écrites, donc il vaut faux pour TOUT LE MONDE, y compris pour quelqu'un qui a
  * deux cents manches au compteur. Sans la seconde condition, le déploiement
- * renverrait tous les habitués au tutoriel. C'est le même piège que `essais` il
- * y a deux jours : un champ ajouté après coup doit toujours se demander ce que
- * son absence veut dire.
+ * renverrait tous les habitués au tutoriel.
  */
 function estNouveau(): boolean {
   const s = P.load();
@@ -4053,10 +4054,16 @@ function estNouveau(): boolean {
 
 function ouvreOnboarding(): void {
   track("onb_start", {});
-  poseTemps(1);
+  joueTemps(1);
 }
 
-/** Sortie — par le bouton PASSER, ou au terme du sixième temps. */
+/**
+ * Sortie — par PASSER (ou ÉCHAP), ou au terme du dernier temps.
+ *
+ * ⚠️ AU TERME, LA PARTIE DÉMARRE. Pas de menu, pas de brief à relire : le joueur
+ * vient de jouer trois manches sous LE SANG, il sait ce qu'il fait. Le
+ * battement de lecture du brief lui laisse quand même voir sa règle.
+ */
 function finitOnboarding(passe: boolean): void {
   fermeTuto();
   P.mutate((st) => {
@@ -4069,18 +4076,11 @@ function finitOnboarding(passe: boolean): void {
     return;
   }
   openBrief("training");
+  startRun();
 }
 
-$("btnOnbNext").addEventListener("click", () => {
-  sfx.ui();
-  const courant = [1, 2, 4, 6].find((k) => !$(`onbT${k}`).classList.contains("hidden")) ?? 1;
-  if (courant === 1) poseTemps(2);
-  else if (courant === 2) joueTemps(3);
-  else if (courant === 4) joueTemps(5);
-  else finitOnboarding(false);
-});
-
-$("btnOnbSkip").addEventListener("click", () => {
+$("btnTutoPasser").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
   sfx.ui();
   finitOnboarding(true);
 });
@@ -5284,7 +5284,10 @@ function dejoue(): void {
  */
 function poseDejoue(): void {
   const b = $("btnDejouer");
-  const voir = TACTILE && screen === null && !!session?.dejoueActif;
+  const voir =
+    TACTILE &&
+    screen === null &&
+    (!!session?.dejoueActif || (tuto !== null && tuto.temps === 3 && P.load().dejoue.on));
   const cote = P.load().dejoue.cote;
   b.classList.toggle("hidden", !voir);
   b.classList.toggle("dejoue--gauche", cote === "gauche");
@@ -5340,7 +5343,8 @@ function poseDejoue(): void {
 $("btnDejouer").addEventListener("pointerdown", (ev) => {
   ev.preventDefault();
   unlock();
-  dejoue();
+  if (tuto) tutoDejoue();
+  else dejoue();
 });
 
 function send(action: Action): void {
@@ -5464,6 +5468,11 @@ window.addEventListener("keydown", (e) => {
   }
 
   if (e.key === " ") return; // espace = touche de maintien, jamais une réponse
+  if (tuto) {
+    if (e.key === "Escape") finitOnboarding(true);
+    else if (e.key.length === 1 && e.key.toUpperCase() === P.load().dejoue.touche && P.load().dejoue.on) tutoDejoue();
+    return;
+  }
   if (e.key === "Escape") {
     abandon();
     return;
@@ -6389,13 +6398,15 @@ function loop(now: number): void {
   majFlammes();
 
   /*
-   * DEBOUT, LE MULTIJOUEUR RÉSERVE LA BANDE DES PLAQUES sous le terrain.
-   * Le canvas de jeu sans session solo ni tutoriel, c'est un salon. Le test ne
-   * dépend ni de la manche ni de l'interlude : la réserve est posée à l'entrée
-   * sur l'écran de jeu et ne bouge plus jusqu'à la sortie.
+   * DEBOUT, TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE :
+   * les plaques d'un salon, ou la ligne d'aide et PASSER du tutoriel. Mesuré à
+   * 375 × 812 : le calque du tutoriel faisait 147 px et couvrait le bas du
+   * terrain, PASSER compris — donc des touchers volés. Le test ne dépend ni de
+   * la manche ni de l'interlude : la réserve est posée à l'entrée sur l'écran de
+   * jeu et ne bouge plus jusqu'à la sortie.
    */
   if (screen === null) {
-    const r = !session && !tuto ? RESERVE_HUD_MULTI : 0;
+    const r = !session ? RESERVE_HUD_MULTI : 0;
     if (r !== reserveMulti) {
       reserveMulti = r;
       scene.poseReserveBas(r);
@@ -6643,13 +6654,17 @@ function loop(now: number): void {
      * valide en arrivant au bout.
      */
     const m = tuto.manche;
-    hud.updateRound(m.round, now - tuto.debut, tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
+    const chrono = tuto.temps !== 1;
+    hud.updateRound(m.round, now - tuto.debut, chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
     scene.draw({
       round: m.round,
       rule: regleTuto(),
       now,
-      ratio: tuto.temps === 5 ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
+      ratio: chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
     });
+  } else if (tuto) {
+    // La respiration entre deux temps : le terrain reste, vide.
+    scene.draw({ round: null, rule: regleTuto(), now });
   } else if (session) {
     scene.draw({
       round: session.round,

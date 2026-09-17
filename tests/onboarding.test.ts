@@ -15,6 +15,7 @@ import {
   REGLE_TUTO,
   TEMPS_JOUES,
   jugeClic,
+  jugeDejoue,
   mancheDe,
   mancheDecouverte,
   manchePiege,
@@ -53,10 +54,28 @@ describe("la règle qu'on enseigne", () => {
 });
 
 describe("les deux manches jouées", () => {
-  it("il y en a exactement deux, et ce sont les temps 3 et 5", () => {
-    expect([...TEMPS_JOUES]).toEqual([3, 5]);
-    for (const t of [1, 2, 4, 6] as const) expect(mancheDe(t)).toBeNull();
-    for (const t of TEMPS_JOUES) expect(mancheDe(t)).not.toBeNull();
+  it("⚠️ TOUT se joue : trois temps, obéir, résister, déjouer — aucun écran à lire", () => {
+    // Retour du jury Ystart : « un tuto qui se passe en jouant, pas un truc
+    // ambigu avant de commencer ». Un quatrième temps qui ne serait qu'un écran
+    // à lire ferait revenir exactement ce qu'on a retiré.
+    expect([...TEMPS_JOUES]).toEqual([1, 2, 3]);
+    expect(mancheDe(1).cible, "obéir : il y a une pièce à cliquer").not.toBeNull();
+    expect(mancheDe(2).round.trap).toBe(true);
+    expect(mancheDe(3).round.trap).toBe(true);
+  });
+
+  it("déjouer est juste sur les pièges, faux sur la consigne légitime", () => {
+    expect(jugeDejoue(mancheDe(1))).toBe("pasUnPiege");
+    expect(jugeDejoue(mancheDe(2))).toBe("juste");
+    expect(jugeDejoue(mancheDe(3))).toBe("juste");
+  });
+
+  it("le piège à déjouer n'est PAS une copie du premier", () => {
+    // S'il revoyait la même scène, le joueur apprendrait une position.
+    expect(mancheDe(3).round.text).not.toBe(mancheDe(2).round.text);
+    const r = ONE_RULES.find((x) => x.id === REGLE_TUTO)!;
+    const m = mancheDe(3);
+    expect(r.forbids(m.round.originalWant!, m.round.ents), "la consigne doit enfreindre LE SANG").toBe(true);
   });
 
   it("⚠️ le temps 3 n'a AUCUN chrono", () => {
@@ -107,7 +126,7 @@ describe("les deux manches jouées", () => {
 });
 
 describe("les scènes du tutoriel", () => {
-  const toutes = [mancheDecouverte(), manchePiege()];
+  const toutes = [mancheDecouverte(), manchePiege(), mancheDe(3)];
 
   it("sont IDENTIQUES à chaque appel", () => {
     /*
@@ -142,6 +161,17 @@ describe("les scènes du tutoriel", () => {
           const d = Math.hypot(es[i]!.ox - es[j]!.ox, es[i]!.oy - es[j]!.oy);
           expect(d, "deux pièces se chevauchent").toBeGreaterThan(es[i]!.r + es[j]!.r);
         }
+      }
+    }
+  });
+
+  it("⚠️ l'angle bas-droit reste VIDE : PASSER y est posé", () => {
+    // Mesuré à 1280 × 800 : le bouton couvre l'angle de la dernière case. Une
+    // pièce posée là serait à moitié sous un bouton, donc à moitié cliquable.
+    for (const m of toutes) {
+      for (const e of m.round.ents) {
+        const dansLAngle = e.ox + e.r > FIELD_W * 0.8 && e.oy + e.r > FIELD_H * (2 / 3);
+        expect(dansLAngle, `${e.shape} ${e.color} dans l'angle de PASSER`).toBe(false);
       }
     }
   });

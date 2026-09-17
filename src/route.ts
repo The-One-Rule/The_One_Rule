@@ -43,7 +43,6 @@
  */
 export type EcranId =
   | "home"
-  | "onb"
   | "fiche"
   | "escalier"
   | "solo"
@@ -85,7 +84,6 @@ const TABLE: Record<EcranId, Route> = {
 
   // Contextuels : ils ont une adresse pour que le retour marche, mais une
   // arrivée à froid retombe sur leur parent.
-  onb: { chemin: "/decouverte", adressable: false, parent: "home" },
   fiche: { chemin: "/carte", adressable: false, parent: "codex" },
   escalier: { chemin: "/escalier", adressable: false, parent: "codex" },
   brief: { chemin: "/entrainement", adressable: false, parent: "solo" },

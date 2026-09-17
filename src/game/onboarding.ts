@@ -1,5 +1,19 @@
 /**
- * L'ARRIVÉE — six temps, et le PIÈGE est la colonne vertébrale.
+ * L'ARRIVÉE — trois manches JOUÉES, et le PIÈGE est la colonne vertébrale.
+ *
+ * ⚠️ IL N'Y A PLUS AUCUN ÉCRAN D'EXPLICATION. Retour du jury Ystart : « un tuto
+ * qui se passe en jouant, pas un truc ambigu avant de commencer la partie ».
+ * Les quatre écrans qui lisaient la règle, décrivaient les deux cas, félicitaient
+ * et annonçaient la carte ont été retirés : tout ce qu'ils disaient se dit
+ * maintenant EN UNE LIGNE, sous le terrain, au moment où le joueur en a besoin.
+ * Trois temps, tous sur le vrai terrain :
+ *
+ *   1. OBÉIR — une consigne compatible, sans chrono ;
+ *   2. RÉSISTER — un piège, qu'on gagne en laissant passer le temps ;
+ *   3. DÉJOUER — un second piège, qu'on peut conclure tout de suite avec F ou
+ *      le bouton (laisser passer marche aussi : c'est un raccourci).
+ *
+ * Puis la vraie partie démarre, sans repasser par un menu.
  *
  * Rapporté par Pierre après avoir fait tester le jeu à ses camarades : « ils
  * ont adoré mais ils n'ont pas immédiatement compris, j'étais à côté pour leur
@@ -40,14 +54,10 @@ import { windowMs } from "../engine/difficulty";
 /** La règle qu'on enseigne. LE SANG : la couleur est le canal le plus rapide. */
 export const REGLE_TUTO = "sang";
 
-/**
- * Six temps. Les temps 3 et 5 se jouent sur le vrai terrain ; les autres sont
- * des écrans qui ne demandent qu'un clic sur un bouton.
- */
-export type Temps = 1 | 2 | 3 | 4 | 5 | 6;
+/** Trois temps, tous joués sur le vrai terrain. */
+export type Temps = 1 | 2 | 3;
 
-/** Les deux temps qui se jouent sur le terrain. */
-export const TEMPS_JOUES: readonly Temps[] = [3, 5];
+export const TEMPS_JOUES: readonly Temps[] = [1, 2, 3];
 
 /**
  * Le chrono du piège : DEUX fois la fenêtre la plus large du jeu.
@@ -177,11 +187,49 @@ export function manchePiege(): MancheTuto {
   };
 }
 
-/** La manche d'un temps joué. */
-export function mancheDe(temps: Temps): MancheTuto | null {
-  if (temps === 3) return mancheDecouverte();
-  if (temps === 5) return manchePiege();
-  return null;
+/**
+ * TEMPS 3 — le second piège, celui qu'on DÉJOUE.
+ *
+ * Une autre scène et une autre consigne que le temps 2 : s'il revoyait la même,
+ * le joueur apprendrait une position, pas un geste. Le rouge est cette fois un
+ * CARRÉ désigné par sa forme ET sa couleur — la consigne a l'air plus précise,
+ * donc plus légitime, et c'est ce qui fait un piège.
+ */
+export function mancheDejoue(): MancheTuto {
+  const ents = [
+    piece(0, 4, 0, "carre", "garance"),
+    piece(1, 1, 2, "carre", "azur"),
+    piece(2, 0, 0, "rond", "jade"),
+    piece(3, 3, 2, "triangle", "garance", "S"),
+    piece(4, 2, 1, "rond", "ambre", "L"),
+  ];
+  return {
+    round: {
+      instructionId: "tutoDejoue",
+      text: "CLIQUE LE CARRÉ ROUGE",
+      phrase: { cle: "clicFormeCouleur", forme: "carre", couleur: "garance" },
+      colorWord: "garance",
+      ents,
+      steps: [{ kind: "click", idx: 0 }],
+      trap: true,
+      originalWant: { kind: "click", idx: 0 },
+      durationMs: CHRONO_PIEGE_MS,
+    },
+    cible: null,
+    interdite: 0,
+  };
+}
+
+/** La manche d'un temps. */
+export function mancheDe(temps: Temps): MancheTuto {
+  if (temps === 1) return mancheDecouverte();
+  if (temps === 2) return manchePiege();
+  return mancheDejoue();
+}
+
+/** Ce que vaut un DÉJOUAGE : juste sur un piège, faux sur une consigne légitime. */
+export function jugeDejoue(m: MancheTuto): "juste" | "pasUnPiege" {
+  return m.cible === null ? "juste" : "pasUnPiege";
 }
 
 /** Ce que vaut un clic pendant un temps joué. */

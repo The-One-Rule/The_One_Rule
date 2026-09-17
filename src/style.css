@@ -14859,3 +14859,29 @@ button.chip:active:not(:disabled) {
     display: none;
   }
 }
+
+/* PASSER : le seul élément cliquable du calque du tutoriel.
+   ⚠️ Dans l'ANGLE bas-droit de la scène, pas au centre du calque : mesuré à
+   1280 × 800, centré il couvrait les 31 derniers pixels du terrain, donc des
+   clics volés. Les scènes du tutoriel sont fixes et n'ont rien dans cet angle. */
+.tuto__passer {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  pointer-events: auto;
+  min-height: var(--tap);
+  padding: 0 16px;
+  border: 0;
+  background: transparent;
+  color: var(--paper-dim);
+  font-family: var(--mono);
+  font-size: var(--t-petit);
+  letter-spacing: var(--ls-petit);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.tuto__passer:hover,
+.tuto__passer:focus-visible {
+  color: var(--paper);
+}

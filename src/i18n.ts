@@ -157,28 +157,6 @@ export const TEXTES: Record<Lang, Textes> = {
  */
 const STATIQUE: Record<Lang, Record<string, string>> = {
   fr: {
-    "onb.regleUnique": "TA RÈGLE UNIQUE",
-    "onb.t1.avant": "Le jeu te donne",
-    "onb.t1.sujet": "une seule règle",
-    "onb.t1.lede": "Elle reste affichée. Toute la partie.",
-    "onb.t1.pied": "AUCUN CHRONO N'A ENCORE DÉMARRÉ",
-    "onb.t2.avant": "Par-dessus, une",
-    "onb.t2.sujet": "consigne",
-    "onb.t2.apres": "arrive toutes les deux secondes.",
-    "onb.t2.cas1": "CAS 1 · LA CONSIGNE EST COMPATIBLE",
-    "onb.t2.rep1": "Tu cliques. Le carré bleu n'enfreint pas ta règle.",
-    "onb.t2.cas2": "CAS 2 · LA CONSIGNE ENFREINT TA RÈGLE",
-    "onb.t2.rep2": "Tu ne fais RIEN. Obéir serait la faute.",
-    "onb.t2.pied": "C'EST TOUT LE JEU. ON ESSAIE.",
-    "onb.t4.oui": "OUI.",
-    "onb.t4.titre": "Le carré bleu n'enfreignait pas ta règle, donc obéir était correct.",
-    "onb.t4.kicker": "CE QUE TU VIENS DE FAIRE",
-    "onb.t4.geste": "Lire la consigne · la confronter à ta règle · cliquer.",
-    "onb.t4.pied": "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. CERTAINES SONT DES PIÈGES — ET ELLES ARRIVENT VITE.",
-    "onb.t6.rien": "TU N'AS RIEN FAIT.",
-    "onb.t6.titre": "C'est ça, le jeu.",
-    "onb.t6.debloquee": "PREMIÈRE CARTE DÉBLOQUÉE",
-    "onb.passer": "PASSER",
     "piege.court": "Si une consigne enfreint ta règle, NE FAIS RIEN.",
     "aide.titre": "COMMENT ÇA MARCHE",
     "aide.pas1": "Une règle unique tient toute la partie. Elle reste affichée.",
@@ -246,6 +224,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
     "rgl.allureQuoi": "Elle ne vaut que pour l'entraînement. Le run du jour est le même pour tout le monde.",
+    "tuto.passer": "PASSER",
     "rgl.dejoue": "DÉJOUER · ENTRAÎNEMENT",
     "rgl.dejoueNom": "RACCOURCI DÉJOUER",
     "rgl.dejoueQuoi": "Tu as repéré un piège ? Dis-le, la manche s'arrête aussitôt. Si une action était demandée, tu perds.",
@@ -360,28 +339,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.toast": "Notification",
   },
   en: {
-    "onb.regleUnique": "YOUR ONE RULE",
-    "onb.t1.avant": "The game gives you",
-    "onb.t1.sujet": "one single rule",
-    "onb.t1.lede": "It stays on screen. The whole run.",
-    "onb.t1.pied": "NO CLOCK HAS STARTED YET",
-    "onb.t2.avant": "On top of it, an",
-    "onb.t2.sujet": "order",
-    "onb.t2.apres": "arrives every two seconds.",
-    "onb.t2.cas1": "CASE 1 · THE ORDER FITS YOUR RULE",
-    "onb.t2.rep1": "You click. The blue square breaks no rule.",
-    "onb.t2.cas2": "CASE 2 · THE ORDER BREAKS YOUR RULE",
-    "onb.t2.rep2": "You do NOTHING. Obeying would be the mistake.",
-    "onb.t2.pied": "THAT IS THE WHOLE GAME. LET'S TRY.",
-    "onb.t4.oui": "YES.",
-    "onb.t4.titre": "The blue square broke no rule, so obeying was right.",
-    "onb.t4.kicker": "WHAT YOU JUST DID",
-    "onb.t4.geste": "Read the order · check it against your rule · click.",
-    "onb.t4.pied": "MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.",
-    "onb.t6.rien": "YOU DID NOTHING.",
-    "onb.t6.titre": "That is the game.",
-    "onb.t6.debloquee": "FIRST CARD UNLOCKED",
-    "onb.passer": "SKIP",
     "piege.court": "If an order breaks your rule, do NOTHING.",
     "aide.titre": "HOW IT WORKS",
     "aide.pas1": "One rule holds for the whole run. It stays on screen.",
@@ -449,6 +406,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.motifsQuoi": "Every colour also carries a texture.",
     "rgl.allure": "DEFAULT PACE · TRAINING",
     "rgl.allureQuoi": "It only applies to training. The daily run is the same for everyone.",
+    "tuto.passer": "SKIP",
     "rgl.dejoue": "OUTSMART · TRAINING",
     "rgl.dejoueNom": "OUTSMART SHORTCUT",
     "rgl.dejoueQuoi": "Spotted a trap? Say so and the round ends at once. If an action was expected, you lose.",
@@ -676,13 +634,17 @@ type Dyn = {
   decouverteNote: (manche: number, vues: number, total: number) => string;
   butModeEntrainement: string;
   /* --- première arrivée --- */
-  onbEtape: (n: number, total: number) => string;
-  onbSuivant: string;
-  onbEssayer: string;
-  onbMontre: string;
-  onbLancer: string;
-  onbSuite: (reste: number) => string;
-  onbCompte: (vues: number, total: number) => string;
+  tutoEtape: (n: number, total: number) => string;
+  tutoObeis: string;
+  tutoOui: string;
+  tutoOuiNote: string;
+  tutoRienFaitBravo: string;
+  tutoRienFaitNote: string;
+  tutoDejoue: (touche: string | null) => string;
+  tutoDejoueNote: string;
+  tutoDejoueBravo: string;
+  tutoPasUnPiege: string;
+  tutoPret: string;
   /** L'aide posée sur le terrain pendant les deux temps joués. */
   tutoVasy: string;
   tutoSansChrono: string;
@@ -1316,14 +1278,18 @@ const DYN: Record<Lang, Dyn> = {
     decouverteNote: (manche, vues, total) =>
       `Rencontrée à la manche ${manche}. Entrée au carnet · ${vues} / ${total}.`,
     butModeEntrainement: "ENTRAÎNEMENT",
-    onbEtape: (n, total) => `ÉTAPE ${n} SUR ${total}`,
-    onbSuivant: "D'ACCORD",
-    onbEssayer: "ESSAYER",
-    onbMontre: "MONTRE-MOI",
-    onbLancer: "LANCER LA VRAIE PARTIE",
-    onbSuite: (reste) =>
-      `${reste} autres règles t'attendent. Chacune change ce qu'il faut faire.`,
-    onbCompte: (vues, total) => `${vues} / ${total}`,
+    tutoEtape: (n, total) => `DÉCOUVERTE ${n} / ${total}`,
+    tutoObeis: "TA RÈGLE : JAMAIS DE ROUGE. ICI, OBÉIS.",
+    tutoOui: "OUI. LE BLEU N'ENFREINT PAS TA RÈGLE.",
+    tutoOuiNote: "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. PAS TOUTES.",
+    tutoRienFaitBravo: "TU N'AS RIEN FAIT : PIÈGE DÉJOUÉ.",
+    tutoRienFaitNote: "OBÉIR AURAIT ÉTÉ LA FAUTE. C'EST TOUT LE JEU.",
+    tutoDejoue: (touche) =>
+      touche ? `ENCORE UN PIÈGE. DÉJOUE-LE : APPUIE SUR ${touche}.` : "ENCORE UN PIÈGE. DÉJOUE-LE : TOUCHE DÉJOUER.",
+    tutoDejoueNote: "C'EST UN RACCOURCI : LAISSER PASSER MARCHE AUSSI",
+    tutoDejoueBravo: "DÉJOUÉ. LA MANCHE S'ARRÊTE TOUT DE SUITE.",
+    tutoPasUnPiege: "CE N'EST PAS UN PIÈGE : CLIQUE LE BLEU",
+    tutoPret: "À TOI. LA VRAIE PARTIE COMMENCE.",
     tutoVasy: "VAS-Y, PRENDS TON TEMPS",
     tutoSansChrono: "LE CHRONO EST DÉSACTIVÉ",
     tutoRelis: "RELIS TA RÈGLE AVANT D'AGIR",
@@ -1882,14 +1848,18 @@ const DYN: Record<Lang, Dyn> = {
     decouverteNote: (manche, vues, total) =>
       `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
     butModeEntrainement: "TRAINING",
-    onbEtape: (n, total) => `STEP ${n} OF ${total}`,
-    onbSuivant: "GOT IT",
-    onbEssayer: "TRY IT",
-    onbMontre: "SHOW ME",
-    onbLancer: "START THE REAL RUN",
-    onbSuite: (reste) =>
-      `${reste} more rules are waiting. Each one changes what you must do.`,
-    onbCompte: (vues, total) => `${vues} / ${total}`,
+    tutoEtape: (n, total) => `DISCOVERY ${n} / ${total}`,
+    tutoObeis: "YOUR RULE: NEVER RED. HERE, OBEY.",
+    tutoOui: "YES. BLUE DOES NOT BREAK YOUR RULE.",
+    tutoOuiNote: "MOST ORDERS ARE THIS SIMPLE. NOT ALL OF THEM.",
+    tutoRienFaitBravo: "YOU DID NOTHING: TRAP AVOIDED.",
+    tutoRienFaitNote: "OBEYING WOULD HAVE BEEN THE MISTAKE. THAT IS THE GAME.",
+    tutoDejoue: (touche) =>
+      touche ? `ANOTHER TRAP. OUTSMART IT: PRESS ${touche}.` : "ANOTHER TRAP. OUTSMART IT: TAP OUTSMART.",
+    tutoDejoueNote: "IT IS A SHORTCUT: LETTING IT PASS WORKS TOO",
+    tutoDejoueBravo: "OUTSMARTED. THE ROUND ENDS RIGHT AWAY.",
+    tutoPasUnPiege: "THIS IS NOT A TRAP: CLICK THE BLUE ONE",
+    tutoPret: "YOUR TURN. THE REAL RUN STARTS.",
     tutoVasy: "GO AHEAD, TAKE YOUR TIME",
     tutoSansChrono: "THE CLOCK IS OFF",
     tutoRelis: "READ YOUR RULE AGAIN BEFORE ACTING",

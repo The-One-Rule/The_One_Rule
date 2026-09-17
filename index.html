@@ -266,6 +266,9 @@
         <div id="tuto" class="tuto hidden" aria-live="polite">
           <p class="tuto__aide" id="tutoAide"></p>
           <p class="tuto__note" id="tutoNote"></p>
+          <!-- PASSER vit SUR le terrain : il n'y a plus d'écran d'explication
+               où le poser. Le seul élément cliquable du calque. -->
+          <button type="button" class="tuto__passer" id="btnTutoPasser" data-i18n="tuto.passer">SKIP</button>
         </div>
 
         <!-- OBSERVATION IMPOSTEUR, HORS FLUX.
@@ -634,101 +637,6 @@
            Les temps 3 et 5 ne sont PAS ici : ils se jouent sur le vrai
            terrain, avec le vrai canvas et le vrai test de clic. Ce qu'on
            apprend doit être ce qu'on retrouvera. -->
-      <section class="screen hidden" id="onb">
-        <div class="screen__scroll onb">
-          <!-- Six crans, un par temps. Decorative : l'etape est deja dite
-               par l'intitule. Les temps 3 et 5 se jouent sur le terrain,
-               donc la jauge ne les voit pas — c'est voulu. -->
-          <div class="onb__jauge" id="onbJauge" aria-hidden="true">
-            <i></i><i></i><i></i><i></i><i></i><i></i>
-          </div>
-          <p class="eyebrow" id="onbEtape"></p>
-
-          <!-- 1 · LA RÈGLE, AVANT TOUT LE RESTE -->
-          <div class="onb__temps hidden" id="onbT1">
-            <h2 class="onb__titre">
-              <span data-i18n="onb.t1.avant">The game gives you</span>
-              <span class="onb__sujet" data-i18n="onb.t1.sujet">one single rule</span>
-            </h2>
-            <p class="lede" data-i18n="onb.t1.lede">It stays on screen. The whole run.</p>
-            <div class="onb__regle">
-              <p class="onb__kicker" data-i18n="onb.regleUnique">YOUR ONE RULE</p>
-              <p class="onb__nom" id="onbT1Nom"></p>
-              <div class="onb__embleme" id="onbT1Embleme" aria-hidden="true"></div>
-              <p class="onb__brief" id="onbT1Brief"></p>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t1.pied">NO CLOCK HAS STARTED YET</p>
-          </div>
-
-          <!-- 2 · CE QU'ON VA TE DEMANDER -->
-          <div class="onb__temps hidden" id="onbT2">
-            <h2 class="onb__titre">
-              <span data-i18n="onb.t2.avant">On top of it, an</span>
-              <span class="onb__sujet" data-i18n="onb.t2.sujet">order</span>
-              <span data-i18n="onb.t2.apres">arrives every two seconds.</span>
-            </h2>
-            <div class="onb__cas">
-              <div class="onb__cas1">
-                <p class="onb__kicker" data-i18n="onb.t2.cas1">CASE 1 · THE ORDER FITS YOUR RULE</p>
-                <p class="onb__consigne" id="onbT2Ordre1"></p>
-                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
-                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
-                  <rect x="8" y="10" width="28" height="4" fill="#7bb4ff"/>
-                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
-                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
-                  <rect x="3" y="5" width="38" height="38" fill="none" stroke="#efeae0" stroke-width="2"/>
-                </svg>
-                <p class="onb__verdict" data-i18n="onb.t2.rep1">You click. The blue square breaks no rule.</p>
-              </div>
-              <div class="onb__cas2">
-                <p class="onb__kicker" data-i18n="onb.t2.cas2">CASE 2 · THE ORDER BREAKS YOUR RULE</p>
-                <p class="onb__consigne onb__consigne--piege" id="onbT2Ordre2"></p>
-                <svg class="onb__demo" viewBox="0 0 160 46" shape-rendering="crispEdges" aria-hidden="true">
-                  <rect x="8" y="10" width="28" height="28" fill="#237ef6"/>
-                  <circle cx="80" cy="24" r="14" fill="#f74058"/>
-                  <path d="M132 8 L150 40 L114 40 Z" fill="#40f7c0"/>
-                  <g stroke="#efeae0" stroke-width="4" stroke-linecap="square">
-                    <line x1="64" y1="8" x2="96" y2="40"/>
-                    <line x1="96" y1="8" x2="64" y2="40"/>
-                  </g>
-                </svg>
-                <p class="onb__verdict" data-i18n="onb.t2.rep2">You do NOTHING. Obeying would be the mistake.</p>
-              </div>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t2.pied">THAT IS THE WHOLE GAME. LET'S TRY.</p>
-          </div>
-
-          <!-- 4 · LE RETOUR EXPLIQUE POURQUOI -->
-          <div class="onb__temps hidden" id="onbT4">
-            <p class="onb__oui" data-i18n="onb.t4.oui">YES.</p>
-            <h2 class="onb__titre" data-i18n="onb.t4.titre">The blue square broke no rule, so obeying was right.</h2>
-            <div class="onb__regle">
-              <p class="onb__kicker" data-i18n="onb.t4.kicker">WHAT YOU JUST DID</p>
-              <p class="onb__brief" data-i18n="onb.t4.geste">Read the order · check it against your rule · click.</p>
-            </div>
-            <p class="onb__pied" data-i18n="onb.t4.pied">MOST ORDERS ARE THIS SIMPLE. SOME ARE TRAPS — AND THEY COME EARLY.</p>
-          </div>
-
-          <!-- 6 · LE JEU COMMENCE VRAIMENT -->
-          <div class="onb__temps hidden" id="onbT6">
-            <p class="onb__oui" data-i18n="onb.t6.rien">YOU DID NOTHING.</p>
-            <h2 class="onb__titre" data-i18n="onb.t6.titre">That is the game.</h2>
-            <div class="onb__carte">
-              <p class="onb__kicker" data-i18n="onb.t6.debloquee">FIRST CARD UNLOCKED</p>
-              <div class="onb__embleme" id="onbT6Embleme" aria-hidden="true"></div>
-              <p class="onb__nom" id="onbT6Nom"></p>
-              <p class="onb__compte" id="onbT6Compte"></p>
-            </div>
-            <p class="lede" id="onbT6Suite"></p>
-          </div>
-
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnOnbNext"></button>
-            <button class="btn btn--ghost" id="btnOnbSkip" data-i18n="onb.passer">SKIP</button>
-          </div>
-        </div>
-      </section>
-
       <!-- LA FICHE D'UNE CARTE.
            Elle existe pour une seule raison : rendre la maitrise ACTIONNABLE.
            « 3 / 6 » dit ou l'on en est ; « il te manque 4 manches a l'allure
