@@ -2412,6 +2412,31 @@ du HTML, et une copie périmée fait croire qu'un élément manque. La régéné
 avant chaque mesure. Et une boîte masquée par le JS local (`VITE_*` vides) ne
 prouve rien du déploiement.
 
+### Ce que la passe de stabilité a éprouvé, et ce qu'elle a trouvé
+
+Directive de Pierre : « stabilise la version au maximum, on n'implémente rien
+tant que le site n'est pas parfaitement stable ». Ce qui suit dit ce qui a été
+VÉRIFIÉ, pour que la prochaine session ne le refasse pas à l'aveugle.
+
+⚠️ **Le seul vrai bug trouvé est décrit au §12 (sauvegarde)** : un champ du
+mauvais type tuait JOUER en silence. Le reste a tenu :
+
+- **sauvegardes bricolées** — JSON invalide, version inconnue, tableau, chaîne
+  vide, champs du mauvais type : le jeu se lance et se joue dans les cinq cas
+  (il n'en tenait que quatre avant `normaliseSave`) ;
+- **stockage INTERDIT** (navigation privée stricte : chaque accès lève) :
+  accueil, tutoriel, partie, aucune erreur ;
+- **singe** — 70 clics au hasard, puis 90 événements mêlés (clics, touches
+  `f R Échap Espace flèches`, appuis sur le terrain) avec le stockage bloqué :
+  aucune exception, écran cohérent à l'arrivée ;
+- **rotation en pleine partie** (375 × 812 → 812 × 375) : pas de casse ; le
+  champ y devient minuscule (222 × 93), mais c'est le paysage téléphone
+  d'avant, pas une régression. ⚠️ **À faire un jour** : y replier le bandeau
+  comme en portrait — la consigne y mange 230 px des 375.
+
+Les tests unitaires ont été lancés **trois fois de suite** (968 à chaque fois) :
+aucun n'est intermittent aujourd'hui.
+
 ### Les flammes viennent d'un pack, et ce n'est pas un détail
 
 `public/fx/flamme.png` sort du **OVERBURN Asset Pack, par Overboy** (série
