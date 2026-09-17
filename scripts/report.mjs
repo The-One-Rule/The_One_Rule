@@ -53,6 +53,8 @@ const multi = { crees: 0, rejoints: 0, debuts: 0, fins: 0, manches: [], illisibl
  * sur quoi tombe le premier clic, quand il y en a un.
  */
 const accueil = new Map();
+/** Les avis (`src/game/avis.ts`) : notes 1 BOF · 2 SYMPA · 3 ACCRO, et les mots. */
+const avis = { notes: [0, 0, 0, 0], mots: [] };
 
 /**
  * Entonnoir du COMPTE — vu, cliqué, lié.
@@ -133,6 +135,11 @@ for await (const line of rl) {
     if (e.gagne === true) multi.gagnes++;
   }
   if (e.ev === "multi_manche_illisible") multi.illisibles++;
+
+  if (e.ev === "avis" && [1, 2, 3].includes(e.note)) avis.notes[e.note]++;
+  if (e.ev === "avis_mot" && typeof e.texte === "string") {
+    avis.mots.push({ note: e.note, jour: e.day, texte: e.texte });
+  }
 
   if (e.ev === "accueil_premier_clic" && typeof e.quoi === "string") {
     accueil.set(e.quoi, (accueil.get(e.quoi) ?? 0) + 1);
@@ -545,6 +552,17 @@ if (parJour.size > 1) {
 console.log("\nDIFFICULTÉ PAR RÈGLE UNIQUE (score médian)");
 for (const [rule, scores] of Object.entries(byRule).sort((a, b) => median(a[1]) - median(b[1]))) {
   console.log(`  ${rule.padEnd(16)} ${String(median(scores)).padStart(5)}   (n=${scores.length})`);
+}
+
+const totalAvis = avis.notes[1] + avis.notes[2] + avis.notes[3];
+if (totalAvis > 0) {
+  console.log(`\nAVIS APRÈS DEUX PARTIES (n=${totalAvis})`);
+  const nom = ["", "BOF", "SYMPA", "ACCRO"];
+  for (const n of [3, 2, 1]) {
+    console.log(`  ${nom[n].padEnd(6)} ${String(avis.notes[n]).padStart(4)}   ${pct(avis.notes[n] / totalAvis).padStart(7)}`);
+  }
+  // Les mots, tels quels : ils ne se résument pas, ils se lisent.
+  for (const m of avis.mots) console.log(`  [${nom[m.note] ?? "?"}] ${m.texte}`);
 }
 
 console.log(

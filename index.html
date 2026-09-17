@@ -1054,6 +1054,29 @@
             <div class="bilan" id="bilan"></div>
             <div class="teaser" id="teaser"></div>
 
+            <!-- L'AVIS, UNE FOIS, APRÈS LA DEUXIÈME PARTIE (`game/avis.ts`).
+                 Un tap suffit : la note part tout de suite. Le mot libre est
+                 facultatif et n'apparaît qu'après la note — un champ de texte
+                 d'emblée se lirait comme un formulaire. -->
+            <div class="avis hidden" id="avis" aria-live="polite">
+              <p class="avis__q" data-i18n="avis.question">TWO RUNS IN. SO, THIS GAME?</p>
+              <div class="avis__notes" role="group" aria-label="TWO RUNS IN. SO, THIS GAME?" data-i18n-aria="avis.question">
+                <button type="button" class="avis__note" data-note="1" data-i18n="avis.bof">MEH</button>
+                <button type="button" class="avis__note" data-note="2" data-i18n="avis.sympa">NICE</button>
+                <button type="button" class="avis__note" data-note="3" data-i18n="avis.accro">HOOKED</button>
+              </div>
+              <div class="avis__plus hidden" id="avisPlus">
+                <label class="avis__label" for="avisTexte" data-i18n="avis.plus">ONE WORD TO MAKE IT BETTER? (OPTIONAL)</label>
+                <textarea class="avis__texte" id="avisTexte" rows="3" maxlength="280" placeholder="What hooked you, what lost you…" data-i18n-ph="avis.ph"></textarea>
+                <p class="avis__prive" data-i18n="avis.prive">Anonymous. Nothing personal, please.</p>
+                <div class="avis__actions">
+                  <button type="button" class="btn btn--mini" id="btnAvisEnvoyer" data-i18n="avis.envoyer">SEND</button>
+                  <button type="button" class="btn btn--ghost btn--mini" id="btnAvisNon" data-i18n="avis.non">NO THANKS</button>
+                </div>
+              </div>
+              <p class="avis__merci hidden" id="avisMerci" data-i18n="avis.merci">THANKS. EVERY WORD IS READ.</p>
+            </div>
+
             <!-- L'invitation à enregistrer.
                  Un ÉTAT, pas une interruption : le playtest a établi que la
                  pause est un moment de respiration, pas de lecture — « les

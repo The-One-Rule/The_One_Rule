@@ -64,7 +64,22 @@ export const ALLOWED = new Set([
   "multi_manche_illisible",
   // Où le visiteur s'arrête sur l'accueil.
   "accueil_premier_clic",
+  // L'avis demandé après la deuxième partie (`src/game/avis.ts`) : la note en
+  // un tap, puis le mot libre s'il y en a un.
+  "avis",
+  "avis_mot",
 ]);
+
+/**
+ * Le seul champ autorisé à dépasser 40 caractères : le mot libre d'un avis.
+ *
+ * ⚠️ Nommé par l'ÉVÉNEMENT ET la clé, jamais par la clé seule : un `texte`
+ * glissé dans n'importe quel autre événement doit rester coupé à 40, sinon
+ * l'endpoint public devient un dépôt de texte arbitraire.
+ */
+const TEXTE_LONG: Record<string, { cle: string; max: number }> = {
+  avis_mot: { cle: "texte", max: 280 },
+};
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */
 const MAX_BATCH = 50;
@@ -130,10 +145,13 @@ export async function sink(lines: string[], at: number): Promise<void> {
   }
 }
 
-function clean(v: unknown): unknown {
+function clean(v: unknown, ev: string, cle: string): unknown {
   if (typeof v === "number" && Number.isFinite(v)) return v;
   if (typeof v === "boolean") return v;
-  if (typeof v === "string") return v.slice(0, 40);
+  if (typeof v === "string") {
+    const long = TEXTE_LONG[ev];
+    return v.slice(0, long && long.cle === cle ? long.max : 40);
+  }
   return undefined;
 }
 
@@ -165,7 +183,7 @@ export default async function handler(req: Request): Promise<Response> {
     const out: Record<string, unknown> = { id, day, ev: e.ev, at: received };
     for (const [k, v] of Object.entries(e)) {
       if (k === "ev" || k === "ts") continue;
-      const c = clean(v);
+      const c = clean(v, e.ev, k);
       if (c !== undefined) out[k] = c;
     }
     lines.push(JSON.stringify(out));

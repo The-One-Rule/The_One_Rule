@@ -120,6 +120,8 @@ export const EVENT_NAMES = [
    * que complète.
    */
   "accueil_premier_clic",
+  "avis",
+  "avis_mot",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

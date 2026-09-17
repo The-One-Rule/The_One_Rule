@@ -145,6 +145,11 @@ export interface Save {
    */
   dejoue: ReglageDejoue;
   /**
+   * L'avis a-t-il déjà été demandé (`game/avis.ts`) ? Absent vaut non : les
+   * joueurs déjà venus le verront une fois, à leur prochaine fin de partie.
+   */
+  avisVu?: boolean;
+  /**
    * La première arrivée a-t-elle été vue ?
    *
    * ⚠️ Absent vaut FAUX, donc un joueur déjà venu la verra une fois — c'est

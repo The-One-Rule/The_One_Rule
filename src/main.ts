@@ -28,6 +28,8 @@ import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import * as F from "./render/flammes";
 import { toucheAcceptable } from "./game/dejoue";
+import { doitDemanderAvis, nettoieAvis } from "./game/avis";
+import type { NoteAvis } from "./game/avis";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
 import type { Mode } from "./game/session";
@@ -1996,6 +1998,69 @@ const ENDPOINT_MESURE = cleanEnv(import.meta.env.VITE_COLLECT_URL as string | un
  * compte attend le run suivant. Deux demandes empilées sur l'écran de fin, ce
  * serait exactement le mur qu'on vient de retirer de l'accueil.
  */
+/** La note choisie, tant que l'avis de cet écran n'est pas clos. */
+let avisNote: NoteAvis | null = null;
+
+/** L'avis, une fois dans la vie du joueur — voir `game/avis.ts`. */
+function proposeAvis(mesureDemandee: boolean): boolean {
+  const s = P.load();
+  const boite = $("avis");
+  const montrer = doitDemanderAvis({
+    runsAcheves: s.recent.length,
+    dejaVu: !!s.avisVu,
+    mesureOn: s.metrics.on,
+    mesureDemandee,
+    collecte: !!ENDPOINT_MESURE,
+  });
+  if (!montrer) {
+    boite.classList.add("hidden");
+    return false;
+  }
+  // Vu dès qu'il paraît : répondu ou non, il ne reviendra pas.
+  P.mutate((st) => {
+    st.avisVu = true;
+  });
+  avisNote = null;
+  boite.classList.remove("hidden");
+  $("avisPlus").classList.add("hidden");
+  $("avisMerci").classList.add("hidden");
+  boite.querySelector(".avis__notes")!.classList.remove("hidden");
+  $<HTMLTextAreaElement>("avisTexte").value = "";
+  return true;
+}
+
+function closAvis(): void {
+  avisNote = null;
+  $("avisPlus").classList.add("hidden");
+  $("avis").querySelector(".avis__notes")!.classList.add("hidden");
+  $("avisMerci").classList.remove("hidden");
+}
+
+for (const b of Array.from(document.querySelectorAll<HTMLButtonElement>(".avis__note"))) {
+  b.addEventListener("click", () => {
+    const note = Number(b.dataset.note) as NoteAvis;
+    sfx.ui();
+    // La note part TOUT DE SUITE : un joueur qui ferme l'onglet après son tap
+    // a quand même répondu.
+    track("avis", { note });
+    avisNote = note;
+    for (const autre of Array.from(document.querySelectorAll(".avis__note"))) {
+      autre.classList.toggle("is-on", autre === b);
+    }
+    $("avisPlus").classList.remove("hidden");
+  });
+}
+$("btnAvisEnvoyer").addEventListener("click", () => {
+  const texte = nettoieAvis($<HTMLTextAreaElement>("avisTexte").value);
+  if (texte && avisNote !== null) track("avis_mot", { note: avisNote, texte });
+  sfx.ui();
+  closAvis();
+});
+$("btnAvisNon").addEventListener("click", () => {
+  sfx.ui();
+  closAvis();
+});
+
 function proposeMesure(): boolean {
   const s = P.load();
   if (s.metrics.asked || !ENDPOINT_MESURE) return false;
@@ -4759,7 +4824,11 @@ function finishRun(): void {
   const recordBattu = battu;
   // Le bandeau de mesure d'abord, une seule fois dans la vie du joueur ; il
   // fait céder l'invitation au compte pour ce run-là.
-  renderInvite(end.score, recordBattu, proposeMesure());
+  const mesureDemandee = proposeMesure();
+  // L'avis cède au bandeau de mesure, et l'invitation au compte cède aux deux :
+  // une seule sollicitation par écran.
+  const avisDemande = proposeAvis(mesureDemandee);
+  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande);
   renderPodium(mode);
   /*
    * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
