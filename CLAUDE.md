@@ -2404,6 +2404,34 @@ du HTML, et une copie périmée fait croire qu'un élément manque. La régéné
 avant chaque mesure. Et une boîte masquée par le JS local (`VITE_*` vides) ne
 prouve rien du déploiement.
 
+### Les flammes viennent d'un pack, et ce n'est pas un détail
+
+`public/fx/flamme.png` sort du **OVERBURN Asset Pack, par Overboy** (série
+violette), fourni par Pierre avec la consigne de s'en servir. Licence : usage
+commercial et modification permis, **redistribution du pack interdite** — on
+peut donc l'embarquer dans le jeu, jamais le republier tel quel. Le crédit
+n'est pas exigé ; il est écrit dans `render/flammes.ts` par correction.
+
+⚠️ **Deux mesures ont changé le dessin, et aucune ne se devinait :**
+
+- les pixels opaques de la planche sont à **~325°** (magenta) alors que
+  `--signal` est à **249°** : la rotation de teinte vaut −76°. Un premier essai
+  à −96° donnait des flammes bleues ;
+- dans chaque image de 48 × 48, le dessin ne tient que dans **x 17-29, y 6-27**
+  — 13 px sur 22, dans la moitié HAUTE. Dessiner l'image entière ancrée en bas
+  donnait des flammes deux fois trop petites, flottant au-dessus de leur pied.
+  On ne dessine que cette boîte (`BOITE`), et c'est elle qu'on met à l'échelle.
+
+⚠️ **Le feu du bas monte du HAUT DU PIED**, pas du bas du calque : sous le pied
+il est découpé, donc invisible — au premier rendu, toutes les flammes du bas
+étaient perdues et il ne restait que les deux côtés.
+
+Le feu de DOOM procédural qui a précédé est mort de ce qu'aucun réglage ne
+rattrape : il avait l'air d'un dégradé animé. Trois passes (foyers
+intermittents, vent vers le centre, force plafonnée) l'ont approché sans
+jamais y arriver. Une planche dessinée à la main a réglé la question en une
+fois — et coûte moins de calcul par image.
+
 ### Backlog
 
 1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De

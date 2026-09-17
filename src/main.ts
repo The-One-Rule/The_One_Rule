@@ -6326,89 +6326,165 @@ const flammesCv = $<HTMLCanvasElement>("flammes");
 const flammesCtx = flammesCv.getContext("2d");
 const FLAMMES_COUPEES =
   typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-let feu: F.Grille = F.nouvelleGrille(0, 0);
-let feuImage: ImageData | null = null;
-let feuFoyerSocle = 0;
-let feuHautTerrain = 0;
-let feuVisible = false;
-let feuMasqueDans = 0;
-/** L'éclat d'un piège déjoué : 1 → 0 en ~700 ms. */
+/** La planche de sprites, une fois TEINTÉE. `null` tant qu'elle n'est pas prête. */
+let planche: HTMLCanvasElement | null = null;
+let flammesVisibles = false;
+let flammesGeoDans = 0;
+let braises: F.Braise[] = [];
+let champFeu: F.Rect = { x: 0, y: 0, w: 0, h: 0 };
+/** La ligne d'où monte le feu du bas : le haut du pied. */
+let socleFeu = 0;
+let zonesLisibles: F.Rect[] = [];
+/** L'éclat d'un piège déjoué : 1 → 0 en ~800 ms. */
 let feuRafale = 0;
-let feuGraine = 0x9e37;
-const feuHasard = (): number => {
-  feuGraine ^= feuGraine << 7;
-  feuGraine ^= feuGraine >> 9;
-  feuGraine ^= feuGraine << 8;
-  feuGraine &= 0xffff;
-  return feuGraine || (feuGraine = 0x9e37);
-};
 
 /**
- * Taille la grille sur `#app` et repose les zones interdites.
+ * Charge la planche et la TEINT aux couleurs du jeu.
  *
- * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change
- * de hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit
- * APRÈS le changement de manche — une mesure prise à cet instant lirait la
- * consigne précédente, et le feu mordrait sur la nouvelle.
+ * ⚠️ La planche d'origine est rose-magenta ; l'identité du jeu est violette
+ * (`--signal`, `--signal-pale`). On ne repeint pas image par image : un filtre
+ * de teinte, une seule fois, dans un canvas hors écran. Le dessin par image ne
+ * coûte donc rien de plus qu'un `drawImage`.
+ *
+ * Si le navigateur ignore `filter` (le repli le plus probable), le voile
+ * `source-atop` suffit à ramener la flamme dans la famille violette : elle
+ * sera moins nuancée, jamais rose.
+ */
+function chargePlanche(): void {
+  const img = new Image();
+  img.decoding = "async";
+  img.src = F.PLANCHE.fichier;
+  img.onload = () => {
+    const off = document.createElement("canvas");
+    off.width = img.naturalWidth;
+    off.height = img.naturalHeight;
+    const c = off.getContext("2d");
+    if (!c) return;
+    c.imageSmoothingEnabled = false;
+    /*
+     * ⚠️ MESURÉ, PAS ESTIMÉ. Les pixels opaques de la planche sont à ~325°
+     * (magenta) et `--signal` est à 249° : la rotation vaut donc −76°. Le
+     * premier essai à −96° donnait des flammes BLEUES — visible tout de suite
+     * à l'écran, et hors de l'identité du jeu.
+     */
+    c.filter = "hue-rotate(-76deg) saturate(0.86) brightness(1.08)";
+    c.drawImage(img, 0, 0);
+    c.filter = "none";
+    c.globalCompositeOperation = "source-atop";
+    c.fillStyle = "rgba(145, 132, 217, 0.28)";
+    c.fillRect(0, 0, off.width, off.height);
+    planche = off;
+  };
+}
+if (!FLAMMES_COUPEES) chargePlanche();
+
+/**
+ * Mesure où est le terrain, et ce qu'il ne faut jamais couvrir.
+ *
+ * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change de
+ * hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit APRÈS
+ * le changement de manche — une mesure prise à cet instant lirait la consigne
+ * précédente, et le feu mordrait sur la nouvelle.
  */
 function geometrieFeu(): void {
   const a = appEl.getBoundingClientRect();
-  const w = Math.ceil(a.width / F.CASE);
-  const h = Math.ceil(a.height / F.CASE);
-  if (w !== feu.w || h !== feu.h) {
-    feu = F.nouvelleGrille(w, h);
-    flammesCv.width = w;
-    flammesCv.height = h;
-    feuImage = flammesCtx ? flammesCtx.createImageData(Math.max(1, w), Math.max(1, h)) : null;
+  if (flammesCv.width !== Math.round(a.width) || flammesCv.height !== Math.round(a.height)) {
+    flammesCv.width = Math.max(1, Math.round(a.width));
+    flammesCv.height = Math.max(1, Math.round(a.height));
   }
-  const rel = (el: Element): { x: number; y: number; w: number; h: number } => {
+  const rel = (el: Element): F.Rect => {
     const r = el.getBoundingClientRect();
     return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height };
   };
   const c = rel(cv);
   const f = scene.fieldRect();
-  const terrain = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
-  const zones = [F.zoneDe(terrain, 1), F.zoneDe(rel($("foot")), 0)];
-  for (const id of ["instr", "sub", "bandRule", "bandVies"]) {
+  champFeu = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
+  zonesLisibles = [];
+  for (const id of ["instr", "sub", "bandRule", "bandVies", "foot"]) {
     const el = document.getElementById(id);
-    if (el && el.getBoundingClientRect().width > 0) zones.push(F.zoneDe(rel(el), 2));
+    if (el && el.getBoundingClientRect().width > 0) zonesLisibles.push(rel(el));
   }
-  F.poseInterdits(feu, zones);
-  feuFoyerSocle = Math.min(h - 1, Math.floor((c.y + c.h) / F.CASE) - 1);
-  feuHautTerrain = Math.max(0, Math.floor(terrain.y / F.CASE));
+  /*
+   * ⚠️ LE FEU DU BAS MONTE DU HAUT DU PIED, pas du bas du calque : sous le
+   * pied, il est découpé, donc invisible. Mesuré au premier rendu — toutes les
+   * flammes du bas étaient perdues, et il ne restait que les deux côtés.
+   */
+  const pied = document.getElementById("foot");
+  socleFeu = pied && pied.getBoundingClientRect().height > 0 ? rel(pied).y : a.height;
 }
 
-function majFlammes(): void {
+function majFlammes(now: number): void {
   if (FLAMMES_COUPEES || !flammesCtx) return;
   const ardeur =
     session && screen === null && session.phase === "playing"
-      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.6)
+      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.45)
       : 0;
-  feuRafale = Math.max(0, feuRafale - 0.024);
-  if (ardeur === 0 && !feuVisible) return;
-  if (!feuVisible) {
-    feuVisible = true;
-    flammesCv.classList.remove("hidden");
-    feuMasqueDans = 0;
-  }
-  if (feuMasqueDans-- <= 0) {
-    geometrieFeu();
-    feuMasqueDans = 15;
-  }
-  F.pasDeFeu(feu, F.foyersPour(ardeur, feuFoyerSocle, feuHautTerrain), ardeur, feuHasard);
-  if (ardeur === 0 && F.eteint(feu)) {
-    feuVisible = false;
-    flammesCv.classList.add("hidden");
+  feuRafale = Math.max(0, feuRafale - 0.02);
+
+  if (ardeur <= 0) {
+    if (flammesVisibles) {
+      flammesVisibles = false;
+      flammesCv.classList.add("hidden");
+      flammesCtx.clearRect(0, 0, flammesCv.width, flammesCv.height);
+    }
     return;
   }
-  if (!feuImage) return;
+  if (!flammesVisibles) {
+    flammesVisibles = true;
+    flammesCv.classList.remove("hidden");
+    flammesGeoDans = 0;
+  }
+  if (flammesGeoDans-- <= 0) {
+    geometrieFeu();
+    flammesGeoDans = 15;
+    braises = F.braisesPour(
+      { w: flammesCv.width, h: flammesCv.height },
+      champFeu,
+      ardeur,
+      socleFeu,
+    );
+  }
+  if (!planche) return;
+
+  const ctx = flammesCtx;
+  ctx.clearRect(0, 0, flammesCv.width, flammesCv.height);
+  ctx.save();
   /*
-   * Le BLANC est l'éclat, pas l'état. Mesuré à pleine ardeur avec une poussée
-   * de 0,5 : les deux marges devenaient des murs blancs. La chaleur de fond ne
-   * pousse que d'un cran ; le blanc franc est réservé au piège déjoué.
+   * ⚠️ LE DÉCOUPAGE EST LA GARANTIE, pas le placement.
+   *
+   * Les flammes sont posées hors du terrain, mais elles ONDULENT et montent :
+   * une langue peut dépasser. Le découpage — tout le calque SAUF le terrain et
+   * ce qui se lit — la rogne au pixel. Aucune pièce ne peut donc être couverte,
+   * quelle que soit la hauteur du feu (n°5 et n°10).
    */
-  F.peins(feu, feuImage, Math.min(1, ardeur * 0.15 + feuRafale));
-  flammesCtx.putImageData(feuImage, 0, 0);
+  ctx.beginPath();
+  ctx.rect(0, 0, flammesCv.width, flammesCv.height);
+  ctx.rect(champFeu.x, champFeu.y, champFeu.w, champFeu.h);
+  for (const z of zonesLisibles) ctx.rect(z.x, z.y, z.w, z.h);
+  ctx.clip("evenodd");
+
+  ctx.imageSmoothingEnabled = false;
+  // L'éclat d'un piège déjoué : le feu blanchit un instant.
+  ctx.globalAlpha = Math.min(1, 0.82 + feuRafale * 0.18);
+  for (const b of braises) {
+    const { sx, sy } = F.imageDe(b, now);
+    const h = b.h * (1 + feuRafale * 0.35);
+    // La largeur suit le DESSIN, pas l'image de la planche : voir `BOITE`.
+    const w = (h * F.BOITE.w) / F.BOITE.h;
+    ctx.drawImage(
+      planche,
+      sx + F.BOITE.x,
+      sy + F.BOITE.y,
+      F.BOITE.w,
+      F.BOITE.h,
+      b.x - w / 2,
+      b.y - h,
+      w,
+      h,
+    );
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 /** Le feu s'embrase : un piège vient d'être déjoué. */
@@ -6473,7 +6549,7 @@ function loop(now: number): void {
    * couper — l'accueil est en `display: none` dès qu'on joue.
    */
   if (screen === "home") imageAttract(now);
-  majFlammes();
+  majFlammes(now);
 
   /*
    * TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE : les plaques
