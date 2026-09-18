@@ -15192,3 +15192,393 @@ button.chip:active:not(:disabled) {
     margin: 0;
   }
 }
+
+/* ==================================================================
+ * LE PAYSAGE SERRÉ — le HUD quitte le flux, le terrain récupère l'écran
+ *
+ * ⚠️ MÊME CRITÈRE QUE `paysageSerre()` dans `render/orientation.ts`, au pixel :
+ * c'est la feuille qui sort le HUD du flux, et le module qui réserve la bande
+ * où il se peint. Deux critères divergents donneraient soit un HUD flottant
+ * au-dessus du terrain, soit deux bandes vides.
+ *
+ * LE CONSTAT, mesuré en partie, téléphone couché :
+ *   667 × 375 — bandeau 48 + consigne 105 + pied 54 = 207 sur 375, champ
+ *   343 × 144 ; et 262 × 110 dès qu'une consigne tient sur deux lignes.
+ *   812 × 375 — bandeau 74 (les règles ≤ 680 px ne l'atteignent pas !) +
+ *   consigne 106 + pied 54 = 234, champ 278 × 117.
+ *
+ * Deux défauts, et le second est le plus grave : la hauteur du HUD n'est pas
+ * CONSTANTE, donc le champ change de taille EN PLEINE PARTIE (n°10, n°2).
+ *
+ * ⚠️ SANS `:not(.has-topbar)`, contrairement au repli de la consigne debout.
+ * Les écrans de menu masquent le HUD en `visibility` précisément pour que le
+ * canvas ne change pas de taille d'un `show()` à l'autre ; le sortir du flux
+ * en jeu SEULEMENT rouvrirait ce trou. Ici il est hors du flux tout le temps.
+ *
+ * ⚠️ PAS DE `pointer-events: none`, contrairement au terrain debout. Le canvas
+ * occupe maintenant toute la scène : un doigt qui traverserait la bande
+ * atterrirait dans le VIDE du champ, ce que `resolveAction` juge comme un clic
+ * raté. La bande absorbe donc les touchers, exactement comme `#head` dans le
+ * flux le faisait.
+ * ================================================================== */
+@media (orientation: landscape) and (max-height: 500px) {
+  /*
+   * ⚠️ LE JETON D'ABORD. `--foot-h` ne sert pas qu'au pied : les plaques d'un
+   * salon se posent à `bottom: var(--foot-h)` et le toast juste au-dessus. Le
+   * raccourcir sans lui laisserait les plaques flotter 24 px trop haut, au
+   * milieu du terrain.
+   */
+  :root {
+    --foot-h: 30px;
+  }
+
+  #app > #band,
+  #app > #head,
+  #app > #foot {
+    position: absolute;
+    left: 0;
+    right: 0;
+    /* Au-dessus de `#stage`, qui les précède dans le document. */
+    z-index: 1;
+    margin: 0;
+  }
+
+  /* ---- La bande du haut : 20 + 42 = RESERVE_CONSIGNE_COUCHE (62) ---- */
+  #app > #band {
+    top: 0;
+    height: 20px;
+    /* Le bandeau porte un `min-height: 48px` ailleurs dans la feuille : sans
+       ce zéro, la hauteur posée ici ne veut rien dire. Le pied aussi. */
+    min-height: 0;
+    padding: 0 8px 0 0;
+    gap: 0 8px;
+    border-bottom: 0;
+    background: transparent;
+  }
+
+  .band__mark {
+    width: 6px;
+  }
+
+  /* Le nom de la règle est l'ancre : il reste, tout le reste part. */
+  .band__tag,
+  .band__brief,
+  .band__meta,
+  .band__viesLabel {
+    display: none;
+  }
+
+  .band__body {
+    padding-left: 8px;
+  }
+
+  /*
+   * ⚠️ PAR SON IDENTIFIANT, pas par sa classe. `#bandRule { font-size: 21px }`
+   * vit plus haut dans la feuille : une règle de classe perd contre lui, et le
+   * nom de la règle se faisait couper en deux par la bande (mesuré : boîte de
+   * 21 px dans une bande de 16). C'est le piège de spécificité que ce dépôt a
+   * déjà payé sur `#reglages .lang`.
+   */
+  #app > #band #bandRule {
+    margin: 0;
+    font-size: 13px;
+    line-height: 20px;
+    letter-spacing: 0.04em;
+  }
+
+  .band__droite {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .foot__value.lifedots i,
+  .band__vies i {
+    width: 7px;
+    height: 7px;
+  }
+
+  #app > #head {
+    top: 20px;
+    height: 42px;
+    padding: 0 10px;
+    /* Une consigne plus longue que prévu déborde dans le letterbox ; elle ne
+       pousse RIEN. C'est tout l'objet de la bande constante. */
+    overflow: visible;
+  }
+
+  /*
+   * ⚠️ LA TAILLE SUIT LA LARGEUR, pas la hauteur — c'est la largeur qui décide
+   * si la consigne passe à la ligne. Mesuré : la plus longue du pool tactile
+   * (« CLIQUE CELUI QUI N'EST PAS UN TRIANGLE », 38 signes) tient sur une ligne
+   * de 568 px à 20 px, et de 812 px à 28 px.
+   */
+  #instr {
+    font-size: clamp(20px, 3.4vw, 26px);
+    line-height: 26px;
+    min-height: 0;
+  }
+
+  /* Le glyphe garde une boîte IDENTIQUE : c'est lui qui faisait sauter le
+     terrain de 106 à 174 px de HUD sur un écran couché. */
+  #instr.is-glyph {
+    font-size: 26px;
+    line-height: 26px;
+  }
+
+  #sub {
+    margin: 0;
+    min-height: 11px;
+    font-size: 11px;
+    line-height: 11px;
+    letter-spacing: 0.12em;
+  }
+
+  #timer {
+    margin-top: 1px;
+    height: 4px;
+  }
+
+  /* ---- La bande du bas : RESERVE_PIED_COUCHE (30) ---- */
+  #app > #foot {
+    bottom: 0;
+    height: 30px;
+    min-height: 0;
+    padding: 0 10px;
+    align-items: center;
+  }
+
+  /*
+   * Le pied passe en LIGNES : à 30 px, une valeur au-dessus de son intitulé
+   * demanderait 9 px de texte, sous le plancher de 11 px de l'échelle
+   * typographique. L'intitulé passe donc devant la valeur, sur la même ligne.
+   */
+  .foot__cell {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .foot__value {
+    font-size: 15px;
+  }
+
+  .foot__label {
+    font-size: 11px;
+    order: -1;
+  }
+
+  /*
+   * ==================================================================
+   * LE SALON COUCHÉ — les plaques en RANGÉE, à côté des émotes
+   *
+   * Mesuré à 667 × 375, match lancé : `#liveHud` faisait 144 px (plaques 110,
+   * émotes 60) pour une bande réservée plafonnée à 125 — donc **49 px de
+   * terrain sous les plaques**. C'est le bug que Pierre avait rapporté à
+   * 1280 × 800, dans son dernier refuge : le plafond du tiers protège le
+   * terrain d'une bande géante, mais il n'empêche pas la bande de déborder.
+   *
+   * Couché, la largeur est ce qu'on a en trop : les émotes quittent leur
+   * propre rangée pour se poser À CÔTÉ des plaques, ce qui rend 60 px d'un
+   * coup. Le nom de la règle de l'adversaire part aussi — c'est la seule
+   * ligne de la plaque qui se retrouve sur la kill-cam.
+   * ==================================================================
+   */
+  #app:not(.has-gutters) #liveHud {
+    flex-direction: row;
+    align-items: flex-end;
+  }
+
+  #app:not(.has-gutters) #liveHud .plates {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Les 32 px du haut accueillent la bulle d'émote, qui déborde de la
+       plaque : `overflow-x: auto` force `overflow-y: auto`, donc tout ce qui
+       sort de la boîte est rogné. Ils ne se négocient pas. */
+    padding: 32px 10px 4px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes .chip {
+    min-width: 36px;
+    min-height: 36px;
+    width: 36px;
+    height: 36px;
+  }
+
+  #app:not(.has-gutters) .plate__rule {
+    display: none;
+  }
+
+  /*
+   * ==================================================================
+   * L'ACCUEIL COUCHÉ — la démo redevient une VITRINE
+   *
+   * Même défaut qu'en portrait, et il n'avait été corrigé QUE là : mesuré à
+   * 667 × 375, `.attract` couvre tout l'écran (0-375) et la consigne de la
+   * démo se peint en 60-113, pile sur l'accroche qui court de 74 à 156. Les
+   * pièces animées passent sous le texte, et deux phrases se superposent sur
+   * l'écran que 74 % des visiteurs ne dépassent jamais.
+   *
+   * La réponse est celle du portrait : la démo devient un objet encadré, sa
+   * consigne se lit EN HAUT du terrain comme en partie, et le reste de
+   * l'accueil passe dessous.
+   * ==================================================================
+   */
+  #home {
+    --vitrine-haut: 100px;
+    --vitrine-h: clamp(80px, 23vh, 100px);
+  }
+
+  /*
+   * ⚠️ LA VITRINE SE POSE SOUS LA CARTE DE RÈGLE, jamais dessus — c'est ce que
+   * fait le portrait avec ses 140 px. Mais la carte y fait 76 px de haut, et
+   * couché il n'en reste que 264 entre la barre haute et la barre basse : elle
+   * passe donc en LIGNE, vignette de 30 px, nom à côté. Mesuré : 76 → 34.
+   */
+  #home .home__reglecarte {
+    width: 22px;
+    height: 30px;
+  }
+
+  #home .home__regletxt {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  #home .attract {
+    inset: auto 0 auto 0;
+    top: var(--vitrine-haut);
+    height: var(--vitrine-h);
+    border-top: var(--bd-hair) solid var(--line);
+    border-bottom: var(--bd-hair) solid var(--line);
+  }
+
+  #home .attract::after {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--ink) 78%, transparent) 0,
+      transparent 34%,
+      transparent 80%,
+      color-mix(in srgb, var(--ink) 70%, transparent) 100%
+    );
+  }
+
+  /* `.screen__scroll` commence sous la barre haute (56 px) : les positions
+     absolues s'y rapportent, comme en portrait. */
+  #home .home__consigne {
+    top: calc(var(--vitrine-haut) - 56px + 6px);
+  }
+
+  #home .home__demo {
+    top: calc(var(--vitrine-haut) - 56px + var(--vitrine-h) - 42px);
+    right: 10px;
+  }
+
+  /*
+   * ⚠️ LES RANGÉES DOIVENT REDEVENIR `auto`. En large, la rangée de l'accroche
+   * fait 0 px et l'accroche y est posée en `align-self: end` : elle déborde
+   * donc VERS LE HAUT de 82 px, ce qui la posait en plein milieu de la
+   * vitrine. Mesuré : rangées « 0px 76px 0px », accroche à 97-179 pour un
+   * conteneur à 179-268.
+   */
+  #home .home__centre {
+    /* ⚠️ 98 = la barre haute (56) PLUS la carte de règle (42), c'est-à-dire
+       la position naturelle de ce bloc dans le flux. Le portrait soustrait 132
+       pour la même raison ; se tromper de repère pose JOUER sous la barre
+       basse, mesuré à 397 pour une fenêtre de 375. */
+    margin-top: calc(var(--vitrine-haut) - 98px + var(--vitrine-h) + 4px);
+    grid-template-rows: auto auto auto;
+    align-content: start;
+    gap: 8px;
+  }
+
+  /*
+   * ⚠️ L'ACCROCHE PREND TOUTE LA LARGEUR, et c'est ce qui la fait tenir. Sa
+   * colonne de lecture de 326 px la pliait en TROIS lignes (66 px) : JOUER
+   * passait alors sous la barre basse, à 339 pour une fenêtre de 375. Couché,
+   * la largeur est ce qu'on a — une ligne de 455 px dans 645 disponibles.
+   */
+  #home .home__centre .lede--court {
+    align-self: auto;
+    max-width: none;
+    font-size: var(--t-petit);
+  }
+
+  /*
+   * ⚠️ LE COMPTE EST SERRÉ, ET IL EST ÉCRIT. 375 moins la barre haute (56), la
+   * carte de règle (42) et la barre basse (55) laissent 222 px pour la
+   * vitrine (90), l'accroche (44), un écart (8) et JOUER. À 76 px le bouton
+   * finissait à 397 — sous la barre basse et hors de l'écran. À 64 il finit à
+   * 310, dix pixels au-dessus. Le plancher tactile est à 44 : on est loin.
+   */
+  #home .play {
+    min-height: 60px;
+  }
+
+  /*
+   * Le filet : la barre basse est HORS FLUX, donc rien n'empêche le dernier
+   * bloc de finir dessous. Cette réserve ne coûte rien tant que tout tient —
+   * mesuré, JOUER finit à 314 et le contenu à 374 pour 375 — et elle rend
+   * l'accueil DÉFILANT plutôt qu'amputé le jour où une ligne s'allonge.
+   */
+  #home .screen__scroll {
+    padding-bottom: 60px;
+  }
+
+  /*
+   * ==================================================================
+   * LA BARRE DU BAS, COUCHÉE — 92 px de 375, c'est un quart de l'écran
+   *
+   * Mesuré à 667 × 375 : la barre fait 92 px, dont 32 pour « TA RÈGLE
+   * T'ATTEND » suspendu sous JOUER. Sur un écran de menu qui n'en compte que
+   * 375, le prix est le même que celui du HUD de jeu, et il se paie sur TOUS
+   * les écrans.
+   *
+   * Couché, la largeur est en trop : l'icône et le mot passent côte à côte au
+   * lieu de s'empiler, et la ligne d'attente part — c'est exactement ce que
+   * fait déjà `#app.barre-haute` sur large, pour la même raison. Mesuré
+   * après : 50 px, donc 42 rendus à chaque écran.
+   * ==================================================================
+   */
+  .nav {
+    padding: 4px 6px 6px;
+  }
+
+  .nav__item {
+    flex-direction: row;
+    gap: 7px;
+    /* Le plancher tactile ne se négocie pas, même pour gagner 4 px. */
+    min-height: var(--tap);
+    padding: 0 8px;
+  }
+
+  .nav__attend {
+    display: none;
+  }
+
+  .nav__centre {
+    margin-top: -18px;
+  }
+
+  .nav__jouer {
+    width: 72px;
+    height: 52px;
+    font-size: 15px;
+  }
+
+  /*
+   * ⚠️ LE CALQUE DU TUTORIEL S'ARRÊTE AU-DESSUS DU PIED. Il vit dans `#stage`,
+   * et `#stage` occupe maintenant TOUT le canvas : son `bottom: 0` le posait
+   * donc sur le pied — mesuré, « LE CHRONO EST DÉSACTIVÉ » par-dessus
+   * « RECORD 0 », et PASSER par-dessus MODE. Ailleurs le pied est dans le
+   * flux et la question ne se pose pas.
+   */
+  .tuto {
+    bottom: var(--foot-h);
+  }
+}

@@ -100,7 +100,14 @@ import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
 import { composePhrase, poseDebout } from "./i18n";
-import { RESERVE_AIDE_TUTO, RESERVE_HUD_MULTI } from "./render/orientation";
+import {
+  RESERVE_AIDE_TUTO,
+  RESERVE_CONSIGNE_COUCHE,
+  RESERVE_HUD_MULTI,
+  RESERVE_HUD_MULTI_COUCHE,
+  RESERVE_PIED_COUCHE,
+  paysageSerre,
+} from "./render/orientation";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
 import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
@@ -151,6 +158,48 @@ let gutters = false;
 let lastKey = "";
 /** La bande basse réservée aux plaques du multi debout — voir la boucle. */
 let reserveMulti = 0;
+
+/**
+ * Les deux bandes que le PAYSAGE SERRÉ réserve au HUD sorti du flux.
+ *
+ * ⚠️ ELLES NE DÉPENDENT QUE DE LA FENÊTRE, jamais d'un état de la partie ni
+ * d'une mesure de la mise en page : c'est ce qui les rend utilisables dans la
+ * décision des colonnes sans rouvrir la boucle de la décision n°2. Et c'est
+ * le même critère que la feuille de style, au pixel — si les deux
+ * divergeaient, le HUD flotterait hors de la bande que le terrain lui laisse.
+ */
+function reservesCouchees(): { haut: number; bas: number } {
+  const serre =
+    typeof window !== "undefined" && paysageSerre(window.innerWidth, window.innerHeight);
+  return serre ? { haut: RESERVE_CONSIGNE_COUCHE, bas: RESERVE_PIED_COUCHE } : { haut: 0, bas: 0 };
+}
+
+/**
+ * Pose les deux réserves sur la scène. UN SEUL endroit qui les écrit.
+ *
+ * La bande basse a deux sources — le pied couché et les plaques d'un salon —
+ * et c'est le MAXIMUM qui gagne : additionner rognerait deux fois la même
+ * bande, et laisser la dernière écrite gagner ferait dépendre le terrain de
+ * l'ordre des événements.
+ */
+/**
+ * La bande que le calque d'un SALON réclame sous le terrain.
+ *
+ * Couché, il est plus court : les émotes s'y posent à côté des plaques au lieu
+ * d'occuper leur propre rangée, et la plaque perd le nom de règle de
+ * l'adversaire. Voir `RESERVE_HUD_MULTI_COUCHE`.
+ */
+function reserveSalon(): number {
+  const serre =
+    typeof window !== "undefined" && paysageSerre(window.innerWidth, window.innerHeight);
+  return serre ? RESERVE_HUD_MULTI_COUCHE : RESERVE_HUD_MULTI;
+}
+
+function poseReserves(): void {
+  const rc = reservesCouchees();
+  scene.poseReserveHaut(rc.haut);
+  scene.poseReserveBas(Math.max(rc.bas, reserveMulti));
+}
 /**
  * L'appareil a-t-il un pointeur grossier, même à côté d'une souris ?
  *
@@ -173,6 +222,8 @@ const GUTTER_LOCK_MS = 450;
  * vers une boucle de mise en page.
  */
 function syncField(): void {
+  // Avant le redimensionnement : c'est lui qui recalcule le cadrage.
+  poseReserves();
   scene.resize();
   // Le texte suit le terrain : debout, « à gauche » se dit « en haut ».
   poseDebout(scene.debout);
@@ -221,8 +272,16 @@ function syncField(): void {
    * une grandeur que la décision modifie. `stableGutter` répond toujours à la
    * même question — « quelle gouttière produirait le mode colonnes ? ».
    */
+  const rc = reservesCouchees();
   const next = wantsColumns(
-    stableGutter(cv.clientWidth, hHorsFlux, scene.debout ? "portrait" : "paysage"),
+    stableGutter(
+      cv.clientWidth,
+      hHorsFlux,
+      scene.debout ? "portrait" : "paysage",
+      // Le pied couché existe dans les DEUX états : il entre dans la décision.
+      rc.bas,
+      rc.haut,
+    ),
     gutters,
   );
   if (next === gutters) return;
@@ -5406,9 +5465,18 @@ function poseDejoue(): void {
   } else {
     forme = "large";
     const p = $("foot").getBoundingClientRect();
-    h = p.height;
+    /*
+     * ⚠️ LE BOUTON MONTE DANS LA BANDE, IL NE SE CONTENTE PAS DU PIED. En
+     * paysage serré le pied ne fait que 30 px (`RESERVE_PIED_COUCHE`), et
+     * 30 px n'est pas une cible tactile — `--tap` en demande 44. Il prend donc
+     * tout ce qui reste entre le bas du terrain et le bas du canvas, sans
+     * jamais mordre sur le champ : mesuré à 667 × 375, 42 px au lieu de 30.
+     */
+    const basChamp = cy + f.y + f.h;
+    const basPied = p.bottom - a.top;
+    h = Math.max(p.height, Math.min(44, basPied - basChamp));
     w = p.width / 3;
-    y = p.top - a.top;
+    y = basPied - h;
     x = cote === "gauche" ? p.left - a.left : p.right - a.left - w;
   }
   b.classList.toggle("dejoue--haut", forme === "haut");
@@ -6575,10 +6643,11 @@ function loop(now: number): void {
         ? 0
         : tuto
           ? RESERVE_AIDE_TUTO
-          : RESERVE_HUD_MULTI;
+          : reserveSalon();
     if (r !== reserveMulti) {
       reserveMulti = r;
-      scene.poseReserveBas(r);
+      // `syncField` repose les deux bandes : le pied couché ne se perd pas
+      // quand la réserve des plaques se relâche.
       syncField();
     }
   }

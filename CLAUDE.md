@@ -333,6 +333,13 @@ sur deux passages.
     conversion écrite « par axe » (`x / FIELD_W * w`) est fausse debout. Les
     bandes réservées (consigne 112 px, plaques/tutoriel 150 px) sont des
     CONSTANTES : caler le terrain sur un contenu le ferait bouger en partie.
+17. **AUCUNE BANDE DE HUD N'A LE DROIT D'AVOIR UNE HAUTEUR VARIABLE.** C'est
+    le corollaire de la n°10 et de la n°2 réunies, et il a été payé : couché,
+    `#head` était dans le flux et sa hauteur suivait la consigne, donc le
+    champ rétrécissait DE 24 % EN PLEINE MANCHE quand une consigne passait sur
+    deux lignes — et de 9 % sur un bureau quand une consigne à glyphe
+    arrivait. Une bande se dimensionne sur son pire cas, une fois, et ce qui
+    déborde déborde dans le letterbox ; jamais l'inverse.
 
 ---
 
@@ -2429,10 +2436,10 @@ mauvais type tuait JOUER en silence. Le reste a tenu :
 - **singe** — 70 clics au hasard, puis 90 événements mêlés (clics, touches
   `f R Échap Espace flèches`, appuis sur le terrain) avec le stockage bloqué :
   aucune exception, écran cohérent à l'arrivée ;
-- **rotation en pleine partie** (375 × 812 → 812 × 375) : pas de casse ; le
-  champ y devient minuscule (222 × 93), mais c'est le paysage téléphone
-  d'avant, pas une régression. ⚠️ **À faire un jour** : y replier le bandeau
-  comme en portrait — la consigne y mange 230 px des 375.
+- **rotation en pleine partie** (375 × 812 → 812 × 375) : pas de casse. Le
+  champ y devenait minuscule ; c'est le PAYSAGE SERRÉ, traité depuis (voir sa
+  section). Remesuré après : 234 × 558 debout → 674 × 283 couché → 234 × 558 au
+  retour, run toujours vivant, zéro erreur console.
 
 Les tests unitaires ont été lancés **trois fois de suite** (968 à chaque fois) :
 aucun n'est intermittent aujourd'hui.
@@ -2464,6 +2471,112 @@ rattrape : il avait l'air d'un dégradé animé. Trois passes (foyers
 intermittents, vent vers le centre, force plafonnée) l'ont approché sans
 jamais y arriver. Une planche dessinée à la main a réglé la question en une
 fois — et coûte moins de calcul par image.
+
+### Le paysage serré — le téléphone couché, et une bande qui bougeait
+
+Directive de Pierre : « vas-y pour le chantier téléphone ». Ce qui suit est ce
+qui ne se déduit pas du code.
+
+⚠️ **LE VRAI DÉFAUT N'ÉTAIT PAS CELUI QUE J'AVAIS ANNONCÉ.** J'avais rapporté
+« le bandeau mange 230 px des 375 ». C'est vrai, et c'est le moins grave.
+Mesuré en partie, téléphone couché :
+
+| fenêtre | bandeau | consigne | pied | scène | CHAMP |
+|---|---|---|---|---|---|
+| 667 × 375 | 48 | 105 | 54 | 168 | 343 × 144 |
+| 667 × 375, consigne sur 2 lignes | 48 | **139** | 54 | 134 | **262 × 110** |
+| 812 × 375 | **74** | 106 | 54 | 141 | 278 × 117 |
+| 812 × 375, consigne à glyphe | 74 | **151** | 54 | 96 | **116 × 49** |
+
+`#head` n'a pas de hauteur fixe : **le champ change de taille d'une manche à
+l'autre**, jusqu'à −58 %. C'est la décision n°10 et la n°2 en même temps, et
+c'est devenu la décision n°17. Le même défaut vaut sur un BUREAU : à
+1280 × 800 une consigne à glyphe fait passer `#head` de 106 à 174, donc le
+champ de 1232 × 517 à 1128 × 474. Personne ne l'avait signalé — ça ne se voit
+pas, ça se sent.
+
+⚠️ **Le 812 de large est PIRE que le 667**, et ça ne se devine pas : les règles
+`@media (max-width: 680px)` qui replient le bandeau ne l'atteignent pas, donc
+un grand téléphone couché reçoit le bandeau de bureau (74 px au lieu de 48).
+
+**La réponse** est celle du terrain debout : `#band`, `#head` et `#foot`
+quittent le flux et se peignent dans deux bandes CONSTANTES,
+`RESERVE_CONSIGNE_COUCHE` (62) en haut et `RESERVE_PIED_COUCHE` (30) en bas.
+`cadrePour` gagne une réserve haute, dont le défaut est la gouttière — c'est ce
+qui garantit qu'aucune fenêtre existante ne bouge d'un pixel (vérifié à
+1280 × 800, 1024 × 768 et 375 × 812 : champ identique au relevé de référence).
+
+Relevé après, partie lancée : **812 × 375 → 674 × 283** (l'échelle passe de
+0,279 à 0,674), **667 × 375 → 617 × 259**. Et le champ ne bouge plus, quelle
+que soit la consigne.
+
+⚠️ **SANS `:not(.has-topbar)`, contrairement au repli de la consigne debout.**
+Les écrans de menu masquent le HUD en `visibility` précisément pour que le
+canvas ne change pas de taille d'un `show()` à l'autre ; le sortir du flux en
+jeu SEULEMENT rouvrirait ce trou. Vérifié : canvas à 375 sur l'accueil comme
+en partie.
+
+⚠️ **PAS DE `pointer-events: none` SUR LA BANDE**, contrairement au terrain
+debout. Le canvas occupe maintenant toute la scène : un doigt qui traverserait
+la bande atterrirait dans le VIDE du champ, ce que `resolveAction` juge comme
+un clic raté. La bande absorbe donc les touchers, comme `#head` dans le flux le
+faisait. Un test le refuse. (Corollaire noté et NON corrigé : debout, la
+consigne porte `pointer-events: none`, donc **toucher le texte de la consigne
+tue**. C'est cohérent avec le reste du letterbox, mais ça mérite une décision.)
+
+**Trois pièges payés en le posant :**
+
+- ⚠️ `#bandRule { font-size: 21px }` vit plus haut dans la feuille : une règle
+  de CLASSE perd contre lui, et le nom de la règle se faisait couper en deux
+  par une bande de 16 px. Même famille que `#reglages .lang`.
+- ⚠️ `#band` et `#foot` portent un `min-height` ailleurs (48 et
+  `var(--foot-h)`) : une `height` posée sans `min-height: 0` ne veut rien dire.
+- ⚠️ `--foot-h` ne sert pas qu'au pied — les plaques d'un salon se posent à
+  `bottom: var(--foot-h)`. Le raccourcir sans toucher au jeton aurait laissé
+  les plaques flotter 24 px trop haut, au milieu du terrain.
+
+**Le salon couché traversait encore le terrain.** Mesuré avec un vrai match à
+667 × 375 : `#liveHud` faisait 144 px (plaques 110, émotes 60) pour une bande
+plafonnée au tiers du canvas, soit 125 — donc **49 px de terrain sous les
+plaques**, exactement le bug de Pierre dans son dernier refuge. Couché, les
+émotes quittent leur rangée pour se poser À CÔTÉ des plaques (la largeur est ce
+qu'on a en trop) et la plaque perd le nom de règle de l'adversaire, qu'on
+retrouve sur la kill-cam. Le calque retombe à 94 px,
+`RESERVE_HUD_MULTI_COUCHE` vaut 124 avec le pied. Remesuré en match : terrain
+450 × 189 finissant à 251, plaques à partir de 253, **recouvrement 0**.
+
+**Le tutoriel aussi.** Son calque vit dans `#stage`, et `#stage` occupe
+maintenant tout le canvas : son `bottom: 0` le posait SUR le pied — « LE CHRONO
+EST DÉSACTIVÉ » par-dessus « RECORD 0 », PASSER par-dessus MODE. Il s'arrête
+désormais au-dessus du pied.
+
+**Trois écrans de menu ont suivi, parce qu'ils étaient cassés du même mal :**
+
+- la **barre du bas** faisait 92 px sur 375, dont 32 pour « TA RÈGLE T'ATTEND »
+  suspendu sous JOUER. Icône et mot passent côte à côte, la ligne d'attente
+  part — c'est ce que fait déjà `#app.barre-haute` sur large. Mesuré : **51 px,
+  42 rendus à chaque écran**, cibles tactiles à 44 ;
+- l'**accueil** : `.attract` couvrait tout l'écran et la consigne de la démo se
+  peignait en 60-113, pile sur l'accroche (74-156). Même défaut qu'en portrait,
+  corrigé seulement là. La démo redevient une vitrine (100-186), la carte de
+  règle passe en ligne (76 → 42), l'accroche prend toute la largeur — sa
+  colonne de lecture la pliait en trois lignes et poussait JOUER à 397 pour une
+  fenêtre de 375. Après : JOUER 254-314, barre à 320, **aucun défilement** ;
+- ⚠️ **le repère du `margin-top` n'est pas le même qu'en portrait.** Le bloc
+  central se place après la carte de règle, donc on soustrait 98 (barre haute
+  56 + carte 42), là où le portrait soustrait 132. Se tromper de repère pose
+  JOUER sous la barre basse — c'est la mesure ci-dessus.
+
+**Ce qui n'a PAS été fait, et ce sont des directions :**
+
+- le **brief** et l'**écran de fin** restent longs couchés : 747 et 1056 px de
+  contenu pour 375. Ils DÉFILENT, donc rien n'est inatteignable, mais COMMENCER
+  et REJOUER sont sous la ligne de flottaison. Les compacter est une refonte de
+  composition, pas un correctif ;
+- **DÉJOUER couché fait 42 px de haut** au lieu des 44 de `--tap`, quand il
+  tombe dans la bande du pied (mesuré à 667 × 375). Il prend tout ce qui reste
+  entre le bas du terrain et le bas du canvas sans mordre sur le champ ; deux
+  pixels manquent, et les rendre coûterait du terrain à tout le monde.
 
 ### Backlog
 

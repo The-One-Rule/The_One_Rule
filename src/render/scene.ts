@@ -203,6 +203,15 @@ export class SceneRenderer {
     this.reserveBas = px;
     this.appliqueCadre();
   }
+  /** Bande haute réservée en paysage serré — voir `RESERVE_CONSIGNE_COUCHE`. */
+  private reserveHaut = 0;
+
+  /** Réserve (ou libère) la bande haute. Même précaution que la bande basse. */
+  poseReserveHaut(px: number): void {
+    if (px === this.reserveHaut) return;
+    this.reserveHaut = px;
+    this.appliqueCadre();
+  }
   /** Lu une fois : le rendu n'a pas à interroger le média à chaque frame. */
   private reduced =
     typeof matchMedia !== "undefined" &&
@@ -352,7 +361,7 @@ export class SceneRenderer {
       this.permetPortrait && typeof window !== "undefined"
         ? orientationPour(window.innerWidth, window.innerHeight)
         : "paysage";
-    const c = cadrePour(this.cssW, this.cssH, o, this.reserveBas);
+    const c = cadrePour(this.cssW, this.cssH, o, this.reserveBas, this.reserveHaut);
     this.orientation = o;
     this.scale = c.scale;
     this.offX = c.offX;
