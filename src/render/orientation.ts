@@ -103,6 +103,93 @@ export const RESERVE_HUD_MULTI = 180;
 export const RESERVE_AIDE_TUTO = 140;
 
 /**
+ * LE PAYSAGE SERRÉ — un téléphone couché, ou toute fenêtre trop basse.
+ *
+ * ⚠️ CE N'EST PAS UNE VARIANTE DE CONFORT, C'EST UN TERRAIN QUI N'EXISTAIT
+ * PLUS. Mesuré en partie, téléphone couché :
+ *
+ * | fenêtre | bandeau | consigne | pied | scène | CHAMP |
+ * |---|---|---|---|---|---|
+ * | 667 × 375 | 48 | 105 | 54 | 168 | 343 × 144 |
+ * | 667 × 375, consigne sur 2 lignes | 48 | **139** | 54 | 134 | **262 × 110** |
+ * | 812 × 375 | **74** | 106 | 54 | 141 | 278 × 117 |
+ *
+ * Deux défauts, pas un. Le HUD mange 207 à 247 px sur 375 — la moitié de
+ * l'écran — et il n'a pas de hauteur FIXE : une consigne qui passe à deux
+ * lignes rétrécit le champ de 24 % EN PLEINE PARTIE. Or la taille du champ
+ * EST du gameplay (n°10), et rien ne doit se décider sur une grandeur que la
+ * décision modifie (n°2). Le second défaut vaut aussi couché sur un bureau :
+ * à 1280 × 800, une consigne à glyphe (« TAPE LA LETTRE AFFICHÉE ») fait
+ * passer `#head` de 106 à 174 px, donc le champ de 1232 × 517 à 1128 × 474.
+ *
+ * LA RÉPONSE est celle du terrain debout : le bandeau, la consigne et le pied
+ * QUITTENT LE FLUX et se peignent dans deux bandes de hauteur CONSTANTE, en
+ * haut et en bas du canvas. Le champ ne bouge plus d'une manche à l'autre, et
+ * il récupère ce que le HUD lui prenait.
+ *
+ * ⚠️ LE MÊME CRITÈRE QUE LA FEUILLE, au pixel :
+ * `@media (orientation: landscape) and (max-height: 500px)`. En CSS, « paysage »
+ * veut dire largeur STRICTEMENT supérieure à la hauteur — c'est la frontière
+ * exacte avec `orientationPour`, qui rend « portrait » dès que la hauteur
+ * égale la largeur. Les deux domaines ne se chevauchent donc jamais.
+ *
+ * 500 et pas 680 : ce qui manque ici est de la HAUTEUR. Un téléphone couché
+ * plafonne vers 430 px (iPhone Pro Max), une tablette couchée en fait 768 et
+ * n'a besoin de rien. Une fenêtre de bureau écrasée à 400 px de haut souffre
+ * exactement du même mal et reçoit le même remède, ce qui est voulu.
+ */
+export const PAYSAGE_SERRE_H = 500;
+
+export function paysageSerre(largeurFenetre: number, hauteurFenetre: number): boolean {
+  return largeurFenetre > hauteurFenetre && hauteurFenetre <= PAYSAGE_SERRE_H;
+}
+
+/**
+ * La bande du HAUT en paysage serré : bandeau, consigne, sous-ligne, temps.
+ *
+ * 20 px de bandeau (nom de la règle + vies), 26 px de consigne, 11 px de
+ * sous-ligne, 1 + 4 px de barre de temps.
+ *
+ * ⚠️ RIEN N'Y EST CALÉ SUR LE CONTENU. Une consigne plus longue que prévu
+ * déborde dans le letterbox au lieu de pousser le terrain, et un glyphe de
+ * consigne clavier garde la même boîte que les autres : c'est une CONSTANTE,
+ * comme `RESERVE_CONSIGNE` debout, et c'est ce qui fait que le champ ne change
+ * plus de taille d'une manche à l'autre.
+ *
+ * ⚠️ 20 px pour le bandeau tient parce que le nom de la règle y passe à 13 px
+ * PAR SON IDENTIFIANT (`#bandRule`) : une règle de classe perd contre le
+ * `font-size: 21px` posé plus haut dans la feuille, et le nom se faisait
+ * couper en deux.
+ */
+export const RESERVE_CONSIGNE_COUCHE = 62;
+
+/**
+ * La bande du BAS en paysage serré : le pied, sur une seule ligne.
+ *
+ * Elle coûte, et le chiffre est écrit : à 812 × 375 le champ passe de
+ * 679 × 285 (sans pied) à 674 × 283. Sept dixièmes de pour cent pour garder le
+ * score, le record et le mode — dont l'annonce « RECORD DÉPASSÉ », qui n'a pas
+ * d'autre endroit où vivre pendant une partie.
+ */
+export const RESERVE_PIED_COUCHE = 30;
+
+/**
+ * La bande basse d'un SALON couché : plaques, émotes ET pied.
+ *
+ * ⚠️ ELLE REMPLACE `RESERVE_HUD_MULTI`, elle ne s'y ajoute pas. Mesuré à
+ * 667 × 375, match lancé : `#liveHud` faisait 144 px — plaques 110, émotes 60 —
+ * pour une bande plafonnée au tiers du canvas, soit 125 : **49 px de terrain
+ * passaient sous les plaques**. Couché, les émotes se posent donc à côté des
+ * plaques au lieu d'occuper leur propre rangée, et la plaque perd le nom de
+ * règle de l'adversaire. Le calque retombe à 94 px, plus 30 de pied.
+ *
+ * Elle vaut moins que `RESERVE_HUD_MULTI` (180) parce que le calque est plus
+ * court, pas parce qu'on serre les dents : un chiffre trop petit ramènerait
+ * exactement le bug qu'il existe pour fermer.
+ */
+export const RESERVE_HUD_MULTI_COUCHE = 124;
+
+/**
  * Le téléphone est-il tenu debout ?
  *
  * ⚠️ LE MÊME CRITÈRE QUE LA FEUILLE DE STYLE, au pixel : c'est elle qui replie
@@ -136,19 +223,28 @@ export interface Cadre {
  * un champ de 31 px. Un terrain illisible est pire qu'un HUD qui le touche.
  * Elle ne prend donc jamais plus du tiers du canvas.
  */
-function bandeBasse(cssH: number, reserveBas: number): number {
-  return Math.max(GOUTTIERE, Math.min(reserveBas, cssH / 3));
+function bande(cssH: number, reserve: number): number {
+  return Math.max(GOUTTIERE, Math.min(reserve, cssH / 3));
 }
 
 export function cadrePour(
   cssW: number,
   cssH: number,
   orientation: Orientation,
-  /** Bande basse réservée : plaques d'un salon, aide du tutoriel. */
+  /** Bande basse réservée : plaques d'un salon, aide du tutoriel, pied couché. */
   reserveBas = 0,
+  /**
+   * Bande HAUTE réservée, en paysage serré seulement : le HUD y quitte le flux
+   * et se peint dans le canvas (`RESERVE_CONSIGNE_COUCHE`).
+   *
+   * ⚠️ Debout, elle est ignorée : la consigne y a déjà sa bande, et c'est
+   * `RESERVE_CONSIGNE`. Deux réserves hautes pour une seule consigne
+   * s'additionneraient en silence.
+   */
+  reserveHaut = 0,
 ): Cadre {
   if (orientation === "portrait") {
-    const bas = bandeBasse(cssH, reserveBas);
+    const bas = bande(cssH, reserveBas);
     const usableW = Math.max(1, cssW - GOUTTIERE * 2);
     const usableH = Math.max(1, cssH - RESERVE_CONSIGNE - bas);
     const scale = Math.min(usableW / FIELD_H, usableH / FIELD_W);
@@ -165,16 +261,23 @@ export function cadrePour(
    * résultat était le bug des « glyphes qui traversent le canvas » : à
    * 1280 × 800 le champ finit à 721 et les plaques occupent 569-746.
    */
-  const bas = bandeBasse(cssH, reserveBas);
+  const bas = bande(cssH, reserveBas);
+  /*
+   * ⚠️ LA BANDE HAUTE A UN PLANCHER, et c'est la gouttière : `bande` rend 24
+   * même pour une réserve nulle. Sans réserve, le cadrage est donc EXACTEMENT
+   * celui d'avant — c'est ce qui garantit que le bureau et la tablette ne
+   * bougent pas d'un pixel.
+   */
+  const haut = bande(cssH, reserveHaut);
   const usableW = Math.max(1, cssW - GOUTTIERE * 2);
-  const usableH = Math.max(1, cssH - GOUTTIERE - bas);
+  const usableH = Math.max(1, cssH - haut - bas);
   const scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
   return {
     orientation,
     scale,
     offX: (cssW - FIELD_W * scale) / 2,
-    // Centré entre le haut du canvas et la bande basse, pas dans tout le canvas.
-    offY: GOUTTIERE + (cssH - GOUTTIERE - bas - FIELD_H * scale) / 2,
+    // Centré ENTRE les deux bandes, jamais dans tout le canvas.
+    offY: haut + (cssH - haut - bas - FIELD_H * scale) / 2,
   };
 }
 

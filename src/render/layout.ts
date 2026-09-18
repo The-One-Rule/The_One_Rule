@@ -64,9 +64,19 @@ export function stableGutter(
    */
   orientation: Orientation = "paysage",
   reserveBas = 0,
+  /**
+   * ⚠️ N'Y PASSE QUE DES RÉSERVES QUE LA DÉCISION NE CHANGE PAS. Les bandes du
+   * paysage serré ne dépendent que de la FENÊTRE : elles valent la même chose
+   * en colonnes et en bandeau, donc les compter ici ne rouvre pas la boucle
+   * que cette fonction existe pour fermer. La réserve des plaques, elle,
+   * n'existe QUE hors colonnes — l'appelant ne la passe jamais.
+   */
+  reserveHaut = 0,
 ): number {
   if (canvasW <= 48 || stageHeightNoPlates <= 48) return 0;
-  const r = rectEcran(cadrePour(canvasW, stageHeightNoPlates, orientation, reserveBas));
+  const r = rectEcran(
+    cadrePour(canvasW, stageHeightNoPlates, orientation, reserveBas, reserveHaut),
+  );
   return Math.max(0, Math.round((canvasW - r.w) / 2));
 }
 
