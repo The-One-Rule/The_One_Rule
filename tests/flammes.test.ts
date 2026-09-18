@@ -1,63 +1,74 @@
 /**
  * Les flammes : ce qui doit rester vrai quoi qu'il arrive au dessin.
  *
- * Le rendu se juge à l'œil ; ces propriétés-là, non. Un feu qui déborde sur le
- * terrain cache une pièce, un feu qui s'allume sur une manche piégée révèle le
- * piège (n°5) — et aucun des deux ne se voit sur une capture prise au hasard.
+ * Le rendu se juge à l'œil ; ces propriétés-là, non. Un feu qui prend racine
+ * dans le terrain cache une pièce, un feu qui s'allume sur une manche piégée
+ * révèle le piège (n°5) — et aucun des deux ne se voit sur une capture prise
+ * au hasard.
+ *
+ * ⚠️ Le placement ne garantit pas tout : les flammes ONDULENT, et c'est le
+ * DÉCOUPAGE du calque (`main.ts`) qui rogne une langue qui dépasserait. Ici on
+ * tient l'autre moitié : aucune flamme ne prend racine dans le champ.
  */
 import { describe, expect, it } from "vitest";
-import {
-  FEU_MAX,
-  ardeurDe,
-  couleur,
-  eteint,
-  foyersPour,
-  nouvelleGrille,
-  pasDeFeu,
-  poseInterdits,
-} from "../src/render/flammes";
-import type { Grille } from "../src/render/flammes";
+import { IMAGES, PLANCHE, SEUIL, ardeurDe, braisesPour, imageDe } from "../src/render/flammes";
+import type { Braise } from "../src/render/flammes";
 
-/** Un hasard déterministe : xorshift sur 16 bits. */
-function hasardDe(graine: number): () => number {
-  let s = graine || 1;
-  return () => {
-    s ^= s << 7;
-    s ^= s >> 9;
-    s ^= s << 8;
-    return s & 0xffff;
-  };
-}
+/**
+ * Une scène relevée pour de vrai : un téléphone debout de 375 × 812, terrain
+ * mesuré à {70, 176, 234, 558} dans le repère de l'application — le calque des
+ * flammes couvre `#app`, pas le canvas de jeu.
+ */
+const CANVAS = { w: 375, h: 812 };
+const CHAMP = { x: 70, y: 176, w: 234, h: 558 };
 
-/** Une scène type téléphone debout : 94 × 190 cases, terrain au milieu. */
-function scene(): { g: Grille; socle: number; haut: number; terrain: { x0: number; y0: number; x1: number; y1: number } } {
-  const g = nouvelleGrille(94, 190);
-  const terrain = { x0: 16, y0: 40, x1: 78, y1: 178 };
-  const socle = 184;
-  poseInterdits(g, [terrain, { x0: 0, y0: socle + 1, x1: 94, y1: 190 }]);
-  return { g, socle, haut: terrain.y0, terrain };
-}
+const dansLeChamp = (b: Braise): boolean =>
+  b.x > CHAMP.x && b.x < CHAMP.x + CHAMP.w && b.y > CHAMP.y && b.y < CHAMP.y + CHAMP.h;
 
-const chauffe = (s: ReturnType<typeof scene>, ardeur: number, pas: number, graine = 7): void => {
-  const h = hasardDe(graine);
-  for (let i = 0; i < pas; i++) pasDeFeu(s.g, foyersPour(ardeur, s.socle, s.haut), ardeur, h);
-};
+describe("où le feu prend", () => {
+  it("⚠️ aucune flamme ne prend racine dans le terrain", () => {
+    for (let a = 0; a <= 1.001; a += 0.05) {
+      for (const b of braisesPour(CANVAS, CHAMP, a)) {
+        expect(dansLeChamp(b), `ardeur ${a.toFixed(2)} : une flamme dans le champ`).toBe(false);
+      }
+    }
+  });
 
-describe("le feu ne couvre jamais ce qu'il faut lire", () => {
-  it("⚠️ aucune case du terrain ne s'allume, même à pleine ardeur", () => {
-    const s = scene();
-    chauffe(s, 1, 200);
-    const { g, terrain } = s;
-    let allumees = 0;
-    for (let y = terrain.y0; y < terrain.y1; y++)
-      for (let x = terrain.x0; x < terrain.x1; x++) if (g.feu[y * g.w + x]) allumees++;
-    expect(allumees).toBe(0);
-    // Les dents : le feu brûle bel et bien AUTOUR.
-    expect(eteint(g)).toBe(false);
+  it("le feu prend par le BAS, puis les côtés, et le haut en dernier", () => {
+    const cotes = (a: number): string[] => [...new Set(braisesPour(CANVAS, CHAMP, a).map((b) => b.cote))].sort();
+    expect(cotes(0.02)).toEqual([]);
+    expect(cotes(0.1)).toEqual(["bas"]);
+    expect(cotes(0.3)).toEqual(["bas", "droite", "gauche"]);
+    expect(cotes(1)).toEqual(["bas", "droite", "gauche", "haut"]);
+    // Le haut n'arrive qu'au-delà du seuil de la maquette.
+    expect(cotes(SEUIL.haut - 0.01)).not.toContain("haut");
+  });
+
+  it("plus on avance, plus il y a de flammes et plus elles montent", () => {
+    const mesure = (a: number): { n: number; h: number } => {
+      const bs = braisesPour(CANVAS, CHAMP, a);
+      return { n: bs.length, h: Math.max(0, ...bs.map((b) => b.h)) };
+    };
+    const tiede = mesure(0.25);
+    const chaud = mesure(1);
+    expect(chaud.n).toBeGreaterThan(tiede.n);
+    expect(chaud.h).toBeGreaterThan(tiede.h);
+  });
+
+  it("⚠️ rien n'est tiré au sort : deux appels donnent le même feu", () => {
+    // Sinon le feu grésillerait d'une image à l'autre, et aucun test ne
+    // pourrait le décrire.
+    expect(braisesPour(CANVAS, CHAMP, 0.6)).toEqual(braisesPour(CANVAS, CHAMP, 0.6));
+  });
+
+  it("les flammes ne battent pas toutes ensemble", () => {
+    const bs = braisesPour(CANVAS, CHAMP, 1);
+    expect(new Set(bs.map((b) => b.phase)).size).toBeGreaterThan(3);
+    expect(new Set(bs.map((b) => Math.round(b.vitesse * 100))).size).toBeGreaterThan(3);
   });
 });
 
-describe("il suit l'avancée", () => {
+describe("l'ardeur", () => {
   it("rien pendant l'échauffement, tout à la manche 30, jamais en arrière", () => {
     expect(ardeurDe(0, 3)).toBe(0);
     expect(ardeurDe(2, 3)).toBe(0);
@@ -70,44 +81,28 @@ describe("il suit l'avancée", () => {
       avant = a;
     }
   });
-
-  it("à froid il ne prend pas ; éteint, il retombe à zéro", () => {
-    const s = scene();
-    chauffe(s, 0, 60);
-    expect(eteint(s.g)).toBe(true);
-    chauffe(s, 1, 80);
-    expect(eteint(s.g)).toBe(false);
-    chauffe(s, 0, 120);
-    expect(eteint(s.g)).toBe(true);
-  });
-
-  it("plus on avance, plus il monte le long des bords", () => {
-    const plusHaute = (ardeur: number): number => {
-      const s = scene();
-      chauffe(s, ardeur, 150);
-      for (let y = 0; y < s.g.h; y++) if (s.g.feu[y * s.g.w] || s.g.feu[y * s.g.w + s.g.w - 1]) return y;
-      return s.g.h;
-    };
-    const tiede = plusHaute(0.2);
-    const chaud = plusHaute(1);
-    expect(chaud).toBeLessThan(tiede);
-    // à pleine ardeur, il passe au-dessus du haut du terrain
-    expect(chaud).toBeLessThan(40);
-  });
-
-  it("le linteau — le feu par-dessus la barre — n'arrive qu'au-delà de 0,7", () => {
-    expect(foyersPour(0.69, 184, 40)?.linteau).toBeNull();
-    expect(foyersPour(0.7, 184, 40)?.linteau).toBe(38);
-    expect(foyersPour(0.02, 184, 40)).toBeNull();
-  });
 });
 
-describe("la palette", () => {
-  it("transparente à zéro, blanche au sommet, et le blanc pousse vers le clair", () => {
-    expect(couleur(0, 1)[3]).toBe(0);
-    expect(couleur(FEU_MAX, 0)).toEqual([239, 234, 224, 255]);
-    const tiede = couleur(12, 0);
-    const eclat = couleur(12, 1);
-    expect(eclat[0] + eclat[1] + eclat[2]).toBeGreaterThan(tiede[0] + tiede[1] + tiede[2]);
+describe("la planche", () => {
+  it("l'image tourne en boucle et reste dans la planche", () => {
+    const b = braisesPour(CANVAS, CHAMP, 1)[0]!;
+    for (const t of [0, 123, 5000, 999999]) {
+      const { sx, sy } = imageDe(b, t);
+      expect(sx % PLANCHE.image).toBe(0);
+      expect(sy % PLANCHE.image).toBe(0);
+      expect(sx).toBeLessThan(PLANCHE.colonnes * PLANCHE.image);
+      expect(sy).toBeLessThan(PLANCHE.rangees * PLANCHE.image);
+    }
+    expect(IMAGES).toBe(PLANCHE.colonnes * PLANCHE.rangees);
+  });
+
+  it("l'animation avance vraiment avec le temps", () => {
+    const b = braisesPour(CANVAS, CHAMP, 1)[0]!;
+    const vues = new Set<string>();
+    for (let t = 0; t < 2000; t += 40) {
+      const { sx, sy } = imageDe(b, t);
+      vues.add(`${sx},${sy}`);
+    }
+    expect(vues.size).toBeGreaterThan(10);
   });
 });

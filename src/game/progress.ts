@@ -262,18 +262,151 @@ const fresh = (): Save => ({
 
 let cache: Save | null = null;
 
+/* ------------------------------------------------------------------ *
+ * LA SAUVEGARDE EST UNE DONNÉE QU'ON NE CONTRÔLE PAS
+ *
+ * ⚠️ UN SEUL CHAMP DU MAUVAIS TYPE TUAIT LE JEU, EN SILENCE. `load` faisait
+ * `{ ...fresh(), ...parsed }` : un champ ABSENT retombait bien sur le défaut,
+ * mais un champ PRÉSENT au mauvais type écrasait le défaut avec sa valeur.
+ * Mesuré dans le navigateur avec `encountered: null` : `Object.keys` lève,
+ * l'écran d'accueil s'affiche normalement, et JOUER ne répond plus. Rien à
+ * l'écran, rien à réparer pour le joueur — la pire forme de panne.
+ *
+ * Le cas n'est pas théorique : une sauvegarde peut venir d'une version
+ * antérieure, d'un onglet resté ouvert pendant un déploiement, d'une extension
+ * qui recopie le stockage, ou d'une main qui édite. C'est la même doctrine que
+ * `normaliseDejoue` et que « absent vaut… » : on RECONSTRUIT ce qu'on relit,
+ * champ par champ, plutôt que de faire confiance à sa forme.
+ * ------------------------------------------------------------------ */
+
+const estObjet = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+const nombre = (v: unknown, secours: number): number =>
+  typeof v === "number" && Number.isFinite(v) ? v : secours;
+
+const booleen = (v: unknown, secours: boolean): boolean =>
+  typeof v === "boolean" ? v : secours;
+
+const texte = (v: unknown, secours: string): string => (typeof v === "string" ? v : secours);
+
+/** Une entrée de carnet, reconstruite : tout champ douteux disparaît. */
+function normaliseEntree(v: unknown): RuleRecord | null {
+  if (!estObjet(v)) return null;
+  const e: RuleRecord = { best: nombre(v.best, 0), cleared: booleen(v.cleared, false) };
+  if (typeof v.pieges === "number" && Number.isFinite(v.pieges)) e.pieges = v.pieges;
+  if (estObjet(v.parAllure)) {
+    const par: Record<string, number> = {};
+    for (const [k, x] of Object.entries(v.parAllure)) if (typeof x === "number" && Number.isFinite(x)) par[k] = x;
+    e.parAllure = par;
+  }
+  if (typeof v.serie === "number" && Number.isFinite(v.serie)) e.serie = v.serie;
+  if (typeof v.sansFaute === "boolean") e.sansFaute = v.sansFaute;
+  if (typeof v.runs === "number" && Number.isFinite(v.runs)) e.runs = v.runs;
+  // L'escalier a sa propre relecture (`escalierDe`) : on ne garde que sa forme.
+  if (estObjet(v.escalier)) e.escalier = v.escalier as unknown as EscalierEntree;
+  return e;
+}
+
+/**
+ * Reconstruit une sauvegarde sûre à partir de ce qui était stocké.
+ *
+ * Pure et exportée pour être éprouvée sans navigateur : c'est le seul endroit
+ * du jeu qui décide de ce qu'une sauvegarde bricolée vaut.
+ */
+export function normaliseSave(brut: unknown): Save {
+  const d = fresh();
+  if (!estObjet(brut)) return d;
+
+  const carnet: Record<string, RuleRecord> = {};
+  if (estObjet(brut.encountered)) {
+    for (const [id, v] of Object.entries(brut.encountered)) {
+      const e = normaliseEntree(v);
+      if (e) carnet[id] = e;
+    }
+  }
+
+  const records: Record<string, number> = {};
+  if (estObjet(brut.records)) {
+    for (const [k, v] of Object.entries(brut.records)) if (typeof v === "number" && Number.isFinite(v)) records[k] = v;
+  }
+
+  const st = estObjet(brut.streak) ? brut.streak : {};
+  const dj = estObjet(brut.daily) ? brut.daily : {};
+  const qu = estObjet(brut.quests) ? brut.quests : {};
+  const rk = estObjet(brut.ranked) ? brut.ranked : {};
+  const mu = estObjet(brut.multi) ? brut.multi : {};
+  const me = estObjet(brut.metrics) ? brut.metrics : {};
+  const cp = estObjet(brut.compte) ? brut.compte : {};
+
+  const s: Save = {
+    v: 1,
+    anonId: texte(brut.anonId, d.anonId) || d.anonId,
+    encountered: carnet,
+    streak: {
+      count: nombre(st.count, d.streak.count),
+      lastDay: nombre(st.lastDay, d.streak.lastDay),
+      graceWeek: nombre(st.graceWeek, d.streak.graceWeek),
+      graceLeft: nombre(st.graceLeft, d.streak.graceLeft),
+    },
+    recent: Array.isArray(brut.recent)
+      ? brut.recent.filter((x): x is number => typeof x === "number" && Number.isFinite(x))
+      : d.recent,
+    daily: {
+      day: nombre(dj.day, d.daily.day),
+      played: booleen(dj.played, d.daily.played),
+      score: nombre(dj.score, d.daily.score),
+      cleared: booleen(dj.cleared, d.daily.cleared),
+      ...(typeof dj.essais === "number" && Number.isFinite(dj.essais) ? { essais: dj.essais } : {}),
+    },
+    quests: {
+      day: nombre(qu.day, d.quests.day),
+      state: estObjet(qu.state) ? (qu.state as Record<string, number>) : {},
+      claimed: Array.isArray(qu.claimed) ? qu.claimed.filter((x): x is string => typeof x === "string") : [],
+    },
+    coins: nombre(brut.coins, d.coins),
+    ranked: {
+      name: texte(rk.name, d.ranked.name),
+      rating: nombre(rk.rating, d.ranked.rating),
+      games: nombre(rk.games, d.ranked.games),
+    },
+    multi: { glyph: nombre(mu.glyph, d.multi.glyph), matches: nombre(mu.matches, d.multi.matches) },
+    sound: booleen(brut.sound, d.sound),
+    music: booleen(brut.music, d.music),
+    daltonien: booleen(brut.daltonien, d.daltonien),
+    lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
+    bestTraining: nombre(brut.bestTraining, d.bestTraining),
+    trainingPace: nombre(brut.trainingPace, d.trainingPace),
+    dejoue: normaliseDejoue(brut.dejoue),
+    trainingRegle: typeof brut.trainingRegle === "string" ? brut.trainingRegle : null,
+    metrics: {
+      on: booleen(me.on, d.metrics.on),
+      asked: booleen(me.asked, d.metrics.asked),
+      firstDay: nombre(me.firstDay, d.metrics.firstDay),
+      lastDay: nombre(me.lastDay, d.metrics.lastDay),
+    },
+    records,
+    compte: {
+      revendiquePar: typeof cp.revendiquePar === "string" ? cp.revendiquePar : null,
+      glyphe: typeof cp.glyphe === "number" && Number.isFinite(cp.glyphe) ? cp.glyphe : null,
+    },
+  };
+  // Les deux drapeaux « déjà vu » : absent vaut NON, et c'est voulu (voir leur
+  // commentaire respectif). On ne les pose que s'ils sont vraiment booléens.
+  if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
+  if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
+  return s;
+}
+
 export function load(): Save {
   if (cache) return cache;
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const parsed = JSON.parse(raw) as Save;
-      if (parsed.v === 1) {
-        const s = { ...fresh(), ...parsed };
-        if (s.lang !== "fr" && s.lang !== "en") s.lang = "fr";
-        s.dejoue = normaliseDejoue(parsed.dejoue);
-        cache = s;
-        return s;
+      const parsed: unknown = JSON.parse(raw);
+      if (estObjet(parsed) && parsed.v === 1) {
+        cache = normaliseSave(parsed);
+        return cache;
       }
     }
   } catch {

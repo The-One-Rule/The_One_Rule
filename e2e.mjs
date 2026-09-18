@@ -535,15 +535,40 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   // vies du lancement. C'est le meme flux que le vrai client utilise.
   await sleep(9000);
   const dernier = eq[0].verdicts[eq[0].verdicts.length - 1];
-  const vies = (nom) => dernier?.players?.find((p) => p.name === nom)?.lives;
-  const v1 = vies("D1");
-  const v2 = vies("D2");
-  const v3 = vies("D3");
+  const viesDe = (v, nom) => v?.players?.find((p) => p.name === nom)?.lives;
+  const v1 = viesDe(dernier, "D1");
+  const v2 = viesDe(dernier, "D2");
+  const v3 = viesDe(dernier, "D3");
   info(`verdicts recus : ${eq[0].verdicts.length}`);
   info(`vies vues par D1 : D1=${v1} D2=${v2} D3=${v3} (D2 ne joue pas)`);
   ok(v1 === v2, `la reserve est COMMUNE : D1 et D2 affichent le meme compte (${v1} / ${v2})`);
   ok(v1 < 3, `les fautes de D2 ont entame la reserve de D1 (${v1} sur 3)`);
-  ok(v3 === 3, `l'autre equipe n'a rien perdu (${v3})`);
+
+  /*
+   * ⚠️ CETTE ASSERTION ETAIT INTERMITTENTE, ET LE DEPOT LA CONNAISSAIT.
+   *
+   * Elle lisait les vies de D3 APRES neuf secondes d'attente. Or D3 joue, lui,
+   * et rien ne garantit qu'il ne faute jamais sur neuf secondes — une regle
+   * que le pilote de l'e2e joue mal (LE GAUCHER, LA SECONDE) suffit. Elle est
+   * tombee une fois sur deux lancements consecutifs sans qu'aucun code de
+   * match n'ait change, et le recapitulatif ne la voyait pas : il ne surveille
+   * que les marges des grandeurs mesurees, et celle-ci est une egalite.
+   *
+   * Ce qu'on veut prouver n'est pas « D3 ne faute jamais », c'est « les
+   * reserves sont SEPAREES ». On lit donc D3 a l'instant EXACT ou la reserve
+   * de l'autre equipe baisse pour la premiere fois : a cette manche-la, si les
+   * reserves sont bien separees, D3 est encore intact.
+   */
+  const bascule = eq[0].verdicts.find((v) => (viesDe(v, "D1") ?? 3) < 3);
+  const v3Alors = viesDe(bascule, "D3");
+  ok(
+    bascule !== undefined,
+    `la reserve de l'equipe de D2 a bien baisse pendant la fenetre observee`,
+  );
+  ok(
+    v3Alors === 3,
+    `a l'instant ou l'equipe de D2 perd sa premiere vie, l'autre equipe est intacte (${v3Alors})`,
+  );
 
   for (const c of eq) c.ws.close();
   await sleep(220);

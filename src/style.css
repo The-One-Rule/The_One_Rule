@@ -7474,8 +7474,13 @@ button.chip:active:not(:disabled) {
   justify-self: center;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   border: 0;
+  /* Mesuré à 42 × 44 : deux pixels sous la cible tactile, pour un bouton qui
+     ramène à l'accueil depuis tous les écrans de menu. */
+  min-width: var(--tap);
+  min-height: var(--tap);
   padding: 4px 6px;
   background: none;
   color: var(--paper);
@@ -11226,8 +11231,16 @@ button.chip:active:not(:disabled) {
  * `max-content` — la meme recette que toutes les barres segmentees du site,
  * trois essais mesures avant d'y arriver.
  */
+/*
+ * ⚠️ `min-width: max-content` sur trois cellules dépasse la largeur d'un petit
+ * téléphone : mesuré à 320 px, la troisième finissait à 324. C'est la
+ * quatrième fois que ce dépôt paie une barre segmentée trop longue — et le
+ * remède reste le même, sauf qu'ici les mots sont déjà courts : on laisse la
+ * barre passer à la ligne plutôt qu'écraser un chiffre.
+ */
 .briefstats {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   margin-top: 12px;
   width: 100%;
@@ -12750,9 +12763,15 @@ button.chip:active:not(:disabled) {
   letter-spacing: 0.06em;
 }
 
+/*
+ * ⚠️ IL ÉTAIT REDESCENDU À 34 px SUR TÉLÉPHONE — mesuré : 78 × 36 px, sur
+ * l'écran où l'on ne fait QUE toucher des interrupteurs. La règle générale
+ * dit 44 (`--tap`), et c'est elle qui a raison : cinq réglages gagnent
+ * 40 px de hauteur sur un écran qui défile déjà, et rien d'autre ne change.
+ */
 .rgl__inter i {
   width: 38px;
-  min-height: 34px;
+  min-height: var(--tap);
   font-size: var(--t-etiquette);
 }
 
@@ -14824,19 +14843,23 @@ button.chip:active:not(:disabled) {
  * réserve une bande de hauteur FIXE (`RESERVE_HUD_MULTI`). Si elles passaient
  * à la ligne, un salon de dix recouvrirait le bas du champ.
  * ================================================================== */
-@media (max-width: 680px) and (orientation: portrait) {
-  #app:not(.has-gutters):not(.has-topbar) #liveHud .plates {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
-    /* PAS de `pointer-events: auto` : la boîte de la rangée déborde de 20 px
-       sur le bas du terrain (mesuré), elle y volerait des touchers. */
-    scrollbar-width: none;
-  }
+/*
+ * ⚠️ UNE SEULE RANGÉE, QUELLE QUE SOIT LA LARGEUR, dès que les plaques sont un
+ * calque au bas de l'écran. La bande que le terrain leur réserve est une
+ * CONSTANTE : si elles passaient à la ligne, un salon de dix la déborderait et
+ * recouvrirait le champ — exactement le bug qu'on vient de fermer.
+ */
+#app:not(.has-gutters):not(.has-topbar) #liveHud .plates {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  /* PAS de `pointer-events: auto` : la boîte de la rangée déborde sur le bas du
+     terrain (mesuré), elle y volerait des touchers. */
+  scrollbar-width: none;
+}
 
-  #app:not(.has-gutters):not(.has-topbar) #liveHud .plates > * {
-    flex: 0 0 auto;
-  }
+#app:not(.has-gutters):not(.has-topbar) #liveHud .plates > * {
+  flex: 0 0 auto;
 }
 
 /* Les flammes : un buffer d'une case pour 4 px, agrandi SANS lissage — une
@@ -15097,11 +15120,10 @@ button.chip:active:not(:disabled) {
     flex: none;
   }
 
-  /* Quatre allures en 2 × 2 égal, pas 3 + 1 : une rangée orpheline se lit
-     comme un oubli. */
-  #brief .settings__opts > * {
-    flex: 1 1 calc(50% - 8px);
-  }
+  /* ⚠️ Voir la règle générale plus bas : toute barre à QUATRE choix se compose
+     en 2 × 2 sur téléphone. Elle valait d'abord pour le brief seul, et l'écran
+     des réglages gardait sa rangée orpheline — deux endroits pour une même
+     question, c'est la famille de défauts que ce dépôt paie le plus souvent. */
 }
 
 /* ==================================================================
@@ -15126,5 +15148,47 @@ button.chip:active:not(:disabled) {
     grid-column: 1 / -1;
     min-height: 60px;
     font-size: var(--t-lire);
+  }
+}
+
+
+/*
+ * Les filtres du carnet en large sont une LISTE, pas des boutons : 34 px y
+ * suffisent à la souris. Au doigt — une tablette large, un portable tactile —
+ * ils redeviennent des cibles.
+ */
+@media (min-width: 900px) and (pointer: coarse) {
+  #codex .filtre {
+    min-height: var(--tap);
+  }
+}
+
+
+/*
+ * UNE BARRE À QUATRE CHOIX SE COMPOSE EN 2 × 2 SUR TÉLÉPHONE.
+ *
+ * À 375 px, quatre allures tiennent en 3 + 1 : la quatrième reste seule sur sa
+ * ligne, et une rangée orpheline se lit comme un oubli. `:has` compte pour
+ * nous — la règle ne touche donc PAS les barres à trois ou cinq crans (les
+ * vies, la vitesse du salon), où le repli naturel est le bon.
+ */
+@media (max-width: 680px) and (orientation: portrait) {
+  .settings__opts:has(> :nth-child(4):last-child) > * {
+    flex: 1 1 calc(50% - 8px);
+  }
+
+  /* ⚠️ `.opts` n'est PAS un conteneur flex — il est en `display: block` avec des
+     enfants `inline-flex`, donc une base flexible n'y fait rien (mesuré : les
+     allures restaient en 88 / 117 / 88 px). Il devient une grille à deux
+     colonnes, et les largeurs s'égalisent vraiment. */
+  .opts:has(> :nth-child(4):last-child) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .opts:has(> :nth-child(4):last-child) > * {
+    min-width: 0;
+    margin: 0;
   }
 }

@@ -60,28 +60,47 @@ const GOUTTIERE = FIELD_GUTTER;
  *
  * ⚠️ UNE CONSTANTE, PAS UNE MESURE DE LA CONSIGNE. La consigne change à chaque
  * manche : caler le terrain sur sa hauteur le ferait bouger d'une manche à
- * l'autre, et la taille du champ est du gameplay (n°10). Mesuré à 375 px avec
- * la plus longue du pool tactile, « CLIQUE CELUI QUI N'EST PAS UN TRIANGLE »
- * (deux lignes à 34 px, plus « 1 GESTE ») : elle finit à 102 px. 112 laisse
- * 10 px d'air.
+ * l'autre, et la taille du champ est du gameplay (n°10).
+ *
+ * ⚠️ ELLE COMPTE LA BARRE DE TEMPS, ET C'EST UN DÉFAUT PAYÉ. La première
+ * version ne mesurait que la consigne et sa sous-ligne — 102 px, d'où 112.
+ * Mais `#timer` est DANS `#head`, sous elles : avec la plus longue consigne du
+ * pool tactile sur deux lignes (« CLIQUE CELUI QUI N'EST PAS UN TRIANGLE »),
+ * la barre de temps descendait à 124 px et se posait sur le terrain. Mesuré à
+ * 375 × 812, en partie : barre à 165-172 pour un champ qui commence à 160.
+ * 128 laisse 4 px d'air, et le terrain ne perd que 20 px de haut.
  */
-export const RESERVE_CONSIGNE = 112;
+export const RESERVE_CONSIGNE = 128;
 
 /**
- * La bande laissée aux PLAQUES et aux émotes sous le terrain debout, en
- * multijoueur.
+ * La bande laissée aux PLAQUES et aux émotes sous le terrain, en multijoueur.
  *
- * Mesuré à 375 × 812, salon lancé : `#liveHud` occupe 144 px au-dessus du
- * pied (une rangée de plaques, puis les émotes). Couché, il tombait dans les
- * 287 px de vide sous le terrain ; debout, il recouvrait le bas du champ —
- * une pièce cachée sous une plaque ne se clique pas.
+ * ⚠️ ELLE VAUT DANS LES DEUX SENS, ET C'EST UN BUG RAPPORTÉ PAR PIERRE : « le
+ * canvas est traversé par les glyphes des joueurs ». Mesuré à 1280 × 800, un
+ * salon lancé : `#liveHud` occupe 177 px (une rangée de plaques, puis les
+ * émotes) et le terrain descend à 721 — donc 152 px de terrain, avec ses
+ * pièces, SOUS les plaques. La première version de cette réserve ne valait
+ * qu'en portrait ; couché, le champ remplit presque tout le canvas et il n'y
+ * a aucun vide où poser le HUD.
  *
- * ⚠️ Constante pour toute la partie, comme la bande de la consigne : un
- * terrain qui se recalerait sur le nombre de plaques bougerait quand un
- * joueur part. Les plaques restent donc sur UNE rangée qui défile (feuille,
- * même media query).
+ * ⚠️ Constante pour toute la partie : un terrain qui se recalerait sur le
+ * nombre de plaques bougerait quand un joueur part. Les plaques tiennent donc
+ * sur UNE rangée qui défile (feuille), quelle que soit la largeur.
+ *
+ * ⚠️ Elle ne s'applique JAMAIS en colonnes (`has-gutters`) : là, les plaques
+ * vivent dans les gouttières latérales et ne touchent pas le champ.
  */
-export const RESERVE_HUD_MULTI = 150;
+export const RESERVE_HUD_MULTI = 180;
+
+/**
+ * La bande laissée à la ligne d'aide du TUTORIEL, même défaut, même remède.
+ *
+ * Mesuré à 1280 × 800 : le calque d'aide couvre 616-746 pour un terrain qui
+ * finit à 721. Il est plus court que le HUD d'un salon, donc il a sa propre
+ * mesure — réserver 180 px pour 130 volerait 50 px de terrain à un joueur qui
+ * découvre le jeu.
+ */
+export const RESERVE_AIDE_TUTO = 140;
 
 /**
  * Le téléphone est-il tenu debout ?
@@ -109,15 +128,27 @@ export interface Cadre {
 }
 
 /** Le letterbox du champ dans un canvas de `cssW × cssH`. */
+/**
+ * ⚠️ LA BANDE BASSE NE PEUT PAS ÉCRASER LE TERRAIN.
+ *
+ * Mesuré en la posant sans borne : sur un canvas de 235 px de haut (une fenêtre
+ * courte, ou l'instant où la mise en page change), 180 px de réserve laissaient
+ * un champ de 31 px. Un terrain illisible est pire qu'un HUD qui le touche.
+ * Elle ne prend donc jamais plus du tiers du canvas.
+ */
+function bandeBasse(cssH: number, reserveBas: number): number {
+  return Math.max(GOUTTIERE, Math.min(reserveBas, cssH / 3));
+}
+
 export function cadrePour(
   cssW: number,
   cssH: number,
   orientation: Orientation,
-  /** Bande basse réservée (multijoueur debout). Ignorée couché. */
+  /** Bande basse réservée : plaques d'un salon, aide du tutoriel. */
   reserveBas = 0,
 ): Cadre {
   if (orientation === "portrait") {
-    const bas = Math.max(GOUTTIERE, reserveBas);
+    const bas = bandeBasse(cssH, reserveBas);
     const usableW = Math.max(1, cssW - GOUTTIERE * 2);
     const usableH = Math.max(1, cssH - RESERVE_CONSIGNE - bas);
     const scale = Math.min(usableW / FIELD_H, usableH / FIELD_W);
@@ -129,14 +160,21 @@ export function cadrePour(
       offY: RESERVE_CONSIGNE + (cssH - RESERVE_CONSIGNE - bas - FIELD_W * scale) / 2,
     };
   }
+  /*
+   * ⚠️ COUCHÉ AUSSI, la bande basse compte. Elle était ignorée ici, et le
+   * résultat était le bug des « glyphes qui traversent le canvas » : à
+   * 1280 × 800 le champ finit à 721 et les plaques occupent 569-746.
+   */
+  const bas = bandeBasse(cssH, reserveBas);
   const usableW = Math.max(1, cssW - GOUTTIERE * 2);
-  const usableH = Math.max(1, cssH - GOUTTIERE * 2);
+  const usableH = Math.max(1, cssH - GOUTTIERE - bas);
   const scale = Math.min(usableW / FIELD_W, usableH / FIELD_H);
   return {
     orientation,
     scale,
     offX: (cssW - FIELD_W * scale) / 2,
-    offY: (cssH - FIELD_H * scale) / 2,
+    // Centré entre le haut du canvas et la bande basse, pas dans tout le canvas.
+    offY: GOUTTIERE + (cssH - GOUTTIERE - bas - FIELD_H * scale) / 2,
   };
 }
 

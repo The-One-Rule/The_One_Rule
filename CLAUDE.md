@@ -774,14 +774,22 @@ Pierre** ; ce qui est mesuré ici est un fait de produit.
 Une seule sollicitation par écran : quand le bandeau paraît, l'invitation au
 compte cède sa place pour ce run-là.
 
-⚠️ **Une assertion de l'e2e est INTERMITTENTE** : `[036] l'autre equipe n'a
-rien perdu` (scénario DUO) a échoué une fois sur deux lancements consécutifs,
-sans qu'aucun code de match ait changé. Elle attend `v3 === 3` après une
-attente de 9 s pendant laquelle D3 ne joue pas : dès que l'échauffement se
-termine dans cette fenêtre, D3 perd des vies et l'assertion tombe. Le
-récapitulatif de l'e2e ne la voit PAS — il ne surveille que les marges des
-grandeurs mesurées, et celle-ci est une égalité. À reprendre : soit borner
-l'attente, soit lire les vies de D3 avant la fin de l'échauffement.
+⚠️ **L'assertion INTERMITTENTE du scénario DUO est réparée.** `l'autre equipe
+n'a rien perdu` lisait les vies de D3 APRÈS neuf secondes d'attente — or D3
+joue, et rien ne garantit qu'il ne faute jamais sur neuf secondes. Elle
+tombait une fois sur deux lancements, et le récapitulatif ne la voyait pas :
+il ne surveille que les marges des grandeurs mesurées, et celle-ci est une
+égalité. Ce qu'elle doit prouver n'est pas « D3 ne faute jamais » mais « les
+réserves sont SÉPARÉES » : elle lit donc D3 à l'instant EXACT où la réserve de
+l'autre équipe baisse pour la première fois. **La leçon vaut pour la
+prochaine : une égalité mesurée à un instant CHOISI, jamais après une
+attente.**
+
+⚠️ **L'e2e est sensible à la CHARGE DE LA MACHINE.** Lancé pendant qu'un
+serveur de salons tournait déjà, il a rendu deux échecs — `[001] match_end
+reçu sans leave forcé` et `[005] CHLOE éliminée par timeouts` — puis 110/110
+dès le serveur arrêté. Ses clients jugent des délais réels : un autre
+processus qui mange le CPU produit de faux échecs. **Le lancer seul.**
 
 ⚠️ **Casser le correctif pour éprouver un test ne marche plus partout** : le
 classificateur de permissions refuse de lancer les tests quand une
@@ -2403,6 +2411,59 @@ le volet qui ne compose pas d'images — mais elle PÉRIME à chaque changement
 du HTML, et une copie périmée fait croire qu'un élément manque. La régénérer
 avant chaque mesure. Et une boîte masquée par le JS local (`VITE_*` vides) ne
 prouve rien du déploiement.
+
+### Ce que la passe de stabilité a éprouvé, et ce qu'elle a trouvé
+
+Directive de Pierre : « stabilise la version au maximum, on n'implémente rien
+tant que le site n'est pas parfaitement stable ». Ce qui suit dit ce qui a été
+VÉRIFIÉ, pour que la prochaine session ne le refasse pas à l'aveugle.
+
+⚠️ **Le seul vrai bug trouvé est décrit au §12 (sauvegarde)** : un champ du
+mauvais type tuait JOUER en silence. Le reste a tenu :
+
+- **sauvegardes bricolées** — JSON invalide, version inconnue, tableau, chaîne
+  vide, champs du mauvais type : le jeu se lance et se joue dans les cinq cas
+  (il n'en tenait que quatre avant `normaliseSave`) ;
+- **stockage INTERDIT** (navigation privée stricte : chaque accès lève) :
+  accueil, tutoriel, partie, aucune erreur ;
+- **singe** — 70 clics au hasard, puis 90 événements mêlés (clics, touches
+  `f R Échap Espace flèches`, appuis sur le terrain) avec le stockage bloqué :
+  aucune exception, écran cohérent à l'arrivée ;
+- **rotation en pleine partie** (375 × 812 → 812 × 375) : pas de casse ; le
+  champ y devient minuscule (222 × 93), mais c'est le paysage téléphone
+  d'avant, pas une régression. ⚠️ **À faire un jour** : y replier le bandeau
+  comme en portrait — la consigne y mange 230 px des 375.
+
+Les tests unitaires ont été lancés **trois fois de suite** (968 à chaque fois) :
+aucun n'est intermittent aujourd'hui.
+
+### Les flammes viennent d'un pack, et ce n'est pas un détail
+
+`public/fx/flamme.png` sort du **OVERBURN Asset Pack, par Overboy** (série
+violette), fourni par Pierre avec la consigne de s'en servir. Licence : usage
+commercial et modification permis, **redistribution du pack interdite** — on
+peut donc l'embarquer dans le jeu, jamais le republier tel quel. Le crédit
+n'est pas exigé ; il est écrit dans `render/flammes.ts` par correction.
+
+⚠️ **Deux mesures ont changé le dessin, et aucune ne se devinait :**
+
+- les pixels opaques de la planche sont à **~325°** (magenta) alors que
+  `--signal` est à **249°** : la rotation de teinte vaut −76°. Un premier essai
+  à −96° donnait des flammes bleues ;
+- dans chaque image de 48 × 48, le dessin ne tient que dans **x 17-29, y 6-27**
+  — 13 px sur 22, dans la moitié HAUTE. Dessiner l'image entière ancrée en bas
+  donnait des flammes deux fois trop petites, flottant au-dessus de leur pied.
+  On ne dessine que cette boîte (`BOITE`), et c'est elle qu'on met à l'échelle.
+
+⚠️ **Le feu du bas monte du HAUT DU PIED**, pas du bas du calque : sous le pied
+il est découpé, donc invisible — au premier rendu, toutes les flammes du bas
+étaient perdues et il ne restait que les deux côtés.
+
+Le feu de DOOM procédural qui a précédé est mort de ce qu'aucun réglage ne
+rattrape : il avait l'air d'un dégradé animé. Trois passes (foyers
+intermittents, vent vers le centre, force plafonnée) l'ont approché sans
+jamais y arriver. Une planche dessinée à la main a réglé la question en une
+fois — et coûte moins de calcul par image.
 
 ### Backlog
 

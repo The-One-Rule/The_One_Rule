@@ -7,233 +7,152 @@
  * qui augmente ». Et la maquette de Pierre : le feu naît autour du terrain,
  * puis, plus on avance, il monte jusqu'à passer par-dessus la barre du haut.
  *
- * L'ALGORITHME est celui du feu de DOOM (1993), et ce n'est pas un clin d'œil :
- * c'est le feu pixel le moins cher qui existe. Une grille d'intensités, des
- * sources allumées, et chaque case prend la chaleur de la case du dessous,
- * légèrement déportée, moins un peu. Rien d'autre. À 4 px la case, un écran de
- * 1280 × 800 fait 64 000 cases : une boucle d'entiers, sans allocation.
+ * ⚠️ **CE N'EST PLUS UN FEU CALCULÉ, CE SONT DES SPRITES.** La première version
+ * dessinait un feu de DOOM — une grille d'intensités qui se propage. Elle
+ * marchait, mais elle avait l'air d'un dégradé animé : trois réglages
+ * successifs (foyers intermittents, vent vers le centre, force plafonnée) n'ont
+ * jamais fait qu'approcher une flamme. Pierre a fourni un pack d'assets et la
+ * consigne de s'en servir : c'est une VRAIE flamme pixel, dessinée à la main,
+ * 24 images. On la dessine, on ne la simule plus — moins de code, moins de
+ * calcul par image, et ça ressemble enfin à du feu.
+ *
+ * Planche : OVERBURN Asset Pack, par Overboy (série violette). Licence : usage
+ * commercial et modification permis, redistribution du pack interdite. Le
+ * crédit n'est pas exigé — il est écrit ici parce que c'est la moindre des
+ * choses, et parce que la prochaine personne qui lira ce fichier doit savoir
+ * d'où vient l'image et ce qu'elle a le droit d'en faire.
+ *
+ * Ce module ne dit que OÙ poser les flammes et QUELLE image montrer. Il est
+ * pur ; le dessin (la planche, le canvas, le découpage) vit dans `main.ts`.
  *
  * TROIS GARDE-FOUS, dans l'ordre où ils comptent :
  *
- * 1. ⚠️ **LE FEU NE COUVRE JAMAIS CE QU'IL FAUT LIRE.** Le terrain et la
- *    consigne sont des cases INTERDITES, remises à zéro à chaque pas : la
- *    chaleur ne les traverse pas, elle les contourne. Les flammes vivent dans
- *    les marges — ce que la couche `#heat` faisait déjà avec son halo.
- * 2. ⚠️ **IL NE RÉVÈLE RIEN (n°5).** Son ardeur suit l'AVANCÉE de la partie,
- *    jamais la manche en cours : une manche piégée brûle exactement comme une
- *    autre. La rafale d'un piège déjoué n'arrive qu'APRÈS le verdict.
- * 3. Il est pur. Le module ne touche au DOM que par `peins`, qui écrit une
- *    `ImageData` ; la propagation se teste sans canvas.
+ * 1. ⚠️ **LE FEU NE COUVRE JAMAIS CE QU'IL FAUT LIRE.** Aucune flamme ne prend
+ *    racine DANS le terrain, et le dessin est en plus DÉCOUPÉ à ses bords : une
+ *    flamme qui déborderait est rognée au pixel. Elles vivent dans les marges,
+ *    comme le halo de la couche `#heat`.
+ * 2. ⚠️ **IL NE RÉVÈLE RIEN (n°5).** L'ardeur suit l'AVANCÉE de la partie,
+ *    jamais la manche en cours : une manche piégée brûle comme une autre. La
+ *    rafale d'un piège déjoué n'arrive qu'APRÈS le verdict.
+ * 3. Rien n'est tiré au sort à l'exécution : chaque flamme tient sa taille et
+ *    son battement de son INDICE. Deux images successives donnent donc le même
+ *    feu, et un test peut le décrire.
  */
 
-/** Intensité maximale d'une case. La palette a autant de crans. */
-export const FEU_MAX = 36;
+/** La planche : 6 colonnes × 4 rangées d'images de 48 × 48. */
+export const PLANCHE = { fichier: "/fx/flamme.png", colonnes: 6, rangees: 4, image: 48 } as const;
 
-/** Taille d'une case, en pixels CSS : le module `--px` de la couche pixel. */
-export const CASE = 4;
+/**
+ * ⚠️ LA FLAMME N'OCCUPE PAS SON IMAGE, et son pied n'est pas en bas.
+ *
+ * Mesuré en parcourant les pixels opaques de la planche : dans chaque image de
+ * 48 × 48, le dessin tient dans x 17-29 et y 6-27 — 13 px de large sur 22 de
+ * haut, dans la MOITIÉ HAUTE. Dessiner l'image entière ancrée en bas donnait
+ * donc des flammes deux fois trop petites, flottant au-dessus de leur pied.
+ * On ne dessine que cette boîte (avec un pixel de marge), et c'est ELLE qu'on
+ * met à l'échelle demandée.
+ */
+export const BOITE = { x: 16, y: 5, w: 15, h: 23 } as const;
 
-export interface Grille {
+/** Nombre d'images de la boucle. */
+export const IMAGES = PLANCHE.colonnes * PLANCHE.rangees;
+
+/** Durée d'une image : 24 images à ~14 par seconde, soit une boucle de 1,7 s. */
+export const IMAGE_MS = 70;
+
+export interface Rect {
+  x: number;
+  y: number;
   w: number;
   h: number;
-  /** Intensités, rangée par rangée, 0 → FEU_MAX. */
-  feu: Uint8Array;
-  /** 1 = case interdite (terrain, consigne) : toujours éteinte. */
-  interdit: Uint8Array;
 }
 
-export function nouvelleGrille(w: number, h: number): Grille {
-  const n = Math.max(0, w * h);
-  return { w, h, feu: new Uint8Array(n), interdit: new Uint8Array(n) };
+export type Cote = "bas" | "gauche" | "droite" | "haut";
+
+export interface Braise {
+  /** Le PIED de la flamme, en pixels CSS dans le canvas. */
+  x: number;
+  y: number;
+  /** Hauteur dessinée ; la largeur suit le carré de la planche. */
+  h: number;
+  /** Décalage d'image : deux flammes voisines ne battent jamais ensemble. */
+  phase: number;
+  /** Vitesse relative du battement. */
+  vitesse: number;
+  cote: Cote;
 }
 
-/** Un rectangle en CASES, bornes incluses-exclues. */
-export interface Zone {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
-}
-
-/** Pixels CSS → cases, en ÉLARGISSANT : une case à moitié sur le terrain est interdite. */
-export function zoneDe(r: { x: number; y: number; w: number; h: number }, marge = 1): Zone {
-  return {
-    x0: Math.floor(r.x / CASE) - marge,
-    y0: Math.floor(r.y / CASE) - marge,
-    x1: Math.ceil((r.x + r.w) / CASE) + marge,
-    y1: Math.ceil((r.y + r.h) / CASE) + marge,
-  };
-}
-
-/** Repose le masque : tout est permis, sauf les zones données. */
-export function poseInterdits(g: Grille, zones: readonly Zone[]): void {
-  g.interdit.fill(0);
-  for (const z of zones) {
-    const x0 = Math.max(0, z.x0);
-    const x1 = Math.min(g.w, z.x1);
-    const y0 = Math.max(0, z.y0);
-    const y1 = Math.min(g.h, z.y1);
-    for (let y = y0; y < y1; y++) g.interdit.fill(1, y * g.w + x0, y * g.w + x1);
-  }
+/** Un hasard déterministe tiré d'un nombre : même indice, même flamme. */
+function melange(n: number): number {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
 }
 
 /**
- * Où le feu prend. Tout est en CASES.
+ * Les seuils d'apparition, côté par côté.
  *
- * `socle` : la rangée d'où monte le feu (le bas de la scène, au-dessus du pied).
- * `plafond` : la rangée la plus haute qu'atteignent les sources latérales.
- * `linteau` : si posé, une rangée de sources au-dessus du terrain — le feu qui
- * passe par-dessus la barre.
+ * Le feu prend par le BAS — c'est là qu'un feu prend — puis remonte les côtés,
+ * et ne passe par-dessus le terrain qu'à la fin. C'est la maquette : « plus on
+ * avance, elles prennent même le haut ».
  */
-export interface Foyers {
-  socle: number;
-  plafond: number;
-  linteau: number | null;
-}
+export const SEUIL: Record<Cote, number> = { bas: 0.05, gauche: 0.22, droite: 0.22, haut: 0.7 };
 
 /**
- * Les foyers pour une ardeur donnée.
+ * Où poser les flammes pour une ardeur donnée.
  *
- * 0 → rien. Le feu naît au SOCLE, monte le long des bords à mesure que la
- * partie avance, et au-delà de 0,7 prend aussi au-dessus du terrain : c'est
- * la maquette — « plus on avance, elles prennent même le haut ».
+ * `canvas` est la taille du calque, `champ` le rectangle du terrain DANS ce
+ * calque. Tout est en pixels CSS.
  */
-export function foyersPour(ardeur: number, socle: number, hautTerrain: number): Foyers | null {
-  if (ardeur <= 0.04) return null;
-  const a = Math.min(1, ardeur);
-  // Les flammes latérales montent du socle jusqu'au haut du terrain (a = 1).
-  const plafond = Math.round(socle - (socle - hautTerrain) * Math.min(1, a / 0.85));
-  return { socle, plafond, linteau: a >= 0.7 ? Math.max(0, hautTerrain - 2) : null };
-}
-
-/**
- * Un pas de feu.
- *
- * `hasard` rend un entier dans [0, 2^16[ : injecté pour que les tests soient
- * déterministes, et pour ne pas appeler `Math.random` 64 000 fois par image.
- */
-export function pasDeFeu(
-  g: Grille,
-  foyers: Foyers | null,
+export function braisesPour(
+  canvas: { w: number; h: number },
+  champ: Rect,
   ardeur: number,
-  hasard: () => number,
-): void {
-  const { w, h, feu, interdit } = g;
-  if (w < 3 || h < 3) return;
-  const a = Math.max(0, Math.min(1, ardeur));
-  // Plus l'ardeur monte, moins la flamme perd en montant : elle s'allonge.
-  const perte = Math.round(5 - 3 * a);
-
-  /*
-   * 1. La propagation, de haut en bas : chaque case lit celle du DESSOUS.
-   *
-   * ⚠️ AVANT les foyers, pas après. Le socle n'est pas la dernière rangée (le
-   * pied est dessous) : allumé d'abord, il serait écrasé par la rangée vide du
-   * dessous avant d'avoir chauffé quoi que ce soit. Ici la rangée du dessus
-   * lit les foyers de l'image PRÉCÉDENTE, puis on les rallume.
+  /**
+   * Le SOCLE : la ligne d'où monte le feu du bas. C'est le haut du pied de
+   * l'écran, pas le bas du calque — sinon les flammes du bas se dessinent
+   * derrière le pied, donc nulle part. Absent, on prend le bas du calque.
    */
-  for (let y = 0; y < h - 1; y++) {
-    const ligne = y * w;
-    const dessous = ligne + w;
-    for (let x = 0; x < w; x++) {
-      const r = hasard();
-      /*
-       * Le déport PENCHE VERS LE CENTRE : à gauche on lit la case d'en bas à
-       * gauche, à droite celle d'en bas à droite. Sans ce vent, un feu allumé
-       * sur les bords montait droit le long de l'écran et se lisait comme une
-       * frise, pas comme des flammes qui lèchent la marge.
-       */
-      const vers = x < w / 2 ? -1 : 1;
-      const sx = x + ((r & 3) === 3 ? 0 : vers);
-      const src = feu[dessous + (sx < 0 ? 0 : sx >= w ? w - 1 : sx)]!;
-      const v = src - (((r >> 2) & 7) % (perte + 1));
-      feu[ligne + x] = v > 0 ? v : 0;
+  socle = canvas.h,
+): Braise[] {
+  const a = Math.min(1, Math.max(0, ardeur));
+  if (a <= SEUIL.bas) return [];
+
+  const braises: Braise[] = [];
+  const bas = champ.y + champ.h;
+  const droite = champ.x + champ.w;
+  const hauteur = (k: number): number => 30 + 74 * a * (0.72 + 0.56 * k);
+  /** Deux flammes au réveil, une bonne dizaine au sommet. */
+  const combien = (longueur: number): number =>
+    Math.max(2, Math.round((longueur / 160) * (1 + 1.6 * a)));
+
+  const poser = (cote: Cote, n: number, place: (t: number) => { x: number; y: number }): void => {
+    if (a < SEUIL[cote]) return;
+    for (let i = 0; i < n; i++) {
+      // Réparties sur toute la longueur, décalées pour ne jamais s'aligner.
+      const t = (i + 0.5 + (melange(i * 3.7 + SEUIL[cote] * 100) - 0.5) * 0.6) / n;
+      const p = place(Math.min(1, Math.max(0, t)));
+      braises.push({
+        x: p.x,
+        y: p.y,
+        h: hauteur(melange(i * 9.1 + SEUIL[cote] * 31)),
+        phase: Math.floor(melange(i * 5.3 + SEUIL[cote] * 17) * IMAGES),
+        vitesse: 0.75 + melange(i * 2.9 + SEUIL[cote] * 13) * 0.55,
+        cote,
+      });
     }
-  }
-  feu.fill(0, (h - 1) * w);
+  };
 
-  /*
-   * 2. Les foyers.
-   *
-   * ⚠️ INTERMITTENTS. Premier essai à l'écran : des foyers allumés en continu,
-   * à pleine force, dessinaient un LISERÉ blanc de 8 px sur toute la hauteur —
-   * un cadre, pas un feu — et le linteau un damier régulier. Chaque case-foyer
-   * ne s'allume qu'une image sur deux environ, à une force qui varie : ce sont
-   * les trous entre les foyers qui font les langues.
-   */
-  if (foyers) {
-    // Plafonnée sous le blanc : le blanc franc est l'éclat d'un piège déjoué.
-    const force = FEU_MAX * (0.5 + 0.32 * a);
-    const allume = (i: number, k: number): void => {
-      const r = hasard();
-      if (r & 1) return;
-      const v = Math.round(force * k * (0.5 + ((r >> 1) & 15) / 30));
-      if (v > feu[i]!) feu[i] = Math.min(FEU_MAX, v);
-    };
-    const socle = Math.min(h - 1, Math.max(0, foyers.socle));
-    for (let x = 0; x < w; x++) allume(socle * w + x, 1);
-    const haut = Math.max(0, Math.min(socle, foyers.plafond));
-    for (let y = haut; y <= socle; y++) {
-      // Deux cases d'épaisseur : assez pour nourrir la flamme qui penche.
-      allume(y * w, 1);
-      allume(y * w + 1, 0.9);
-      allume(y * w + w - 1, 1);
-      allume(y * w + w - 2, 0.9);
-    }
-    if (foyers.linteau !== null) {
-      const l = foyers.linteau;
-      for (let x = 0; x < w; x++) allume(l * w + x, 0.7);
-    }
-  }
-
-  // 3. Le masque : le terrain et la consigne ne brûlent JAMAIS.
-  for (let i = 0; i < feu.length; i++) if (interdit[i]) feu[i] = 0;
-}
-
-/** La grille est-elle entièrement éteinte ? Sert à couper le calque. */
-export function eteint(g: Grille): boolean {
-  for (let i = 0; i < g.feu.length; i++) if (g.feu[i]) return false;
-  return true;
-}
-
-/**
- * La palette : noir-violet, violet, lavande, blanc.
- *
- * Tirée de l'identité, pas inventée : `--ink`, `--signal`, `--signal-pale`,
- * `--paper`. Le bas de l'échelle est TRANSPARENT puis sombre, pour que la
- * flamme naisse du fond au lieu d'être posée dessus. `blanc` (0 → 1) pousse la
- * palette vers le blanc : c'est la chaleur qui monte, et l'éclat d'un piège
- * déjoué.
- */
-const CRANS: readonly [number, number, number, number][] = [
-  [0, 0, 0, 0],
-  [14, 8, 30, 110],
-  [26, 14, 52, 170],
-  [44, 22, 86, 210],
-  [70, 38, 130, 235],
-  [104, 70, 180, 250],
-  [145, 132, 217, 255],
-  [190, 180, 238, 255],
-  [207, 201, 242, 255],
-  [239, 234, 224, 255],
-];
-
-export function couleur(v: number, blanc: number): [number, number, number, number] {
-  if (v <= 0) return CRANS[0]!;
-  const t = Math.min(1, v / FEU_MAX + blanc * 0.25);
-  const i = Math.min(CRANS.length - 1, 1 + Math.floor(t * (CRANS.length - 1.001)));
-  return CRANS[i]!;
-}
-
-/** Écrit la grille dans une ImageData de même taille. */
-export function peins(g: Grille, img: { data: Uint8ClampedArray }, blanc: number): void {
-  const d = img.data;
-  for (let i = 0, p = 0; i < g.feu.length; i++, p += 4) {
-    const c = couleur(g.feu[i]!, blanc);
-    d[p] = c[0];
-    d[p + 1] = c[1];
-    d[p + 2] = c[2];
-    d[p + 3] = c[3];
-  }
+  // LE BAS : elles montent du pied de l'écran vers le terrain.
+  poser("bas", combien(canvas.w), (t) => ({ x: t * canvas.w, y: socle }));
+  // LES CÔTÉS : elles montent dans les gouttières, le long du terrain.
+  poser("gauche", combien(champ.h), (t) => ({ x: champ.x * 0.5, y: bas - t * champ.h * 0.92 }));
+  poser("droite", combien(champ.h), (t) => ({
+    x: droite + (canvas.w - droite) * 0.5,
+    y: bas - t * champ.h * 0.92,
+  }));
+  // LE HAUT : elles prennent le bord supérieur du terrain et le dépassent.
+  poser("haut", combien(champ.w), (t) => ({ x: champ.x + t * champ.w, y: champ.y }));
+  return braises;
 }
 
 /**
@@ -247,4 +166,12 @@ export function peins(g: Grille, img: { data: Uint8ClampedArray }, blanc: number
 export function ardeurDe(niveau: number, echauffement: number): number {
   if (niveau < echauffement) return 0;
   return Math.min(1, (niveau - echauffement + 1) / (30 - echauffement));
+}
+
+/** L'image de la planche à dessiner, pour une flamme et un instant donnés. */
+export function imageDe(b: Braise, now: number): { sx: number; sy: number } {
+  const i = (Math.floor((now / IMAGE_MS) * b.vitesse) + b.phase) % IMAGES;
+  const col = i % PLANCHE.colonnes;
+  const ligne = Math.floor(i / PLANCHE.colonnes);
+  return { sx: col * PLANCHE.image, sy: ligne * PLANCHE.image };
 }
