@@ -85,9 +85,9 @@ export class Session {
   private grace: number;
   /** Multiplicateur de fenêtre — 1 hors entraînement, toujours. */
   readonly pace: number;
-  /** ESCALIER : manches à tenir. `undefined` = la borne du mode. */
+  /** NIVEAU DU PARCOURS : manches à tenir. `undefined` = la borne du mode. */
   private readonly longueur?: number;
-  /** ESCALIER : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
+  /** NIVEAU DU PARCOURS : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
   private readonly forcePiege?: (level: number) => boolean;
   /** Le raccourci DÉJOUER est-il permis dans ce run ? Jamais hors entraînement. */
   readonly dejoueActif: boolean;
@@ -150,7 +150,7 @@ export class Session {
     /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
     /**
-     * ESCALIER : le nombre de manches à tenir, et la cadence de pièges.
+     * NIVEAU DU PARCOURS : le nombre de manches à tenir, et la cadence de pièges.
      *
      * ⚠️ Les deux sont OPTIONNELS et absents partout ailleurs. C'est la même
      * astuce que l'escalade et que le DUO : le mode existant devient un cas
@@ -238,7 +238,7 @@ export class Session {
   }
 
   get maxRounds(): number {
-    // Un palier de l'escalier porte sa propre borne : c'est ce qui fait qu'on
+    // Un niveau du parcours porte sa propre borne : c'est ce qui fait qu'on
     // le FRANCHIT au lieu d'y survivre. Ailleurs, rien n'a bougé — le classé
     // est borné comme le quotidien, deux runs de longueur différente ne se
     // comparant pas, et l'entraînement libre n'a pas de fin.

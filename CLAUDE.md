@@ -814,9 +814,13 @@ dans le dépôt), `executablePath` = le Chrome du système. En dev,
 `{ force: true }`.
 
 **Ce qui reste, et c'est écrit** :
-- l'écran ESCALIER (`#escalier`, `ouvreEscalier`, `palierDemande`) n'a plus
-  AUCUNE porte : du code mort qui ressemble à une fonctionnalité. À retirer ;
-  le module pur `game/escalier.ts` reste, le parcours en utilise les types ;
+- ~~l'écran ESCALIER sans porte~~ **retiré** : écran, route (`/escalier` et
+  `/climb` retombent sur la collection), armement `palierDemande`, retour
+  « ‹ L'ESCALIER » de l'écran de fin, 35 chaînes par langue, 440 lignes de CSS.
+  `game/escalier.ts` reste : le parcours joue ses leviers (`Palier`,
+  `piegeIci`, `annonceIci`). Le champ `escalier` du carnet devient une DONNÉE
+  HÉRITÉE — plus rien ne l'écrit, mais il voyage encore et le palier ≥ 15
+  garde sa maîtrise : l'effacer ferait reculer des cartes en silence ;
 - LA VOYELLE au doigt reste inerte sur le RUN DU JOUR (le parcours l'exclut) :
   la corriger demande une capacité `clavier` dans la revendication de
   `verifyRun`, comme `maintien` ;
@@ -2170,7 +2174,7 @@ s'ouvre qu'après un clic sur JOUER, c'est-à-dire après la marche qu'ils ne
 franchissent pas. `accueil_premier_clic` existe pour dire enfin D'OÙ ils
 partent ; **ne rien redessiner sur l'accueil avant de l'avoir lu.**
 
-### L'escalier d'une règle — fait, jamais vu par un joueur
+### L'escalier d'une règle — fait, jamais vu par un joueur (ÉCRAN RETIRÉ depuis, voir le parcours)
 
 Demandé par Pierre, maquette à l'appui : « tu cliques sur la carte et tu arrives
 sur une autre page avec des escaliers qui représentent chaque palier jusqu'à la

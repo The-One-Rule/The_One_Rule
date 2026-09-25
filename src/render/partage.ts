@@ -56,8 +56,6 @@ export interface EntreeCarte {
   cleared: boolean;
   marks: readonly string[];
   allure: number;
-  /** Palier d'escalier joué, s'il y en a un. */
-  palier?: { n: number; manches: number } | undefined;
   /** Dépassement de record, déjà décidé par `render/exploit.ts`. */
   avance?: number | undefined;
   url: string;
@@ -65,15 +63,10 @@ export interface EntreeCarte {
 
 /**
  * Ce que la carte doit dire, décidé une fois.
- *
- * ⚠️ L'ordre des cas EST la priorité. Un palier prime sur le mode
- * d'entraînement dont il hérite : « PALIER 8 / 20 · LE SANG » dit quelque
- * chose, « ENTRAÎNEMENT · × 1,5 » sur le même run dit une demi-vérité.
  */
 export function donneesCarte(e: EntreeCarte): DonneesCarte {
-  const sur = e.palier
-    ? t("escSurN")(e.palier.n, 20)
-    : e.mode === "daily"
+  const sur =
+    e.mode === "daily"
       ? t("partageTitreJour")(e.jour)
       : e.mode === "escalade"
         ? t("modeEscalade")
@@ -81,11 +74,8 @@ export function donneesCarte(e: EntreeCarte): DonneesCarte {
           ? t("modeClasse")
           : `${t("modeTraining")} · × ${t("allureTxt")(e.allure)}`;
 
-  const scoreLabel = e.palier
-    ? e.cleared
-      ? t("escFranchi")(e.palier.n)
-      : t("escRate")(e.score, e.palier.manches)
-    : e.mode === "daily"
+  const scoreLabel =
+    e.mode === "daily"
       ? t("finSurTotal")(40)
       : e.cleared
         ? t("finSansFaute")

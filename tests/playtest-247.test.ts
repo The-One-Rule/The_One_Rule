@@ -24,9 +24,6 @@ import type { EtatFin } from "../src/render/finactions";
 const FIN_JOUR: EtatFin = {
   mode: "daily",
   duel: false,
-  surPalier: false,
-  palierFranchi: false,
-  palierSuivant: false,
   essaisRestants: 3,
   duelPossible: true,
 };

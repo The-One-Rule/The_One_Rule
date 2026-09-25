@@ -324,7 +324,6 @@ const SCREENS = [
   "niveau",
   "boutique",
   "fiche",
-  "escalier",
   "solo",
   "brief",
   "over",
@@ -347,38 +346,20 @@ let spaceDown = false;
 /** Dernière règle servie à l'entraînement — pour ne pas la resservir aussitôt. */
 let derniereEntrainement: string | null = null;
 /*
- * L'ESCALIER — trois variables, et chacune répond à une question différente.
- *
- * `escalierRegle` : de quelle règle on regarde la montée.
- * `palierVu`      : quel palier la colonne de droite détaille (≠ celui où l'on
- *                   est : on peut relire un palier déjà franchi).
- * `palierEnCours` : le palier que le RUN EN COURS joue. `null` partout
- *                   ailleurs, et c'est ce qui garantit qu'un entraînement
- *                   ordinaire garde exactement le comportement d'avant.
- *
- * ⚠️ `palierDemande` est un ARMEMENT À USAGE UNIQUE, consommé par `openBrief`.
- * Sans lui, il faudrait que chaque chemin menant au brief pense à remettre
- * `palierEnCours` à zéro — et le prochain chemin oublierait. C'est la leçon du
- * REJOUER muet : le garde-fou appartient au point de passage COMMUN.
- */
-let escalierRegle: OneRule | null = null;
-let palierVu = 1;
-let palierEnCours: number | null = null;
-let palierDemande: number | null = null;
-/*
- * LE PARCOURS — même doctrine que le palier : `niveauDemande` est un ARMEMENT
- * à usage unique, consommé par `openBrief`, qui pose `niveauEnCours`. Tout
- * autre lancement le remet à `null` sans qu'aucune porte ait à y penser.
+ * LE PARCOURS — `niveauDemande` est un ARMEMENT à usage unique, consommé par
+ * `openBrief`, qui pose `niveauEnCours`. Tout autre lancement le remet à
+ * `null` sans qu'aucune porte ait à y penser : c'est la leçon du REJOUER muet,
+ * le garde-fou appartient au point de passage COMMUN.
  */
 let niveauEnCours: Position | null = null;
 let niveauDemande: Position | null = null;
-/** Le niveau du dernier run terminé, figé à la fin (voir `palierDuDernierRun`). */
+/** Le niveau du dernier run terminé, figé à la fin. */
 let niveauDuDernierRun: Position | null = null;
 
 /**
- * Le palier que le run en cours joue : un niveau du parcours, un palier de
- * l'ancien escalier, ou rien. Un seul endroit décide, et toute la plomberie
- * des runs bornés (longueur, allure, cadence, annonce) le lit.
+ * Le palier que le run en cours joue : celui d'un niveau du parcours, ou rien.
+ * Un seul endroit décide, et toute la plomberie des runs bornés (longueur,
+ * allure, cadence, annonce) le lit.
  */
 const niveauDemandeOuEnCours = (): boolean => niveauEnCours !== null;
 
@@ -387,7 +368,7 @@ function palierDuRun(): ESC.Palier | undefined {
     const d = PC.niveauN(niveauEnCours.niveau);
     return d ? PC.palierDeNiveau(niveauEnCours.chapitre, d) : undefined;
   }
-  return palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
+  return undefined;
 }
 /** Dernier run terminé : la session est libérée dès la fin, mais l'écran
  *  de fin et le partage doivent encore pouvoir s'y référer. */
@@ -3022,7 +3003,6 @@ function openBrief(mode: Mode): void {
    */
   if (estNouveau() && !challenge && mode !== "ranked") {
     niveauDemande = null;
-    palierDemande = null;
     ouvreOnboarding();
     return;
   }
@@ -3030,20 +3010,15 @@ function openBrief(mode: Mode): void {
   const s = P.load();
   pendingMode = mode;
   /*
-   * ⚠️ LE PALIER SE CONSOMME ICI, ET NULLE PART AILLEURS.
+   * ⚠️ LE NIVEAU SE CONSOMME ICI, ET NULLE PART AILLEURS.
    *
    * `openBrief` est le passage obligé de tout lancement solo. Y consommer
-   * l'armement garantit deux choses d'un coup : un run lancé depuis l'escalier
-   * porte son palier, et TOUT autre run — entraînement libre, run du jour,
-   * escalade, défi — repart forcément à `null`. Répartir cette remise à zéro
-   * sur chaque porte serait la faute du REJOUER muet, à l'identique : la
-   * prochaine porte oublierait de la poser.
+   * l'armement garantit deux choses d'un coup : un run lancé depuis le
+   * parcours porte son niveau, et TOUT autre run — entraînement libre, run du
+   * jour, pile, défi — repart forcément à `null`.
    */
-  palierEnCours = mode === "training" ? palierDemande : null;
-  palierDemande = null;
   niveauEnCours = mode === "training" && !challenge ? niveauDemande : null;
   niveauDemande = null;
-  if (niveauEnCours) palierEnCours = null;
 
   const regleNiveau = niveauEnCours ? ONE_RULES.find((r) => r.id === niveauEnCours!.ruleId) : undefined;
   if (regleNiveau) {
@@ -3225,14 +3200,10 @@ let finEchauffementDite = false;
 /*
  * CE QUE LE DERNIER RUN A ÉTÉ — retenu pour l'écran de fin et pour la carte.
  *
- * `palierEnCours` reste posé jusqu'au prochain `openBrief`, mais s'y fier
- * depuis l'écran de fin ferait dépendre l'affichage d'un état qu'un autre
- * chemin peut effacer entre-temps. On fige les deux valeurs au moment où le
- * run se termine, comme `lastRun` fige déjà le reste — c'est la même leçon que
- * « une valeur mémorisée doit l'être à un instant où l'on sait ce qu'elle
- * vaut ».
+ * On fige la valeur au moment où le run se termine, comme `lastRun` fige
+ * déjà le reste — « une valeur mémorisée doit l'être à un instant où l'on
+ * sait ce qu'elle vaut ».
  */
-let palierDuDernierRun: ESC.Palier | undefined;
 let avanceDuRun = 0;
 
 /**
@@ -3446,13 +3417,13 @@ function lanceRun(): void {
     : pendingMode === "daily" ? (s.daily.score ?? 0) : P.recordDeSonAllure(s);
   pastilleDite = false;
   /**
-   * Le palier joué par ce run, s'il y en a un. Lu une fois, utilisé partout.
+   * Le palier du niveau joué par ce run, s'il y en a un. Lu une fois.
    *
    * ⚠️ UN DÉFI ET UN MATCH CLASSÉ N'EN ONT JAMAIS, quoi qu'il reste d'armé.
-   * `openBrief` remet `palierEnCours` à zéro sur tout autre lancement — mais
+   * `openBrief` remet `niveauEnCours` à zéro sur tout autre lancement — mais
    * la REVANCHE d'un duel appelle `startRun(false)` directement depuis l'écran
-   * de fin, sans repasser par le brief. Sans cette garde, enchaîner un palier
-   * puis un duel ferait jouer le duel sur la longueur et la cadence du palier,
+   * de fin, sans repasser par le brief. Sans cette garde, enchaîner un niveau
+   * puis un duel ferait jouer le duel sur la longueur et la cadence du niveau,
    * c'est-à-dire une partie qui ne se compare plus à celle de l'adversaire —
    * le seul défaut que ce dépôt tient pour fatal.
    */
@@ -4150,331 +4121,6 @@ $("btnFicheBack").addEventListener("click", () => {
 });
 
 /* ------------------------------------------------------------------ *
- * L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées
- *
- * Demandé par Pierre : « tu cliques sur la carte et tu arrives sur une autre
- * page avec des escaliers qui représentent chaque palier jusqu'à la maîtrise ».
- *
- * Ce que ça règle, et qui était mesuré : l'entraînement libre n'a PAS de but.
- * On y meurt à la même difficulté à la première partie et à la centième, et
- * 538 des 572 runs relevés y ont été joués — c'est-à-dire que le mode le plus
- * pratiqué du jeu est celui qui ne mène nulle part.
- *
- * Toute la logique vit dans `game/escalier.ts`, pur et testé. Ici, on peint.
- * ------------------------------------------------------------------ */
-
-/** La carte d'une règle, à la taille de l'escalier. */
-function ouvreEscalier(r: OneRule): void {
-  const s = P.load();
-  // Décision n°7 : une règle jamais rencontrée n'a rien à montrer, et sa
-  // montée dirait déjà ce qu'elle interdit.
-  if (!s.encountered[r.id]) return;
-  escalierRegle = r;
-  sfx.ui();
-  const e = P.escalierDe(s, r.id);
-  // On ouvre SUR le palier courant, jamais sur le premier : c'est la marche
-  // qu'on vient chercher. Au sommet, on ouvre sur la dernière.
-  palierVu = Math.min(ESC.PALIER_SOMMET, e.palier + 1);
-  $("escBoite").classList.remove("est-detail");
-  renderEscalier();
-  show("escalier");
-  escVersIci();
-}
-
-function renderEscalier(): void {
-  const r = escalierRegle;
-  if (!r) return;
-  const s = P.load();
-  const e = P.escalierDe(s, r.id);
-  const courant = ESC.palierCourant(e);
-
-  $("btnEscBackTxt").textContent = t("escRetour");
-  $("escOu").textContent = `${nomDeRegle(r.id, r.name)} · ${t("escProgres")(
-    e.palier,
-    ESC.PALIER_SOMMET,
-  )}`;
-
-  $("escVue").innerHTML = carteVignette(r.id);
-
-  const vol = courant ? ESC.VOLEES.find((v) => v.id === courant.volee)! : ESC.VOLEES[3]!;
-  $("escVolee").textContent = t("escVolee")(
-    vol.n,
-    t("escVoleeNom")(vol.id),
-    t("allureTxt")(vol.allure),
-  );
-  // Ce que la PROCHAINE marche ajoute — pas ce que la dernière a ajouté : on
-  // regarde vers le haut. Au sommet, la montée n'ajoute plus rien.
-  $("escAjout").textContent = courant
-    ? (() => {
-        const a = ESC.ajoutDuPalier(courant.n);
-        return t("escAjout")(a.id, a.valeur);
-      })()
-    : t("escFiniNote");
-
-  // La jauge : une case par palier.
-  const jauge = $("escJauge");
-  jauge.innerHTML = "";
-  for (const pal of ESC.PALIERS) {
-    const li = document.createElement("li");
-    if (pal.n <= e.palier) li.className = "est-franchi";
-    else if (courant && pal.n === courant.n) li.className = "est-ici";
-    jauge.appendChild(li);
-  }
-  $("escVers").textContent = courant
-    ? t("escVersSommet")(courant.n, ESC.PALIER_SOMMET)
-    : t("escFini");
-
-  /*
-   * LA LISTE DESCEND — le sommet en haut, la première marche en bas.
-   *
-   * C'est un escalier : on le monte. L'intitulé d'une volée ouvre le groupe
-   * qu'il nomme, donc il se pose au-dessus de son palier LE PLUS HAUT, ce qui
-   * dans cet ordre veut dire avant lui.
-   */
-  const liste = $("escListe");
-  liste.innerHTML = "";
-  let ici: HTMLElement | null = null;
-  for (const pal of [...ESC.PALIERS].reverse()) {
-    const v = ESC.VOLEES.find((x) => x.id === pal.volee)!;
-    if (pal.n % 5 === 0) {
-      const tete = document.createElement("li");
-      tete.className = "esc__vol";
-      tete.innerHTML = `<span></span><span></span>`;
-      const sp = tete.querySelectorAll("span");
-      sp[0]!.innerHTML = "<b></b>";
-      sp[0]!.querySelector("b")!.textContent = t("escVolee")(
-        v.n,
-        t("escVoleeNom")(v.id),
-        t("allureTxt")(v.allure),
-      );
-      sp[1]!.textContent = t("escVoleeNote")(v.id);
-      liste.appendChild(tete);
-    }
-
-    const franchi = pal.n <= e.palier;
-    const estIci = !!courant && pal.n === courant.n;
-    const li = document.createElement("li");
-    const b = document.createElement("button");
-    b.className =
-      "esc__marche" +
-      (franchi ? " est-franchi" : "") +
-      (estIci ? " est-ici" : "") +
-      (pal.n === ESC.PALIER_SOMMET ? " est-sommet" : "");
-    /*
-     * ⚠️ ON NE PEUT PAS OUVRIR UN PALIER QU'ON N'A PAS ATTEINT.
-     *
-     * Pas par avarice : sa fiche dit ce qu'il ajoute, donc l'ouvrir montrerait
-     * d'un coup toute la progression à venir. C'est la même doctrine que le
-     * carnet (n°7) — on n'explique que ce qui a été rencontré.
-     */
-    b.disabled = !franchi && !estIci;
-    b.innerHTML = `<span class="esc__num"></span><span class="esc__nom"></span><span class="esc__cout"></span>`;
-    /*
-     * \u26a0\ufe0f LE NUM\u00c9RO RESTE, M\u00caME UNE FOIS LE PALIER FRANCHI.
-     *
-     * Premier essai : la coche REMPLA\u00c7AIT le num\u00e9ro. Relev\u00e9 \u00e0 l'\u00e9cran, la
-     * vol\u00e9e 1 devenait cinq lignes sans identit\u00e9 \u2014 or c'est par son num\u00e9ro
-     * qu'on d\u00e9signe un palier, \u00e0 soi comme \u00e0 quelqu'un d'autre, et c'est ce
-     * num\u00e9ro que le bouton REPRENDRE reprend. La coche s'ajoute donc \u00e0 la
-     * colonne de droite plut\u00f4t que d'effacer la gauche.
-     */
-    b.querySelector<HTMLElement>(".esc__num")!.textContent = String(pal.n).padStart(2, "0");
-    b.querySelector<HTMLElement>(".esc__nom")!.textContent = estIci
-      ? t("escTuEsIci")
-      : pal.n === ESC.PALIER_SOMMET
-        ? t("escSommet")
-        : pal.n === ESC.PALIER_MAITRISE
-          ? t("escMaitrisee")
-          : (() => {
-              /*
-               * ⚠️ UNE MARCHE QUI N'AJOUTE QUE DE LA DURÉE NE SE NOMME PAS.
-               *
-               * Relevé à l'écran : la volée 1 alignait trois marches portant
-               * mot pour mot « 2 manches de plus à tenir. ». Trois lignes
-               * identiques dans une liste se lisent comme un bug d'affichage,
-               * pas comme une progression — et elles répétaient de surcroît la
-               * colonne de droite, qui dit déjà « 10 MANCHES ».
-               *
-               * La phrase reste sur la FICHE du palier, où elle est le seul
-               * texte et où elle répond à « qu'est-ce qui change ? ». Ici, le
-               * chiffre est le contenu entier de la marche. La maquette ne les
-               * nomme pas non plus.
-               */
-              const a = ESC.ajoutDuPalier(pal.n);
-              return a.id === "duree" || a.id === "depart"
-                ? ""
-                : t("escAjout")(a.id, a.valeur);
-            })();
-    b.querySelector<HTMLElement>(".esc__cout")!.textContent =
-      estIci && e.meilleur > 0
-        ? `${e.meilleur} / ${pal.manches}`
-        : franchi
-          ? `✓ ${t("escManches")(pal.manches)}`
-          : t("escManches")(pal.manches);
-    b.addEventListener("click", () => {
-      palierVu = pal.n;
-      sfx.ui();
-      $("escBoite").classList.add("est-detail");
-      renderPalier();
-    });
-    li.appendChild(b);
-    liste.appendChild(li);
-    if (estIci) ici = b;
-  }
-
-  /*
-   * LE TOTAL EST CALCULÉ, JAMAIS ÉCRIT.
-   *
-   * La maquette annonce « 371 MANCHES » sous une colonne qui en fait 396 : elle
-   * se contredit, comme les documents de ce dépôt le font régulièrement (§2).
-   * Un total dérivé ne peut pas mentir, et il suit le jour où un palier change.
-   */
-  $("escTotal").innerHTML = `<span></span><span></span>`;
-  const tot = $("escTotal").querySelectorAll("span");
-  tot[0]!.textContent = t("escTotal");
-  tot[1]!.textContent = t("escTotalVal")(
-    ESC.totalManches(),
-    ESC.minutesDeMontee(windowMs),
-  );
-  $("escNote").textContent = t("escNote");
-
-  renderPalier();
-  /*
-   * ⚠️ ON AMÈNE LA MARCHE COURANTE EN VUE, ET **APRÈS** `show`.
-   *
-   * Mesuré : sans ça, l'écran s'ouvre sur le SOMMET — donc sur les douze
-   * marches qu'on ne peut pas encore jouer — et la marche courante est à
-   * 922 px dans une fenêtre de 812. La liste descend, c'est le prix de
-   * l'escalier ; l'amener en vue est ce qui le rend gratuit.
-   *
-   * Et le premier essai ne marchait pas : `renderEscalier` tourne pendant que
-   * `#escalier` porte encore `hidden`, et `scrollIntoView` sur un élément non
-   * affiché ne fait rien — silencieusement, comme toujours. `escVersIci`
-   * s'appelle donc depuis `ouvreEscalier`, une fois l'écran montré.
-   */
-  marcheIci = ici;
-}
-
-/** La marche « TU ES ICI » du dernier rendu, à amener en vue une fois affichée. */
-let marcheIci: HTMLElement | null = null;
-
-function escVersIci(): void {
-  marcheIci?.scrollIntoView({ block: "center" });
-}
-
-function renderPalier(): void {
-  const r = escalierRegle;
-  if (!r) return;
-  const s = P.load();
-  const e = P.escalierDe(s, r.id);
-  const pal = ESC.palierN(palierVu);
-  if (!pal) return;
-  const v = ESC.VOLEES.find((x) => x.id === pal.volee)!;
-  const franchi = pal.n <= e.palier;
-  const ajout = ESC.ajoutDuPalier(pal.n);
-
-  $("palVolee").textContent = t("escVolee")(v.n, t("escVoleeNom")(v.id), t("allureTxt")(v.allure));
-  $("palNom").textContent = t("escSurN")(pal.n, ESC.PALIER_SOMMET);
-  /*
-   * La jauge du palier ne dit quelque chose QUE sur celui qu'on joue :
-   * `meilleur` décrit le palier courant et lui seul (voir `fusionneEscalier`).
-   * L'afficher sur un palier franchi collerait un chiffre qui n'est pas le
-   * sien.
-   */
-  const enCours = !franchi && e.palier + 1 === pal.n;
-  $("palEssai").textContent = franchi
-    ? "\u2713"
-    : enCours && e.meilleur > 0
-      ? `${e.meilleur} / ${pal.manches}`
-      : t("escManches")(pal.manches);
-
-  $("palAjoutTitre").textContent = t("escAjoutTitre");
-  $("palAjout").textContent = t("escAjout")(ajout.id, ajout.valeur);
-
-  const chiffres = $("palChiffres");
-  chiffres.innerHTML = "";
-  for (const [label, valeur, danger] of [
-    [t("escTenir"), String(pal.manches), false],
-    [t("escAllure"), `\u00d7 ${t("allureTxt")(pal.allure)}`, false],
-    // ⚠️ Sans effet sur une règle qui ne piège pas : sept sur seize n'en posent
-    // aucun, et annoncer « 1 SUR 5 » à celles-là serait une promesse fausse.
-    [t("escPieges"), r.traps ? t("escPiegesVal")(pal.cadence) : t("escPiegesVal")(0), false],
-    [t("escMorts"), "0", true],
-  ] as const) {
-    const cel = document.createElement("div");
-    cel.className = "pal__cel";
-    cel.innerHTML = `<b class="pal__val"></b><span class="pal__lab"></span>`;
-    const b = cel.querySelector<HTMLElement>(".pal__val")!;
-    b.textContent = valeur;
-    if (danger) b.classList.add("est-danger");
-    cel.querySelector<HTMLElement>(".pal__lab")!.textContent = label;
-    chiffres.appendChild(cel);
-  }
-
-  $("palMeilleur").innerHTML = `<span></span><b></b>`;
-  const m = $("palMeilleur").querySelectorAll("span, b");
-  m[0]!.textContent = t("escMeilleurEssai");
-  m[1]!.textContent =
-    enCours && e.essais > 0 ? t("escMeilleurVal")(e.meilleur, e.essais) : t("escAucunEssai");
-
-  const go = $<HTMLButtonElement>("btnPalGo");
-  // Un palier franchi se rejoue — c'est un exercice, pas un jeton à consommer
-  // — mais le libellé ne promet plus de le franchir.
-  go.textContent = franchi || e.essais > 0 ? t("escReprendre")(pal.n) : t("escLancer");
-  /*
-   * ⚠️ UN BOUTON DIT CE QU'IL FAIT, JAMAIS UNE RÈGLE DU JEU.
-   *
-   * Premier essai : ce bouton portait « UN PALIER RATÉ SE REJOUE · TU NE
-   * REDESCENDS JAMAIS ». Une phrase de trente-neuf caractères sur un bouton
-   * fantôme, c'est-à-dire un avertissement déguisé en action — on ne sait plus
-   * si on le presse pour accepter quelque chose. La phrase est allée sous la
-   * montée, où elle répond à la vraie question ; le bouton, lui, revient.
-   */
-  /*
-   * \u26a0\ufe0f `\u2039` ET NON `\u25c2` : DM MONO NE PORTE PAS LE TRIANGLE PLEIN.
-   *
-   * Mesur\u00e9 au canvas \u2014 largeur du glyphe dans \u00ab DM Mono \u00bb seule, contre la
-   * pile compl\u00e8te : `\u25c2` retombait sur la mono du syst\u00e8me. La fl\u00e8che se
-   * dessinait donc dans une AUTRE police que le mot qu'elle accompagne, et
-   * son rendu changeait d'un appareil \u00e0 l'autre. C'est ce que le d\u00e9p\u00f4t a d\u00e9j\u00e0
-   * tranch\u00e9 pour les pictogrammes des portes \u2014 \u00ab le rendu d'un emoji change
-   * d'un syst\u00e8me \u00e0 l'autre \u00bb \u2014 appliqu\u00e9 \u00e0 un chevron.
-   */
-  $("btnPalBack").textContent = `\u2039 ${t("escRetour")}`;
-}
-
-$("btnEscBack").addEventListener("click", () => {
-  sfx.ui();
-  // Sur téléphone, le détail est une VUE de cet écran : le retour revient
-  // d'abord à la montée, et seulement ensuite à la collection.
-  if ($("escBoite").classList.contains("est-detail")) {
-    $("escBoite").classList.remove("est-detail");
-    return;
-  }
-  renderCodex();
-});
-
-$("btnPalBack").addEventListener("click", () => {
-  sfx.ui();
-  $("escBoite").classList.remove("est-detail");
-});
-
-$("btnPalGo").addEventListener("click", () => {
-  if (!escalierRegle) return;
-  sfx.ui();
-  const id = escalierRegle.id;
-  const n = palierVu;
-  P.mutate((st) => {
-    // Le brief tire sa règle de `trainingRegle` : on la pose, comme le fait la
-    // fiche. L'allure, elle, ne passe PAS par `trainingPace` — c'est une
-    // préférence du joueur, et un palier ne doit pas la réécrire dans son dos.
-    st.trainingRegle = id;
-  });
-  palierDemande = n;
-  openBrief("training");
-});
-
-/* ------------------------------------------------------------------ *
  * LA PREMIÈRE ARRIVÉE — six temps, et le piège est la leçon
  *
  * Rapporté par Pierre : ses camarades ont adoré mais n'ont pas compris, et il
@@ -4833,7 +4479,6 @@ function finishRun(): void {
   lastRun = { end, rule, mode, seed: session.seed };
   // Les VRAIES règles de la pile, avant que la session ne soit libérée.
   const reglesTenues = session.reglesTenues;
-  palierDuDernierRun = palierEnCours !== null ? ESC.palierN(palierEnCours) : undefined;
   niveauDuDernierRun = niveauEnCours;
   /** Ce que le niveau du parcours a rapporté, s'il y en avait un. */
   let gainNiveau: PC.Gain | null = null;
@@ -4865,24 +4510,15 @@ function finishRun(): void {
      */
     avant = st.encountered[rule.id] ? { ...st.encountered[rule.id]! } : undefined;
     /*
-     * ⚠️ **UN RUN DE PALIER NOURRIT L'ESCALIER, JAMAIS CE QUI JUGE.**
+     * ⚠️ **UN NIVEAU DU PARCOURS NOURRIT SES ÉTOILES, JAMAIS CE QUI JUGE.**
      *
-     * Une règle, une seule, et c'est celle qui rend le mode inoffensif : le
-     * palier écrit `best` et `pieges` — des faits — et rien d'autre. Il
-     * n'écrit ni `parAllure`, ni `serie`, ni `sansFaute` (les cases de
-     * l'échelle de maîtrise), ni `recent`, ni le moindre record.
-     *
-     * Pourquoi. Un palier n'est PAS un run d'entraînement : sa longueur est
-     * bornée, son allure est imposée, sa cadence de pièges est forcée, et
-     * jusqu'au palier 10 le jeu lui annonce ses pièges. Quinze manches tenues
-     * là ne prouvent pas ce que quinze manches tenues en entraînement libre
-     * prouvent — et « MAÎTRISÉE » deviendrait atteignable sur un échafaudage.
-     * C'est la décision n°14 : ce qui est opposable est rejoué, le reste ne
-     * doit jamais se confondre avec.
-     *
-     * Le passage de `run` à `undefined` suffit à tout suspendre d'un coup :
-     * `majCarnet` n'écrit ces quatre champs QUE s'il le reçoit. Un jour où un
-     * cinquième champ s'ajoutera là-dedans, il sera couvert sans qu'on y pense.
+     * Il écrit `best` et `pieges` — des faits — et rien d'autre : ni
+     * `parAllure`, ni `serie`, ni `sansFaute`, ni `recent`, ni le moindre
+     * record. Sa longueur est bornée, son allure imposée, sa cadence forcée,
+     * et ses premiers niveaux annoncent le piège : quinze manches là ne
+     * prouvent pas ce que quinze manches en entraînement libre prouvent
+     * (décision n°14). Le passage de `run` à `undefined` suffit à tout
+     * suspendre d'un coup : `majCarnet` n'écrit ces champs QUE s'il le reçoit.
      */
     /*
      * ⚠️ **L'ESCALADE N'ÉCRIT PAS SA COMPOSÉE AU CARNET.**
@@ -4926,9 +4562,9 @@ function finishRun(): void {
     bump(st, "best", end.score, "max");
     if (!end.usedKeyboard) bump(st, "noKey", end.score, "max");
 
-    // Un niveau du parcours est un run borné comme un palier : il n'écrit ni
-    // record ni case d'échelle (décision n°14), seulement des faits.
-    const surPalier = palierEnCours !== null || niveauEnCours !== null;
+    // Un niveau du parcours est un run borné : il n'écrit ni record ni case
+    // d'échelle (décision n°14), seulement des faits.
+    const surPalier = niveauEnCours !== null;
     /*
      * ⚠️ ET ON S'ARRÊTE LÀ POUR L'ESCALADE.
      *
@@ -4945,20 +4581,6 @@ function finishRun(): void {
       return;
     }
 
-    /*
-     * ⚠️ LA MONTÉE D'AVANT SE LIT AVANT `majCarnet`, PAS APRÈS.
-     *
-     * Elle se lisait après, sur l'entrée que `majCarnet` venait de rendre — ce
-     * qui marche tant que `majCarnet` recopie le champ, et rate en silence dès
-     * qu'il l'oublie. C'est exactement ce qui s'est produit, et le symptôme
-     * était « impossible d'aller au-delà de l'étape 2 ».
-     *
-     * `majCarnet` porte désormais le champ, donc les deux lectures donneraient
-     * le même résultat. On garde quand même celle-ci : elle ne DÉPEND plus de
-     * ce que fait la fonction d'à côté, et c'est la même précaution que la
-     * photo d'`avant` prise deux lignes plus haut.
-     */
-    const monteeAvant = st.encountered[rule.id]?.escalier ?? ESC.ESCALIER_VIERGE;
     st.encountered[rule.id] = P.majCarnet(
       st.encountered[rule.id],
       end.score,
@@ -4979,12 +4601,9 @@ function finishRun(): void {
       );
       st.encountered[rule.id]!.etoiles = gainNiveau.cases;
       st.coins += gainNiveau.pieces;
-    } else if (surPalier) {
-      st.encountered[rule.id]!.escalier = ESC.majEscalier(monteeAvant, end.score);
     } else {
       // `recent` calibre la quête de performance et la médiane de l'écran de
-      // fin. Un palier plafonné à cinq manches la ferait mentir vers le bas,
-      // et un palier de cinquante vers le haut.
+      // fin. Un niveau borné la ferait mentir.
       st.recent = [...st.recent, end.score].slice(-5);
     }
 
@@ -5169,28 +4788,15 @@ function finishRun(): void {
    * dessous, il n'est pas perdu.
    */
   const paliers = mode === "escalade" ? session.paliers : 0;
-  /*
-   * SUR UN PALIER, LE CHIFFRE SE LIT CONTRE SA CIBLE.
-   *
-   * « 11 » ne dit rien ; « 11 / 15 MANCHES » dit exactement ce qui manque, et
-   * « PALIER 8 FRANCHI » dit qu'on monte. C'est la seule chose que cet écran
-   * doit apprendre au joueur d'un palier — le reste (record, médiane) parle
-   * d'une autre épreuve.
-   */
-  const palFini = palierDuDernierRun;
   $("tally").textContent = String(mode === "escalade" ? paliers : end.score);
   $("tallyLabel").textContent =
     mode === "escalade"
       ? t("finReglesTenues")(paliers, end.score)
-      : palFini
-        ? end.cleared
-          ? t("escFranchi")(palFini.n)
-          : t("escRate")(end.score, palFini.manches)
-        : end.cleared
-          ? t("finSansFaute")
-          : mode === "daily"
-            ? t("finSurTotal")(DAILY_LENGTH)
-            : t("finManchesTenues");
+      : end.cleared
+        ? t("finSansFaute")
+        : mode === "daily"
+          ? t("finSurTotal")(DAILY_LENGTH)
+          : t("finManchesTenues");
   renderMarks($("marks"), end.marks);
 
   /*
@@ -5234,7 +4840,7 @@ function finishRun(): void {
    * testé ; ici on ne fait que peindre ce qu'il décide.
    */
   const comparable =
-    mode !== "daily" && palFini === undefined && !challenge && mode !== "ranked";
+    mode !== "daily" && niveauDuDernierRun === null && !challenge && mode !== "ranked";
   const exploit = exploitDuRun(end.score, recordAvantRun, comparable);
   const boiteEx = $("exploit");
   boiteEx.classList.toggle("hidden", exploit.id === "rien");
@@ -5364,19 +4970,12 @@ function finishRun(): void {
    * CE QUE L'ÉCRAN PROPOSE — décidé une fois, dans `render/finactions.ts`.
    *
    * Cinq boutons s'affichaient en toutes circonstances, et seuls deux
-   * changeaient d'état. Après un palier, quatre n'avaient aucun sens et le
-   * cinquième portait un mot faux : « REJOUER » lançait le palier SUIVANT.
+   * changeaient d'état.
    */
   const essaisRestants = mode === "daily" ? vueDuJour(s, day).restants : 0;
-  const suiteMontee = palFini
-    ? ESC.palierCourant(P.escalierDe(s, rule.id))
-    : undefined;
   const actes = actionsDeFin({
     mode,
     duel: !!challenge,
-    surPalier: palFini !== undefined,
-    palierFranchi: end.cleared,
-    palierSuivant: suiteMontee !== undefined,
     essaisRestants,
     duelPossible: end.splits.length >= 3 && defiFidele,
   });
@@ -5388,19 +4987,13 @@ function finishRun(): void {
       ? t("goMatchSuivant")
       : actes.principale === "revanche"
         ? t("goRevanche")
-        : actes.principale === "suivant"
-          ? t("finPalierSuivant")(suiteMontee?.n ?? 0)
-          : actes.principale === "reprendre"
-            ? t("finPalierReprendre")(palFini?.n ?? 0)
-            : actes.principale === "demain"
-              ? t("goReviensDemain")
-              : // « · R » est un raccourci CLAVIER : au doigt, c'est du bruit.
-                TOUCH_ONLY
-                ? t("goRejouer").replace(/\s*·\s*R$/, "")
-                : t("goRejouer");
+        : actes.principale === "demain"
+          ? t("goReviensDemain")
+          : // « · R » est un raccourci CLAVIER : au doigt, c'est du bruit.
+            TOUCH_ONLY
+            ? t("goRejouer").replace(/\s*·\s*R$/, "")
+            : t("goRejouer");
 
-  $("btnVersEscalier").classList.toggle("hidden", !actes.escalier);
-  $("btnVersEscalier").textContent = t("finVersEscalier");
   $("btnShare").classList.toggle("hidden", !actes.partage);
   $("btnShareCarte").classList.toggle("hidden", !actes.partage);
   $("btnDuel").classList.toggle("hidden", !actes.duel);
@@ -6381,27 +5974,6 @@ function replay(): void {
    * sur le bouton — inutile de le redire ici, ce serait une seconde moitié de
    * plus à tenir d'accord avec la première.
    */
-  /*
-   * ⚠️ REJOUER SUR UN PALIER REPREND LA MONTÉE, PAS LE PALIER JOUÉ.
-   *
-   * On relit l'état APRÈS coup plutôt que de réutiliser `palierEnCours` : un
-   * palier qui vient d'être franchi doit enchaîner sur le SUIVANT, un palier
-   * raté doit se reprendre. Les deux cas se déduisent de la sauvegarde, et
-   * s'en déduire évite d'avoir à distinguer une victoire d'un échec ici — ce
-   * que `majEscalier` a déjà tranché une fois.
-   */
-  if (palierEnCours !== null && escalierRegle) {
-    const e = P.escalierDe(P.load(), escalierRegle.id);
-    const suite = ESC.palierCourant(e);
-    if (suite) {
-      palierDemande = suite.n;
-      openBrief("training");
-      return;
-    }
-    // Au sommet : il n'y a plus de palier à jouer, on rend la montée.
-    ouvreEscalier(escalierRegle);
-    return;
-  }
   openBrief(pendingMode === "daily" ? "daily" : "training");
 }
 
@@ -6839,9 +6411,6 @@ async function partageCarte(): Promise<void> {
     cleared: end.cleared,
     marks: end.marks,
     allure: P.load().trainingPace,
-    palier: palierDuDernierRun
-      ? { n: palierDuDernierRun.n, manches: palierDuDernierRun.manches }
-      : undefined,
     avance: avanceDuRun,
     url: location.protocol === "file:" ? "theonerule.party" : location.origin,
   });
@@ -6926,12 +6495,6 @@ async function partageCarte(): Promise<void> {
     rendre("finCarteRatee");
   }
 }
-
-$("btnVersEscalier").addEventListener("click", () => {
-  if (!escalierRegle) return;
-  sfx.ui();
-  ouvreEscalier(escalierRegle);
-});
 
 $("btnShareCarte").addEventListener("click", () => {
   sfx.ui();
@@ -7419,14 +6982,14 @@ function loop(now: number): void {
           ? t("hudPieges")(session.trapsSurvived)
           : "";
       /*
-       * L'ANNONCE DU PIÈGE — volées 2 et 3 basse de l'escalier, jamais ailleurs.
+       * L'ANNONCE DU PIÈGE — premiers niveaux d'un chapitre, jamais ailleurs.
        *
        * ⚠️ Elle croise la décision n°5 (« le piège n'est révélé qu'après la
        * mort »), et c'est délibéré : la justification complète est dans
        * `game/escalier.ts`, § `Annonce`. En deux lignes — n°5 protège
        * l'ÉPREUVE, et elle n'est levée sur aucun mode dont un résultat se
-       * compare ; l'escalier est un APPRENTISSAGE, et l'échafaudage est retiré
-       * au palier 11, soit avant le 15 qui déclare la maîtrise.
+       * compare ; le parcours est un APPRENTISSAGE, et l'échafaudage est
+       * retiré avant le boss qui déclare la maîtrise.
        *
        * ⚠️ ELLE PASSE DEVANT L'OBJECTIF, JAMAIS DEVANT L'ÉCHAUFFEMENT. Trois
        * choses se disputent une seule case, et l'ordre n'est pas libre : « une

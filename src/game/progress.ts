@@ -4,7 +4,6 @@ import { cleEntrainement } from "./perfs";
 import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
 import type { Agregats, EscalierEntree } from "../../shared/compte";
-import { ESCALIER_VIERGE, majEscalier } from "./escalier";
 import { normaliseDejoue, reglageDejoueDefaut } from "./dejoue";
 import type { ReglageDejoue } from "./dejoue";
 import { litEtoiles } from "./parcours";
@@ -64,12 +63,11 @@ export interface RuleRecord {
    */
   runs?: number;
   /**
-   * L'ESCALIER de cette règle — vingt paliers, voir `game/escalier.ts`.
+   * L'ESCALIER de cette règle — DONNÉE HÉRITÉE, voir `game/escalier.ts`.
    *
-   * ⚠️ Absent vaut « la montée n'a pas commencé », comme tout ce qui est arrivé
-   * après. Lire avec `escalierDe`, jamais directement : un joueur qui a déjà
-   * joué cent runs d'entraînement n'a aucun palier franchi, et c'est juste —
-   * ces runs n'avaient ni longueur, ni cadence, ni allure imposées.
+   * Son écran a disparu et plus rien ne l'écrit. On la garde parce qu'un
+   * joueur qui avait atteint le palier 15 conserve sa maîtrise
+   * (`estMaitrisee`) : l'effacer ferait reculer des cartes en silence.
    */
   escalier?: EscalierEntree;
   /**
@@ -325,7 +323,7 @@ function normaliseEntree(v: unknown): RuleRecord | null {
   if (typeof v.serie === "number" && Number.isFinite(v.serie)) e.serie = v.serie;
   if (typeof v.sansFaute === "boolean") e.sansFaute = v.sansFaute;
   if (typeof v.runs === "number" && Number.isFinite(v.runs)) e.runs = v.runs;
-  // L'escalier a sa propre relecture (`escalierDe`) : on ne garde que sa forme.
+  // Donnée héritée : on ne garde que sa forme.
   if (estObjet(v.escalier)) e.escalier = v.escalier as unknown as EscalierEntree;
   const et = litEtoiles(v.etoiles);
   if (et) e.etoiles = et;
@@ -579,43 +577,6 @@ export function majCarnet(
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
   };
-}
-
-/**
- * Où en est la montée d'une règle. Absent vaut « pas commencée ».
- *
- * Un accesseur plutôt qu'un `?? ESCALIER_VIERGE` recopié partout : c'est la
- * même précaution que `essaisDuJour`, et pour la même raison — le repli d'un
- * champ arrivé après coup doit être écrit à un seul endroit.
- */
-export const escalierDe = (s: Save, ruleId: string): EscalierEntree =>
-  s.encountered[ruleId]?.escalier ?? ESCALIER_VIERGE;
-
-/**
- * Ce qu'un essai de palier laisse derrière lui.
- *
- * ⚠️ ÉCRIT À PART DE `majCarnet`, ET C'EST DÉLIBÉRÉ. Un run de palier n'est pas
- * un run d'entraînement : sa longueur est bornée, son allure est imposée et sa
- * cadence de pièges est forcée. Le laisser remplir `parAllure` — donc les
- * cases de l'échelle de maîtrise — rendrait « MAÎTRISÉE » atteignable en
- * quinze manches à un palier qui annonce ses pièges. Ce qui se compare ne se
- * gagne pas sur un échafaudage (décision n°14).
- *
- * Ce qu'un palier écrit malgré tout au carnet : les PIÈGES déjoués, qui sont
- * des faits, et la rencontre de la règle. Rien d'autre.
- */
-export function majEscalierDe(ruleId: string, manches: number, pieges: number): Save {
-  return mutate((s) => {
-    const prev = s.encountered[ruleId];
-    const apres = majEscalier(prev?.escalier ?? ESCALIER_VIERGE, manches);
-    s.encountered[ruleId] = {
-      ...prev,
-      best: prev?.best ?? 0,
-      cleared: prev?.cleared ?? false,
-      pieges: (prev?.pieges ?? 0) + pieges,
-      escalier: apres,
-    };
-  });
 }
 
 export function recordRun(

@@ -1,6 +1,17 @@
 /**
  * L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées, une seule montée.
  *
+ * ⚠️ **SON ÉCRAN A DISPARU.** Le PARCOURS (`game/parcours.ts`) l'a remplacé
+ * comme porte d'entrée, et l'écran `#escalier` n'avait plus aucune porte : il
+ * a été supprimé. Ce module reste pour deux raisons, et pour elles seules :
+ *
+ *   · ses LEVIERS — `Palier`, `Annonce`, `piegeIci`, `annonceIci` — sont ceux
+ *     que joue chaque niveau du parcours (`palierDeNiveau`) ;
+ *   · l'état `escalier` du carnet est une donnée HÉRITÉE : on ne l'écrit plus,
+ *     mais un joueur qui avait atteint le palier 15 garde sa maîtrise
+ *     (`estMaitrisee`), et sa fusion doit rester une loi valide tant que des
+ *     sauvegardes le portent.
+ *
  * Demandé par Pierre : « tu cliques sur la carte et tu arrives sur une autre
  * page avec des escaliers qui représentent chaque palier jusqu'à la maîtrise …
  * au début c'est soft et ça augmente progressivement en introduisant les
@@ -27,17 +38,8 @@
  *
  * ⚠️ POURQUOI CE FICHIER EST PUR, ET SANS AUCUN TEXTE.
  *
- * Il ne rend que des identifiants et des nombres. La phrase « ce que ce palier
- * ajoute » se COMPOSE à l'affichage, à partir de l'écart avec le palier
- * précédent (`ajoutDuPalier`) — jamais depuis vingt chaînes écrites à la main.
- * Deux raisons, toutes deux payées ailleurs dans ce dépôt :
- *
- *   · vingt phrases figées dérivent du jour où l'on change un chiffre, et rien
- *     ne le dit — c'est exactement la panne de `render/plate.ts`, `seat.ts`,
- *     `jour.ts` et `but.ts`, quatre priorités extraites après un bug ;
- *   · deux langues, donc quarante phrases à tenir d'accord avec la table.
- *
- * La table ci-dessous est donc la SEULE vérité, et le texte en découle.
+ * Il ne rend que des identifiants et des nombres. La table ci-dessous est la
+ * SEULE vérité.
  */
 import { PACE_CHOICES } from "../engine/difficulty";
 import { fusionneEscalier } from "../../shared/compte";
@@ -224,86 +226,6 @@ export const PALIER_SOMMET = PALIERS.length;
 
 /** Le palier n° `n`, ou `undefined` hors de la montée. */
 export const palierN = (n: number): Palier | undefined => PALIERS[n - 1];
-
-/** Combien de manches pèse la montée entière. Calculé, jamais écrit. */
-export const totalManches = (): number => PALIERS.reduce((t, p) => t + p.manches, 0);
-
-/**
- * Combien de temps pèse la montée, en minutes.
- *
- * ⚠️ Une ESTIMATION, et elle est étiquetée comme telle à l'écran (« ≈ 22 MIN »).
- * Elle se dérive de la vraie courbe de difficulté : la fenêtre moyenne d'un
- * palier, multipliée par son allure, plus une pause entre deux manches. Aucun
- * chiffre magique — le jour où `windowMs` change, l'estimation suit.
- */
-export const PAUSE_ENTRE_MANCHES_MS = 620;
-
-export function minutesDeMontee(fenetre: (level: number) => number): number {
-  let ms = 0;
-  for (const p of PALIERS) {
-    // La fenêtre moyenne sur les manches de ce palier, aux niveaux 0..manches-1.
-    let somme = 0;
-    for (let l = 0; l < p.manches; l++) somme += fenetre(l);
-    ms += somme * p.allure + p.manches * PAUSE_ENTRE_MANCHES_MS;
-  }
-  return Math.round(ms / 60_000);
-}
-
-/* ------------------------------------------------------------------ *
- * Ce qu'un palier AJOUTE — dérivé, jamais déclaré
- * ------------------------------------------------------------------ */
-
-/**
- * L'identifiant de la phrase « ce que ce palier ajoute ».
- *
- * Un seul par palier : le joueur en retient un, pas quatre. L'ordre du `if`
- * ci-dessous EST la priorité, et c'est pour ça qu'elle est ici, pure et testée,
- * plutôt qu'en ternaires dans le rendu — c'est la cinquième fois que ce dépôt
- * sort une priorité de son écran (après `plate`, `seat`, `jour` et `but`).
- */
-export type AjoutId =
-  | "depart"
-  | "annonceMoitie"
-  | "annonceJamais"
-  | "premierPiege"
-  | "cadence"
-  | "allure"
-  | "duree";
-
-export interface Ajout {
-  id: AjoutId;
-  /** Le chiffre que la phrase porte. `null` quand elle n'en a pas. */
-  valeur: number | null;
-}
-
-/**
- * Ce qui change entre le palier `n-1` et le palier `n`.
- *
- * La priorité va du plus DÉSTABILISANT au plus quantitatif : perdre l'annonce
- * du piège change la nature de la manche, allonger de trois manches ne change
- * que l'endurance. Un joueur qui lit une seule ligne doit lire celle qui va le
- * tuer.
- */
-export function ajoutDuPalier(n: number): Ajout {
-  const cur = palierN(n);
-  if (!cur) return { id: "depart", valeur: null };
-  const prev = palierN(n - 1);
-  if (!prev) return { id: "depart", valeur: cur.manches };
-
-  // 1. L'annonce disparaît — c'est le retrait d'une aide, donc le plus dur.
-  if (cur.annonce !== prev.annonce) {
-    return { id: cur.annonce === "jamais" ? "annonceJamais" : "annonceMoitie", valeur: null };
-  }
-  // 2. Le piège entre en scène pour la première fois.
-  if (cur.cadence > 0 && prev.cadence === 0) return { id: "premierPiege", valeur: cur.cadence };
-  // 3. Les pièges se resserrent.
-  if (cur.cadence > 0 && cur.cadence < prev.cadence) return { id: "cadence", valeur: cur.cadence };
-  // 4. La fenêtre se resserre.
-  if (cur.allure < prev.allure) return { id: "allure", valeur: cur.allure };
-  // 5. Il ne reste que la durée. `duree` porte le SUPPLÉMENT, pas le total :
-  //    « quatre manches de plus » se joue, « seize manches » se subit.
-  return { id: "duree", valeur: cur.manches - prev.manches };
-}
 
 /* ------------------------------------------------------------------ *
  * Où en est le joueur
