@@ -1331,25 +1331,6 @@ body {
   background: var(--rouge);
 }
 
-/* DÉJOUER : un gros bouton franc, plus une plaque de grain. */
-.dejoue {
-  color: #fff;
-  background: var(--signal);
-  border: var(--trait) solid var(--encre);
-  border-radius: var(--r-m);
-  box-shadow: var(--ombre);
-}
-
-.dejoue:active {
-  transform: translateY(3px);
-  box-shadow: var(--ombre-basse);
-}
-
-@keyframes dejoue-eclat {
-  0% { background-color: var(--ambre); color: var(--encre); }
-  100% { background-color: var(--signal); }
-}
-
 /* Les titres d'écran : encre, ombre de lilas, et un trait plein en dessous. */
 .rulename {
   color: var(--encre);

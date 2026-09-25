@@ -28,14 +28,6 @@ export const MOTIFS = {
   /* --- le piège, et sa version sans piège --- */
   piegeRate: "LA CONSIGNE VIOLAIT LA RÈGLE UNIQUE — IL FALLAIT NE RIEN FAIRE",
   rienFaire: "IL FALLAIT NE RIEN FAIRE",
-  /*
-   * DÉJOUER là où il fallait agir — entraînement seulement.
-   *
-   * Le raccourci ne tue que sur une manche qui DEMANDAIT un geste : sur un
-   * piège comme sur « NE FAIS RIEN », il réussit. La phrase dit donc la seule
-   * chose que le joueur a mal jugée : la consigne était légitime.
-   */
-  dejoueATort: "CE N'ÉTAIT PAS UN PIÈGE",
 
   /* --- la mauvaise réponse --- */
   fallaitTaper: "IL FALLAIT TAPER, PAS CLIQUER",

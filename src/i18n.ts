@@ -240,17 +240,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "avis.envoyer": "ENVOYER",
     "avis.non": "NON MERCI",
     "avis.merci": "MERCI. CHAQUE MOT EST LU.",
-    "rgl.dejoue": "DÉJOUER · ENTRAÎNEMENT",
-    "rgl.dejoueNom": "RACCOURCI DÉJOUER",
-    "rgl.dejoueQuoi": "Tu as repéré un piège ? Dis-le, la manche s'arrête aussitôt. Si une action était demandée, tu perds.",
-    "rgl.dejoueTouche": "TOUCHE",
-    "rgl.dejoueToucheQuoi": "Clique ici, puis appuie sur une lettre. Aucune consigne ne la demandera.",
-    "rgl.dejoueCote": "BOUTON SUR TÉLÉPHONE",
-    "rgl.dejoueCoteQuoi": "Du côté de ton pouce.",
-    "rgl.gauche": "GAUCHE",
-    "rgl.droite": "DROITE",
-    "dejoue.mot": "DÉJOUER",
-    "dejoue.aria": "Déjouer : la manche ne demandait rien",
     "rgl.langue": "LANGUE",
     "rgl.mesure": "MESURE",
     "rgl.compter": "COMPTER MES PARTIES",
@@ -431,17 +420,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "avis.envoyer": "SEND",
     "avis.non": "NO THANKS",
     "avis.merci": "THANKS. EVERY WORD IS READ.",
-    "rgl.dejoue": "OUTSMART · TRAINING",
-    "rgl.dejoueNom": "OUTSMART SHORTCUT",
-    "rgl.dejoueQuoi": "Spotted a trap? Say so and the round ends at once. If an action was expected, you lose.",
-    "rgl.dejoueTouche": "KEY",
-    "rgl.dejoueToucheQuoi": "Click, then press a letter. No order will ever ask for it.",
-    "rgl.dejoueCote": "PHONE BUTTON",
-    "rgl.dejoueCoteQuoi": "On your thumb's side.",
-    "rgl.gauche": "LEFT",
-    "rgl.droite": "RIGHT",
-    "dejoue.mot": "OUTSMART",
-    "dejoue.aria": "Outsmart: this round asked for nothing",
     "rgl.langue": "LANGUAGE",
     "rgl.mesure": "METRICS",
     "rgl.compter": "COUNT MY GAMES",
@@ -668,10 +646,8 @@ type Dyn = {
   tutoOuiNote: string;
   tutoRienFaitBravo: string;
   tutoRienFaitNote: string;
-  tutoDejoue: (touche: string | null) => string;
-  tutoDejoueNote: string;
-  tutoDejoueBravo: string;
-  tutoPasUnPiege: string;
+  /** Temps 3 du tutoriel : le second piège, tenu comme le premier. */
+  tutoSecondPiege: string;
   tutoPret: string;
   /** L'aide posée sur le terrain pendant les deux temps joués. */
   tutoVasy: string;
@@ -741,10 +717,6 @@ type Dyn = {
   modeDaily: (jour: number) => string;
   modeEscalade: string;
   modeTraining: string;
-  /** L'annonce du raccourci sur le brief : la lettre, ou `null` au pouce. */
-  briefDejoue: (touche: string | null) => string;
-  /** Pendant la capture d'une nouvelle touche, dans les réglages. */
-  dejoueCapture: string;
   piedDaily: (jour: number) => string;
   piedSur: string;
   piedRegles: string;
@@ -1269,11 +1241,7 @@ const DYN: Record<Lang, Dyn> = {
     tutoOuiNote: "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. PAS TOUTES.",
     tutoRienFaitBravo: "TU N'AS RIEN FAIT : PIÈGE DÉJOUÉ.",
     tutoRienFaitNote: "OBÉIR AURAIT ÉTÉ LA FAUTE. C'EST TOUT LE JEU.",
-    tutoDejoue: (touche) =>
-      touche ? `ENCORE UN PIÈGE. DÉJOUE-LE : APPUIE SUR ${touche}.` : "ENCORE UN PIÈGE. DÉJOUE-LE : TOUCHE DÉJOUER.",
-    tutoDejoueNote: "C'EST UN RACCOURCI : LAISSER PASSER MARCHE AUSSI",
-    tutoDejoueBravo: "DÉJOUÉ. LA MANCHE S'ARRÊTE TOUT DE SUITE.",
-    tutoPasUnPiege: "CE N'EST PAS UN PIÈGE : CLIQUE LE BLEU",
+    tutoSecondPiege: "UN AUTRE PIÈGE. TIENS BON JUSQU'AU BOUT.",
     tutoPret: "À TOI. LA VRAIE PARTIE COMMENCE.",
     tutoVasy: "VAS-Y, PRENDS TON TEMPS",
     tutoSansChrono: "LE CHRONO EST DÉSACTIVÉ",
@@ -1338,11 +1306,6 @@ const DYN: Record<Lang, Dyn> = {
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
     modeEscalade: "LA PILE",
     modeTraining: "ENTRAÎNEMENT",
-    briefDejoue: (touche) =>
-      touche
-        ? `Piège repéré ? Appuie sur ${touche} : la manche s'arrête tout de suite.`
-        : "Piège repéré ? Touche DÉJOUER : la manche s'arrête tout de suite.",
-    dejoueCapture: "…",
     piedDaily: (j) => `JOUR #${j}`,
     piedSur: "SUR",
     piedRegles: "RÈGLES",
@@ -1774,11 +1737,7 @@ const DYN: Record<Lang, Dyn> = {
     tutoOuiNote: "MOST ORDERS ARE THIS SIMPLE. NOT ALL OF THEM.",
     tutoRienFaitBravo: "YOU DID NOTHING: TRAP AVOIDED.",
     tutoRienFaitNote: "OBEYING WOULD HAVE BEEN THE MISTAKE. THAT IS THE GAME.",
-    tutoDejoue: (touche) =>
-      touche ? `ANOTHER TRAP. OUTSMART IT: PRESS ${touche}.` : "ANOTHER TRAP. OUTSMART IT: TAP OUTSMART.",
-    tutoDejoueNote: "IT IS A SHORTCUT: LETTING IT PASS WORKS TOO",
-    tutoDejoueBravo: "OUTSMARTED. THE ROUND ENDS RIGHT AWAY.",
-    tutoPasUnPiege: "THIS IS NOT A TRAP: CLICK THE BLUE ONE",
+    tutoSecondPiege: "ANOTHER TRAP. HOLD ON TO THE END.",
     tutoPret: "YOUR TURN. THE REAL RUN STARTS.",
     tutoVasy: "GO AHEAD, TAKE YOUR TIME",
     tutoSansChrono: "THE CLOCK IS OFF",
@@ -1843,11 +1802,6 @@ const DYN: Record<Lang, Dyn> = {
     modeDaily: (j) => `DAILY RUN · #${j}`,
     modeEscalade: "THE STACK",
     modeTraining: "TRAINING",
-    briefDejoue: (touche) =>
-      touche
-        ? `Spotted a trap? Press ${touche}: the round ends right away.`
-        : "Spotted a trap? Tap OUTSMART: the round ends right away.",
-    dejoueCapture: "…",
     piedDaily: (j) => `DAY #${j}`,
     piedSur: "OF",
     piedRegles: "RULES",
@@ -2873,7 +2827,6 @@ const MOTIFS_EN: Record<MotifId, string> = {
   sequence: "SEQUENCE UNFINISHED",
   piegeRate: "THE ORDER BROKE YOUR ONE RULE — YOU HAD TO DO NOTHING",
   rienFaire: "YOU HAD TO DO NOTHING",
-  dejoueATort: "IT WAS NOT A TRAP",
   fallaitTaper: "YOU HAD TO TYPE, NOT CLICK",
   fallaitCliquer: "YOU HAD TO CLICK, NOT TYPE",
   mauvaiseTouche: "WRONG KEY",

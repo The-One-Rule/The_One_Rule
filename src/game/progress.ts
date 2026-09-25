@@ -4,8 +4,6 @@ import { cleEntrainement } from "./perfs";
 import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
 import type { Agregats, EscalierEntree } from "../../shared/compte";
-import { normaliseDejoue, reglageDejoueDefaut } from "./dejoue";
-import type { ReglageDejoue } from "./dejoue";
 import { litEtoiles } from "./parcours";
 import { litBoutique } from "./boutique";
 import type { EtatBoutique } from "./boutique";
@@ -155,13 +153,6 @@ export interface Save {
    */
   trainingPace: number;
   /**
-   * Le raccourci DÉJOUER de l'entraînement (voir `game/dejoue.ts`).
-   *
-   * Absent des sauvegardes écrites avant lui : `load` le reconstruit, donc
-   * tout le monde le reçoit activé sur F, côté droit.
-   */
-  dejoue: ReglageDejoue;
-  /**
    * L'avis a-t-il déjà été demandé (`game/avis.ts`) ? Absent vaut non : les
    * joueurs déjà venus le verront une fois, à leur prochaine fin de partie.
    */
@@ -284,7 +275,6 @@ const fresh = (): Save => ({
    * record : passer à NORMAL ne se compare pas à un score fait à DÉBUT.
    */
   trainingPace: 2,
-  dejoue: reglageDejoueDefaut(),
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
   records: {},
   compte: { revendiquePar: null, glyphe: null },
@@ -305,7 +295,7 @@ let cache: Save | null = null;
  * Le cas n'est pas théorique : une sauvegarde peut venir d'une version
  * antérieure, d'un onglet resté ouvert pendant un déploiement, d'une extension
  * qui recopie le stockage, ou d'une main qui édite. C'est la même doctrine que
- * `normaliseDejoue` et que « absent vaut… » : on RECONSTRUIT ce qu'on relit,
+ * « absent vaut… » : on RECONSTRUIT ce qu'on relit,
  * champ par champ, plutôt que de faire confiance à sa forme.
  * ------------------------------------------------------------------ */
 
@@ -411,7 +401,6 @@ export function normaliseSave(brut: unknown): Save {
     lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
     bestTraining: nombre(brut.bestTraining, d.bestTraining),
     trainingPace: nombre(brut.trainingPace, d.trainingPace),
-    dejoue: normaliseDejoue(brut.dejoue),
     trainingRegle: typeof brut.trainingRegle === "string" ? brut.trainingRegle : null,
     metrics: {
       on: booleen(me.on, d.metrics.on),
