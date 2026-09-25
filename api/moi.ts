@@ -131,6 +131,12 @@ export function litAgregats(brut: unknown): Agregats {
        * une montée terminée qu'aucun essai ne peut plus reprendre. Le borner
        * ici coûte une ligne ; le déboguer là-bas coûterait une soirée.
        */
+      // Les étoiles du parcours : cinq cases bornées à 0..3. Reconstruites,
+      // jamais recopiées — un tableau de 9999 étoiles ne passe pas.
+      if (Array.isArray(e.etoiles)) {
+        const et = (e.etoiles as unknown[]).slice(0, 5).map((x) => entier(x, 3));
+        if (et.some((x) => x > 0)) a.carnet[id]!.etoiles = et;
+      }
       const esc = (e.escalier ?? null) as Partial<EscalierEntree> | null;
       if (esc && typeof esc === "object") {
         const palier = entier(esc.palier, PALIER_SOMMET);

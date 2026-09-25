@@ -7,6 +7,9 @@ import type { Agregats, EscalierEntree } from "../../shared/compte";
 import { ESCALIER_VIERGE, majEscalier } from "./escalier";
 import { normaliseDejoue, reglageDejoueDefaut } from "./dejoue";
 import type { ReglageDejoue } from "./dejoue";
+import { litEtoiles } from "./parcours";
+import { litBoutique } from "./boutique";
+import type { EtatBoutique } from "./boutique";
 
 const KEY = "oneRule.save.v1";
 
@@ -69,6 +72,11 @@ export interface RuleRecord {
    * ces runs n'avaient ni longueur, ni cadence, ni allure imposées.
    */
   escalier?: EscalierEntree;
+  /**
+   * LE PARCOURS — les étoiles des cinq niveaux du chapitre de cette règle.
+   * Voir `game/parcours.ts`. Absent vaut « chapitre jamais joué ».
+   */
+  etoiles?: number[];
 }
 
 export interface Save {
@@ -91,6 +99,8 @@ export interface Save {
   daily: { day: number; played: boolean; score: number; cleared: boolean; essais?: number };
   quests: { day: number; state: Record<string, number>; claimed: string[] };
   coins: number;
+  /** LA BOUTIQUE — styles de pièces possédés et porté. Voir `game/boutique.ts`. */
+  boutique: EtatBoutique;
   /** identité du classé : pseudo court et dernier classement connu */
   ranked: { name: string; rating: number; games: number };
   /**
@@ -159,6 +169,17 @@ export interface Save {
    */
   onboarded?: boolean;
   /**
+   * Joueur d'AVANT le parcours : il avait déjà joué quand les modes ont
+   * commencé à s'ouvrir en jouant. Il garde tout ouvert — lui retirer le run du
+   * jour qu'il jouait la veille serait une régression, pas un onboarding.
+   *
+   * Posé UNE fois, à la relecture d'une sauvegarde qui a un historique mais pas
+   * encore de boutique (le champ est arrivé avec le parcours) : une sauvegarde
+   * neuve reçoit la boutique dès sa première écriture, donc ne devient jamais
+   * vétérane par accident.
+   */
+  veteran?: boolean;
+  /**
    * Règle épinglée pour l'entraînement, ou `null` pour un tirage.
    *
    * Persistée parce que travailler une règle demande PLUSIEURS parties : la
@@ -220,6 +241,7 @@ const fresh = (): Save => ({
   daily: { day: -1, played: false, score: 0, cleared: false },
   quests: { day: -1, state: {}, claimed: [] },
   coins: 0,
+  boutique: { possedes: ["sticker"], porte: "sticker" },
   ranked: { name: "", rating: 1000, games: 0 },
   multi: { glyph: 0, matches: 0 },
   sound: true,
@@ -305,6 +327,8 @@ function normaliseEntree(v: unknown): RuleRecord | null {
   if (typeof v.runs === "number" && Number.isFinite(v.runs)) e.runs = v.runs;
   // L'escalier a sa propre relecture (`escalierDe`) : on ne garde que sa forme.
   if (estObjet(v.escalier)) e.escalier = v.escalier as unknown as EscalierEntree;
+  const et = litEtoiles(v.etoiles);
+  if (et) e.etoiles = et;
   return e;
 }
 
@@ -365,6 +389,7 @@ export function normaliseSave(brut: unknown): Save {
       claimed: Array.isArray(qu.claimed) ? qu.claimed.filter((x): x is string => typeof x === "string") : [],
     },
     coins: nombre(brut.coins, d.coins),
+    boutique: litBoutique(brut.boutique),
     ranked: {
       name: texte(rk.name, d.ranked.name),
       rating: nombre(rk.rating, d.ranked.rating),
@@ -395,6 +420,8 @@ export function normaliseSave(brut: unknown): Save {
   // commentaire respectif). On ne les pose que s'ils sont vraiment booléens.
   if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
   if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
+  if (typeof brut.veteran === "boolean") s.veteran = brut.veteran;
+  else if (!estObjet(brut.boutique) && (s.recent.length > 0 || Object.keys(carnet).length > 0)) s.veteran = true;
   return s;
 }
 

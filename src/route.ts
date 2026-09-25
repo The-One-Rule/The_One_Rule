@@ -45,6 +45,8 @@ export type EcranId =
   | "home"
   | "fiche"
   | "escalier"
+  | "niveau"
+  | "boutique"
   | "solo"
   | "brief"
   | "over"
@@ -81,6 +83,8 @@ const TABLE: Record<EcranId, Route> = {
   reglages: { chemin: "/reglages", adressable: true, parent: "home" },
   compte: { chemin: "/compte", adressable: true, parent: "home" },
   "multi-join": { chemin: "/multi", adressable: true, parent: "home" },
+  boutique: { chemin: "/boutique", adressable: true, parent: "home" },
+  niveau: { chemin: "/niveau", adressable: false, parent: "home" },
 
   // Contextuels : ils ont une adresse pour que le retour marche, mais une
   // arrivée à froid retombe sur leur parent.

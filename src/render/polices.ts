@@ -21,12 +21,12 @@
  */
 
 /** Titres, chiffres, tout ce qui se lit en grand. */
-export const DISPLAY_FAMILLE = "Chakra Petch";
+export const DISPLAY_FAMILLE = "Fredoka";
 /** Intitulés, valeurs, tout ce qui se lit en petit — plancher 11 px. */
-export const MONO_FAMILLE = "DM Mono";
+export const MONO_FAMILLE = "Nunito";
 
 export const DISPLAY_STACK = `"${DISPLAY_FAMILLE}", system-ui, -apple-system, sans-serif`;
-export const MONO_STACK = `"${MONO_FAMILLE}", ui-monospace, SFMono-Regular, Menlo, monospace`;
+export const MONO_STACK = `"${MONO_FAMILLE}", system-ui, -apple-system, sans-serif`;
 
 /** `ctx.font` complet — le canvas veut la graisse et la taille dans la chaîne. */
 export const policeDisplay = (poids: number, px: number): string =>

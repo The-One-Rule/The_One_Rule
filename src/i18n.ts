@@ -24,6 +24,9 @@ import { MOTIFS } from "./engine/motifs";
 import type { MotifId } from "./engine/motifs";
 import type { SeatStatus } from "./render/seat";
 
+import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours";
+import type { TextesParcours } from "./i18n-parcours";
+
 export type Lang = "fr" | "en";
 
 export const estLang = (v: unknown): v is Lang => v === "fr" || v === "en";
@@ -79,7 +82,7 @@ type Textes = {
 
 export const TEXTES: Record<Lang, Textes> = {
   fr: {
-    ledeHtml: "Une règle unique. Les consignes changent.<br><span>Parfois, obéir est la faute.</span>",
+    ledeHtml: "Une règle.<br>Des ordres.<br><em>Parfois, obéir est la faute.</em>",
     failleLabel: "Modes de jeu",
     soloDesc: "Run du jour, escalade, entraînement.",
     multiDesc: "Ton code, tes potes, une règle chacun.",
@@ -95,7 +98,7 @@ export const TEXTES: Record<Lang, Textes> = {
      * L'écran des RÉGLAGES garde l'ancienne, qui y est à sa place — d'où deux
      * clés au lieu d'une.
      */
-    fineprintHtml: "ENTRAÎNEMENT · SANS RISQUE · <b>ESPACE</b>",
+    fineprintHtml: "2 MINUTES POUR APPRENDRE · SANS COMPTE",
     fineprintReglagesHtml:
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
@@ -112,11 +115,11 @@ export const TEXTES: Record<Lang, Textes> = {
     titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
-    ledeHtml: "One rule. The orders keep changing.<br><span>Sometimes, obeying is the mistake.</span>",
+    ledeHtml: "One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em>",
     failleLabel: "Game modes",
     soloDesc: "Daily run, climb, training.",
     multiDesc: "Your code, your friends, one rule each.",
-    fineprintHtml: "TRAINING · NO RISK · <b>SPACE</b>",
+    fineprintHtml: "2 MINUTES TO LEARN · NO ACCOUNT",
     fineprintReglagesHtml:
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
@@ -180,7 +183,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "solo.eyebrow": "SOLO",
     "solo.titre": "TOI CONTRE TOI",
     "carte.daily.titre": "RUN DU JOUR",
-    "carte.escalade.titre": "ESCALADE",
+    "carte.escalade.titre": "LA PILE",
     "carte.escalade.desc": "Une règle. Puis deux. Puis trois.",
     "carte.training.titre": "ENTRAÎNEMENT",
     "carte.training.desc": "Sans risque. Pour comprendre.",
@@ -259,8 +262,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
-    "nav.classement": "CLASSEMENT",
-    "but.tenter": "JOUER",
     "prof.jour": "DU JOUR",
     "prof.jourNom": "Le run de tout le monde",
     "prof.jourNote": "MÊME RÈGLE · 3 ESSAIS · UNE FOIS PAR JOUR",
@@ -277,7 +278,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "prof.cartesNom": "Tes 16 cartes",
     "nav.cartes": "CARTES",
     "nav.jouer": "JOUER",
-    "nav.daily": "DAILY",
     "nav.multi": "MULTI",
     "carnet.collection": "COLLECTION",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
@@ -372,7 +372,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "solo.eyebrow": "SOLO",
     "solo.titre": "YOU VS YOU",
     "carte.daily.titre": "DAILY RUN",
-    "carte.escalade.titre": "CLIMB",
+    "carte.escalade.titre": "THE STACK",
     "carte.escalade.desc": "One rule. Then two. Then three.",
     "carte.training.titre": "TRAINING",
     "carte.training.desc": "No risk. Just to get it.",
@@ -451,8 +451,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
-    "nav.classement": "RANKING",
-    "but.tenter": "PLAY",
     "prof.jour": "DAILY",
     "prof.jourNom": "Everyone's run",
     "prof.jourNote": "SAME RULE · 3 TRIES · ONCE A DAY",
@@ -469,7 +467,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "prof.cartesNom": "Your 16 cards",
     "nav.cartes": "CARDS",
     "nav.jouer": "PLAY",
-    "nav.daily": "DAILY",
     "nav.multi": "MULTI",
     "carnet.collection": "COLLECTION",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
@@ -541,6 +538,13 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.toast": "Notice",
   },
 };
+
+/*
+ * Les chaînes du PARCOURS s'écrivent dans leur propre module, typé, et sont
+ * versées ici : l'attribut `data-i18n` n'a qu'une table à lire. Elles passent
+ * APRÈS, donc un intitulé renommé (« ESCALADE » devenue « LA PILE ») gagne.
+ */
+for (const l of ["fr", "en"] as const) Object.assign(STATIQUE[l], STATIQUE_PARCOURS[l]);
 
 /** Le dictionnaire statique, exposé pour que les tests puissent l'éprouver. */
 export const CHAINES = STATIQUE;
@@ -1371,7 +1375,7 @@ const DYN: Record<Lang, Dyn> = {
     vainqueur: "VAINQUEUR",
     finDuMatch: "FIN DU MATCH",
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
-    modeEscalade: "ESCALADE",
+    modeEscalade: "LA PILE",
     modeTraining: "ENTRAÎNEMENT",
     briefDejoue: (touche) =>
       touche
@@ -1941,7 +1945,7 @@ const DYN: Record<Lang, Dyn> = {
     vainqueur: "WINNER",
     finDuMatch: "MATCH OVER",
     modeDaily: (j) => `DAILY RUN · #${j}`,
-    modeEscalade: "CLIMB",
+    modeEscalade: "THE STACK",
     modeTraining: "TRAINING",
     briefDejoue: (touche) =>
       touche
@@ -2319,6 +2323,9 @@ const DYN: Record<Lang, Dyn> = {
 let courante: Lang = "fr";
 
 export const langue = (): Lang => courante;
+
+/** Les textes du parcours, de la boutique et de la fin de niveau, dans la langue courante. */
+export const tp = (): TextesParcours => PARCOURS[courante];
 
 export function poseLangue(l: Lang): void {
   courante = l;

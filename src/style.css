@@ -11,10 +11,12 @@
    hors ligne) et limitées à deux graisses.
    ================================================================== */
 
-@import "@fontsource/chakra-petch/latin-500.css";
-@import "@fontsource/chakra-petch/latin-600.css";
-@import "@fontsource/dm-mono/latin-400.css";
-@import "@fontsource/dm-mono/latin-500.css";
+@import "@fontsource/fredoka/latin-500.css";
+@import "@fontsource/fredoka/latin-600.css";
+@import "@fontsource/fredoka/latin-700.css";
+@import "@fontsource/nunito/latin-600.css";
+@import "@fontsource/nunito/latin-700.css";
+@import "@fontsource/nunito/latin-800.css";
 
 :root {
   --ink: #0e1520;
@@ -61,8 +63,8 @@
    * le canvas ne peut pas lire une variable CSS. `tests/polices.test.ts` refuse
    * que les deux declarations divergent.
    */
-  --display: "Chakra Petch", system-ui, -apple-system, sans-serif;
-  --mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --display: "Fredoka", system-ui, -apple-system, sans-serif;
+  --mono: "Nunito", system-ui, -apple-system, sans-serif;
 
   --gap: 18px;
 

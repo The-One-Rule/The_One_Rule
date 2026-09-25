@@ -162,13 +162,15 @@ describe("application", () => {
     document.getElementById("btnTutoPasser")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
     expect(document.getElementById("home")!.classList.contains("hidden")).toBe(false);
 
-    // Une fois l'arrivée vue, PLAY mène droit au brief : c'est le chemin le
-    // plus court vers une manche, et le brief est l'endroit où l'on lit sa
-    // règle unique — le sauter a déjà été un bug.
+    // Une fois l'arrivée vue, l'accueil EST le parcours, et PLAY mène au brief
+    // du PROCHAIN NIVEAU — le 1-1, sous LE SANG, la règle que le tutoriel
+    // vient d'enseigner. C'était le bug : l'entraînement servait une autre règle.
+    expect(document.getElementById("parcours")!.classList.contains("hidden")).toBe(false);
     document.getElementById("btnPlay")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("brief")!.classList.contains("hidden")).toBe(false);
     const name = document.getElementById("briefName")!.textContent!;
-    expect(name.length).toBeGreaterThan(2);
+    // (la langue suit le navigateur du harnais : on accepte les deux noms)
+    expect(["LE SANG", "THE BLOOD"]).toContain(name);
 
     // certaines règles exigent ESPACE maintenu : on l'enfonce avant de lancer
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
@@ -205,19 +207,20 @@ describe("application", () => {
     // certaine, mais PAS son échéance — elle dépend de l'allure par défaut, du
     // nombre de manches d'échauffement et du nombre d'étapes tirées. On attend
     // donc l'écran de fin, on ne parie pas sur une durée.
+    // Trois vies : trois dépassements de temps, puis l'écran de NIVEAU — pas
+    // l'ancien écran de fin.
     pumpJusqua(
-      () => !document.getElementById("over")!.classList.contains("hidden"),
-      "l'écran de fin après une mort par dépassement de temps",
+      () => !document.getElementById("niveau")!.classList.contains("hidden"),
+      "l'écran de fin de niveau après trois vies perdues",
     );
 
-    expect(document.getElementById("over")!.classList.contains("hidden")).toBe(false);
-    expect(document.getElementById("because")!.textContent!.length).toBeGreaterThan(3);
-    expect(Number(document.getElementById("tally")!.textContent)).toBeGreaterThanOrEqual(0);
-    expect(document.getElementById("marks")!.textContent).toContain("🟥");
-    // L'écran de fin porte la même liste de quêtes que l'accueil : c'est là
-    // qu'elle bouge, et « QUÊTES VALIDÉES · +N PIÈCES » ne désigne rien sans
-    // elle.
-    expect(document.querySelectorAll("#overQuests .quest").length).toBe(3);
+    expect(document.getElementById("niveau")!.classList.contains("is-rate")).toBe(true);
+    expect(document.getElementById("niveauMotif")!.textContent!.length).toBeGreaterThan(3);
+    expect(document.querySelectorAll("#niveauEtoiles .etoile.is-on").length).toBe(0);
+    // Un échec ne révèle pas de carte : elle se GAGNE en réussissant le 1-1.
+    expect(document.getElementById("niveauRevele")!.classList.contains("hidden")).toBe(true);
+    // Et l'action évidente est de réessayer le même niveau.
+    expect(document.getElementById("btnNiveauSuite")!.textContent).toMatch(/RÉESSAYER|TRY AGAIN/);
     expect(errors).toEqual([]);
   });
 
@@ -225,9 +228,22 @@ describe("application", () => {
     const P = await import("../src/game/progress");
     expect(Object.keys(P.load().encountered).length).toBeGreaterThan(0);
 
-    document.getElementById("btnHome")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // La carte DU JOUR de la profondeur ouvre directement l'annonce : l'écran
-    // SOLO n'est plus sur le chemin, la rangée nomme les cinq modes elle-même.
+    document.getElementById("btnNiveauParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    /*
+     * ⚠️ LE RUN DU JOUR EST FERMÉ tant que le chapitre 1 n'est pas bouclé : un
+     * nouveau venu y brûlait un essai à l'aveugle. La carte le DIT au lieu de
+     * s'ouvrir.
+     */
+    expect(document.getElementById("profJour")!.classList.contains("is-verrou")).toBe(true);
+    document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("solo")!.classList.contains("hidden")).toBe(true);
+
+    // Le boss du chapitre 1 battu : le run du jour s'ouvre.
+    P.mutate((st) => {
+      st.encountered.sang = { ...st.encountered.sang!, etoiles: [1, 1, 1, 1, 1] };
+    });
+    document.getElementById("navParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("profJour")!.classList.contains("is-verrou")).toBe(false);
     // La carte DU JOUR ouvre l'écran SOLO — il porte les essais restants, la
     // série et les quêtes, c'est-à-dire tout ce qu'on veut savoir AVANT de
     // brûler un des trois essais. L'annonce vient ensuite.
@@ -243,7 +259,10 @@ describe("application", () => {
     );
 
     const teaser = document.getElementById("teaser")!;
-    expect(teaser.textContent).toContain("DEMAIN");
+    // ⚠️ Ce test exigeait « DEMAIN » alors que le harnais tourne en ANGLAIS :
+    // il gravait le bug. Le mot suit désormais la langue.
+    const { langue } = await import("../src/i18n");
+    expect(teaser.textContent).toContain(langue() === "fr" ? "DEMAIN" : "TOMORROW");
     expect(teaser.querySelector("b")!.textContent!.length).toBeGreaterThan(2);
 
     /*

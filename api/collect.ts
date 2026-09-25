@@ -42,6 +42,8 @@ export const ALLOWED = new Set([
   "quest_complete",
   "share",
   "share_carte",
+  "niveau_fin",
+  "boutique_achat",
   "duel_sent",
   "duel_opened",
   "invite_sent",
