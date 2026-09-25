@@ -200,6 +200,12 @@ export class MatchLogic {
    * Le client le reçoit dans `match_start` — il ne le déduit pas.
    */
   readonly clavier: boolean;
+  /**
+   * La version du jeu de consignes jouée par ce match (`CONSIGNES_VERSION`).
+   * Le minimum du serveur et de chaque siège, figé au lancement et transmis
+   * dans `match_start` — même doctrine que `clavier`.
+   */
+  readonly consignes: number;
   /** Fenêtre réelle : courbe moteur × speed × tension, bornée par MIN/MAX_ROUND_MS. */
   private roundDurationMs = 0;
   private shared: SharedRound | null = null;
@@ -247,10 +253,13 @@ export class MatchLogic {
     clavier = false,
     /** DUO : deux joueurs par équipe, une seule réserve de vies. */
     duo = false,
+    /** Version du jeu de consignes commune à la table. Défaut prudent : 1. */
+    consignes = 1,
   ) {
     this.seed = seed;
     this.settings = settings;
     this.clavier = clavier;
+    this.consignes = consignes;
     this.imposteur = settings.mode === "imposteur";
     this.duo = this.imposteur ? false : duo;
     this.imposteurId = null;
@@ -471,8 +480,8 @@ export class MatchLogic {
   openRound(): { idx: number; durationMs: number } {
     this.roundIdx++;
     this.shared = this.imposteur && this.regleCommune
-      ? draftImposteur(this.seed, this.roundIdx, this.regleCommune, poolMulti(this.clavier))
-      : draftShared(this.seed, this.roundIdx, poolMulti(this.clavier));
+      ? draftImposteur(this.seed, this.roundIdx, this.regleCommune, poolMulti(this.clavier, this.consignes))
+      : draftShared(this.seed, this.roundIdx, poolMulti(this.clavier, this.consignes));
     this.states.clear();
     const rules = this.rulesAt(this.roundIdx);
     for (const s of this.alive) {

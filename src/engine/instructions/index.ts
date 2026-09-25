@@ -509,6 +509,56 @@ const avoidColor: Instruction = {
   },
 };
 
+/**
+ * LE DOUBLE APPUI — « CLIQUE DEUX FOIS LE ROUGE ».
+ *
+ * Premier geste NOUVEAU depuis le lancement, et il ne coûte aucune mécanique :
+ * c'est une `sequence` qui désigne deux fois la même pièce. Le fil ne
+ * transporte que des index, les règles lisent déjà les séquences (`targets`),
+ * `resolve` les juge déjà des deux côtés. La famille de bugs du §11 — une
+ * règle cassée par le transport — n'a donc aucune prise nouvelle ici.
+ *
+ * Ce qu'il apporte au jeu : un réflexe de plus à RETENIR. Sous LE SANG,
+ * « CLIQUE DEUX FOIS LE ROUGE » est un piège qu'on peut rater à moitié — le
+ * premier appui part avant que la tête ait lu « ROUGE ».
+ *
+ * La cible est unique, par la même construction que `clickColor` et
+ * `clickShape` : la couleur (ou la forme) désignée n'existe qu'une fois.
+ */
+const doubleTap: Instruction = {
+  id: "doubleTap",
+  minLevel: 4,
+  weight: 2,
+  touch: true,
+  gen(rng, level) {
+    const n = fillCount(rng, level, 3);
+    const idx = rInt(rng, n);
+    if (rChance(rng, 0.5)) {
+      const target = rPick(rng, COLOR_IDS);
+      const pool = others(COLOR_IDS, target);
+      const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+      specs[idx]!.color = target;
+      return {
+        text: `CLIQUE DEUX FOIS LE ${COLOR_LABEL[target]}`,
+        phrase: { cle: "deuxFoisCouleur", couleur: target },
+        colorWord: target,
+        specs,
+        want: { kind: "sequence", idxs: [idx, idx] },
+      };
+    }
+    const target = rPick(rng, SHAPE_IDS);
+    const pool = others(SHAPE_IDS, target);
+    const specs = fill(rng, n, () => spec(rPick(rng, pool), rPick(rng, COLOR_IDS), rollSize(rng)));
+    specs[idx]!.shape = target;
+    return {
+      text: `CLIQUE DEUX FOIS LE ${SHAPE_LABEL[target]}`,
+      phrase: { cle: "deuxFoisForme", forme: target },
+      specs,
+      want: { kind: "sequence", idxs: [idx, idx] },
+    };
+  },
+};
+
 export const INSTRUCTIONS: Instruction[] = [
   clickColor,
   clickShape,
@@ -533,6 +583,37 @@ export const INSTRUCTIONS: Instruction[] = [
 
 /** Pool jouable au doigt : tout sauf les consignes clavier. */
 export const TOUCH_INSTRUCTIONS: Instruction[] = INSTRUCTIONS.filter((i) => i.touch);
+
+/**
+ * LES CONSIGNES DU MULTIJOUEUR SEULEMENT — pour l'instant.
+ *
+ * ⚠️ Elles ne sont PAS dans `INSTRUCTIONS`, et c'est une mesure, pas un
+ * oubli : `VERSION_CONTENU` se calcule sur `INSTRUCTIONS`, et les records
+ * d'entraînement AFFICHÉS sont indexés sur elle (`cleEntrainement`). Les y
+ * ajouter ferait lire « TON RECORD · 0 » à chaque joueur au déploiement, et
+ * couperait en deux le classement du jour de la mise en ligne. Le salon, lui,
+ * ne stocke aucun score.
+ *
+ * Elles y entreront d'une ligne — en déplaçant l'entrée dans `INSTRUCTIONS` —
+ * le jour où ce coût sera décidé.
+ *
+ * ⚠️ En multi, elles sont NÉGOCIÉES (`CONSIGNES_VERSION`, voir `poolMulti`) :
+ * front et salons se déploient séparément, et un serveur qui ne les connaît
+ * pas jugerait une autre manche que celle affichée.
+ */
+export const CONSIGNES_MULTI: Instruction[] = [doubleTap];
+
+/**
+ * La version du jeu de consignes que CE code sait reconstruire.
+ *
+ * 1 = le catalogue d'origine ; 2 = plus `CONSIGNES_MULTI`. Un client l'annonce
+ * dans son `hello`, le serveur retient le minimum de la table et du sien. On
+ * ne la DÉCRÉMENTE jamais, et chaque ajout à `CONSIGNES_MULTI` la fait monter.
+ */
+export const CONSIGNES_VERSION = 2;
+
+/** Toutes les consignes écrites — pour les tests qui doivent les couvrir toutes. */
+export const TOUTES_LES_CONSIGNES: Instruction[] = [...INSTRUCTIONS, ...CONSIGNES_MULTI];
 
 export function pickInstruction(rng: Rng, level: number, pool = INSTRUCTIONS): Instruction {
   const avail = pool.filter((i) => i.minLevel <= level);

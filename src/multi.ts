@@ -166,6 +166,8 @@ type MatchState = {
   rules: Record<string, string>;
   /** Le salon joue au clavier : le pool de consignes s'élargit. Voir `poolMulti`. */
   clavier: boolean;
+  /** Le jeu de consignes du match, REÇU du serveur. Absent = 1. Voir `poolMulti`. */
+  consignes: number;
   phase: "countdown" | "round" | "frozen" | "observe";
   firstRoundAt: number;
   /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
@@ -1163,7 +1165,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const communeId = Object.values(match.rules)[0];
     const commune = communeId ? ruleById(communeId) : match.rule;
     match.round = commune
-      ? roundObserve(match.seed, idx, commune, poolMulti(match.clavier))
+      ? roundObserve(match.seed, idx, commune, poolMulti(match.clavier, match.consignes))
       : null;
     plateActes.clear();
     if (tour) {
@@ -1407,7 +1409,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         match.round = null;
         return;
       }
-      const shared = draftImposteur(match.seed, match.idx, commune, poolMulti(match.clavier));
+      const shared = draftImposteur(match.seed, match.idx, commune, poolMulti(match.clavier, match.consignes));
       const moi = viewId === net.myId && !isSpectating();
       const perso = match.imposteur && moi ? SANS_REGLE : commune;
       match.rule = commune;
@@ -1437,7 +1439,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     match.rule = rule;
-    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier));
+    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes));
     hud.setRule(rule);
   }
 
@@ -2073,6 +2075,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // tirage donne un aperçu qui contredit le verdict. Absent = tactile,
       // c'est-à-dire ce qu'un serveur d'une version antérieure fait déjà.
       clavier: msg.clavier === true,
+      // Même doctrine : un serveur ancien ne l'envoie pas, et le client
+      // retombe sur le catalogue que ce serveur sait juger.
+      consignes: typeof msg.consignes === "number" ? msg.consignes : 1,
       phase: "countdown",
       firstRoundAt: msg.firstRoundAt,
       countSec: -1,
@@ -2202,7 +2207,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * pour fatal (décision n°3). Le serveur, lui, rapporte bien la fenêtre
      * personnelle à la manche COMMUNE ; on lit donc la même chose que lui.
      */
-    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier)).durationMs;
+    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier, match.consignes)).durationMs;
     match.spanFactor = match.round && commune > 0 ? match.round.durationMs / commune : 1;
     renderPlates();
     syncFooter();
@@ -2358,7 +2363,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           match.seed,
           match.idx,
           focusRule,
-          poolMulti(match.clavier),
+          poolMulti(match.clavier, match.consignes),
         );
         const elim = pauseMs > 3500;
         showKillCam(victims, focusRule, focusRound, elim, alive.length);

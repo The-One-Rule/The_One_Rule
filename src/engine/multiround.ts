@@ -20,7 +20,7 @@
  */
 
 import { hashStr, mulberry32 } from "./rng";
-import { INSTRUCTIONS, pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
+import { CONSIGNES_MULTI, INSTRUCTIONS, pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
 import { plancherParGeste, windowForSteps } from "./difficulty";
 import { compile } from "./round";
@@ -153,8 +153,17 @@ export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Rou
  * puisque `instr.gen()` produit les pièces, et la kill-cam montrerait alors un
  * tableau que personne d'autre n'a vu.
  */
-export const poolMulti = (clavier: boolean): Instruction[] =>
-  clavier ? INSTRUCTIONS : TOUCH_INSTRUCTIONS;
+export const poolMulti = (clavier: boolean, consignes = 1): Instruction[] => {
+  const base = clavier ? INSTRUCTIONS : TOUCH_INSTRUCTIONS;
+  /*
+   * ⚠️ ABSENT VAUT 1, et c'est ce qui rend le déploiement sûr dans les quatre
+   * combinaisons. Un client ancien n'annonce rien → 1 ; un serveur ancien ne
+   * transmet rien → 1 ; les deux côtés reconstruisent alors le catalogue
+   * d'origine, à l'identique de la version d'hier. La manche 2 et au-delà ne
+   * se tire que si le serveur ET chaque siège la connaissent.
+   */
+  return consignes >= 2 ? [...base, ...CONSIGNES_MULTI.filter((i) => clavier || i.touch)] : base;
+};
 
 /** Raccourci : la manche complète d'un joueur donné. */
 export const buildMultiRound = (

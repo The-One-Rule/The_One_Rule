@@ -23,10 +23,11 @@ process.on("uncaughtException", (e) => {
 });
 
 await import("./server/index.ts");
-const { buildMultiRound, poolMulti, applyRule } = await import("./src/engine/multiround.ts");
+const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("./src/engine/multiround.ts");
 const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
 const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
+const { MOTIFS } = await import("./src/engine/motifs.ts");
 const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
 
 /*
@@ -89,12 +90,12 @@ const serres = [];
  */
 const DELAI_PILOTE = 460;
 
-function client(name, key, rookie = false, clavier = false) {
+function client(name, key, rookie = false, clavier = false, consignes = undefined) {
   const ws = new WebSocket("ws://localhost:8797");
   const c = {
     name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {},
     verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
-    rounds: [], recus: [], clavierMatch: null, manuel: false,
+    rounds: [], recus: [], clavierMatch: null, consignesMatch: null, manuel: false,
     imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
     coopClics: [], cursorsMsgs: [], chargesCoop: [], photos: [], ferme: null,
   };
@@ -107,6 +108,8 @@ function client(name, key, rookie = false, clavier = false) {
       c.seed = m.seed;
       c.rules = m.rules;
       c.clavierMatch = m.clavier === true;
+      // Absent vaut 1 : exactement ce que fait le vrai client (voir `poolMulti`).
+      c.consignesMatch = typeof m.consignes === "number" ? m.consignes : 1;
       c.mode = m.settings?.mode ?? null;
       c.imposteur = false;
     }
@@ -137,30 +140,60 @@ function client(name, key, rookie = false, clavier = false) {
        */
       if (name === "CHLOE" || c.manuel) return;
       let round;
+      /** La règle que CE siège joue — le pilote la consulte sur « n'importe où ». */
+      let regleJouee;
       const modeImp = c.mode === "imposteur" || c.room?.settings?.mode === "imposteur";
       if (modeImp) {
         const commune = ONE_RULES.find((r) => r.id === c.rules[c.id])
           || ONE_RULES.find((r) => r.id === Object.values(c.rules)[0]);
         if (!commune) return;
         const rule = c.imposteur ? SANS_REGLE : commune;
-        const shared = draftImposteur(c.seed, m.idx, commune, poolMulti(c.clavierMatch === true));
+        regleJouee = rule;
+        const shared = draftImposteur(c.seed, m.idx, commune, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1));
         round = applyRule(shared, rule, c.seed);
       } else {
         const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
         if (!rule) return;
+        regleJouee = rule;
         // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
         // exactement ce que fait le vrai client, et c'est ce qui garantit que les
         // deux cotes du fil reconstruisent la meme manche.
-        round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true));
+        round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1));
       }
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
         if (name === "BOB") { ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: 0 } })); return; }
         if (round.steps.length === 0) return; // piège : silence
         round.steps.forEach((st, k) => {
+          /*
+           * ⚠️ « N'IMPORTE OÙ » NE VEUT PAS DIRE « LA PREMIÈRE PIÈCE ».
+           *
+           * Le pilote cliquait `ents[0]` sur `clickAny` : mortel sous LES
+           * ANGLES si la pièce 0 est dans un coin, sous L'AZUR si elle est
+           * bleue. Trouvé en mesurant le scénario du double appui — 3 morts
+           * sur 39 verdicts qui ressemblaient à un désaccord de pool, et qui
+           * n'étaient que l'aide qui jouait mal (§11, la même famille que
+           * `playPerfect`). Il choisit donc une pièce que SA règle autorise,
+           * comme le crochet `__tor.joue` du jeu.
+           */
+          const permise = (e) =>
+            regleJouee.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round, elapsedMs: DELAI_PILOTE }) === null &&
+            (st.kind !== "clickAnyExcept" || e.color !== st.color);
+          /*
+           * ⚠️ ET QUAND AUCUNE PIÈCE N'EST PERMISE, ON CLIQUE DANS LE VIDE.
+           *
+           * `Math.max(0, findIndex(...))` retombait sur la pièce 0 — interdite
+           * par construction dans ce cas. Balayé hors ligne, au tempo du
+           * pilote : 341 manches sur 114 341 mouraient ainsi (0,3 %), toutes
+           * sur « n'importe où » ou « partout sauf », et c'est ce qui a fait
+           * tomber l'assertion du jeu de consignes en CI (1 faute sur 57). Le
+           * vide est la bonne réponse, et le serveur le juge sans position
+           * (`i: null`, comme `vueServeur`) : 0 échec sur 234 003 manches.
+           */
+          const permiseIdx = round.ents.findIndex(permise);
           const a = st.kind === "click" ? { k: "c", i: st.idx }
             : st.kind === "key" ? { k: "k", key: st.key }
-            : { k: "c", i: Math.max(0, round.ents.findIndex((e) => st.kind !== "clickAnyExcept" || e.color !== st.color)) };
+            : { k: "c", i: permiseIdx < 0 ? null : permiseIdx };
           setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: a })), k * 55);
         });
       }, DELAI_PILOTE);
@@ -172,7 +205,7 @@ function client(name, key, rookie = false, clavier = false) {
     if (m.t === "error") c.errors.push(m);
   });
   ws.on("close", (code) => { c.ferme = code; });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -487,6 +520,101 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   );
 
   for (const c of [...eq, ...mixte, ...tard, retard]) c.ws.close();
+  await sleep(220);
+}
+
+/*
+ * LE DOUBLE APPUI — la négociation du jeu de consignes, sur le fil.
+ *
+ * Front et salons se déploient séparément. Un serveur qui tirerait dans un
+ * pool que le client ne connaît pas jugerait une autre manche que celle
+ * affichée : le défaut tenu pour fatal. D'où la négociation, et ces trois
+ * vérifications — une table récente l'ouvre, un seul siège ancien la
+ * referme, et quand la consigne sort, le pilote qui joue CE QU'IL VOIT
+ * survit.
+ */
+{
+  const recents = [];
+  for (const n of ["V1", "V2", "V3"]) recents.push(await client(n, "cle-" + n, false, false, 2));
+  recents[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = recents[0].room.code;
+  for (const c of recents.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(160); }
+  await sleep(250);
+  recents[0].ws.send(JSON.stringify({ t: "start" }));
+  /*
+   * ⚠️ JUSQU'À LA MANCHE 10, pas un nombre de secondes. La consigne n'entre
+   * au tirage qu'à la manche 4 : avant, les deux pools donnent la même
+   * manche par construction. Un premier essai à 16 s couvrait les manches 0
+   * à 4 et laissait passer un client resté en version 1 sans une faute
+   * (éprouvé). Une attente FIXE de 40 s n'atteignait la manche 10 que huit
+   * fois sur dix — la pause de rotation (3,4 s) mange la marge. On attend
+   * donc l'instant choisi, borné.
+   */
+  const debut = Date.now();
+  while (recents[0].roundIdx < 10 && Date.now() - debut < APRES_DEPART + 75000) await sleep(250);
+  // Le verdict de la manche courante doit être tombé avant qu'on le lise.
+  await sleep(2600);
+  ok(recents.every((c) => c.consignesMatch === 2), "une table récente ouvre le jeu de consignes 2");
+  ok(recents[0].roundIdx >= 10, `assez de manches jouées pour qu'un désaccord se voie (jusqu'à la ${recents[0].roundIdx})`);
+
+  // Les manches jouées qui étaient un double appui, reconstruites du côté client.
+  const doubles = [];
+  for (let idx = 0; idx <= Math.max(0, recents[0].roundIdx); idx++) {
+    const id = draftShared(recents[0].seed, idx, poolMulti(false, 2)).instructionId;
+    if (id === "doubleTap") doubles.push(idx);
+  }
+  /*
+   * La mesure porte sur TOUTES les manches, pas seulement les doubles appuis :
+   * dès la manche 4, deux pools différents tirent des consignes différentes
+   * quelle que soit la graine, et le pilote — qui joue ce qu'IL reconstruit —
+   * cliquerait à côté. En temps normal il ne meurt jamais (relevé : 0 mort sur
+   * 12 verdicts en salon clavier). Aucune mort hors dépassement de temps, donc.
+   */
+  // Le fil ne porte que le MOTIF (`RoundOutcome`) : on écarte les deux
+  // motifs d'horloge, qui dépendent de la charge de la machine (§12).
+  const horloge = new Set([MOTIFS.temps, MOTIFS.sequence]);
+  const fautes = recents.flatMap((c) =>
+    c.verdicts
+      .map((v) => v.outcomes?.[c.id])
+      .filter((o) => o && o.kind === "death" && !horloge.has(o.reason)),
+  );
+  const joues = recents.reduce((n, c) => n + c.verdicts.length, 0);
+  ok(
+    joues > 0 && fautes.length === 0,
+    `jeu de consignes 2 : serveur et clients reconstruisent la même manche (${joues} verdicts, ${fautes.length} faute(s)` +
+      (fautes.length ? ` : ${fautes.map((o) => o.reason).join(" | ")})` : ")"),
+  );
+  if (doubles.length) info(`double appui tiré et joué aux manches ${doubles.join(",")}`);
+  else info("aucun double appui tiré sur ces manches — son jugement est couvert par tests/double-appui");
+
+  // Un seul siège ancien (sans le champ) referme le jeu pour toute la table.
+  const mixte = [await client("W1", "cle-W1", false, false, 2), await client("W2", "cle-W2")];
+  mixte[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  mixte[1].ws.send(JSON.stringify({ t: "join", code: mixte[0].room.code }));
+  await sleep(300);
+  mixte[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+  ok(
+    mixte.every((c) => c.consignesMatch === 1),
+    `un client d'une version antérieure referme le jeu de consignes (${mixte.map((c) => c.consignesMatch).join(",")})`,
+  );
+
+  // Un client qui s'annonce PLUS récent que le serveur est ramené au sien.
+  const futur = [await client("F1", "cle-F1", false, false, 99), await client("F2", "cle-F2", false, false, 99)];
+  futur[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  futur[1].ws.send(JSON.stringify({ t: "join", code: futur[0].room.code }));
+  await sleep(300);
+  futur[0].ws.send(JSON.stringify({ t: "start" }));
+  await sleep(APRES_DEPART);
+  ok(
+    futur.every((c) => c.consignesMatch === 2),
+    `une version inconnue est ramenée à celle du serveur (${futur.map((c) => c.consignesMatch).join(",")})`,
+  );
+
+  for (const c of [...recents, ...mixte, ...futur]) c.ws.close();
   await sleep(220);
 }
 

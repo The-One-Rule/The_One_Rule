@@ -10,6 +10,7 @@
  * écran existe.
  */
 
+import { CONSIGNES_VERSION } from "../engine/instructions";
 import {
   PROTOCOL_VERSION,
   decodeServer,
@@ -154,6 +155,9 @@ export class NetClient {
           rookie,
           clavier,
           tok,
+          // Ce que CE bundle sait reconstruire. Le serveur retient le minimum
+          // de la table : voir `poolMulti`.
+          consignes: CONSIGNES_VERSION,
         });
         // rafale initiale : l'horloge doit être prête avant la première manche
         for (let i = 0; i < 5; i++) setTimeout(() => this.ping(), i * 120);
