@@ -232,7 +232,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | | |
 |---|---|
 | Champ | `FIELD_W 1000 × FIELD_H 420`, `FIELD_GUTTER 24` |
-| Fenêtre | `windowMs` : `<12 → 4000−180·lvl`, sinon `max(700, 1840−30·(lvl−12))` — redescendue sur directive de Pierre ; ×allure (×2 en DÉBUT et aux niveaux 1-1/1-2) |
+| Fenêtre | `windowMs` : `<12 → 4000−180·lvl`, sinon `max(700, 1840−30·(lvl−12))` — redescendue sur directive de Pierre ; puis `fenetreAllure(base, allure) = min(base·allure, max(base, 4000))` : une allure lente n'AJOUTE jamais au-delà de 4 s |
 | Étapes | `STEP_MS 280` — chaque action **supplémentaire** ajoute ce temps |
 | Multi | `MIN_ROUND_MS 700`, `MAX_ROUND_MS 2400`, `INPUT_TOLERANCE_MS 120` |
 | Interludes | normal 1100 · vie perdue 2400 · élimination 4200 · duel 500 · rotation 3400 |
@@ -802,6 +802,19 @@ jusqu'au bout, sous une consigne plus légitime (« CLIQUE LE CARRÉ ROUGE »).
 sa fenêtre. Mesuré (`windowForSteps × allure`) : **8,0 s** au niveau 1-1/1-2
 (allure 2, manche 0), 7,3 s à la manche 2, 6,2 s à la 5 — et c'est au 1-2
 que le jeu ENSEIGNE le piège. En allure 1 : 4,0 / 3,6 / 3,1 s.
+
+**RÉPONSE, sur directive de Pierre : `PLAFOND_ALLURE_MS = 4000`**
+(`fenetreAllure`, `engine/difficulty.ts`). L'allure ne peut plus pousser une
+fenêtre au-delà de 4 s, pour TOUTES les manches — donc rien ne distingue un
+piège. Mesuré en jeu : manche 0 à ×2, **8000 → 4000 ms**. ⚠️ Le plafond ne
+borne que le SUPPLÉMENT de l'allure (`max(base, 4000)`), jamais la fenêtre
+nominale : à l'allure 1 le résultat est exactement `base`, y compris pour une
+manche à trois gestes qui dépasse 4 s d'elle-même — run du jour, rejeu
+serveur, escalade et `VERSION_CONTENU` (`5m4fgw`) inchangés, testé sur 70
+manches × 5 nombres de gestes. Conséquences assumées : en début de partie,
+DÉBUT, DÉCOUVERTE et NORMAL ont la même fenêtre (l'allure ne se distingue que
+vers la manche 10 à ×2) ; les records d'entraînement aux allures lentes
+gardent leur clé, et deviennent plus durs à battre, jamais plus faciles.
 
 ⚠️ **Ce qu'il ne faut PAS faire** : finir une manche piégée plus tôt que sa
 fenêtre affichée. Le joueur apprendrait à ATTENDRE pour voir si la manche

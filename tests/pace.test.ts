@@ -7,6 +7,9 @@ import {
   PACE_CHOICES,
   PACE_DEFAULT,
   PACE_LABELS,
+  PLAFOND_ALLURE_MS,
+  STEP_MS,
+  fenetreAllure,
   windowForSteps,
   windowMs,
 } from "../src/engine/difficulty";
@@ -42,7 +45,9 @@ describe("allure d'entraînement", () => {
         expect(autre.steps).toEqual(ref.steps);
         expect(autre.ents).toEqual(ref.ents);
         // …et la seule différence attendue :
-        expect(autre.durationMs).toBe(Math.round(windowMs(level) * pace));
+        expect(autre.durationMs).toBe(
+          Math.round(fenetreAllure(windowForSteps(level, autre.steps.length), pace)),
+        );
       }
     }
   });
@@ -51,8 +56,8 @@ describe("allure d'entraînement", () => {
     // Constaté en test réel : ça bloque vers la manche 10, où la fenêtre vaut
     // 1080 ms alors qu'un débutant a besoin de 1000 à 1300 ms.
     const lent = PACE_CHOICES.find((p) => p > PACE_DEFAULT)!;
-    expect(Math.round(windowMs(10) * lent)).toBeGreaterThanOrEqual(1500);
-    expect(Math.round(windowMs(20) * lent)).toBeGreaterThanOrEqual(1300);
+    expect(Math.round(fenetreAllure(windowMs(10), lent))).toBeGreaterThanOrEqual(1500);
+    expect(Math.round(fenetreAllure(windowMs(20), lent))).toBeGreaterThanOrEqual(1300);
   });
 
   it("n'a AUCUN effet hors entraînement", () => {
@@ -82,8 +87,55 @@ describe("allure d'entraînement", () => {
     });
     expect(t.pace).toBe(lent);
     expect(t.round.durationMs).toBe(
-      Math.round(windowForSteps(0, t.round.steps.length) * lent),
+      Math.round(fenetreAllure(windowForSteps(0, t.round.steps.length), lent)),
     );
+  });
+
+  describe("le plafond de l'allure — le temps mort des pièges", () => {
+    it("⚠️ à l'allure 1, la fenêtre est EXACTEMENT la fenêtre nominale", () => {
+      // C'est ce qui garde le run du jour, le rejeu serveur et l'escalade
+      // identiques à hier — y compris une manche à plusieurs gestes, qui
+      // dépasse 4 s d'elle-même au début de la courbe.
+      for (let level = 0; level < 70; level++) {
+        for (let gestes = 0; gestes <= 4; gestes++) {
+          const base = windowForSteps(level, gestes);
+          expect(fenetreAllure(base, 1), `manche ${level}, ${gestes} gestes`).toBe(base);
+        }
+      }
+      expect(windowForSteps(0, 3)).toBeGreaterThan(PLAFOND_ALLURE_MS);
+    });
+
+    it("une allure lente n'ajoute jamais au-delà du plafond", () => {
+      // Mesuré avant : 8,0 s à ne rien faire sur une manche piégée, à la
+      // manche 0 du niveau 1-2 (allure 2). C'est ce chiffre que le plafond
+      // ramène à 4 s — pour TOUTES les manches, donc sans rien révéler.
+      expect(Math.round(fenetreAllure(windowForSteps(0, 0), 2))).toBe(PLAFOND_ALLURE_MS);
+      for (const pace of PACE_CHOICES.filter((p) => p > 1)) {
+        for (let level = 0; level < 70; level++) {
+          const base = windowForSteps(level, 1);
+          const f = fenetreAllure(base, pace);
+          expect(f).toBeLessThanOrEqual(Math.max(base, PLAFOND_ALLURE_MS));
+          // …et elle ne descend jamais sous la fenêtre nominale.
+          expect(f).toBeGreaterThanOrEqual(base);
+        }
+      }
+    });
+
+    it("le plafond ne mange pas le temps d'un geste supplémentaire", () => {
+      // Sous LE JUMEAU, chaque geste compte : 280 ms de plus par geste restent
+      // acquis, même là où l'allure est bornée.
+      const deux = fenetreAllure(windowForSteps(0, 2), 2);
+      expect(deux).toBe(windowForSteps(0, 2));
+      expect(deux - fenetreAllure(windowForSteps(0, 1), 2)).toBe(STEP_MS);
+    });
+
+    it("une allure rapide n'est jamais bornée", () => {
+      const rapide = Math.min(...PACE_CHOICES);
+      for (let level = 0; level < 70; level++) {
+        const base = windowForSteps(level, 1);
+        expect(fenetreAllure(base, rapide)).toBeCloseTo(base * rapide, 6);
+      }
+    });
   });
 
   it("donne l'échauffement à l'entraînement aussi", () => {

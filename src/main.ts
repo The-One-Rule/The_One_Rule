@@ -10,6 +10,7 @@ import {
   PACE_LABELS,
   TIER_NAMES,
   windowMs,
+  fenetreAllure,
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
@@ -1688,12 +1689,12 @@ function renderAllureDefaut(): void {
     lentesDabord.map((v, i) => ({
       value: String(v),
       label: nomAllure(v, PACE_LABELS[v] ?? String(v)),
-      hint: `${Math.round(windowMs(10) * v)} MS`,
+      hint: `${Math.round(fenetreAllure(windowMs(10), v))} MS`,
       level: i + 1,
       steps: lentesDabord.length,
       icon: "bars" as const,
       selected: v === current,
-      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(windowMs(10) * v)} ms`,
+      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(fenetreAllure(windowMs(10), v))} ms`,
     })),
   );
   for (const btn of Array.from(hote.children)) {
@@ -1849,12 +1850,12 @@ function renderPace(): void {
     lentesDabord.map((v, i) => ({
       value: String(v),
       label: nomAllure(v, PACE_LABELS[v] ?? String(v)),
-      hint: `${Math.round(windowMs(10) * v)} MS`,
+      hint: `${Math.round(fenetreAllure(windowMs(10), v))} MS`,
       level: i + 1,
       steps: lentesDabord.length,
       icon: "bars" as const,
       selected: v === current,
-      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(windowMs(10) * v)} ms`,
+      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(fenetreAllure(windowMs(10), v))} ms`,
     })),
   );
   for (const btn of Array.from(opts.children)) {
