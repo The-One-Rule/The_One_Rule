@@ -1,0 +1,54 @@
+# LA VÉRIFICATION — les quatre commandes du §2 de CLAUDE.md, sur chaque PR.
+#
+# Jusqu'ici rien ne les relançait : tout reposait sur un lancement à la main,
+# et une PR pouvait être fusionnée sans qu'aucun test n'ait tourné sur sa tête.
+#
+# Deux jobs et non un seul :
+#   · « rapide » (tsc, vitest, build) répond en deux minutes — c'est lui qu'on
+#     regarde avant de fusionner ;
+#   · « e2e » dure environ cinq minutes et juge des DÉLAIS RÉELS. CLAUDE.md
+#     l'écrit : il est sensible à la charge de la machine. Il tourne donc SEUL
+#     sur son runner, jamais en parallèle d'autre chose dans le même job.
+name: Vérification
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+concurrency:
+  group: verification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rapide:
+    name: tsc · vitest · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npx vitest run
+      - run: npx vite build
+      # Le crochet de vérification `window.__tor` ne doit JAMAIS partir dans le
+      # bundle livré (bloc `import.meta.env.DEV`).
+      - name: aucun crochet de dev dans le bundle
+        run: "! grep -rq __tor dist"
+
+  e2e:
+    name: e2e (salons réels)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx e2e.mjs
