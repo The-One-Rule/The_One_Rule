@@ -179,9 +179,21 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
           const permise = (e) =>
             regleJouee.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round, elapsedMs: DELAI_PILOTE }) === null &&
             (st.kind !== "clickAnyExcept" || e.color !== st.color);
+          /*
+           * ⚠️ ET QUAND AUCUNE PIÈCE N'EST PERMISE, ON CLIQUE DANS LE VIDE.
+           *
+           * `Math.max(0, findIndex(...))` retombait sur la pièce 0 — interdite
+           * par construction dans ce cas. Balayé hors ligne, au tempo du
+           * pilote : 341 manches sur 114 341 mouraient ainsi (0,3 %), toutes
+           * sur « n'importe où » ou « partout sauf », et c'est ce qui a fait
+           * tomber l'assertion du jeu de consignes en CI (1 faute sur 57). Le
+           * vide est la bonne réponse, et le serveur le juge sans position
+           * (`i: null`, comme `vueServeur`) : 0 échec sur 234 003 manches.
+           */
+          const permiseIdx = round.ents.findIndex(permise);
           const a = st.kind === "click" ? { k: "c", i: st.idx }
             : st.kind === "key" ? { k: "k", key: st.key }
-            : { k: "c", i: Math.max(0, round.ents.findIndex(permise)) };
+            : { k: "c", i: permiseIdx < 0 ? null : permiseIdx };
           setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: a })), k * 55);
         });
       }, DELAI_PILOTE);
@@ -531,12 +543,18 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   await sleep(250);
   recents[0].ws.send(JSON.stringify({ t: "start" }));
   /*
-   * ⚠️ 40 s, et le chiffre n'est pas libre. La consigne n'entre au tirage
-   * qu'à la manche 4 : avant, les deux pools donnent la même manche par
-   * construction. Un premier essai à 16 s couvrait les manches 0 à 4 — et
-   * laissait passer un client resté en version 1 sans une faute (éprouvé).
+   * ⚠️ JUSQU'À LA MANCHE 10, pas un nombre de secondes. La consigne n'entre
+   * au tirage qu'à la manche 4 : avant, les deux pools donnent la même
+   * manche par construction. Un premier essai à 16 s couvrait les manches 0
+   * à 4 et laissait passer un client resté en version 1 sans une faute
+   * (éprouvé). Une attente FIXE de 40 s n'atteignait la manche 10 que huit
+   * fois sur dix — la pause de rotation (3,4 s) mange la marge. On attend
+   * donc l'instant choisi, borné.
    */
-  await sleep(APRES_DEPART + 40000);
+  const debut = Date.now();
+  while (recents[0].roundIdx < 10 && Date.now() - debut < APRES_DEPART + 75000) await sleep(250);
+  // Le verdict de la manche courante doit être tombé avant qu'on le lise.
+  await sleep(2600);
   ok(recents.every((c) => c.consignesMatch === 2), "une table récente ouvre le jeu de consignes 2");
   ok(recents[0].roundIdx >= 10, `assez de manches jouées pour qu'un désaccord se voie (jusqu'à la ${recents[0].roundIdx})`);
 
@@ -562,7 +580,11 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
       .filter((o) => o && o.kind === "death" && !horloge.has(o.reason)),
   );
   const joues = recents.reduce((n, c) => n + c.verdicts.length, 0);
-  ok(joues > 0 && fautes.length === 0, `jeu de consignes 2 : serveur et clients reconstruisent la même manche (${joues} verdicts, ${fautes.length} faute(s))`);
+  ok(
+    joues > 0 && fautes.length === 0,
+    `jeu de consignes 2 : serveur et clients reconstruisent la même manche (${joues} verdicts, ${fautes.length} faute(s)` +
+      (fautes.length ? ` : ${fautes.map((o) => o.reason).join(" | ")})` : ")"),
+  );
   if (doubles.length) info(`double appui tiré et joué aux manches ${doubles.join(",")}`);
   else info("aucun double appui tiré sur ces manches — son jugement est couvert par tests/double-appui");
 
