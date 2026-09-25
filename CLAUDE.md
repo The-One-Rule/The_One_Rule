@@ -904,6 +904,27 @@ sans `VITE_WS_URL` : sans serveur de salons, elles n'existaient pas.
 - ⚠️ Reste vrai : NOM ET SIGNE passe par `multi.ouvreIdentite`, donc il est
   inerte sans serveur de salons. Sans conséquence en production.
 
+### Les émotes à côté des plaques, et le terrain qui grandit (25/09/2026)
+
+Rapporté par Pierre : « les émojis en multijoueur apparaissent sous l'écran de
+jeu ». Mesuré : une rangée de 60 px SOUS les plaques, seule en bas — et payée en
+terrain, puisque `RESERVE_HUD_MULTI` réservait 180 px pour elle. En colonnes
+(1600 × 700), une rangée DANS le flux sous la scène, et seulement dans ce mode :
+la hauteur de scène dépendait donc de la décision des colonnes (n°2).
+
+- Hors colonnes : grille 3 × 2 À CÔTÉ des plaques (la forme du salon couché,
+  généralisée). La bande tombe à 119 px, `RESERVE_HUD_MULTI` 180 → **126**.
+  Terrain en match : **863×362 → 994×417** à 1280 × 800, **169×402 → 192×456**
+  à 375 × 812. Recouvrement terrain / bande : 0 sur neuf formats.
+- En colonnes : bas de la gouttière droite, hors flux ; `#platesR` s'arrête
+  100 px au-dessus. 851×357 → 996×418 à 1600 × 700.
+- ⚠️ Trouvé en mesurant : à 812 × 375 la bande MORDAIT déjà 25 px sur le
+  terrain — les plaques ne passaient en compact que sous 720 px de LARGE, alors
+  que le paysage serré se décide sur les deux dimensions. `renderPlates` lit
+  maintenant `paysageSerre`.
+- `window.__tor.champ()` (dev seulement) rend le champ en coordonnées de page :
+  c'est avec lui qu'on mesure un recouvrement, pas à l'œil.
+
 ### Les plateaux habillent toute la partie (25/09/2026)
 
 Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas

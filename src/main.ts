@@ -7475,5 +7475,11 @@ if (import.meta.env.DEV) {
     get phase(): string {
       return session?.phase ?? "none";
     },
+    /** Le champ en coordonnées de PAGE — pour mesurer un recouvrement. */
+    champ(): { x: number; y: number; w: number; h: number } {
+      const f = scene.fieldRect();
+      const r = cv.getBoundingClientRect();
+      return { x: r.x + f.x, y: r.y + f.y, w: f.w, h: f.h };
+    },
   };
 }

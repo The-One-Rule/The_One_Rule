@@ -89,8 +89,14 @@ export const RESERVE_CONSIGNE = 128;
  *
  * ⚠️ Elle ne s'applique JAMAIS en colonnes (`has-gutters`) : là, les plaques
  * vivent dans les gouttières latérales et ne touchent pas le champ.
+ *
+ * 180 → 126 : les émotes ont quitté leur rangée sous les plaques pour se
+ * poser À CÔTÉ (« les émojis apparaissent sous l'écran de jeu », Pierre).
+ * Mesuré en match, animations coupées : la bande vaut 119 px de 1280 × 800 à
+ * 1920 × 1080 (32 de bulle, 83 de plaque, 4 de marge), 113 à 375 × 812.
+ * 7 px d'air. Rendus au terrain : à 1280 × 800, 863 × 362 → voir le commit.
  */
-export const RESERVE_HUD_MULTI = 180;
+export const RESERVE_HUD_MULTI = 126;
 
 /**
  * La bande laissée à la ligne d'aide du TUTORIEL, même défaut, même remède.

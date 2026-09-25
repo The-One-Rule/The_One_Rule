@@ -2459,6 +2459,130 @@ body {
 }
 
 /* ==================================================================
+   LES ÉMOTES À CÔTÉ DES PLAQUES, JAMAIS SOUS ELLES
+   ------------------------------------------------------------------
+   Rapporté par Pierre : « les émojis en multijoueur apparaissent sous
+   l'écran de jeu ». Mesuré à 1280 × 800, match lancé : plaques 567-686,
+   émotes 686-746, pied 746 — une rangée entière de 60 px, seule sous tout
+   le reste, et payée en terrain (`RESERVE_HUD_MULTI` réservait 180 px).
+
+   Le salon couché avait déjà trouvé la forme : les émotes À CÔTÉ des
+   plaques. Elle vaut partout hors colonnes. Deux rangées de trois : c'est
+   la hauteur d'une plaque, donc la bande ne grandit pas d'un pixel.
+   ================================================================== */
+#app:not(.has-gutters) #liveHud {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+#app:not(.has-gutters) #liveHud .plates {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+#app:not(.has-gutters) #liveHud .watchbar {
+  flex: 1 1 100%;
+  order: 2;
+}
+
+#app:not(.has-gutters) #liveHud .emotes {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-auto-rows: 40px;
+  gap: 6px;
+  align-self: stretch;
+  align-content: center;
+  padding: 8px 10px;
+  overflow: visible;
+  background: var(--surface);
+  border-left: var(--trait) solid var(--encre);
+}
+
+#app:not(.has-gutters) #liveHud .emotes.hidden {
+  display: none;
+}
+
+#app:not(.has-gutters) #liveHud .emotes .chip {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  min-height: 0;
+  font-size: 20px;
+}
+
+/* EN COLONNES, elles descendent au bas de la gouttière DROITE, hors flux.
+   Mesuré à 1600 × 700 : elles étaient une rangée DANS le flux sous la scène
+   (585-646), donc sous le terrain ET prises sur sa hauteur — et seulement
+   dans ce mode-là, ce qui faisait dépendre la hauteur de scène de la
+   décision des colonnes (n°2). Hors flux, elle est la même dans les deux. */
+#app.has-gutters .emotes {
+  position: absolute;
+  right: 0;
+  width: var(--gutter-w);
+  top: calc(var(--field-top) + var(--field-h) - 100px);
+  height: 100px;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-auto-rows: 40px;
+  gap: 8px;
+  justify-content: center;
+  align-content: center;
+  padding: 0;
+  border-top: 0;
+  background: none;
+  z-index: 8;
+}
+
+#app.has-gutters .emotes.hidden {
+  display: none;
+}
+
+#app.has-gutters .emotes .chip {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: 20px;
+}
+
+/* La colonne de droite s'arrête au-dessus d'elles. */
+#app.has-gutters #platesR {
+  bottom: 100px;
+}
+
+/* Couché, la bande entière vaut `RESERVE_HUD_MULTI_COUCHE` : les deux rangées
+   descendent à 36 px pour tenir dans la hauteur d'une plaque compacte (94). */
+@media (orientation: landscape) and (max-height: 500px) {
+  #app:not(.has-gutters) #liveHud .emotes {
+    grid-template-columns: repeat(3, 36px);
+    grid-auto-rows: 36px;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes .chip {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  /* La plaque compacte du téléphone, que la règle `max-width: 720px` ne
+     donne pas à un grand téléphone couché (812 px) : 4 px de plus par plaque
+     suffisaient à mordre sur le terrain. */
+  #app:not(.has-gutters) .plates .plate {
+    padding: 5px 7px;
+    gap: 2px;
+  }
+
+  #app:not(.has-gutters) #liveHud .plates {
+    padding-bottom: 3px;
+  }
+}
+
+/* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {

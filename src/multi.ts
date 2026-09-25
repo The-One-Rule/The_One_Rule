@@ -39,6 +39,7 @@ import { livesDots } from "./render/hud";
 import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
+import { paysageSerre } from "./render/orientation";
 import type { PlateActe, PlateFlash } from "./render/plate";
 import { paintCursors } from "./render/cursors";
 import type { CurseurAffiche } from "./render/cursors";
@@ -1821,7 +1822,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // Compact aussi sur petit écran, quel que soit l'effectif : à deux plaques
     // par rangée sur un téléphone, six joueurs mangeaient déjà un tiers de la
     // hauteur. Le signe passe à 24 px, comme à effectif nombreux.
-    const compact = match.players.length > 6 || window.innerWidth <= 720;
+    //
+    // ⚠️ Et en PAYSAGE SERRÉ, qui se décide sur les deux dimensions : un grand
+    // téléphone couché (812 × 375) passait le seuil de largeur, gardait des
+    // plaques de 82 px et débordait de 25 px sur le terrain (mesuré).
+    const compact =
+      match.players.length > 6 ||
+      window.innerWidth <= 720 ||
+      paysageSerre(window.innerWidth, window.innerHeight);
     platesEl.classList.toggle("plates--compact", compact);
     const existing = new Map<string, HTMLElement>();
     for (const col of [platesL, platesR]) {
