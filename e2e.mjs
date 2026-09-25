@@ -96,7 +96,7 @@ function client(name, key, rookie = false, clavier = false) {
     verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
     rounds: [], recus: [], clavierMatch: null, manuel: false,
     imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
-    coopClics: [], cursorsMsgs: [], chargesCoop: [],
+    coopClics: [], cursorsMsgs: [], chargesCoop: [], photos: [], ferme: null,
   };
   ws.on("message", (raw) => {
     const m = JSON.parse(raw);
@@ -118,6 +118,7 @@ function client(name, key, rookie = false, clavier = false) {
     if (m.t === "coop_clic") c.coopClics.push(m);
     if (m.t === "cursors") c.cursorsMsgs.push(m);
     if (m.t === "charge") c.chargesCoop.push(m);
+    if (m.t === "photos") c.photos.push(m.photos);
     // Horodatage de réception : c'est ce qui permet de comparer les pauses
     // annoncées par le serveur à celles réellement vécues par un client.
     if (m.t === "round" || m.t === "verdict") c.recus.push({ t: m.t, idx: m.idx, at: Date.now(), nextRoundAt: m.nextRoundAt ?? null });
@@ -170,6 +171,7 @@ function client(name, key, rookie = false, clavier = false) {
     if (m.t === "chat") c.chats.push(m);
     if (m.t === "error") c.errors.push(m);
   });
+  ws.on("close", (code) => { c.ferme = code; });
   return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier })); setTimeout(() => res(c), 120); }));
 }
 
@@ -1149,6 +1151,78 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   ok(r2?.vainqueur === "imposteur", `imposteur : 3 voix sur un villageois → imposteur (got ${r2?.vainqueur})`);
 
   for (const c of imp) c.ws.close();
+  await sleep(220);
+}
+
+/* ------------------------------------------------------------------ *
+ * LE PROFIL — carte de visite et photo, sur le fil.
+ *
+ * ⚠️ La photo est le plus gros message du protocole, et le plafond de `ws`
+ * (`maxPayload`) valait 4096 : une vraie photo de téléphone y FERMAIT la
+ * socket, sans un message. On envoie donc une photo de 13 Ko, près de
+ * `PHOTO_MAX`, et on exige que la connexion survive.
+ * ------------------------------------------------------------------ */
+{
+  const [p1, p2] = await Promise.all([client("PROFIL1", "pro1"), client("PROFIL2", "pro2")]);
+  for (const c of [p1, p2]) c.manuel = true;
+  const entete = "data:image/jpeg;base64,";
+  const lourde = entete + "A".repeat(13_000 - entete.length);
+  p1.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(150);
+  p1.ws.send(JSON.stringify({ t: "profil", carte: "sang", photo: lourde }));
+  await sleep(150);
+  ok(p1.ferme === null, `profil : une photo de 13 Ko ne ferme pas la socket (code ${p1.ferme})`);
+  const moi1 = p1.room?.players.find((x) => x.id === p1.id);
+  ok(moi1?.carte === "sang", `profil : la carte est publiée dans le salon (${moi1?.carte})`);
+
+  p2.ws.send(JSON.stringify({ t: "join", code: p1.room.code }));
+  await sleep(250);
+  const recue = p2.photos.find((ph) => ph[p1.id]);
+  ok(recue?.[p1.id] === lourde, "profil : l'arrivant reçoit la photo de ceux déjà là");
+  ok(p2.room?.players.find((x) => x.id === p1.id)?.carte === "sang", "profil : l'arrivant voit la carte");
+
+  // Du douteux : une carte qui sortirait d'une url() CSS, une photo qui
+  // serait une adresse à sonder. Ignorés, jamais une erreur.
+  const erreursAvant = p2.errors.length;
+  p2.ws.send(JSON.stringify({ t: "profil", carte: 'sang")', photo: "https://exemple.org/moi.jpg" }));
+  await sleep(200);
+  ok(p2.errors.length === erreursAvant && p2.ferme === null, "profil : un profil douteux n'est ni une erreur ni une coupure");
+  ok(p1.room?.players.find((x) => x.id === p2.id)?.carte === undefined, "profil : une carte douteuse n'est pas publiée");
+  ok(!p1.photos.some((ph) => ph[p2.id]), "profil : une photo douteuse n'est pas relayée");
+
+  // Retirer sa photo se relaie comme une chaîne vide. Après le délai minimal
+  // entre deux changements de photo.
+  await sleep(1600);
+  const avant = p2.photos.length;
+  p1.ws.send(JSON.stringify({ t: "profil", carte: "roue" }));
+  await sleep(200);
+  ok(p2.photos.slice(avant).some((ph) => ph[p1.id] === ""), "profil : retirer sa photo se relaie");
+  ok(p2.room?.players.find((x) => x.id === p1.id)?.carte === "roue", "profil : changer de carte se relaie");
+
+  // Deux photos d'affilée : la seconde, trop rapprochée, est ignorée.
+  const autre = entete + "QUJD";
+  p1.ws.send(JSON.stringify({ t: "profil", carte: "roue", photo: entete + "WFla" }));
+  await sleep(50);
+  p1.ws.send(JSON.stringify({ t: "profil", carte: "roue", photo: autre }));
+  await sleep(200);
+  ok(!p2.photos.some((ph) => ph[p1.id] === autre), "profil : une rafale de photos ne se relaie pas");
+
+  /*
+   * Une trame plus grosse que `maxPayload`. Le serveur n'écoutait pas `error`
+   * sur ses sockets : `ws` levait, et le PROCESSUS mourait — tous les salons
+   * avec lui. On exige que la fautive seule soit coupée.
+   */
+  const intrus = await client("INTRUS", "intr");
+  intrus.manuel = true;
+  intrus.ws.send(JSON.stringify({ t: "chat", text: "A".repeat(40_000) }));
+  await sleep(300);
+  ok(intrus.ferme !== null, `trame trop grosse : la socket fautive est coupée (code ${intrus.ferme})`);
+  const pongsAvant = p2.offsets.length;
+  p2.ws.send(JSON.stringify({ t: "ping", sent: Date.now() }));
+  await sleep(200);
+  ok(p2.offsets.length > pongsAvant && p2.ferme === null, "trame trop grosse : le serveur répond encore aux autres");
+
+  for (const c of [p1, p2]) c.ws.close();
   await sleep(220);
 }
 

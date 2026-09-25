@@ -224,6 +224,14 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effetsQuoi": "Alerte au dernier quart de la fenêtre.",
     "rgl.lisibilite": "LISIBILITÉ",
     "rgl.apparence": "APPARENCE",
+    "profil.carte": "TA CARTE",
+    "profil.carteAide": "GAGNE D'AUTRES CARTES EN JOUANT : CHACUNE PEUT TE REPRÉSENTER.",
+    "profil.photo": "TA PHOTO",
+    "profil.photoChoisir": "CHOISIR UNE PHOTO",
+    "profil.photoRetirer": "RETIRER",
+    "profil.photoAide": "SEULS LES JOUEURS DE TES SALONS LA VOIENT. CHACUN PEUT MASQUER LES PHOTOS DES AUTRES DANS LES RÉGLAGES.",
+    "rgl.photos": "PHOTOS DES AUTRES",
+    "rgl.photosQuoi": "Les photos de profil des joueurs de ton salon.",
     "rgl.apparenceQuoi": "AUTO suit ton appareil. SOMBRE ménage les yeux le soir.",
     "rgl.motifs": "MOTIFS SUR LES PIÈCES",
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
@@ -404,6 +412,14 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effetsQuoi": "Alert on the last quarter of the window.",
     "rgl.lisibilite": "READABILITY",
     "rgl.apparence": "APPEARANCE",
+    "profil.carte": "YOUR CARD",
+    "profil.carteAide": "WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.",
+    "profil.photo": "YOUR PHOTO",
+    "profil.photoChoisir": "CHOOSE A PHOTO",
+    "profil.photoRetirer": "REMOVE",
+    "profil.photoAide": "ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.",
+    "rgl.photos": "OTHERS' PHOTOS",
+    "rgl.photosQuoi": "Profile photos of the players in your room.",
     "rgl.apparenceQuoi": "AUTO follows your device. DARK is easier on the eyes at night.",
     "rgl.motifs": "PATTERNS ON PIECES",
     "rgl.motifsQuoi": "Every colour also carries a texture.",
@@ -852,6 +868,10 @@ type Dyn = {
   ariaImposteur: string;
   ariaCoop: string;
   ariaSigne: (n: number, total: number) => string;
+  /** Le choix « pas de carte de visite ». */
+  carteAucune: string;
+  /** La photo choisie n'a pas pu être lue ou réduite. */
+  photoIllisible: string;
   ariaCouper: (qui: string) => string;
   ariaReactiver: (qui: string) => string;
   ariaExclure: (qui: string) => string;
@@ -1438,6 +1458,8 @@ const DYN: Record<Lang, Dyn> = {
     ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
     ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 12 vagues, 4 à 6 joueurs",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
+    carteAucune: "Aucune carte",
+    photoIllisible: "CETTE IMAGE NE SE LIT PAS. ESSAIE UNE AUTRE PHOTO.",
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
     ariaExclure: (qui) => `Exclure ${qui}`,
@@ -1924,6 +1946,8 @@ const DYN: Record<Lang, Dyn> = {
     ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
     ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 12 waves, 4 to 6 players",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
+    carteAucune: "No card",
+    photoIllisible: "THIS IMAGE CANNOT BE READ. TRY ANOTHER PHOTO.",
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,
     ariaExclure: (qui) => `Kick ${qui}`,

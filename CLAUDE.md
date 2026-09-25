@@ -775,6 +775,61 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### ⚠️ Le serveur de salons tombait sur UN message (25/09/2026)
+
+Trouvé en portant la photo de profil sur le fil, et c'est antérieur à elle.
+`server/index.ts` n'écoutait pas `error` sur ses sockets. Or `ws` émet
+`error` sur toute trame qu'il refuse — plus grosse que `maxPayload`, UTF-8
+invalide, opcode inconnu — et un `EventEmitter` sans écouteur d'`error` LÈVE :
+**le processus mourait, et tous les salons en mémoire avec lui**, sur une seule
+trame d'un seul client. Mesuré : `RangeError: Max payload size exceeded` non
+rattrapée. Corrigé par un écouteur ; l'e2e envoie une trame de 40 Ko et exige
+que la fautive soit coupée (1009) ET que le serveur réponde encore aux autres.
+
+Même lot : `maxPayload` valait **4096**, taillé sur un chat de 140 caractères.
+Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket du
+joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
+**Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
+
+### Le joueur a un visage : carte de visite et photo (25/09/2026)
+
+Demandé par Pierre (« l'essence du jeu c'est le multi »). `shared/profil.ts`
+valide des DEUX côtés avec la même fonction ; absent vaut non, le douteux est
+ignoré sans erreur. Message `profil` (client → serveur, renvoyé à chaque
+`welcome`), `PlayerPublic.carte`, et `photos` (serveur → clients) : la photo
+voyage À PART du `room`, une fois à l'arrivée, jamais à chaque état du salon.
+
+- **La carte** ne se choisit que parmi les cartes GAGNÉES (n°7). Au salon et au
+  classement : vignette carrée pleine opacité au bord droit. Premier essai
+  mesuré en fond voilé à 80 % : une tache floue, rien de reconnaissable. Les
+  plaques de match gardent le fond voilé (62 %) : elles descendent à 76 px.
+  ⚠️ `.seat.is-me { background }` (0,2,0) effaçait la carte sur SON PROPRE
+  siège — les états qui la portent sont nommés dans la règle ; les VERDICTS
+  de plaque l'emportent exprès.
+- **La photo** est réduite PAR LE CLIENT (`render/photo.ts`, 96 px, JPEG,
+  ≤ `PHOTO_MAX`) : la pleine résolution et ses métadonnées ne quittent jamais
+  l'appareil. SVG et URL refusés (script, sondage des clients). Un réglage
+  masque les photos des AUTRES. Un changement de photo à moins de 1,5 s du
+  précédent est ignoré par le serveur (relayer 14 Ko × 9 en rafale).
+- Mesuré à deux navigateurs : plaques identiques avec et sans profil
+  (210 × 102 bureau, 90/76 × 75 téléphone). La taille du champ ne bouge pas.
+
+### Les plateaux habillent toute la partie (25/09/2026)
+
+Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas
+qu'au canvas. `:root.en-partie[data-skin="…"]` redéfinit TOUS les jetons de
+couleur (`tests/theme.test.ts` refuse un oubli) ; `en-partie` est posée par
+`show(null)`. ⚠️ Sur la RACINE, jamais sur `#app` : `--ombre` se calcule là où
+elle est déclarée. Les menus gardent le thème : le plateau est un décor de jeu.
+
+### `smoke.test.ts` tombait une fois sur vingt — expliqué
+
+Il laisse filer le temps sans jouer et parie que le 1-1 est perdu. Or la graine
+vient de `Math.random`, et **5,2 % des graines** (156 sur 3000) font gagner le
+1-1 à un joueur qui ne touche à rien : les manches piégées se survivent en
+s'abstenant. Son hasard est désormais figé ; les valeurs 18 et 20 le font
+tomber sur exactement cette assertion.
+
 ### DÉJOUER retiré, et le temps mort qu'il cachait (25/09/2026)
 
 Retiré en entier : moteur (`resoudreDejoue`), `Session`, `game/dejoue.ts`,

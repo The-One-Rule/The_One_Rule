@@ -2133,6 +2133,194 @@ body {
 }
 
 /* ==================================================================
+   LE JOUEUR — carte de visite et photo
+
+   Demandé par Pierre : que la carte d'un joueur soit « plus visible et
+   distinctive », avec une photo de profil. À dix dans un salon, un signe de
+   26 px ne suffisait pas à reconnaître quelqu'un sans lire son nom.
+
+   ⚠️ LA CARTE EST UN FOND, PAS UN ÉLÉMENT. Elle se pose sous le siège, la
+   plaque ou la ligne du classement, voilée par la surface à 80 % : les
+   dimensions ne bougent pas d'un pixel (`.plate` reste à 150 px, que lit
+   `render/layout.ts`), et le texte reste lisible. Le voile est un aplat
+   répété deux fois, pas un dégradé.
+
+   ⚠️ Aucun pseudo-élément : `.plate--rookie::before` est déjà pris.
+
+   ⚠️ LA CASCADE, mesurée : `.seat.is-me { background: … }` (0,2,0) écrasait
+   le raccourci et effaçait la carte sur SON PROPRE siège — le seul que le
+   joueur regarde pour vérifier son choix. Les états qui doivent porter la
+   carte sont donc nommés ici. Les VERDICTS (`.plate.plate--ok/trap/dead`),
+   eux, l'emportent exprès : un verdict se lit avant un décor.
+   ================================================================== */
+.a-carte,
+.seat.is-me.a-carte,
+.lobbyrow.is-winner.a-carte {
+  --voile: color-mix(in srgb, var(--fond-carte, var(--surface)) 62%, transparent);
+  background-image: linear-gradient(var(--voile), var(--voile)), var(--carte);
+  background-size: cover, cover;
+  background-position: center, center 30%;
+  image-rendering: pixelated;
+}
+
+.plate--me.a-carte,
+.seat.is-me.a-carte {
+  --fond-carte: var(--lilas);
+}
+
+.lobbyrow.is-winner.a-carte {
+  --fond-carte: var(--miel);
+}
+
+/*
+ * AU SALON ET AU CLASSEMENT, LA CARTE SE MONTRE ENTIÈRE.
+ *
+ * Premier essai mesuré : en fond voilé à 80 %, et agrandie par `cover` sur une
+ * boîte de 250 × 62, la carte devenait une tache floue — on n'y reconnaissait
+ * aucun dessin. Or c'est au salon qu'on se regarde, avant de jouer. Elle y est
+ * donc une VIGNETTE carrée pleine hauteur, sans voile, au bord droit ; la
+ * couleur d'état (moi en lilas, le vainqueur en miel) reste celle du composant
+ * puisqu'on ne touche qu'aux calques d'image, jamais au raccourci
+ * `background`. Le contenu se pousse d'autant : la BOÎTE ne bouge pas.
+ *
+ * Les plaques de match gardent le fond voilé : elles descendent à 76 px de
+ * large sur téléphone, une vignette y mangerait le nom.
+ */
+.seat.a-carte,
+.seat.is-me.a-carte,
+.lobbyrow.a-carte,
+.lobbyrow.is-winner.a-carte {
+  background-image: var(--carte);
+  background-size: auto 100%;
+  background-position: right center;
+  background-repeat: no-repeat;
+  padding-right: calc(var(--vignette) + 10px);
+}
+
+.seat.a-carte {
+  --vignette: 58px;
+}
+
+.lobbyrow.a-carte {
+  --vignette: 40px;
+}
+
+/* Les actions du siège (MUET, EXCLURE) sont en absolu au bord droit : sans ce
+   décalage elles se peignaient SUR la vignette. */
+.seat.a-carte .seat__acts {
+  right: calc(var(--vignette) + 4px);
+}
+
+/* L'avatar : la photo, ronde et cernée comme une pièce du jeu. */
+.a-photo {
+  display: grid;
+  place-items: center;
+}
+
+.avatar__photo {
+  display: block;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  object-fit: cover;
+  background: var(--surface);
+}
+
+/* Au siège, la photo prend la place qu'il faut pour être reconnue. */
+.seat__glyph.a-photo {
+  width: 36px;
+  height: 36px;
+}
+
+.seat__glyph.a-photo .avatar__photo {
+  width: 36px;
+  height: 36px;
+}
+
+/* ---- L'écran d'identité : choisir sa carte, choisir sa photo ---- */
+/* Mesuré : sans cet écart, « TA CARTE » se collait à la ligne d'aide du
+   signe et se lisait comme sa suite. */
+.profil__titre {
+  margin-top: 18px;
+}
+
+.cartepick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.cartepick__opt {
+  width: 56px;
+  height: 76px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--paper-dim);
+  font-family: var(--display);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cartepick__opt img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.cartepick__opt[aria-checked="true"] {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal), 0 3px 0 var(--ombre-c);
+}
+
+.photopick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
+.photopick__apercu {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 3px solid var(--encre);
+  background: var(--surface);
+}
+
+.photopick__apercu img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Le vrai champ est masqué, pas retiré : le `<label>` le déclenche, et un
+   `display: none` l'empêcherait de recevoir le focus clavier. */
+.photopick__fichier {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photopick__choisir {
+  cursor: pointer;
+}
+
+/* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {

@@ -70,6 +70,18 @@ export class NetClient {
   private pingTimer: ReturnType<typeof setInterval> | null = null;
   myId = "";
   connected = false;
+  /**
+   * LE PROFIL (carte de visite, photo), relu à CHAQUE `welcome` : le serveur
+   * en renvoie un à la reprise d'un siège, avec une identité de client neuve
+   * qui ne sait rien du profil de l'ancienne. Une fonction et non une valeur :
+   * c'est la sauvegarde qui fait foi, au moment où l'on se présente.
+   */
+  profil: () => { carte?: string; photo?: string } = () => ({});
+
+  /** Renvoie le profil au salon — après un changement sur l'écran d'identité. */
+  envoieProfil(): void {
+    if (this.connected) this.send({ t: "profil", ...this.profil() });
+  }
 
   constructor(private url: string) {}
 
@@ -154,6 +166,7 @@ export class NetClient {
         if (msg.t === "welcome") {
           this.myId = msg.id;
           this.connected = true;
+          this.send({ t: "profil", ...this.profil() });
           if (!settled) {
             settled = true;
             established = true;

@@ -1658,6 +1658,7 @@ function renderReglages(): void {
   poseInter("btnMusic", s.music);
   appliqueMotifs(s.daltonien);
   renderTheme();
+  poseInter("btnPhotosAutres", s.photosAutres);
   refreshMetricsButton();
   renderAllureDefaut();
 }
@@ -6109,6 +6110,14 @@ $("btnMusic").addEventListener("click", () => {
   });
   setMusicEnabled(s.music);
   poseInter("btnMusic", s.music);
+  sfx.ui();
+});
+
+$("btnPhotosAutres").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.photosAutres = !st.photosAutres;
+  });
+  poseInter("btnPhotosAutres", s.photosAutres);
   sfx.ui();
 });
 
