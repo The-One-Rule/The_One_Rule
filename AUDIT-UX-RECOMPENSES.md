@@ -163,3 +163,29 @@ progression incohérente ne réparera pas la sensation.
 **Mesure à poser avant** : `onb_done → run_start` suivant (combien enchaînent
 après le tuto), `palier_franchi`, et le taux de retour à l'escalier depuis
 l'écran de fin. Sans eux on ne saura pas si R1-R3 ont bougé quelque chose.
+
+---
+
+## 5. Statut après la refonte (même branche)
+
+| # | Statut |
+|---|---|
+| B1 tuto → autre règle | ✅ le tutoriel mène au niveau 1-1 sous LE SANG |
+| B2 portes sans tuto | ✅ garde-fou dans `openBrief` |
+| B3 tests Node ≥ 25 | ✅ `vite.config.ts` |
+| B4 carte RANKED détruite | ✅ l'état s'écrit dans `#cardRankedState` |
+| B5 commentaires périmés | ⏳ non traité |
+| B6 « DEMAIN » | ✅ traduit (le test l'exigeait en anglais — il gravait le bug) |
+| P1 trois maîtrises | ✅ une seule : le boss du chapitre |
+| P2 ESCALADE / ESCALIER | ✅ l'escalade s'appelle LA PILE, l'escalier devient le parcours |
+| P3 tuto abandonné | ✅ la première carte se gagne au 1-1, plus au temps 2 |
+| R1 moment de récompense | ✅ écran de fin de niveau : étoiles, pièces, carte révélée |
+| R2 suite unique | ✅ un bouton : niveau suivant / réessayer |
+| R3 escalier trouvable | ✅ l'accueil EST le parcours |
+| R4 une maîtrise | ✅ |
+| R5 pièces utiles | ✅ boutique de styles de pièces |
+| R6 objectif en jeu | ✅ pied « NIVEAU 1-2 · OBJECTIF 8 », cœurs |
+| R7 récap animé | ✅ partiel (étoiles une à une, carte qui se retourne) |
+
+Restes : écran ESCALIER mort à retirer, LA VOYELLE au doigt sur le run du
+jour, salons jamais vus à l'écran avec serveur. Détail dans CLAUDE.md §12.

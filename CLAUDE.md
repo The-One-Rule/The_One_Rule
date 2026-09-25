@@ -283,11 +283,12 @@ sur deux passages.
    Le remède est `margin-top: auto` sur le premier enfant.
 7. **Le carnet n'explique que les règles rencontrées** — ne pas brûler la
    surprise du run du jour.
-8. **Identité Nocturne** : pas de dégradé, pas d'arrondi hors pièces de jeu,
-   capitales, accent `--signal` réservé à la règle unique et à l'action
-   évidente, `prefers-reduced-motion` respecté. Les angles droits ne sont pas
-   un défaut de finition — c'est l'identité. Ce qui manquait était une
-   hiérarchie de **matière** (épaisseurs, espacements), pas des arrondis.
+8. **Identité STICKER** (remplace « Nocturne » depuis la refonte parcours,
+   carte blanche de Pierre) : fond sable, encre prune `--encre`, contours
+   épais, ombres FRANCHES sans flou, arrondis, Fredoka + Nunito, accent
+   violet `--signal` pour l'action évidente. Invariants qui, eux, ne bougent
+   pas : les quatre teintes des pièces (calibrage daltonien, au chiffre près),
+   la géométrie du champ, `prefers-reduced-motion`. Voir §7 et `src/theme.css`.
 9. **Aucun `setTimeout` pour décider d'une reprise** : la reprise, c'est le
    message `round`. Corollaire : un état de manche s'efface au message suivant,
    pas sur minuterie.
@@ -344,6 +345,16 @@ sur deux passages.
 ---
 
 ## 7. La couche visuelle
+
+> ⚠️ **Depuis la refonte PARCOURS, l'identité est « STICKER »** (§6 n°8,
+> §12). `src/theme.css` est chargée APRÈS `style.css` et **échange les valeurs**
+> de `--ink` (fond, devenu sable) et `--paper` (texte, devenu prune) : les
+> 15 000 lignes d'origine basculent sans être réécrites. `--signal-pale`,
+> qui servait de TEXTE sur fond noir (68 déclarations), devient un violet
+> profond. Tout ce qui suit décrit l'ancienne couche ; les pièges CSS qu'il
+> documente restent vrais. Les tests qui lisent la feuille ne lisent que
+> `style.css`, sauf `hidden.test.ts` qui lit les deux — **un composant neuf
+> se style dans `theme.css`, et sa règle `.hidden` aussi.**
 
 ### Échelle typographique
 
@@ -742,6 +753,83 @@ Deux façons propres de s'en passer, toutes deux en place :
 ## 12. Où en est le travail
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+
+### LA REFONTE PARCOURS (25/09/2026) — branche `audit/ux-onboarding-recompenses`
+
+Demandée par Pierre, carte blanche totale, après des retours « pas intuitif »,
+« aucune sensation de récompense », « les escaliers sont durs à trouver ».
+L'audit qui l'a motivée est dans `AUDIT-UX-RECOMPENSES.md`.
+
+**Le jeu est une MONTÉE qu'on voit** (`src/game/parcours.ts`, pur, testé) :
+un chapitre par règle (`CHAPITRES`, ordre pédagogique, LE SANG d'abord),
+cinq niveaux par chapitre (`NIVEAUX` : premiers pas → le piège → sans filet →
+tempo → boss), **trois vies par niveau, et les vies restantes SONT les
+étoiles**. Le boss ouvre le chapitre suivant. JOUER lance toujours le
+prochain niveau (`joueLaSuite`). Un niveau réutilise la plomberie des paliers
+(`palierDeNiveau` → `palierDuRun()`), et `Session` gagne `vies` et `grace`,
+**absents partout ailleurs** : run du jour, multi, rejeu serveur inchangés,
+`VERSION_CONTENU` inchangée.
+
+⚠️ **Le bug qui a déclenché tout ça** : après le tutoriel (qui enseigne LE
+SANG), `openBrief("training")` → `trainingRule` sert une règle piégeuse
+JAMAIS VUE — donc exclut LE SANG. Le joueur tombait sur LE GAUCHER. Le
+tutoriel mène maintenant au niveau 1-1, et la première carte se GAGNE à la
+fin du 1-1 (révélée), plus pendant le tutoriel.
+
+⚠️ **`estNouveau()` est gardé dans `openBrief`**, le point de passage commun :
+RUN DU JOUR / ESCALADE ne contournent plus le tutoriel.
+
+**Les modes s'ouvrent en jouant** (`VERROU_MODES` : jour et libre après le
+chapitre 1, LA PILE — ex-escalade — après le 3). Le MULTI n'est jamais
+verrouillé. ⚠️ `Save.veteran` : posé UNE fois à la relecture d'une sauvegarde
+qui a un historique mais pas de `boutique` — les joueurs d'avant gardent tout
+ouvert.
+
+**Une seule maîtrise : battre le boss** (`estMaitrisee`). L'escalier ≥ 15 et
+l'ancien seuil restent reconnus pour ce qu'ils ont DÉJÀ donné, mais le seuil
+d'entraînement cesse de compter dès qu'une règle a des étoiles. La fiche
+montre le chapitre ; l'échelle à six cases n'est plus affichée
+(`AVANCE_ECHELLE = false`), la collection affiche `★ n/15`.
+
+⚠️ **Les étoiles sont un champ de carnet** (`RuleRecord.etoiles`), branché aux
+TROIS bouts : `majCarnet` (par le report `...prev`), `fusionne` (maximum case
+par case, écrit dans `shared/compte.ts` sans import), `api/moi.ts` (borné à
+5 cases × 0..3). `carnet-voyage` et `majcarnet` les ont réclamées d'eux-mêmes.
+
+**La boutique** (`src/game/boutique.ts`) : les pièces achètent des styles de
+pièces (`render/skins.ts` : sticker, néon, bonbon, pixel, craie). Un style ne
+change QUE le dessin — le hit-test lit `e.x/e.y/e.r`. Local seulement (pas
+dans le compte). Prix calés : un chapitre parfait (200) paie le premier.
+
+**L'annonce du piège se pose sur la CONSIGNE** (barrée + pastille), classe
+`#app.piege-annonce` : sur téléphone la case META est masquée, donc au
+niveau 1-2 aucun signal n'était visible.
+
+**Comment vérifier le rendu, puisque le volet ne compose pas de frames** :
+Chrome headless via `playwright-core` installé dans le scratchpad (jamais
+dans le dépôt), `executablePath` = le Chrome du système. En dev,
+`window.__tor.joue()` joue la bonne réponse de la manche (bloc
+`import.meta.env.DEV`, absent du bundle — vérifié `grep -c __tor dist` = 0).
+⚠️ Le bouton JOUER « respire » : Playwright le juge instable, cliquer avec
+`{ force: true }`.
+
+**Ce qui reste, et c'est écrit** :
+- l'écran ESCALIER (`#escalier`, `ouvreEscalier`, `palierDemande`) n'a plus
+  AUCUNE porte : du code mort qui ressemble à une fonctionnalité. À retirer ;
+  le module pur `game/escalier.ts` reste, le parcours en utilise les types ;
+- LA VOYELLE au doigt reste inerte sur le RUN DU JOUR (le parcours l'exclut) :
+  la corriger demande une capacité `clavier` dans la revendication de
+  `verifyRun`, comme `maintien` ;
+- les salons (lobby, fin de match) n'ont été vus qu'à travers le basculement
+  des jetons, jamais à l'écran avec un serveur ;
+- **rien de tout ça n'a été vu par un joueur.** Les chiffres à lire :
+  `onb_done` → `niveau_fin` (enchaîne-t-on après le tutoriel ?), la
+  distribution des étoiles par niveau (le 1-3 sans filet est-il un mur ?),
+  `boutique_achat`.
+
+**Environnement** : ce poste est désormais macOS / zsh / Node 26. Node ≥ 25
+expose un `localStorage` natif qui masquait jsdom (22 tests rouges) :
+`vite.config.ts` passe `--no-experimental-webstorage` aux workers.
 
 ### Modes imposteur et coop — livrés sur master
 

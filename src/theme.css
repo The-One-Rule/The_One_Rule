@@ -1359,6 +1359,74 @@ body {
   border-radius: var(--r-m);
 }
 
+/* La démo derrière l'accueil neuf : sur le sable, plus sur la nuit. */
+.attract,
+.attract--nuit {
+  background: var(--ink);
+}
+
+/* En large, la démo passe DERRIÈRE le titre : on l'estompe pour que le texte
+   se lise, sans la couper — c'est elle qui montre le jeu. */
+@media (min-width: 900px) {
+  #home.is-neuf .attract__cvs {
+    opacity: 0.38;
+  }
+
+  #home.is-neuf .bienvenue__titre {
+    text-shadow: 0 3px 0 var(--surface), 0 0 24px var(--ink);
+  }
+}
+
+/* ==================================================================
+   EN PARTIE
+   ================================================================== */
+
+/* L'annonce du piège (niveaux d'apprentissage) : la consigne se barre et
+   porte une pastille. Jamais ailleurs que sur le parcours. */
+#app.piege-annonce #instr {
+  text-decoration: line-through;
+  text-decoration-color: var(--rouge);
+  text-decoration-thickness: 0.12em;
+}
+
+#app.piege-annonce #instr::after {
+  content: attr(data-piege);
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.4em;
+  padding: 0.18em 0.5em 0.12em;
+  font-size: 0.45em;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: var(--rouge);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--encre);
+  text-decoration: none;
+  animation: tor-piege 700ms ease-in-out infinite alternate;
+}
+
+@keyframes tor-piege {
+  from { transform: rotate(-4deg) scale(1); }
+  to { transform: rotate(4deg) scale(1.08); }
+}
+
+/* Le score saute à chaque manche tenue. */
+#fScore.a-monte {
+  animation: tor-monte-score 320ms var(--e-punch);
+  display: inline-block;
+}
+
+@keyframes tor-monte-score {
+  0% { transform: scale(1); color: var(--encre); }
+  35% { transform: scale(1.45) translateY(-3px); color: var(--signal); }
+  100% { transform: scale(1); }
+}
+
+#instr {
+  color: var(--encre);
+}
+
 /* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
@@ -1367,7 +1435,9 @@ body {
   .piste__pas.is-courant .piste__n,
   .etoiles.joue .etoile.is-on,
   .revele.joue,
-  .revele.joue .revele__carte {
+  .revele.joue .revele__carte,
+  #app.piege-annonce #instr::after,
+  #fScore.a-monte {
     animation: none;
     opacity: 1;
     transform: none;

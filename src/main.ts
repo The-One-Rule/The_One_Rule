@@ -3216,6 +3216,9 @@ function openBrief(mode: Mode): void {
 }
 
 
+/** L'annonce du piège est-elle posée sur la consigne ? Écrite au changement seulement. */
+let piegeAffiche = false;
+
 /** Vrai dès que la fin de l'échauffement a été annoncée, pour ce run-là. */
 let finEchauffementDite = false;
 
@@ -4817,6 +4820,8 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
  * ------------------------------------------------------------------ */
 function finishRun(): void {
   if (!session?.end) return;
+  piegeAffiche = false;
+  appEl.classList.remove("piege-annonce");
   const { end, rule, mode } = session;
   const pace = session.pace;
   /*
@@ -5857,8 +5862,14 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
-      scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
+      scene.burst(lastClick.x, lastClick.y, lastClick.color, 14, 230);
     }
+    // Le score SAUTE à chaque manche tenue : la réussite se sent sur le
+    // chiffre qu'on regarde, pas seulement à l'oreille.
+    const sc = $("fScore");
+    sc.classList.remove("a-monte");
+    void sc.offsetWidth;
+    sc.classList.add("a-monte");
     return;
   }
   if (outcome.kind !== "death") return;
@@ -6289,6 +6300,8 @@ function loadChallenge(r: Replay): void {
  * ------------------------------------------------------------------ */
 function backHome(): void {
   session = null;
+  piegeAffiche = false;
+  appEl.classList.remove("piege-annonce");
   challenge = null;
   ranked = null;
   multi.exitToMenu();
@@ -7426,6 +7439,19 @@ function loop(now: number): void {
         palRun !== undefined &&
         session.round.trap &&
         ESC.annonceIci(palRun.annonce, session.level);
+      /*
+       * ⚠️ L'ANNONCE SE POSE SUR LA CONSIGNE, PAS SEULEMENT DANS LA CASE META.
+       *
+       * Sur téléphone la case META est masquée (le bandeau tient sur une
+       * ligne) : au niveau 1-2, dont c'est toute la raison d'être, le joueur
+       * ne voyait AUCUN signal. La consigne se barre et porte une pastille —
+       * au même endroit que ce qu'on lit, donc impossible à manquer.
+       */
+      if (annonce !== piegeAffiche) {
+        piegeAffiche = annonce;
+        $("instr").dataset.piege = t("escAnnonce");
+        appEl.classList.toggle("piege-annonce", annonce);
+      }
       hud.setMeta(
         session.inGrace
           ? t("echauffement")
