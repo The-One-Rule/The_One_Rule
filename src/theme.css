@@ -555,6 +555,21 @@ body {
   padding: 12px 16px 110px;
 }
 
+/*
+ * ⚠️ LA HAUTEUR SUIT LE PARCOURS. Mesuré à 375 × 812, seize chapitres : `.home`
+ * restait figée à 722 px (grille de l'accueil neuf) et le parcours débordait
+ * jusqu'à 2416. La marge réservée à la barre du bas se posait donc AU MILIEU de
+ * la page, et le dernier chapitre finissait sous la barre, défilé au maximum.
+ * Il faut battre `#app.has-topbar #home .home` (2,2,0).
+ */
+#app.has-topbar #home:not(.is-neuf) .screen__scroll.home {
+  /* `#home` est une colonne flex : `flex: 1 1 0` la calait sur l'écran. */
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  padding-bottom: 110px;
+}
+
 .bienvenue.hidden,
 .parcours.hidden {
   display: none;
@@ -1560,9 +1575,11 @@ body {
   background: var(--miel);
 }
 
+/* Les étoiles qui RESTENT à gagner. Mesuré : l'ambre sur le crème de la case
+   donnait 1,55:1 — trois étoiles vides qu'on ne voyait pas. Le contour vide
+   se dit en encre discrète, l'étoile gagnée garde l'or. */
 .fiche__cases .cas__reste {
-  color: var(--ambre);
-  -webkit-text-stroke: 0.5px var(--encre);
+  color: var(--paper-dim);
   letter-spacing: 2px;
 }
 
@@ -1838,10 +1855,19 @@ body {
   color: var(--encre);
 }
 
+/* `--signal-pale` et non `--signal` : la nuit, le violet vif sur la surface
+   sombre du siège tombait à 2,76:1 (mesuré) ; le pâle y est lisible, et le
+   jour il vaut un violet profond. */
 .seat.is-host .seat__status,
 .seat.is-rookie .seat__status {
-  color: var(--signal);
+  color: var(--signal-pale);
   font-weight: 700;
+}
+
+/* L'explication du piège dans « COMMENT ÇA MARCHE » portait un corail en dur
+   de l'identité nocturne : 2,30:1 sur le crème (mesuré). */
+.demo__verdict--piege {
+  color: var(--rouge);
 }
 
 /* ---- La bande de discussion : une pièce à côté, pas un renfoncement ---- */
@@ -2601,6 +2627,25 @@ body {
 }
 
 /* ==================================================================
+   LE FILET SOUS LE TITRE suit l'alignement du titre
+
+   Mesuré (Playwright, 375 et 1280) : trois titres alignés à GAUCHE gardaient
+   leur filet violet CENTRÉ — RÉGLAGES et LE MUR DES RECORDS aux deux
+   largeurs, la collection au-delà de 900 px. Un trait posé au milieu de la
+   colonne, sous rien : c'est exactement un « mot flottant ».
+   ================================================================== */
+#reglages .rulename::after,
+#classement .rulename::after {
+  margin-left: 0;
+}
+
+@media (min-width: 900px) {
+  #codex .rulename::after {
+    margin-left: 0;
+  }
+}
+
+/* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {
@@ -2930,6 +2975,12 @@ body {
    flottant, pas une action. Il prend la rangée, comme ENCORE au-dessus. */
 @media (max-width: 680px) and (orientation: portrait) {
   #over #btnHome {
+    grid-column: 1 / -1;
+  }
+
+  /* PARTAGER et CARTE vont par paire (même condition) ; DÉFIER vient seul
+     selon le mode, et tombait sur une demi-rangée orpheline. */
+  #over #btnDuel {
     grid-column: 1 / -1;
   }
 }

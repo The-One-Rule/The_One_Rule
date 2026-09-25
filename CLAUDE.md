@@ -994,6 +994,29 @@ sursaut du voile, `sfx.palier`, 40 ms de vibration — pas de texte.
   désormais le contexte à chaque appel : `createRadialGradient` y rendait
   `undefined`, et le smoke est tombé — il exécute donc bien la montée.
 
+### L'audit des écrans — ce que la mesure a trouvé (25/09/2026)
+
+Suite de « certains mots sont juste flottants et ne suivent pas la DA ».
+Contraste de chaque texte contre son fond effectif (seuil 3:1), débordement du
+TEXTE hors de sa boîte (`Range`), dernier texte d'un écran défilé au maximum
+contre le haut de la barre du bas — 8 routes plus brief, fin, fiche, niveau et
+salon, jour et nuit, 375 et 1280.
+
+- ⚠️ **Le dernier chapitre du parcours était INATTEIGNABLE** : `.home` restait
+  calée à 722 px par le `flex: 1 1 0` de `#home`, le parcours débordait jusqu'à
+  2416, et la marge réservée à la barre se posait au milieu de la page. Défilé au
+  maximum, le chapitre 16 finissait sous la barre (790 pour 739). Après : 656.
+- Trois titres alignés à gauche gardaient leur filet CENTRÉ (réglages, mur des
+  records, collection en large) : un trait sous rien.
+- Étoiles vides de la fiche 1,55:1, « HÔTE » la nuit 2,76:1, explication du
+  piège dans le brief 2,30:1 (un corail en dur de l'identité nocturne).
+- DÉFIER seul sur une demi-rangée de l'écran de fin au téléphone.
+- ⚠️ **Piège de mesure** : un fond en `color-mix()` se lit `color(srgb 1 0.98
+  0.95 / 0.7)` — composantes entre 0 et 1. Les lire comme du 0-255 fait voir
+  du texte prune sur du NOIR, et invente des défauts (le bilan de fin, 1,29:1,
+  était lisible). Les « — — — » à 1:1 de la grille d'entraînement sont les
+  barres de censure, voulues.
+
 ### Les plateaux habillent toute la partie (25/09/2026)
 
 Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas
