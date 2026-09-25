@@ -177,7 +177,7 @@ src/
     escalade     tirage de la pile de règles (ici, pas dans game/ : `verify`
                  en a besoin côté serveur)
     rng, scene (grille 5×3), instructions/ (19 dont 15 tactiles),
-    rules/ (12 règles + withoutHold), round, multiround, resolve,
+    rules/ (16 règles + withoutHold), round, multiround, resolve,
     verify, difficulty (windowMs, windowForSteps, STEP_MS)
   game/        daily (ruleOfDay, trainingRule), session, quests, progress, replay
   i18n.ts      FR/EN : chaînes statiques, dynamiques, et COMPOSITION des
@@ -669,12 +669,13 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
-| Aucun filet sur la mise en page | jsdom ne calcule pas de layout — décision Playwright en attente |
+| Aucun filet sur la mise en page | jsdom ne calcule pas de layout. Playwright a fait ses preuves À LA MAIN (salon, tutoriel, nuit : une dizaine de défauts trouvés) mais n'est pas dans le dépôt |
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 16 règles ; 120 combinaisons possibles à deux règles |
-| Pièces sans dépense | `st.coins` s'accumule et ne sert à rien |
+| ~~Pièces sans dépense~~ | **levée** — la boutique de styles de pièces (§12, refonte PARCOURS) |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
-| Couleur sans second canal | les pièces ne se distinguent que par la teinte, et garance/jade est la collision classique du daltonisme rouge-vert. Voir la note en §12 |
+| ~~Couleur sans second canal~~ | **levée** — mode MOTIFS (§12) |
+| **Aucune intégration continue** | pas de `.github/` : rien ne relance tsc, vitest ni l'e2e sur une PR. Tout repose sur un lancement à la main |
 
 ---
 
