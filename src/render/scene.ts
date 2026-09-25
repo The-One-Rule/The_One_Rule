@@ -869,7 +869,13 @@ export class SceneRenderer {
     this.drawParticles();
 
     if (this.pulse) {
-      const k = (now - this.pulse.t) / 220;
+      /*
+       * ⚠️ BORNÉ À ZÉRO. `pulse.t` vient de l'instant du CLIC, `now` du début
+       * de l'image : un clic tombé entre les deux donne un `k` négatif, donc un
+       * rayon négatif, et `arc()` LÈVE — l'image s'arrête là. Vu en jouant le
+       * tutoriel au clic rapide : `arc` avec un rayon de −7,7.
+       */
+      const k = Math.max(0, (now - this.pulse.t) / 220);
       if (k >= 1) {
         this.pulse = null;
       } else {

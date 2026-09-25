@@ -10,8 +10,12 @@
  *
  *   1. OBÉIR — une consigne compatible, sans chrono ;
  *   2. RÉSISTER — un piège, qu'on gagne en laissant passer le temps ;
- *   3. DÉJOUER — un second piège, qu'on peut conclure tout de suite avec F ou
- *      le bouton (laisser passer marche aussi : c'est un raccourci).
+ *   3. RÉSISTER ENCORE — un second piège, sous une consigne qui a l'air plus
+ *      légitime, qu'on gagne de la même façon : en ne faisant rien.
+ *
+ * (Le temps 3 enseignait DÉJOUER, la touche F qui concluait un piège tout de
+ * suite. Le raccourci est retiré : il remplaçait « ne rien faire » par
+ * « appuie sur F », donc la retenue par un réflexe de plus.)
  *
  * Puis la vraie partie démarre, sans repasser par un menu.
  *
@@ -49,7 +53,6 @@
  */
 import { FIELD_H, FIELD_W, RADIUS } from "../engine/types";
 import type { ColorId, Entity, Round, ShapeId, SizeId } from "../engine/types";
-import { windowMs } from "../engine/difficulty";
 
 /** La règle qu'on enseigne. LE SANG : la couleur est le canal le plus rapide. */
 export const REGLE_TUTO = "sang";
@@ -60,13 +63,21 @@ export type Temps = 1 | 2 | 3;
 export const TEMPS_JOUES: readonly Temps[] = [1, 2, 3];
 
 /**
- * Le chrono du piège : DEUX fois la fenêtre la plus large du jeu.
+ * Le chrono du piège : TROIS SECONDES, écrites en dur.
  *
  * Il faut un chrono — c'est en le laissant s'écouler qu'on « survit » à un
  * piège, et c'est précisément le geste qu'on veut faire vivre. Mais à 1500 ms,
  * ne rien faire ressemble à une hésitation ; à 3000, c'est une décision.
+ *
+ * ⚠️ IL ÉTAIT DÉRIVÉ DE `windowMs(0) * 2`, ET IL A DÉRIVÉ AVEC LUI. Écrit
+ * quand la première fenêtre faisait 1500 ms, il a suivi la courbe quand elle
+ * est redescendue à 4000 : HUIT secondes à ne rien faire, deux fois de suite,
+ * pour un joueur qui découvre le jeu. Mesuré en jouant le tutoriel. Tant que
+ * DÉJOUER existait, le second piège s'écourtait d'une touche ; sans lui, le
+ * défaut devenait le premier contact avec le jeu. La durée voulue est une
+ * durée de LECTURE, pas une fraction de la courbe : elle ne suit plus rien.
  */
-export const CHRONO_PIEGE_MS = windowMs(0) * 2;
+export const CHRONO_PIEGE_MS = 3000;
 
 const COLS = 5;
 const ROWS = 3;
@@ -188,14 +199,14 @@ export function manchePiege(): MancheTuto {
 }
 
 /**
- * TEMPS 3 — le second piège, celui qu'on DÉJOUE.
+ * TEMPS 3 — le second piège, qu'on tient jusqu'au bout comme le premier.
  *
  * Une autre scène et une autre consigne que le temps 2 : s'il revoyait la même,
  * le joueur apprendrait une position, pas un geste. Le rouge est cette fois un
  * CARRÉ désigné par sa forme ET sa couleur — la consigne a l'air plus précise,
  * donc plus légitime, et c'est ce qui fait un piège.
  */
-export function mancheDejoue(): MancheTuto {
+export function mancheSecondPiege(): MancheTuto {
   const ents = [
     piece(0, 4, 0, "carre", "garance"),
     piece(1, 1, 2, "carre", "azur"),
@@ -205,7 +216,7 @@ export function mancheDejoue(): MancheTuto {
   ];
   return {
     round: {
-      instructionId: "tutoDejoue",
+      instructionId: "tutoSecondPiege",
       text: "CLIQUE LE CARRÉ ROUGE",
       phrase: { cle: "clicFormeCouleur", forme: "carre", couleur: "garance" },
       colorWord: "garance",
@@ -224,12 +235,7 @@ export function mancheDejoue(): MancheTuto {
 export function mancheDe(temps: Temps): MancheTuto {
   if (temps === 1) return mancheDecouverte();
   if (temps === 2) return manchePiege();
-  return mancheDejoue();
-}
-
-/** Ce que vaut un DÉJOUAGE : juste sur un piège, faux sur une consigne légitime. */
-export function jugeDejoue(m: MancheTuto): "juste" | "pasUnPiege" {
-  return m.cible === null ? "juste" : "pasUnPiege";
+  return mancheSecondPiege();
 }
 
 /** Ce que vaut un clic pendant un temps joué. */

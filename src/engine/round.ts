@@ -60,26 +60,6 @@ export function buildRound(
    * prétend entraîner.
    */
   forcePiege: (level: number) => boolean = (l) => FORCED_TRAP_ROUNDS.has(l),
-  /**
-   * LA TOUCHE DU DÉJOUAGE — entraînement seulement, jamais ailleurs.
-   *
-   * Le joueur déjoue avec une lettre (F par défaut, réglable). Une consigne
-   * « TAPE F » la rendrait ambiguë : sur une manche ordinaire elle serait à la
-   * fois la réponse et le raccourci, et sur un piège le geste interdit et le
-   * geste juste se confondraient. On retire donc cette lettre du tirage.
-   *
-   * ⚠️ **ABSENT, RIEN NE CHANGE — PAS MÊME LE FLUX DU RNG.** La boucle ne
-   * retire que si la touche est posée ; sans elle, elle fait exactement les
-   * tours qu'elle faisait. C'est ce qui garde le run du jour, le multijoueur,
-   * le classé et `verifyRun` identiques à hier : aucun d'eux ne passe cet
-   * argument. `tests/dejoue.test.ts` compare l'appel nu et l'appel à
-   * `undefined` manche par manche.
-   *
-   * ⚠️ Et c'est précisément pourquoi une partie jouée AVEC cette touche ne
-   * peut pas devenir un défi : ses manches ne sont plus celles de la même
-   * graine sans elle.
-   */
-  toucheReservee?: string,
 ): Round {
   /*
    * Piège garanti sur les manches d'ouverture.
@@ -102,17 +82,13 @@ export function buildRound(
   let want!: Want;
   let trap = false;
 
-  const reservee = toucheReservee?.toUpperCase();
-  const heurte = (w: Want): boolean =>
-    reservee !== undefined && w.kind === "key" && (w.key === reservee || w.keyAlt === reservee);
-
-  for (let attempt = 0; attempt < (wantsTrap || reservee !== undefined ? 64 : 1); attempt++) {
+  for (let attempt = 0; attempt < (wantsTrap ? 64 : 1); attempt++) {
     instr = pickInstruction(rng, level, pool);
     draft = instr.gen(rng, level);
     ents = place(rng, draft.specs);
     want = draft.wantFrom ? draft.wantFrom(ents) : draft.want;
     trap = rule.forbids(want, ents);
-    if ((trap || !wantsTrap) && !heurte(want)) break;
+    if (trap || !wantsTrap) break;
   }
 
   const steps = trap ? [] : compile(want);

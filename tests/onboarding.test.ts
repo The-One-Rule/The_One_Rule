@@ -15,14 +15,12 @@ import {
   REGLE_TUTO,
   TEMPS_JOUES,
   jugeClic,
-  jugeDejoue,
   mancheDe,
   mancheDecouverte,
   manchePiege,
 } from "../src/game/onboarding";
 import { ONE_RULES } from "../src/engine/rules";
 import { FIELD_H, FIELD_W, RADIUS } from "../src/engine/types";
-import { windowMs } from "../src/engine/difficulty";
 
 describe("la règle qu'on enseigne", () => {
   it("existe au catalogue", () => {
@@ -64,13 +62,18 @@ describe("les deux manches jouées", () => {
     expect(mancheDe(3).round.trap).toBe(true);
   });
 
-  it("déjouer est juste sur les pièges, faux sur la consigne légitime", () => {
-    expect(jugeDejoue(mancheDe(1))).toBe("pasUnPiege");
-    expect(jugeDejoue(mancheDe(2))).toBe("juste");
-    expect(jugeDejoue(mancheDe(3))).toBe("juste");
+  it("les temps 2 et 3 sont des PIÈGES : la bonne réponse est de ne rien faire", () => {
+    // Le temps 3 enseignait la touche F (DÉJOUER), retirée : il se gagne
+    // désormais comme le 2, en laissant passer le chrono.
+    expect(mancheDe(1).cible).not.toBeNull();
+    expect(mancheDe(2).cible).toBeNull();
+    expect(mancheDe(3).cible).toBeNull();
+    expect(mancheDe(3).round.trap).toBe(true);
+    // Sans F, c'est le chrono qui conclut : il lui faut une fin.
+    expect(Number.isFinite(mancheDe(3).round.durationMs)).toBe(true);
   });
 
-  it("le piège à déjouer n'est PAS une copie du premier", () => {
+  it("le second piège n'est PAS une copie du premier", () => {
     // S'il revoyait la même scène, le joueur apprendrait une position.
     expect(mancheDe(3).round.text).not.toBe(mancheDe(2).round.text);
     const r = ONE_RULES.find((x) => x.id === REGLE_TUTO)!;
@@ -95,9 +98,12 @@ describe("les deux manches jouées", () => {
   });
 
   it("le chrono du piège laisse le temps de DÉCIDER, pas d'hésiter", () => {
-    // À 1500 ms — la fenêtre la plus large du jeu — ne rien faire ressemble à
-    // une hésitation. Au double, c'est une décision.
-    expect(CHRONO_PIEGE_MS).toBe(windowMs(0) * 2);
+    // Trop court, ne rien faire ressemble à une hésitation ; trop long, c'est
+    // un temps mort. Il était `windowMs(0) * 2` et a dérivé à 8 s quand la
+    // courbe est redescendue : le test gravait la formule au lieu de
+    // l'intention, et il a suivi la dérive sans broncher.
+    expect(CHRONO_PIEGE_MS).toBeGreaterThanOrEqual(2500);
+    expect(CHRONO_PIEGE_MS).toBeLessThanOrEqual(4000);
     expect(manchePiege().round.durationMs).toBe(CHRONO_PIEGE_MS);
   });
 

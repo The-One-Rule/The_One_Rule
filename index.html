@@ -381,15 +381,6 @@
         </div>
       </footer>
 
-      <!-- DÉJOUER au pouce. HORS FLUX : il se pose dans la place libre à côté
-           du terrain, jamais dessus, et sa présence ne change pas un pixel du
-           champ (n°10). Son aspect ne dépend JAMAIS de la manche : un bouton
-           qui s'allumerait sur un piège le révélerait (n°5). -->
-      <button type="button" class="dejoue hidden" id="btnDejouer" aria-label="Outsmart: this round asked for nothing" data-i18n-aria="dejoue.aria">
-        <span class="dejoue__glyphe" aria-hidden="true"></span>
-        <span class="dejoue__mot" data-i18n="dejoue.mot">OUTSMART</span>
-      </button>
-
       <div id="tier" class="tier" aria-live="polite"></div>
 
       <div id="stamp" aria-hidden="true"><span id="stampText">BREACH</span></div>
@@ -755,9 +746,6 @@
           <p class="piege" id="briefPiege" data-i18n="piege.court">
             If an order breaks your rule, do NOTHING.
           </p>
-          <!-- Le raccourci s'annonce ICI, jamais en manche : un indice qui
-               s'allumerait pendant un piège le révélerait (décision n°5). -->
-          <p class="brief__dejoue hidden" id="briefDejoue"></p>
 
           <!-- COMMENT ÇA MARCHE.
                REPLIÉE par défaut, et jamais entre le joueur et START : le
@@ -1327,39 +1315,6 @@
           <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
           <div class="opts" id="rglAllure"></div>
           <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
-
-          <!-- DÉJOUER. Un raccourci, jamais une obligation : ne rien faire reste
-               une bonne réponse. Les lignes TOUCHE et BOUTON se masquent selon
-               l'appareil — un téléphone n'a pas de lettre, un PC pas de pouce. -->
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.dejoue">OUTSMART · TRAINING</p>
-          <div class="rgl__bloc">
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.dejoueNom">OUTSMART SHORTCUT</p>
-                <p class="rgl__quoi" data-i18n="rgl.dejoueQuoi">Spotted a trap? Say so and the round ends at once. If an action was expected, you lose.</p>
-              </div>
-              <button type="button" class="rgl__inter" id="btnDejoue" role="switch" aria-checked="true">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
-            </div>
-            <div class="rgl__ligne" id="rglDejoueTouche">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.dejoueTouche">KEY</p>
-                <p class="rgl__quoi" id="rglDejoueToucheQuoi" data-i18n="rgl.dejoueToucheQuoi">Click, then press a letter. No order will ever ask for it.</p>
-              </div>
-              <button type="button" class="rgl__touche" id="btnDejoueTouche" aria-describedby="rglDejoueToucheQuoi">F</button>
-            </div>
-            <div class="rgl__ligne" id="rglDejoueCote">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.dejoueCote">PHONE BUTTON</p>
-                <p class="rgl__quoi" data-i18n="rgl.dejoueCoteQuoi">On your thumb's side.</p>
-              </div>
-              <div class="lang rgl__cote" role="group" aria-label="PHONE BUTTON" data-i18n-aria="rgl.dejoueCote">
-                <button type="button" class="lang__btn" id="btnDejoueGauche" aria-pressed="false" data-i18n="rgl.gauche">LEFT</button>
-                <button type="button" class="lang__btn is-on" id="btnDejoueDroite" aria-pressed="true" data-i18n="rgl.droite">RIGHT</button>
-              </div>
-            </div>
-          </div>
 
           <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
           <div class="lang" id="lang" role="group" aria-label="Language">

@@ -232,7 +232,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | | |
 |---|---|
 | Champ | `FIELD_W 1000 × FIELD_H 420`, `FIELD_GUTTER 24` |
-| Fenêtre | `windowMs` : `<12 → 1500−42·lvl`, sinon `max(760, 996−9·(lvl−12))` |
+| Fenêtre | `windowMs` : `<12 → 4000−180·lvl`, sinon `max(700, 1840−30·(lvl−12))` — redescendue sur directive de Pierre ; ×allure (×2 en DÉBUT et aux niveaux 1-1/1-2) |
 | Étapes | `STEP_MS 280` — chaque action **supplémentaire** ajoute ce temps |
 | Multi | `MIN_ROUND_MS 700`, `MAX_ROUND_MS 2400`, `INPUT_TOLERANCE_MS 120` |
 | Interludes | normal 1100 · vie perdue 2400 · élimination 4200 · duel 500 · rotation 3400 |
@@ -324,12 +324,14 @@ sur deux passages.
     dans `utilisateur.agregats`, qui sont des affirmations du client. Mélanger
     les deux ferait démarrer un futur classement sur des faits invérifiables.
 
-15. **DÉJOUER n'entre jamais dans `resolveAction`.** Il est partagé avec
-    `verifyRun`, qui rejoue le run du jour où le TEMPS départage les ex æquo :
-    un « déjouer » connu du moteur partagé laisserait un journal forgé gagner
-    du temps sur la seule épreuve qui se compare. Le raccourci vit dans la
-    `Session`, n'est pas journalisé, et n'existe qu'en entraînement. Une
-    partie jouée avec une lettre réservée ne devient pas un défi.
+15. ~~DÉJOUER n'entre jamais dans `resolveAction`~~ — **DÉJOUER EST RETIRÉ**
+    (directive de Pierre, 25/09 : « elle rend le jeu assez facile »). Sur le
+    papier il ne changeait aucune issue ; en pratique il ôtait au joueur la
+    fenêtre où il CRAQUE, et remplaçait « ne rien faire » par « appuie sur
+    F » — la retenue, seule mécanique non copiable, par un réflexe de plus.
+    Au niveau 1-2, où le jeu ANNONCE le piège, il le rendait gratuit. Ne pas
+    le réintroduire sous une autre forme sans répondre à ça ; le vrai
+    problème qu'il traitait — le temps mort des pièges — est au §12.
 16. **Le terrain debout est une transformation d'AFFICHAGE, jamais de jeu.**
     Tout ce qui convertit entre champ et écran passe par
     `render/orientation.ts` — dessin, clic, curseurs, gouttières. Une
@@ -771,6 +773,41 @@ Deux façons propres de s'en passer, toutes deux en place :
 ## 12. Où en est le travail
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+
+### DÉJOUER retiré, et le temps mort qu'il cachait (25/09/2026)
+
+Retiré en entier : moteur (`resoudreDejoue`), `Session`, `game/dejoue.ts`,
+réglages, bouton au pouce, ligne du brief, lettre réservée. Le tirage
+d'entraînement redevient CELUI d'avant DÉJOUER (boucle de `buildRound`
+restaurée à l'identique de `329f154^`) ; `VERSION_CONTENU` inchangée
+(`5m4fgw`, vérifiée avant/après). Toute partie d'entraînement redevient
+partageable en défi. Un vieux réglage `dejoue` dans une sauvegarde est lu et
+oublié (testé).
+
+Le tutoriel garde TROIS temps : le troisième est un second piège tenu
+jusqu'au bout, sous une consigne plus légitime (« CLIQUE LE CARRÉ ROUGE »).
+
+⚠️ **Deux défauts trouvés en le JOUANT (Playwright, tutoriel complet) :**
+- `CHRONO_PIEGE_MS` valait `windowMs(0) * 2`, écrit quand la première
+  fenêtre faisait 1500 ms : il avait dérivé à **8 s**, deux fois de suite,
+  pour un joueur qui découvre le jeu. Son test gravait la FORMULE, donc il a
+  suivi la dérive sans rien dire. Fixé à 3000 ms, et le test vérifie
+  l'intention (2,5 à 4 s).
+- `arc()` recevait un rayon NÉGATIF (−7,7) : l'onde de clic calcule
+  `k = (now − pulse.t) / 220` avec `pulse.t` à l'instant du clic et `now` au
+  début de l'image ; un clic entre les deux donne `k < 0`, et `arc` LÈVE —
+  l'image s'arrête. Borné à zéro.
+
+⚠️ **LE TEMPS MORT EST RÉEL, ET IL EST GROS.** Une manche piégée dure toute
+sa fenêtre. Mesuré (`windowForSteps × allure`) : **8,0 s** au niveau 1-1/1-2
+(allure 2, manche 0), 7,3 s à la manche 2, 6,2 s à la 5 — et c'est au 1-2
+que le jeu ENSEIGNE le piège. En allure 1 : 4,0 / 3,6 / 3,1 s.
+
+⚠️ **Ce qu'il ne faut PAS faire** : finir une manche piégée plus tôt que sa
+fenêtre affichée. Le joueur apprendrait à ATTENDRE pour voir si la manche
+s'arrête : sur 8 s de fenêtre, s'arrêter à 50 % laisse 4 s pour agir sur une
+consigne légitime — le piège deviendrait un « attends et regarde ». Et une
+barre qui file plus vite sur un piège le révèle avant la mort (n°5).
 
 ### LA REFONTE PARCOURS (25/09/2026) — branche `audit/ux-onboarding-recompenses`
 
@@ -2539,7 +2576,7 @@ Retours du jury Ystart (entretien de présentation) et directive de Pierre : « 
 et non partout », puis « retravaille l'UI sur téléphone, carte blanche ».
 Branche `claude/chasse-bugs-0912`, sept commits, **rien de déployé**.
 
-- **DÉJOUER** (décision n°15). Survie seulement là où `resolveTimeout` aurait
+- **DÉJOUER** (décision n°15) — ⚠️ **RETIRÉ depuis**, voir §12. Survie seulement là où `resolveTimeout` aurait
   déjà rendu une survie : il avance l'instant, il ne change aucune issue.
   Lettre réservée (F par défaut, R refusée : c'est REJOUER) sortie du tirage
   SANS toucher au flux du RNG quand elle est absente — testé manche par manche.

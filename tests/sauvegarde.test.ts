@@ -22,7 +22,6 @@ const jouable = (s: ReturnType<typeof normaliseSave>): void => {
   expect(typeof s.trainingPace).toBe("number");
   expect(Number.isFinite(s.trainingPace)).toBe(true);
   expect(s.lang === "fr" || s.lang === "en").toBe(true);
-  expect(typeof s.dejoue.touche).toBe("string");
   expect(Object.values(s.records).every((x) => typeof x === "number")).toBe(true);
 };
 
@@ -48,6 +47,14 @@ describe("relire une sauvegarde bricolée", () => {
     expect(s.recent).toEqual([]);
     expect(s.trainingPace).toBe(2);
     expect(s.lang).toBe("fr");
+  });
+
+  it("une sauvegarde écrite du temps de DÉJOUER se relit, et oublie le réglage", () => {
+    // Le raccourci est retiré ; son réglage traîne dans les sauvegardes déjà
+    // écrites. Il ne doit ni casser la relecture, ni survivre à la réécriture.
+    const s = normaliseSave({ v: 1, dejoue: { on: true, touche: "F", cote: "droite" } });
+    jouable(s);
+    expect("dejoue" in s).toBe(false);
   });
 
   it("rien, un tableau, une chaîne : on rend une sauvegarde neuve", () => {
