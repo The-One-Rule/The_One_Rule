@@ -52,6 +52,31 @@ describe("les deux portes de la nuit", () => {
   });
 });
 
+describe("les plateaux habillent toute la page de jeu", () => {
+  const couleursDuJour = () =>
+    jetons(blocApres(":root {"))
+      .map((l) => l.split(":")[0]!)
+      .filter((n) => !/^--(r-|trait|ombre$|ombre-haute|ombre-basse|grain)/.test(n));
+
+  it("chaque plateau acheté redéfinit TOUS les jetons de couleur", () => {
+    // Un jeton oublié garderait sa valeur de THÈME en pleine partie : un
+    // texte prune du jour sur le noir du néon.
+    for (const skin of SKINS.map((k) => k.id).filter((id) => id !== "sticker")) {
+      const bloc = new Set(
+        jetons(blocApres(`:root.en-partie[data-skin="${skin}"]`)).map((l) => l.split(":")[0]),
+      );
+      const oublies = couleursDuJour().filter((n) => !bloc.has(n));
+      expect(oublies, `plateau ${skin}`).toEqual([]);
+    }
+  });
+
+  it("⚠️ les jetons de plateau vivent sur la RACINE, jamais sur #app", () => {
+    // `--ombre` se calcule là où elle est déclarée : un plateau posé sur un
+    // descendant laisserait toutes les ombres à la couleur du thème.
+    expect(css).not.toMatch(/#app[^{]*\[data-skin=/);
+  });
+});
+
 describe("le terrain de nuit", () => {
   it("ne concerne que le style maison", () => {
     expect(terrainDe("sticker", true)).toBe(TERRAIN_NUIT);

@@ -133,6 +133,158 @@
   }
 }
 
+/* ==================================================================
+   LES PLATEAUX — le style acheté habille TOUTE la page de jeu
+
+   Demandé par Pierre : « que les plateaux de la boutique s'appliquent
+   littéralement à toute la page de jeu ». Un plateau changeait le terrain et
+   les pièces, et s'arrêtait au bord du canvas : un néon brillant au milieu
+   d'une page sable, c'était une vignette collée, pas un monde.
+
+   Le mécanisme est celui de la nuit : on RETOURNE LES JETONS, on ne réécrit
+   aucun composant. `data-skin` est posé sur la racine par `appliqueSkin`, et
+   `.en-partie` par `show(null)` : les MENUS gardent l'identité du site (et
+   son jour ou sa nuit), la PARTIE prend celle du plateau.
+
+   ⚠️ SUR LA RACINE, PAS SUR `#app`. `--ombre` vaut `0 4px 0 var(--ombre-c)`
+   et se CALCULE là où elle est déclarée : redéfinir `--ombre-c` sur un
+   descendant laisserait toutes les ombres à la couleur du thème.
+
+   ⚠️ Le style maison (sticker) n'a PAS de bloc : il suit le jour et la nuit.
+   Chaque bloc redéfinit TOUS les jetons de couleur — un oublié garderait sa
+   valeur de thème, et `tests/theme.test.ts` le refuse.
+
+   Les teintes des PIÈCES ne sont pas des jetons de page : elles ne bougent
+   pas, quel que soit le plateau (calibrage daltonien).
+   ================================================================== */
+:root.en-partie[data-skin="neon"] {
+  color-scheme: dark;
+  --ink: #0b0818;
+  --ink-2: #120d26;
+  --line: #3a2466;
+  --paper: #f6e8ff;
+  --paper-dim: #a48fcf;
+  --signal: #ff46c8;
+  --signal-pale: #ff9be3;
+  --ambre: #ffd23f;
+  --rouge: #ff4d6d;
+  --ok: #3df5c4;
+  --dead: #ff4d6d;
+  --encre: #f6e8ff;
+  --ombre-c: #000000;
+  --or: #ffd23f;
+  --or-fond: #2b2111;
+  --surface: #140e2b;
+  --creme: #1a1236;
+  --rose: #3a1233;
+  --menthe: #0f3330;
+  --ciel: #102443;
+  --miel: #33290e;
+  --lilas: #2a1a52;
+}
+
+:root.en-partie[data-skin="bonbon"] {
+  color-scheme: light;
+  --ink: #ffe8f2;
+  --ink-2: #fff4f9;
+  --line: #f5c3da;
+  --paper: #5a2243;
+  --paper-dim: #a2718c;
+  --signal: #ff4f9a;
+  --signal-pale: #d93580;
+  --ambre: #f5b214;
+  --rouge: #e0243e;
+  --ok: #10a87a;
+  --dead: #e0243e;
+  --encre: #5a2243;
+  --ombre-c: #5a2243;
+  --or: #b5820c;
+  --or-fond: #fff1c2;
+  --surface: #fff7fb;
+  --creme: #ffeff6;
+  --rose: #ffd2e6;
+  --menthe: #d7f7ec;
+  --ciel: #dcebff;
+  --miel: #ffeec2;
+  --lilas: #f1ddff;
+  --r-s: 14px;
+  --r-m: 22px;
+  --r-l: 30px;
+}
+
+:root.en-partie[data-skin="pixel"] {
+  color-scheme: dark;
+  --ink: #11142b;
+  --ink-2: #1a1e3d;
+  --line: #333a70;
+  --paper: #e8ecff;
+  --paper-dim: #8e95c8;
+  --signal: #6c7bff;
+  --signal-pale: #a7b0ff;
+  --ambre: #f5b214;
+  --rouge: #ff4d63;
+  --ok: #4be3a6;
+  --dead: #ff4d63;
+  --encre: #e8ecff;
+  --ombre-c: #05060f;
+  --or: #f5c542;
+  --or-fond: #2e2a12;
+  --surface: #1d2240;
+  --creme: #232a4f;
+  --rose: #3b1f3a;
+  --menthe: #15383a;
+  --ciel: #1b2e55;
+  --miel: #3a3216;
+  --lilas: #2b2c63;
+  --r-s: 0px;
+  --r-m: 0px;
+  --r-l: 0px;
+}
+
+:root.en-partie[data-skin="craie"] {
+  color-scheme: dark;
+  --ink: #18291f;
+  --ink-2: #1f3328;
+  --line: #3b5446;
+  --paper: #eef2e8;
+  --paper-dim: #a3b3a5;
+  --signal: #e8c95a;
+  --signal-pale: #f7e3a0;
+  --ambre: #f5b214;
+  --rouge: #ff7a7a;
+  --ok: #8ef0c0;
+  --dead: #ff7a7a;
+  --encre: #eef2e8;
+  --ombre-c: #0b140f;
+  --or: #f2d675;
+  --or-fond: #2f3319;
+  --surface: #22392e;
+  --creme: #274233;
+  --rose: #3e2b2e;
+  --menthe: #1e4034;
+  --ciel: #1f3847;
+  --miel: #3b3a1c;
+  --lilas: #2f3446;
+}
+
+/* Ce que les jetons ne disent pas : la lumière du néon, la police du pixel,
+   le trait de la craie. Seulement en partie, seulement sur la consigne et
+   le nom de règle — ce qu'on regarde. */
+:root.en-partie[data-skin="neon"] #instr,
+:root.en-partie[data-skin="neon"] #bandRule {
+  text-shadow: 0 0 10px var(--signal), 0 0 22px color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+:root.en-partie[data-skin="pixel"] #instr,
+:root.en-partie[data-skin="pixel"] #bandRule {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+:root.en-partie[data-skin="craie"] #instr {
+  text-shadow: 1px 1px 0 color-mix(in srgb, var(--encre) 30%, transparent);
+}
+
 body {
   background: var(--ink);
   color: var(--paper);
@@ -1293,6 +1445,9 @@ body {
 .band__rule {
   color: var(--signal);
   font-weight: 700;
+  /* Même défaut que les titres d'écran : l'espace de Fredoka disparaissait
+     (« THEVOWEL », vu en partie à 375 px). */
+  word-spacing: 0.14em;
 }
 
 #briefWarn,

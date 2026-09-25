@@ -26,7 +26,7 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "niveau.manches": "MANCHES",
     "niveau.parcours": "PARCOURS",
     "boutique.titre": "BOUTIQUE",
-    "boutique.chapo": "Des styles pour tes pièces. Ils changent l'allure, jamais la règle.",
+    "boutique.chapo": "Des plateaux : ils habillent toute ta partie. Jamais la règle.",
     "boutique.retour": "RETOUR",
   },
   en: {
@@ -45,7 +45,7 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "niveau.manches": "ROUNDS",
     "niveau.parcours": "PATH",
     "boutique.titre": "SHOP",
-    "boutique.chapo": "Styles for your pieces. They change the look, never the rule.",
+    "boutique.chapo": "Boards: they dress your whole game. Never the rule.",
     "boutique.retour": "BACK",
   },
 };

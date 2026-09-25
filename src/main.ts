@@ -797,6 +797,8 @@ function show(id: ScreenId): void {
   const bar = $("topbar");
   bar.classList.toggle("hidden", !barre);
   appEl.classList.toggle("has-topbar", barre);
+  // L'écran de JEU : c'est lui, et lui seul, que le plateau porté habille.
+  document.documentElement.classList.toggle("en-partie", id === null);
   /*
    * LA BARRE DE NAVIGATION suit exactement les mêmes écrans que la barre
    * haute — donc jamais l'écran de jeu.
@@ -1411,6 +1413,14 @@ $("btnNiveauParcours").addEventListener("click", () => {
 function appliqueSkin(id: SkinId): void {
   scene.skin = id;
   if (attract) attract.scene.skin = id;
+  /*
+   * LE PLATEAU HABILLE TOUTE LA PAGE DE JEU, pas seulement le terrain.
+   * Demandé par Pierre : « que les plateaux de la boutique s'appliquent
+   * littéralement à toute la page de jeu ». La feuille lit `data-skin` sur la
+   * racine, et ne l'applique qu'en partie (`.en-partie`, posée par `show`) :
+   * les menus gardent l'identité du site, la partie prend celle du plateau.
+   */
+  document.documentElement.dataset.skin = id;
 }
 
 function renderBoutique(): void {
