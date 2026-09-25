@@ -64,7 +64,7 @@ function playPerfectly(
         );
         inputs.push({ t: when, k: "c", i: ok >= 0 ? ok : 0 });
       } else {
-        inputs.push({ t: when, k: "k", key: step.key });
+        inputs.push({ t: when, k: "k", key: (step as { key: string }).key });
       }
       k++;
     }
@@ -336,7 +336,7 @@ describe("navigateur → serveur", () => {
           const ent = s.round.ents[step.idx]!;
           s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
         } else if (step.kind === "key") {
-          s.input({ kind: "key", key: step.key }, clock);
+          s.input({ kind: "key", key: (step as { key: string }).key }, clock);
         } else {
           const ent = s.round.ents[0]!;
           s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
@@ -374,7 +374,7 @@ describe("navigateur → serveur", () => {
       if (step.kind === "click") {
         const ent = s.round.ents[step.idx]!;
         s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
-      } else if (step.kind === "key") s.input({ kind: "key", key: step.key }, clock);
+      } else if (step.kind === "key") s.input({ kind: "key", key: (step as { key: string }).key }, clock);
       else s.input({ kind: "click", ent: s.round.ents[0]!, x: 0, y: 0 }, clock);
     }
 

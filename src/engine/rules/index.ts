@@ -17,6 +17,15 @@ function targets(want: Want, ents: Entity[]): Entity[] {
       return ents[want.idx] ? [ents[want.idx]!] : [];
     case "sequence":
       return want.idxs.map((i) => ents[i]).filter((e): e is Entity => !!e);
+    case "hold":
+      return ents[want.idx] ? [ents[want.idx]!] : [];
+    /*
+     * GLISSER touche DEUX pièces : celle qu'on prend et celle où l'on pose.
+     * Une règle qui interdit l'une ou l'autre fait de la manche un piège —
+     * poser le carré sur du rouge, c'est toucher du rouge.
+     */
+    case "drag":
+      return [ents[want.from], ents[want.to]].filter((e): e is Entity => !!e);
     default:
       return [];
   }

@@ -98,6 +98,33 @@ export const PLANCHER_MS = 700;
  */
 export const STEP_MS = 280;
 
+/**
+ * MAINTENIR — combien de temps un appui doit tenir.
+ *
+ * Assez pour qu'un appui ordinaire (80 à 150 ms) ne passe jamais pour un
+ * maintien, assez court pour tenir dans une fenêtre de fin de partie.
+ */
+export const HOLD_MS = 600;
+
+/**
+ * LE POIDS d'une liste d'étapes, en gestes : ce qui ouvre droit à `STEP_MS`.
+ *
+ * Un clic ou une touche vaut 1. Un maintien vaut 1 plus le temps qu'il
+ * immobilise (600 ms, soit 3 × 280) ; un lever de glisser vaut 2, parce qu'il
+ * faut traverser le terrain. ⚠️ Pour toutes les étapes qui existaient avant,
+ * le poids EST le nombre d'étapes : aucune fenêtre existante ne bouge, donc
+ * ni le run du jour, ni le rejeu, ni `VERSION_CONTENU`.
+ */
+export function poidsGestes(steps: readonly { kind: string }[]): number {
+  let n = 0;
+  for (const s of steps) {
+    if (s.kind === "hold") n += 1 + Math.ceil(HOLD_MS / STEP_MS);
+    else if (s.kind === "drop") n += 2;
+    else n += 1;
+  }
+  return n;
+}
+
 /** La fenêtre d'une manche, pour un niveau et un nombre d'actions donnés. */
 export const windowForSteps = (level: number, steps: number): number =>
   windowMs(level) + Math.max(0, steps - 1) * STEP_MS;

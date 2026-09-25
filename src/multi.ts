@@ -106,6 +106,11 @@ export type MultiApi = {
   isPlayingMulti: () => boolean;
   /** Manche locale courante (pour hit-test), sans effet de bord HUD. */
   peekRound: () => Round | null;
+  /**
+   * Le geste en cours de la manche — un maintien commencé (et où il en est,
+   * 0 → 1) ou un glisser dont la pièce est prise. `null` sinon.
+   */
+  geste: () => { kind: "hold"; idx: number; progres: number } | { kind: "drag"; idx: number } | null;
   /** Index de la manche en cours — lu par la couche d'ambiance. */
   roundIndex: () => number;
   trySendMultiAction: (action: Action) => MultiFeel;
@@ -846,9 +851,14 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
 
 function toWire(
   action: Action,
-): { k: "c"; i: number | null } | { k: "k"; key: string } | { k: "r"; key: string } {
+):
+  | { k: "c"; i: number | null }
+  | { k: "k"; key: string }
+  | { k: "r"; key: string }
+  | { k: "l"; i: number | null } {
   if (action.kind === "click") return { k: "c", i: action.ent?.idx ?? null };
   if (action.kind === "key") return { k: "k", key: action.key };
+  if (action.kind === "lift") return { k: "l", i: action.ent?.idx ?? null };
   return { k: "r", key: action.key };
 }
 
@@ -866,7 +876,7 @@ function toWire(
  * la même chose que le serveur.
  */
 function vueServeur(action: Action): Action {
-  if (action.kind !== "click") return action;
+  if (action.kind !== "click" && action.kind !== "lift") return action;
   return action.ent
     ? { ...action, x: action.ent.x, y: action.ent.y }
     : { ...action, x: Number.NaN, y: Number.NaN };
@@ -979,6 +989,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     openFromInvite: () => {},
     isPlayingMulti: () => false,
     peekRound: () => null,
+    geste: () => null,
     roundIndex: () => 0,
     trySendMultiAction: () => ({ consumed: false }),
     sendCursor: () => {},
@@ -3394,6 +3405,21 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     return match?.idx ?? 0;
   }
 
+  function geste(): { kind: "hold"; idx: number; progres: number } | { kind: "drag"; idx: number } | null {
+    if (!match || !net || !match.round || match.localDone) return null;
+    const st = match.round.steps[match.progress.step];
+    if (st?.kind === "hold" && match.progress.holdAt !== undefined) {
+      const elapsed = Math.max(0, net.clock.now() - match.startAt);
+      return { kind: "hold", idx: st.idx, progres: (elapsed - match.progress.holdAt) / st.ms };
+    }
+    if (st?.kind === "drop") {
+      // La pièce PRISE est celle de l'étape d'avant.
+      const avant = match.round.steps[match.progress.step - 1];
+      if (avant?.kind === "click") return { kind: "drag", idx: avant.idx };
+    }
+    return null;
+  }
+
   function canAct(): boolean {
     return (
       !!match &&
@@ -3457,6 +3483,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * Le bandeau, lui, dit quoi faire — recharger.
      */
     if (!match.round || !match.rule) return { consumed: true };
+
+    /*
+     * Le LEVER ne part sur le fil que s'il répond à quelque chose : conclure
+     * un maintien commencé, ou poser un glisser. Sinon chaque clic du match
+     * doublerait le trafic pour rien — et un serveur d'une version antérieure
+     * recevrait un message qu'il ne sait pas lire.
+     */
+    if (action.kind === "lift") {
+      const st = match.round.steps[match.progress.step];
+      const attendu =
+        !match.localDone &&
+        ((st?.kind === "hold" && match.progress.holdAt !== undefined) || st?.kind === "drop");
+      if (!attendu) return { consumed: false };
+    }
 
     if (match.modeCoop) {
       if (action.kind !== "click") return { consumed: true };
@@ -4072,6 +4112,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     },
     isPlayingMulti,
     peekRound,
+    geste,
     roundIndex,
     trySendMultiAction,
     sendCursor,

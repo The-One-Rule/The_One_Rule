@@ -37,6 +37,9 @@ export const MOTIFS = {
   leVide: "TU AS CLIQUÉ DANS LE VIDE",
   mauvaiseForme: "MAUVAISE FORME",
   mauvaiseCible: "MAUVAISE CIBLE",
+  lacheTot: "TU AS LÂCHÉ TROP TÔT",
+  lacheAilleurs: "TU L'AS LÂCHÉ AU MAUVAIS ENDROIT",
+  fallaitGlisser: "IL FALLAIT GLISSER, PAS CLIQUER",
 
   /* --- les règles uniques : une par interdit --- */
   rouge: "TU AS CLIQUÉ SUR DU ROUGE",

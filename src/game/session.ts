@@ -388,9 +388,16 @@ export class Session {
       else this.log.push({ t, k: "x", x: Math.round(action.x), y: Math.round(action.y) });
     } else if (action.kind === "key") {
       this.log.push({ t, k: "k", key: action.key });
-    } else {
+    } else if (action.kind === "release") {
       this.log.push({ t, k: "r", key: action.key });
     }
+    /*
+     * ⚠️ Le LEVER n'est pas journalisé : aucune consigne du solo ne demande de
+     * maintenir ni de glisser (elles vivent dans `CONSIGNES_MULTI`), donc un
+     * lever y est toujours ignoré par `resolveAction` et le rejeu donne le
+     * même verdict sans lui. Ouvrir MAINTENIR ou GLISSER au solo demandera
+     * une ligne ici ET son pendant dans `verifyRun`.
+     */
   }
 
   /** Avance le temps. Retourne le verdict si la manche s'est conclue seule. */

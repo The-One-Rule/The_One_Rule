@@ -164,6 +164,13 @@ export function poseCadre(
   return { scale, offX, offY };
 }
 
+/** Le geste en cours, tel que la scène le dessine. Voir `drawGeste`. */
+export type GesteAffiche =
+  | { kind: "hold"; idx: number; progres: number }
+  | { kind: "drag"; idx: number; x: number | null; y: number | null };
+
+const OK_VERT = "#2FD39F";
+
 export class SceneRenderer {
   private ctx: CanvasRenderingContext2D;
   private dpr = 1;
@@ -683,6 +690,54 @@ export class SceneRenderer {
   }
 
   /**
+   * LE GESTE EN COURS — MAINTENIR ou GLISSER.
+   *
+   * Maintenir : une jauge qui fait le tour de la pièce en `HOLD_MS`, et qui
+   * passe au vert quand le lever sera accepté. Sans elle, le joueur ne sait
+   * pas QUAND lâcher — et « lâché trop tôt » serait une mort sans indice.
+   * Glisser : un trait de la pièce prise jusqu'au doigt.
+   *
+   * Aucune donnée de jeu ici : la jauge LIT l'état que le moteur a produit
+   * (`holdAt`), elle ne le décide pas.
+   */
+  private drawGeste(round: Round, g: GesteAffiche): void {
+    const { ctx } = this;
+    const e = round.ents[g.idx];
+    if (!e) return;
+    ctx.save();
+    if (g.kind === "hold") {
+      const p = Math.max(0, Math.min(1, g.progres));
+      const r = e.r + 14;
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(36,27,58,0.18)";
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = p >= 1 ? OK_VERT : ACCENT;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+      ctx.stroke();
+    } else if (g.x !== null && g.y !== null) {
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.setLineDash([14, 12]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(g.x, g.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ACCENT;
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, e.r * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /**
    * Révélation post-mortem d'un piège.
    *
    * L'identité prévoyait un état PIÈGE — anneau accent, halo pulsant — parmi
@@ -693,7 +748,14 @@ export class SceneRenderer {
   private drawReveal(round: Round, now: number): void {
     const want = round.originalWant;
     if (!want) return;
-    const idxs = want.kind === "click" ? [want.idx] : want.kind === "sequence" ? want.idxs : [];
+    const idxs =
+      want.kind === "click" || want.kind === "hold"
+        ? [want.idx]
+        : want.kind === "sequence"
+          ? want.idxs
+          : want.kind === "drag"
+            ? [want.from, want.to]
+            : [];
     const k = 0.5 + 0.5 * Math.sin(now / 140);
     const { ctx } = this;
     for (const i of idxs) {
@@ -792,6 +854,7 @@ export class SceneRenderer {
     ratio?: number;
     needs?: ReadonlyMap<number, 1 | 2 | 3>;
     charges?: ReadonlyMap<number, { n: number }>;
+    geste?: GesteAffiche | null;
   }): void {
     const { round, rule, now, reveal = false, ratio, needs, charges } = state;
     const { ctx } = this;
@@ -911,6 +974,7 @@ export class SceneRenderer {
         }
       }
       if (reveal) this.drawReveal(round, now);
+      if (state.geste) this.drawGeste(round, state.geste);
     }
 
     this.stepParticles(dt);

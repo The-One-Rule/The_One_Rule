@@ -559,6 +559,81 @@ const doubleTap: Instruction = {
   },
 };
 
+/**
+ * MAINTENIR — « MAINTIENS LE ROUGE ».
+ *
+ * Un appui qui doit TENIR `HOLD_MS` avant de se lever. C'est le premier geste
+ * du jeu qui se juge sur une DURÉE : l'inverse exact du réflexe, et un cousin
+ * du piège — le doigt veut partir, il faut le retenir.
+ *
+ * Cible unique, par la même construction que `doubleTap`.
+ */
+const tiens: Instruction = {
+  id: "tiens",
+  minLevel: 4,
+  weight: 2,
+  touch: true,
+  gen(rng, level) {
+    const n = fillCount(rng, level, 3);
+    const idx = rInt(rng, n);
+    if (rChance(rng, 0.5)) {
+      const target = rPick(rng, COLOR_IDS);
+      const pool = others(COLOR_IDS, target);
+      const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+      specs[idx]!.color = target;
+      return {
+        text: `MAINTIENS LE ${COLOR_LABEL[target]}`,
+        phrase: { cle: "tiensCouleur", couleur: target },
+        colorWord: target,
+        specs,
+        want: { kind: "hold", idx },
+      };
+    }
+    const target = rPick(rng, SHAPE_IDS);
+    const pool = others(SHAPE_IDS, target);
+    const specs = fill(rng, n, () => spec(rPick(rng, pool), rPick(rng, COLOR_IDS), rollSize(rng)));
+    specs[idx]!.shape = target;
+    return {
+      text: `MAINTIENS LE ${SHAPE_LABEL[target]}`,
+      phrase: { cle: "tiensForme", forme: target },
+      specs,
+      want: { kind: "hold", idx },
+    };
+  },
+};
+
+/**
+ * GLISSER — « GLISSE LE ROUGE SUR LE BLEU ».
+ *
+ * Appuyer sur une pièce, lever sur une autre. Les deux couleurs nommées
+ * n'existent qu'une fois chacune : les autres pièces prennent les deux
+ * couleurs restantes, donc ni la prise ni la pose ne sont ambiguës.
+ */
+const glisse: Instruction = {
+  id: "glisse",
+  minLevel: 6,
+  weight: 2,
+  touch: true,
+  gen(rng, level) {
+    const n = Math.max(2, fillCount(rng, level, 3));
+    const from = rInt(rng, n);
+    const to = (from + 1 + rInt(rng, n - 1)) % n;
+    const a = rPick(rng, COLOR_IDS);
+    const b = rPick(rng, others(COLOR_IDS, a));
+    const pool = COLOR_IDS.filter((c) => c !== a && c !== b);
+    const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+    specs[from]!.color = a;
+    specs[to]!.color = b;
+    return {
+      text: `GLISSE LE ${COLOR_LABEL[a]} SUR LE ${COLOR_LABEL[b]}`,
+      phrase: { cle: "glisseCouleur", couleur: a, couleur2: b },
+      colorWord: a,
+      specs,
+      want: { kind: "drag", from, to },
+    };
+  },
+};
+
 export const INSTRUCTIONS: Instruction[] = [
   clickColor,
   clickShape,
@@ -601,16 +676,30 @@ export const TOUCH_INSTRUCTIONS: Instruction[] = INSTRUCTIONS.filter((i) => i.to
  * front et salons se déploient séparément, et un serveur qui ne les connaît
  * pas jugerait une autre manche que celle affichée.
  */
-export const CONSIGNES_MULTI: Instruction[] = [doubleTap];
+export const CONSIGNES_MULTI: Instruction[] = [doubleTap, tiens, glisse];
+
+/**
+ * La version de consignes à partir de laquelle chacune sort.
+ *
+ * ⚠️ Un salon en version 2 doit tirer EXACTEMENT ce qu'il tirait avant
+ * MAINTENIR et GLISSER : `poolMulti` filtre sur cette table, et
+ * `tests/double-appui.test.ts` compare graine par graine.
+ */
+export const VERSION_DE_CONSIGNE: Readonly<Record<string, number>> = {
+  doubleTap: 2,
+  tiens: 3,
+  glisse: 3,
+};
 
 /**
  * La version du jeu de consignes que CE code sait reconstruire.
  *
- * 1 = le catalogue d'origine ; 2 = plus `CONSIGNES_MULTI`. Un client l'annonce
+ * 1 = le catalogue d'origine ; 2 = plus le double appui ; 3 = plus MAINTENIR
+ * et GLISSER (`VERSION_DE_CONSIGNE`). Un client l'annonce
  * dans son `hello`, le serveur retient le minimum de la table et du sien. On
  * ne la DÉCRÉMENTE jamais, et chaque ajout à `CONSIGNES_MULTI` la fait monter.
  */
-export const CONSIGNES_VERSION = 2;
+export const CONSIGNES_VERSION = 3;
 
 /** Toutes les consignes écrites — pour les tests qui doivent les couvrir toutes. */
 export const TOUTES_LES_CONSIGNES: Instruction[] = [...INSTRUCTIONS, ...CONSIGNES_MULTI];

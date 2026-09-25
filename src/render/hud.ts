@@ -354,7 +354,13 @@ export class Hud {
      */
     const subText = hidden ? "" : round.glyph ? text : composeSous(round.sousPhrase, round.sub ?? "");
     const n = round.steps.length;
-    const compte = n > 1 ? t("hudGestes")(n) : t("hudGeste");
+    // MAINTENIR ne se compte pas, il se TIENT : la ligne dit quand lâcher —
+    // la jauge autour de la pièce passe au vert (`scene.drawGeste`).
+    const compte = round.steps.some((s) => s.kind === "hold")
+      ? t("hudTiens")
+      : n > 1
+        ? t("hudGestes")(n)
+        : t("hudGeste");
     const critique = document.getElementById("app")?.classList.contains("is-critical");
     const vite = !hidden && !!critique && n > 0 ? t("hudVite") : "";
     const puces = !hidden && this.puces.length > 1 ? this.puces : [];

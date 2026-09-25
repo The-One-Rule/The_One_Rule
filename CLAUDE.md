@@ -791,6 +791,46 @@ Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket
 joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
 **Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
 
+### MAINTENIR et GLISSER — deux gestes qui ne sont pas un clic (25/09/2026)
+
+Demandé par Pierre (« glisser, maintenir etc. »). « MAINTIENS LE ROUGE »
+(`tiens`, niveau 4) et « GLISSE LE ROUGE SUR LE BLEU » (`glisse`, niveau 6),
+tactiles, dans `CONSIGNES_MULTI` comme le double appui — **pour la même
+raison** : `VERSION_CONTENU` (`5m4fgw`) ne bouge pas. Les ouvrir au solo est
+une décision de Pierre, et demande en plus de journaliser le lever dans
+`Session.log` et `verifyRun` (voir le commentaire là-bas).
+
+**Une seule action neuve : le LEVER** (`Action.lift`, `{k:"l", i}` sur le fil).
+L'appui reste un `click` — il arrive devant les règles et sur le fil comme
+aujourd'hui — et c'est le lever qui conclut :
+- `hold` : l'appui sur la pièce pose `progress.holdAt` ; un lever avant
+  `HOLD_MS` (600) tue (« TU AS LÂCHÉ TROP TÔT »), après il fait survivre ;
+- `drag` compile en `[click from, drop to]` ; le lever doit tomber sur `to`.
+- ⚠️ **Partout ailleurs, un lever est IGNORÉ** — un clic ordinaire se lève
+  aussi. C'est l'assertion qui a le plus de dents (éprouvée en retirant la
+  garde : deux tests tombent). Et le client ne l'ENVOIE que s'il répond à
+  quelque chose : sinon chaque clic doublerait le trafic, et un serveur
+  ancien recevrait un message qu'il ne sait pas lire.
+- Client et serveur jugent la même durée : l'appui et le lever portent
+  chacun leur `at`, projeté sur l'horloge serveur (décision n°3).
+
+**Le temps** : `poidsGestes` remplace `steps.length` dans les fenêtres. Un
+maintien pèse 1 + 3 gestes (840 ms ≥ 600 tenus), un lever de glisser 2.
+⚠️ Pour toute étape d'avant, le poids EST le nombre d'étapes (testé) : aucune
+fenêtre existante ne bouge.
+
+**Les règles** : `targets` voit la pièce tenue et LES DEUX pièces d'un glisser
+— poser sur du rouge, c'est toucher du rouge. LE SANG piège donc un glisser
+qui prend OU pose du rouge, et aucun autre (testé sur 400 tirages).
+
+**Négocié** : `CONSIGNES_VERSION` = 3, `VERSION_DE_CONSIGNE` dit à partir de
+quelle version chacune sort ; à la version 2 le pool est EXACTEMENT celui
+d'avant (testé). À l'écran : une jauge autour de la pièce, qui passe au VERT
+quand le lever sera accepté (`drawGeste`), et « TIENS JUSQU'AU VERT » sur la
+ligne des gestes ; un trait pointillé de la pièce prise au doigt. Le canvas
+capture le pointeur à l'appui : un glisser qui sort du terrain lève encore
+sur lui.
+
 ### Le double appui — première consigne neuve, multijoueur seulement (25/09/2026)
 
 « CLIQUE DEUX FOIS LE ROUGE / LE ROND » (`doubleTap`, niveau 4, poids 2,
@@ -2956,11 +2996,10 @@ désormais au-dessus du pied.
 
 ### Backlog
 
-1. **Nouvelles consignes** — glisser, balayer, maintien. Le double-appui est
-   fait (multi, voir plus haut) parce qu'il tient dans `sequence` ; les trois
-   autres sont de nouveaux types d'entrée, donc de nouvelles actions sur le
-   fil et une nouvelle résolution : un chantier, pas un ajout de contenu.
-   Toute consigne neuve passe par `CONSIGNES_MULTI` et `CONSIGNES_VERSION`.
+1. **Nouvelles consignes** — double appui, MAINTENIR et GLISSER sont faits
+   (multi). Reste BALAYER, qui demanderait une direction sur le fil. Toute
+   consigne neuve passe par `CONSIGNES_MULTI`, `VERSION_DE_CONSIGNE` et
+   `CONSIGNES_VERSION`.
 2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
    côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
    liste vide dit « personne ne joue ».

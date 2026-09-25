@@ -283,7 +283,14 @@ export class NetClient {
    * date de son clic, pas celle de la réception — le serveur bornera de toute
    * façon (voir INPUT_TOLERANCE_MS côté serveur).
    */
-  sendInput(round: number, action: { k: "c"; i: number | null } | { k: "k"; key: string } | { k: "r"; key: string }): void {
+  sendInput(
+    round: number,
+    action:
+      | { k: "c"; i: number | null }
+      | { k: "k"; key: string }
+      | { k: "r"; key: string }
+      | { k: "l"; i: number | null },
+  ): void {
     this.send({ t: "input", round, at: this.clock.now(), action });
   }
 

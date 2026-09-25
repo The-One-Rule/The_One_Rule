@@ -627,6 +627,7 @@ type Dyn = {
   ficheEntraine: (allure: string) => string;
   /* --- l'écran de jeu --- */
   hudGeste: string;
+  hudTiens: string;
   hudGestes: (n: number) => string;
   hudDerniereVie: string;
   /* --- l'objectif de l'accueil --- */
@@ -1235,6 +1236,7 @@ const DYN: Record<Lang, Dyn> = {
     ficheRienNeManque: "Rien ne manque. Cette règle est parfaite.",
     ficheEntraine: (allure) => `S'ENTRAÎNER · ${allure}`,
     hudGeste: "1 GESTE",
+    hudTiens: "TIENS JUSQU'AU VERT",
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
     butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
@@ -1751,6 +1753,7 @@ const DYN: Record<Lang, Dyn> = {
     ficheRienNeManque: "Nothing left. This rule is perfect.",
     ficheEntraine: (allure) => `TRAIN · ${allure}`,
     hudGeste: "1 MOVE",
+    hudTiens: "HOLD UNTIL GREEN",
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",
     butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
@@ -2433,6 +2436,9 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     couleurPuis: (m) => `${m.couleur} PUIS ${m.couleur2}`,
     deuxFoisCouleur: (m) => `CLIQUE DEUX FOIS LE ${m.couleur}`,
     deuxFoisForme: (m) => `CLIQUE DEUX FOIS LE ${m.forme}`,
+    tiensCouleur: (m) => `MAINTIENS LE ${m.couleur}`,
+    tiensForme: (m) => `MAINTIENS LE ${m.forme}`,
+    glisseCouleur: (m) => `GLISSE LE ${m.couleur} SUR LE ${m.couleur2}`,
     clicSauf: (m) => `CLIQUE PARTOUT SAUF SUR DU ${m.couleur}`,
     "coop.nettoyez": () => "NETTOIEZ LE TERRAIN",
   },
@@ -2469,6 +2475,9 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     couleurPuis: (m) => `${m.couleur} THEN ${m.couleur2}`,
     deuxFoisCouleur: (m) => `CLICK THE ${m.couleur} TWICE`,
     deuxFoisForme: (m) => `CLICK THE ${m.forme} TWICE`,
+    tiensCouleur: (m) => `HOLD THE ${m.couleur}`,
+    tiensForme: (m) => `HOLD THE ${m.forme}`,
+    glisseCouleur: (m) => `DRAG THE ${m.couleur} ONTO THE ${m.couleur2}`,
     clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
     "coop.nettoyez": () => "CLEAR THE FIELD",
   },
@@ -2903,6 +2912,9 @@ const MOTIFS_EN: Record<MotifId, string> = {
   mauvaiseTouche: "WRONG KEY",
   couleurInterdite: "YOU CLICKED THE FORBIDDEN COLOUR",
   leVide: "YOU CLICKED EMPTY SPACE",
+  lacheTot: "YOU LET GO TOO SOON",
+  lacheAilleurs: "YOU DROPPED IT IN THE WRONG PLACE",
+  fallaitGlisser: "YOU HAD TO DRAG, NOT CLICK",
   mauvaiseForme: "WRONG SHAPE",
   mauvaiseCible: "WRONG TARGET",
   rouge: "YOU CLICKED ON RED",

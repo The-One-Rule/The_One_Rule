@@ -20,9 +20,15 @@
  */
 
 import { hashStr, mulberry32 } from "./rng";
-import { CONSIGNES_MULTI, INSTRUCTIONS, pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
+import {
+  CONSIGNES_MULTI,
+  INSTRUCTIONS,
+  pickInstruction,
+  TOUCH_INSTRUCTIONS,
+  VERSION_DE_CONSIGNE,
+} from "./instructions";
 import { place } from "./scene";
-import { plancherParGeste, windowForSteps } from "./difficulty";
+import { plancherParGeste, poidsGestes, windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import type { Instruction, OneRule, Round, Want } from "./types";
 
@@ -97,7 +103,7 @@ export function draftShared(
      * les étapes, L'ACCÉLÉRATION qui retranche — reste personnel et passe par
      * `transform`, que le serveur relit dans `durationFor`.
      */
-    durationMs: windowForSteps(idx, compile(want).length),
+    durationMs: windowForSteps(idx, poidsGestes(compile(want))),
   };
 }
 
@@ -134,7 +140,7 @@ export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Rou
    * faces qui l'appliquerait ferait diverger le temps juge du temps affiche,
    * c'est-a-dire le defaut tenu pour fatal (n°3).
    */
-  return { ...round, durationMs: plancherParGeste(round.durationMs, round.steps.length) };
+  return { ...round, durationMs: plancherParGeste(round.durationMs, poidsGestes(round.steps)) };
 }
 
 /**
@@ -162,7 +168,13 @@ export const poolMulti = (clavier: boolean, consignes = 1): Instruction[] => {
    * d'origine, à l'identique de la version d'hier. La manche 2 et au-delà ne
    * se tire que si le serveur ET chaque siège la connaissent.
    */
-  return consignes >= 2 ? [...base, ...CONSIGNES_MULTI.filter((i) => clavier || i.touch)] : base;
+  if (consignes < 2) return base;
+  return [
+    ...base,
+    ...CONSIGNES_MULTI.filter(
+      (i) => (clavier || i.touch) && (VERSION_DE_CONSIGNE[i.id] ?? Infinity) <= consignes,
+    ),
+  ];
 };
 
 /** Raccourci : la manche complète d'un joueur donné. */

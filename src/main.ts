@@ -54,6 +54,7 @@ import type { Opponent } from "./ranked/client";
 import { Hud } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
+import type { GesteAffiche } from "./render/scene";
 import { dessineApercu } from "./render/skins";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { scoreDuJour, vueDuJour } from "./render/jour";
@@ -5637,6 +5638,14 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
   );
 }
 
+/** Le geste en cours, complété de la position du doigt pour un glisser. */
+function gesteAffiche(): GesteAffiche | null {
+  const g = multi.geste();
+  if (!g) return null;
+  if (g.kind === "hold") return g;
+  return { kind: "drag", idx: g.idx, x: doigt?.x ?? null, y: doigt?.y ?? null };
+}
+
 function send(action: Action): void {
   if (!session || session.phase !== "playing") return;
   const combo = session.level;
@@ -5646,10 +5655,14 @@ function send(action: Action): void {
   react(session.input(action, performance.now()), combo, manche);
 }
 
+/** Où est le doigt pendant un appui, en coordonnées de champ — pour GLISSER. */
+let doigt: { x: number; y: number } | null = null;
+
 /** Route une action vers le multi si un match est actif (et pas de run solo). */
 function sendOrMulti(action: Action): void {
   if (session) {
-    send(action);
+    // Le solo ne demande ni maintien ni glisser : un lever n'y dit rien.
+    if (action.kind !== "lift") send(action);
     return;
   }
   if (!multi.isPlayingMulti()) return;
@@ -5703,13 +5716,43 @@ $("cv").addEventListener("pointerdown", (ev) => {
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    /*
+     * ⚠️ LA CAPTURE : un glisser qui sort du canvas doit encore LEVER sur lui.
+     * Sans elle, le `pointerup` tombe sur un autre élément, le lever n'est
+     * jamais envoyé, et la manche expire sur « séquence inachevée ».
+     */
+    try {
+      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* un navigateur sans capture joue quand même */
+    }
+    doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
   }
 });
 
+/**
+ * LE LEVER — MAINTENIR et GLISSER se concluent là. `multi.trySendMultiAction`
+ * ne l'envoie que s'il répond à quelque chose ; ailleurs, il ne coûte rien.
+ */
+function leve(ev: Event): void {
+  doigt = null;
+  if (!multi.isPlayingMulti()) return;
+  const round = multi.peekRound();
+  if (!round) return;
+  const e = ev as PointerEvent;
+  const { x, y } = scene.toField(e.clientX, e.clientY);
+  const ent = scene.hit(round.ents, x, y);
+  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+  sendOrMulti({ kind: "lift", ent, x, y });
+}
+$("cv").addEventListener("pointerup", leve);
+$("cv").addEventListener("pointercancel", leve);
+
 $("cv").addEventListener("pointermove", (ev) => {
   if (!multi.isPlayingMulti()) return;
   const { x, y } = scene.toField((ev as PointerEvent).clientX, (ev as PointerEvent).clientY);
+  if (doigt) doigt = { x, y };
   multi.sendCursor(x, y);
 });
 
@@ -6983,6 +7026,7 @@ function loop(now: number): void {
       ratio: multiDraw.ratio,
       needs: multiDraw.needs,
       charges: multiDraw.charges,
+      geste: gesteAffiche(),
     });
     multi.paintCursors(now, scene.fieldRect());
   } else {
