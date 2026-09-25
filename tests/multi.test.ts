@@ -64,6 +64,28 @@ function setVies(m: MatchLogic, id: string, n: number): void {
   s.lives = n;
 }
 
+/**
+ * Deux joueurs à une vie, qui meurent à la MÊME manche. « b » part avec
+ * `avanceB` manches de plus au score.
+ *
+ * On cherche une graine où le mauvais clic tue vraiment les deux : sur une
+ * consigne « clique n'importe où », cliquer dans le vide est une SURVIE, et le
+ * test passerait à côté de ce qu'il prétend vérifier. Même doctrine que
+ * `matchAvec` : le test dit ce qu'il exige au lieu d'espérer une graine.
+ */
+function tombentEnsemble(avanceB: number): ReturnType<MatchLogic["closeRound"]> {
+  for (let graine = 1; graine < 500; graine++) {
+    const m = new MatchLogic(graine, ["a", "b"]);
+    setVies(m, "a", 1);
+    setVies(m, "b", 1);
+    m.seats.find((s) => s.id === "b")!.score = avanceB;
+    m.openRound();
+    if (playDie(m, "a")?.kind !== "death" || playDie(m, "b")?.kind !== "death") continue;
+    return m.closeRound();
+  }
+  throw new Error("aucune graine où les deux meurent à la manche 0");
+}
+
 /** Force une mort sur la manche ouverte (mauvais clic). */
 function playDie(m: MatchLogic, id: string) {
   return m.input(id, m.roundIdx, { kind: "click", ent: null, x: 0, y: 0 }, 200);
@@ -433,6 +455,25 @@ describe("logique de match", () => {
     expect(res.matchOver).toBe(true);
     expect(res.winnerId).toBe("a");
     expect(res.interludeMs).toBe(0);
+  });
+
+  it("⚠️ deux derniers tombés ENSEMBLE, à égalité : PERSONNE ne gagne", () => {
+    /*
+     * Vu en jouant, pas en relisant : les deux derniers meurent à la même
+     * manche, même score. `winner()` triait une égalité parfaite et rendait
+     * le PREMIER siège — l'hôte. Son écran disait « TU AS GAGNÉ » pendant que
+     * le classement, juste dessous, le marquait ÉLIMINÉ. Le client sait déjà
+     * dire ÉGALITÉ : il fallait que le serveur la lui donne.
+     */
+    const res = tombentEnsemble(0);
+    expect(res.matchOver).toBe(true);
+    expect(res.winnerId).toBeNull();
+  });
+
+  it("tombés ensemble mais pas à égalité : le meilleur score gagne", () => {
+    const res = tombentEnsemble(3);
+    expect(res.matchOver).toBe(true);
+    expect(res.winnerId).toBe("b");
   });
 });
 

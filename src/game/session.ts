@@ -24,6 +24,8 @@ export interface SessionEnd {
   dejoues: number;
   /** Dont celles qui étaient de vrais PIÈGES — le geste que le jeu existe pour apprendre. */
   piegesDejoues: number;
+  /** Vies restantes à l'arrivée (parcours). 0 hors parcours. */
+  vies: number;
 }
 
 const FREEZE_MS = 520;
@@ -83,9 +85,9 @@ export class Session {
   private grace: number;
   /** Multiplicateur de fenêtre — 1 hors entraînement, toujours. */
   readonly pace: number;
-  /** ESCALIER : manches à tenir. `undefined` = la borne du mode. */
+  /** NIVEAU DU PARCOURS : manches à tenir. `undefined` = la borne du mode. */
   private readonly longueur?: number;
-  /** ESCALIER : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
+  /** NIVEAU DU PARCOURS : cadence de pièges forcés. `undefined` = `FORCED_TRAP_ROUNDS`. */
   private readonly forcePiege?: (level: number) => boolean;
   /** Le raccourci DÉJOUER est-il permis dans ce run ? Jamais hors entraînement. */
   readonly dejoueActif: boolean;
@@ -93,6 +95,11 @@ export class Session {
   readonly toucheReservee?: string;
   dejoues = 0;
   piegesDejoues = 0;
+  /** Vies restantes (parcours). 0 = mode sans vies : la première faute tue. */
+  vies: number;
+  readonly viesMax: number;
+  /** Vrai à la manche où une vie vient d'être perdue — pour l'annoncer une fois. */
+  vieJustePerdue = false;
 
   private runStart: number;
 
@@ -143,7 +150,7 @@ export class Session {
     /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
     /**
-     * ESCALIER : le nombre de manches à tenir, et la cadence de pièges.
+     * NIVEAU DU PARCOURS : le nombre de manches à tenir, et la cadence de pièges.
      *
      * ⚠️ Les deux sont OPTIONNELS et absents partout ailleurs. C'est la même
      * astuce que l'escalade et que le DUO : le mode existant devient un cas
@@ -168,6 +175,19 @@ export class Session {
      * passe par un bouton.
      */
     toucheDejoue?: string;
+    /**
+     * LE PARCOURS : des vies au lieu d'une mort sèche, et pas d'échauffement.
+     *
+     * Absent partout ailleurs — le run du jour, le classé et l'entraînement
+     * libre gardent exactement leur comportement (une faute hors échauffement
+     * tue). Avec `vies`, une faute coûte une vie et la manche suivante part ;
+     * la dernière vie perdue termine le run. Les vies RESTANTES à l'arrivée
+     * sont les étoiles du niveau : c'est ce qui rend la récompense lisible
+     * sans rien inventer — « tu as fini avec 2 cœurs » se voit et se compte.
+     */
+    vies?: number;
+    /** Manches d'échauffement. `undefined` = `GRACE_ROUNDS`. */
+    grace?: number;
   }) {
     this.mode = opts.mode;
     this.pile = opts.pile?.length ? opts.pile : [opts.rule];
@@ -187,7 +207,9 @@ export class Session {
      * c'est ce qui bloquait les débutants avant qu'ils aient pu automatiser la
      * vérification de leur règle unique.
      */
-    this.grace = GRACE_ROUNDS;
+    this.grace = opts.grace ?? GRACE_ROUNDS;
+    this.vies = opts.vies ?? 0;
+    this.viesMax = this.vies;
     this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
     this.longueur = opts.longueur;
     this.forcePiege = opts.forcePiege;
@@ -216,7 +238,7 @@ export class Session {
   }
 
   get maxRounds(): number {
-    // Un palier de l'escalier porte sa propre borne : c'est ce qui fait qu'on
+    // Un niveau du parcours porte sa propre borne : c'est ce qui fait qu'on
     // le FRANCHIT au lieu d'y survivre. Ailleurs, rien n'a bougé — le classé
     // est borné comme le quotidien, deux runs de longueur différente ne se
     // comparant pas, et l'entraînement libre n'a pas de fin.
@@ -321,6 +343,20 @@ export class Session {
       this.nextRound(now);
       return;
     }
+    // Parcours : une vie de moins, et on continue — sauf la dernière.
+    if (this.vies > 1) {
+      this.vies--;
+      this.vieJustePerdue = true;
+      this.marks.push("🟨");
+      this.level++;
+      if (this.level >= this.maxRounds) {
+        this.finish("complete", "TENU JUSQU'AU BOUT", true);
+        return;
+      }
+      this.nextRound(now);
+      return;
+    }
+    if (this.vies === 1) this.vies = 0;
     this.marks.push("🟥");
     this.lastDeath = { cause: outcome.cause, reason: outcome.reason };
     this.phase = "freeze";
@@ -340,6 +376,7 @@ export class Session {
       usedKeyboard: this.usedKeyboard,
       dejoues: this.dejoues,
       piegesDejoues: this.piegesDejoues,
+      vies: this.vies,
     };
   }
 

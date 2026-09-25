@@ -1,0 +1,2015 @@
+/* ==================================================================
+   THE ONE RULE — identité « STICKER »
+
+   Chargée APRÈS `style.css` : elle gagne la cascade à spécificité égale.
+
+   Le jeu quitte le terminal sombre et carré pour un monde CLAIR et chaud :
+   fond sable, encre prune, contours épais, ombres franches, arrondis
+   généreux. Le reproche constant des joueurs était « ça fait prototype » et
+   « pas intuitif » ; une interface qui ressemble à un outil se lit comme un
+   outil. Celle-ci doit se lire comme un jeu, dès le premier coup d'œil.
+
+   Ce qui NE change pas, et ne doit jamais changer :
+     · les quatre teintes des pièces (calibrées pour le daltonisme) ;
+     · la géométrie du champ — la taille du terrain est du gameplay (n°10) ;
+     · `prefers-reduced-motion` : tout ce qui bouge est décoratif.
+
+   L'ancien jeton `--ink` (le fond) et `--paper` (le texte) gardent leurs NOMS
+   et échangent leurs valeurs : toute la feuille d'origine bascule d'un coup,
+   sans réécrire ses 15 000 lignes. `--encre` est le trait FORT de l'identité ;
+   `--line` reste le filet discret.
+   ================================================================== */
+
+:root {
+  --ink: #f4e9d6;
+  --ink-2: #fffbf3;
+  --line: #dccdb4;
+  --paper: #241b3a;
+  --paper-dim: #7b6f86;
+  --signal: #6b3cff;
+  /* Le lilas pâle servait de TEXTE sur fond sombre (68 déclarations). Sur
+     fond clair il devient un violet profond : lisible partout d'un coup. */
+  --signal-pale: #5a2de6;
+  --ambre: #f5b214;
+  --rouge: #e0243e;
+  --ok: #10a87a;
+  --dead: #e0243e;
+
+  --encre: #241b3a;
+  --surface: #fffbf3;
+  --creme: #fff4e0;
+  --rose: #ffd9e4;
+  --menthe: #d4f7ea;
+  --ciel: #d9e9ff;
+  --miel: #ffeec2;
+  --lilas: #e6ddff;
+
+  /* La couleur des OMBRES PORTÉES, séparée de `--encre` : le jour elles se
+     confondent, la nuit l'encre s'éclaircit (texte, contours) et l'ombre
+     doit rester une ombre. */
+  --ombre-c: #241b3a;
+  /* L'or : un texte sur fond miel, et le fond miel d'une réussite. */
+  --or: #b5820c;
+  --or-fond: #fff1b8;
+
+  --r-s: 10px;
+  --r-m: 16px;
+  --r-l: 24px;
+  --trait: 3px;
+  --ombre: 0 4px 0 var(--ombre-c);
+  --ombre-haute: 0 7px 0 var(--ombre-c);
+  --ombre-basse: 0 1px 0 var(--ombre-c);
+  --grain: none;
+}
+
+/* ==================================================================
+   LA NUIT — le même autocollant, retourné
+
+   ⚠️ UN SEUL JEU DE VALEURS, DEUX PORTES. `[data-theme="sombre"]` quand le
+   joueur le force ; `prefers-color-scheme: dark` quand il laisse AUTO — c'est
+   `:not([data-theme="clair"])` qui laisse CLAIR gagner contre le système. Les
+   deux blocs doivent rester identiques : un test les compare.
+
+   `--encre` passe au crème : c'est le texte ET le contour, donc les pièces
+   d'interface deviennent des autocollants découpés à bord clair — le geste
+   d'un vrai sticker. L'ombre portée, elle, reste une ombre (`--ombre-c`).
+
+   Les quatre teintes des PIÈCES ne bougent pas d'un chiffre (calibrage
+   daltonien) ; le terrain de nuit est choisi par `render/skins.ts`.
+   ================================================================== */
+:root[data-theme="sombre"] {
+  color-scheme: dark;
+  --ink: #16111f;
+  --ink-2: #1f182c;
+  --line: #3a3050;
+  --paper: #f1e8d8;
+  --paper-dim: #a597b6;
+  --signal: #7c52ff;
+  --signal-pale: #b8a3ff;
+  --ambre: #f5b214;
+  --rouge: #ff4d63;
+  --ok: #2fd39f;
+  --dead: #ff4d63;
+
+  --encre: #f1e8d8;
+  --ombre-c: #07050c;
+  --surface: #251d38;
+  --creme: #2b2242;
+  --rose: #45233a;
+  --menthe: #173d33;
+  --ciel: #1b2c4a;
+  --miel: #3d3217;
+  --lilas: #342a5c;
+  --or: #f5c542;
+  --or-fond: #3d3217;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="clair"]) {
+    color-scheme: dark;
+    --ink: #16111f;
+    --ink-2: #1f182c;
+    --line: #3a3050;
+    --paper: #f1e8d8;
+    --paper-dim: #a597b6;
+    --signal: #7c52ff;
+    --signal-pale: #b8a3ff;
+    --ambre: #f5b214;
+    --rouge: #ff4d63;
+    --ok: #2fd39f;
+    --dead: #ff4d63;
+
+    --encre: #f1e8d8;
+    --ombre-c: #07050c;
+    --surface: #251d38;
+    --creme: #2b2242;
+    --rose: #45233a;
+    --menthe: #173d33;
+    --ciel: #1b2c4a;
+    --miel: #3d3217;
+    --lilas: #342a5c;
+    --or: #f5c542;
+    --or-fond: #3d3217;
+  }
+}
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+#app {
+  border-left: none;
+  border-right: none;
+}
+
+#app::before {
+  background-image:
+    radial-gradient(ellipse 70% 46% at 12% -8%, rgba(107, 60, 255, 0.10), transparent),
+    radial-gradient(ellipse 60% 40% at 92% 4%, rgba(247, 64, 88, 0.08), transparent),
+    radial-gradient(circle at center, color-mix(in srgb, var(--encre) 9%, transparent) 1.3px, transparent 1.7px);
+  background-size: auto, auto, 24px 24px;
+  opacity: 1;
+}
+
+:where(button, a[href], input, select, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--signal);
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------
+   Boutons — l'objet qu'on presse
+   ------------------------------------------------------------------ */
+.btn {
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  transition:
+    transform var(--d-snap) var(--e-out),
+    box-shadow var(--d-snap) var(--e-out),
+    background var(--d-fast) linear;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  background: var(--lilas);
+  border-color: var(--encre);
+  color: var(--encre);
+  transform: translateY(-2px);
+  box-shadow: var(--ombre-haute);
+}
+
+.btn:active {
+  background: var(--lilas);
+  transform: translateY(3px);
+  box-shadow: var(--ombre-basse);
+}
+
+.btn--primary,
+.btn--launch {
+  background: var(--signal);
+  border-color: var(--encre);
+  color: #fff;
+  box-shadow: var(--ombre);
+}
+
+.btn--primary:hover,
+.btn--primary:focus-visible,
+.btn--launch:hover,
+.btn--launch:focus-visible {
+  background: #7d55ff;
+  border-color: var(--encre);
+  color: #fff;
+}
+
+.btn--primary:active,
+.btn--launch:active {
+  background: #5a2de6;
+  color: #fff;
+  transform: translateY(3px);
+  box-shadow: var(--ombre-basse);
+}
+
+.btn--lecture,
+.btn--lecture:disabled {
+  background: var(--ambre);
+  border-color: var(--encre);
+  color: var(--encre);
+}
+
+.btn--ghost {
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+}
+
+.btn:disabled,
+.btn:disabled:hover {
+  opacity: 0.45;
+  transform: none;
+  box-shadow: var(--ombre-basse);
+  background: var(--surface);
+  color: var(--paper-dim);
+  border-color: var(--encre);
+}
+
+.btn--gros {
+  min-height: 60px;
+  padding: 14px 26px;
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  border-radius: var(--r-l);
+  background: var(--signal);
+  color: #fff;
+  box-shadow: 0 6px 0 var(--ombre-c);
+}
+
+.btn--gros:hover,
+.btn--gros:focus-visible {
+  background: #7d55ff;
+  color: #fff;
+  box-shadow: 0 9px 0 var(--ombre-c);
+}
+
+.btn--gros:active {
+  background: #5a2de6;
+  color: #fff;
+  box-shadow: 0 2px 0 var(--ombre-c);
+  transform: translateY(4px);
+}
+
+/* Le grand bouton de la première arrivée. */
+.play {
+  width: min(380px, 82vw);
+  min-height: clamp(70px, 11vh, 104px);
+  background: var(--signal);
+  border: 4px solid var(--encre);
+  border-radius: 28px;
+  box-shadow: 0 8px 0 var(--ombre-c);
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 6vw, 52px);
+  letter-spacing: 0.08em;
+  animation: tor-respire 2.4s ease-in-out infinite;
+}
+
+.play:hover {
+  background: #7d55ff;
+  border-color: var(--encre);
+  transform: translateY(-3px);
+  box-shadow: 0 11px 0 var(--ombre-c);
+}
+
+.play:active {
+  transform: translateY(6px);
+  box-shadow: 0 2px 0 var(--ombre-c);
+}
+
+@keyframes tor-respire {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+/* ------------------------------------------------------------------
+   Cartes, panneaux, puces
+   ------------------------------------------------------------------ */
+.card,
+.prof,
+.chip,
+.quest,
+.panel,
+.aide,
+.pick {
+  border-radius: var(--r-m);
+}
+
+.card {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  box-shadow: var(--ombre);
+}
+
+.chip {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  color: var(--encre);
+}
+
+.eyebrow {
+  color: var(--signal);
+  font-weight: 800;
+}
+
+/* ------------------------------------------------------------------
+   Barre du haut et barre du bas
+   ------------------------------------------------------------------ */
+.topbar button,
+#btnTopReglages,
+#btnTopCompte,
+#btnTopMenu {
+  border-radius: 999px;
+}
+
+.nav {
+  background: var(--surface);
+  border-top: var(--trait) solid var(--encre);
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -4px 0 rgba(36, 27, 58, 0.06);
+}
+
+.nav__item {
+  color: var(--paper-dim);
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+.nav__item.is-on,
+.nav__item:hover {
+  color: var(--signal);
+}
+
+.nav__ico {
+  width: 24px;
+  height: 24px;
+}
+
+.nav__jouer {
+  background: var(--signal);
+  color: #fff;
+  border: var(--trait) solid var(--encre);
+  border-radius: 999px;
+  box-shadow: var(--ombre);
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.nav__jouer:hover {
+  background: #7d55ff;
+  color: #fff;
+}
+
+.nav__jouer:active {
+  transform: translateY(3px);
+  box-shadow: var(--ombre-basse);
+}
+
+.nav__compte {
+  color: var(--ambre);
+}
+
+/* ==================================================================
+   L'ACCUEIL — deux visages
+   ================================================================== */
+
+/* Le visage PARCOURS : la démo n'y tourne plus, le parcours prend tout. */
+#home:not(.is-neuf) .attract,
+#home:not(.is-neuf) .home__regle,
+#home:not(.is-neuf) .home__consigne,
+#home:not(.is-neuf) .home__demo {
+  display: none;
+}
+
+#home:not(.is-neuf) .screen__scroll.home {
+  display: block;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 12px 16px 110px;
+}
+
+.bienvenue.hidden,
+.parcours.hidden {
+  display: none;
+}
+
+/* Le visage NEUF — un titre, un bouton, la démo derrière. */
+.bienvenue {
+  text-align: center;
+}
+
+.bienvenue__eyebrow {
+  margin: 0;
+  align-self: end;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: var(--t-petit);
+  letter-spacing: 0.14em;
+  color: var(--signal);
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  padding: 6px 14px;
+}
+
+.bienvenue__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 6.4vw, 60px);
+  line-height: 1.02;
+  color: var(--encre);
+  text-shadow: 0 3px 0 var(--surface);
+}
+
+.bienvenue__titre em {
+  font-style: normal;
+  color: var(--signal);
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.62em;
+}
+
+#home .home__centre.bienvenue {
+  grid-template-rows: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
+  gap: 18px;
+}
+
+/* ------------------------------------------------------------------
+   Les chiffres qu'on accumule
+   ------------------------------------------------------------------ */
+.pstats {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.pstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px 6px 9px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  box-shadow: 0 3px 0 var(--ombre-c);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
+.pstat i {
+  font-style: normal;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  font-size: 13px;
+  border: 2px solid var(--encre);
+}
+
+.pstat--etoiles i {
+  background: var(--ambre);
+  color: var(--encre);
+}
+
+.pstat--pieces i {
+  background: #ffd23f;
+  color: var(--or);
+}
+
+.pstat--serie i {
+  background: #ff7a45;
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------
+   Le héros : ce qui vient ensuite
+   ------------------------------------------------------------------ */
+.hero {
+  display: grid;
+  grid-template-columns: 124px minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: 0 6px 0 var(--ombre-c);
+  scroll-margin-top: 70px;
+}
+
+.hero__carte {
+  align-self: start;
+  aspect-ratio: 3 / 4;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  overflow: hidden;
+  background: var(--lilas);
+  transform: rotate(-3deg);
+  box-shadow: 0 4px 0 var(--ombre-c);
+}
+
+.hero__carte img,
+.chap__img img,
+.revele__carte img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hero__corps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hero__eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--signal);
+}
+
+.hero__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(26px, 5vw, 38px);
+  line-height: 1;
+  color: var(--encre);
+}
+
+.hero__brief {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--t-lire);
+  line-height: 1.35;
+  color: var(--paper-dim);
+}
+
+.hero .btn--gros {
+  margin-top: 6px;
+  align-self: stretch;
+}
+
+/* La piste des cinq niveaux */
+.piste {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 6px 0 0;
+  padding: 0;
+  position: relative;
+}
+
+.piste::before {
+  content: "";
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 23px;
+  height: 4px;
+  background: repeating-linear-gradient(90deg, var(--line) 0 8px, transparent 8px 14px);
+  z-index: 0;
+}
+
+.piste li {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.piste__pas {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: var(--encre);
+}
+
+.piste__n {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 19px;
+  transition: transform var(--d-snap) var(--e-out);
+}
+
+.piste__pas:hover .piste__n {
+  transform: translateY(-2px);
+}
+
+.piste__pas.is-fait .piste__n {
+  background: var(--ambre);
+}
+
+.piste__pas.is-courant .piste__n {
+  background: var(--signal);
+  color: #fff;
+  animation: tor-pulse 1.6s ease-in-out infinite;
+}
+
+.piste__pas.is-boss .piste__n {
+  border-radius: 14px;
+}
+
+.piste__pas.is-verrou {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.piste__pas.is-verrou .piste__n {
+  background: var(--ink);
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.piste__etoiles {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--ambre);
+  -webkit-text-stroke: 0.6px var(--encre);
+}
+
+@keyframes tor-pulse {
+  0%, 100% { box-shadow: 0 3px 0 var(--ombre-c), 0 0 0 0 rgba(107, 60, 255, 0.45); }
+  50% { box-shadow: 0 3px 0 var(--ombre-c), 0 0 0 9px rgba(107, 60, 255, 0); }
+}
+
+/* ------------------------------------------------------------------
+   Les modes, sous le héros
+   ------------------------------------------------------------------ */
+#home .profondeur.modes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 8px;
+  align-self: auto;
+}
+
+@media (min-width: 640px) {
+  #home .profondeur.modes {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.modes .prof {
+  min-width: 0;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  background: var(--surface);
+  padding: 12px 14px;
+  transition: transform var(--d-snap) var(--e-out), box-shadow var(--d-snap) var(--e-out);
+}
+
+.modes .prof:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ombre-haute);
+  border-color: var(--encre);
+}
+
+.modes .prof:active {
+  transform: translateY(3px);
+  box-shadow: var(--ombre-basse);
+}
+
+#profJour { background: var(--miel); }
+#btnMulti { background: var(--ciel); }
+#profLibre { background: var(--menthe); }
+#profEscalade { background: var(--rose); }
+#profClassement,
+#profCartes { background: var(--surface); }
+
+.modes .prof__quoi {
+  color: var(--encre);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.modes .prof__nom {
+  color: var(--encre);
+  font-size: 16px;
+  white-space: normal;
+}
+
+.modes .prof__note {
+  color: var(--paper-dim);
+  font-weight: 700;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.modes .prof.is-verrou {
+  background: repeating-linear-gradient(-45deg, var(--ink) 0 10px, var(--ink-2) 10px 20px);
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.modes .prof.is-verrou .prof__quoi::before {
+  content: "🔒 ";
+}
+
+.modes .prof.is-verrou .prof__note {
+  color: var(--signal);
+}
+
+.modes .prof:disabled {
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------------
+   Le chemin — un chapitre par ligne
+   ------------------------------------------------------------------ */
+.parcours__titre {
+  margin: 26px 0 12px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.04em;
+  color: var(--encre);
+}
+
+.chemin {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.chemin::before {
+  content: "";
+  position: absolute;
+  left: 38px;
+  top: 20px;
+  bottom: 20px;
+  width: 4px;
+  background: repeating-linear-gradient(180deg, var(--line) 0 10px, transparent 10px 18px);
+}
+
+.chap:nth-child(even) {
+  padding-left: 26px;
+}
+
+.chap__btn {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px 10px 10px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  cursor: pointer;
+  font: inherit;
+  color: var(--encre);
+  text-align: left;
+  transition: transform var(--d-snap) var(--e-out), box-shadow var(--d-snap) var(--e-out);
+}
+
+.chap__btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--ombre-haute);
+}
+
+.chap__img {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--encre);
+  background: var(--lilas);
+  display: block;
+}
+
+.chap__txt {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chap__num {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: var(--t-micro);
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+
+.chap__nom {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.05;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chap__etoiles {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--encre);
+  white-space: nowrap;
+}
+
+.chap.is-vu .chap__btn {
+  background: var(--lilas);
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+.chap.is-fini .chap__btn {
+  background: var(--miel);
+}
+
+.chap.is-fini .chap__num::after {
+  content: " · ★ MAÎTRISÉE";
+  color: var(--or);
+}
+
+:root[lang="en"] .chap.is-fini .chap__num::after {
+  content: " · ★ MASTERED";
+}
+
+.chap.is-verrou .chap__btn {
+  background: var(--ink);
+  border-style: dashed;
+  box-shadow: none;
+  cursor: default;
+  color: var(--paper-dim);
+}
+
+.chap.is-verrou .chap__img {
+  background: repeating-linear-gradient(-45deg, var(--line) 0 6px, transparent 6px 12px);
+  border-style: dashed;
+}
+
+/* ==================================================================
+   FIN DE NIVEAU
+   ================================================================== */
+.niveau {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 24px 16px 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.niveau__eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: var(--t-petit);
+  letter-spacing: 0.12em;
+  color: var(--signal);
+}
+
+.niveau__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(34px, 8vw, 54px);
+  line-height: 1;
+  color: var(--encre);
+}
+
+#niveau.is-rate .niveau__titre {
+  color: var(--rouge);
+}
+
+.etoiles {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  margin: 6px 0;
+}
+
+.etoile {
+  width: 64px;
+  height: 64px;
+  display: block;
+  background: var(--line);
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  position: relative;
+}
+
+.etoile:nth-child(2) {
+  width: 82px;
+  height: 82px;
+  margin-bottom: 12px;
+}
+
+.etoile.is-on {
+  background: var(--ambre);
+}
+
+.etoiles.joue .etoile.is-on {
+  animation: tor-etoile 520ms var(--e-punch) both;
+  animation-delay: calc(var(--k, 0) * 330ms + 300ms);
+}
+
+@keyframes tor-etoile {
+  0% { transform: scale(0) rotate(-40deg); opacity: 0; }
+  60% { transform: scale(1.35) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.niveau__note {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--t-lire);
+  color: var(--encre);
+}
+
+.niveau__motif {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--t-base);
+  color: var(--rouge);
+  min-height: 1em;
+}
+
+.niveau__motif:empty {
+  display: none;
+}
+
+.niveau__chiffres {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.nchiffre {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 8px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.nchiffre b {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
+.nchiffre span {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+.nchiffre--pieces {
+  background: var(--or-fond);
+}
+
+.nchiffre--pieces b {
+  color: var(--or);
+}
+
+.nchiffre--pieces.is-vide {
+  background: var(--surface);
+}
+
+.revele.hidden {
+  display: none;
+}
+
+.revele {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 16px;
+  align-items: center;
+  text-align: left;
+  padding: 16px;
+  margin-top: 6px;
+  background: var(--lilas);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: 0 5px 0 var(--ombre-c);
+}
+
+.revele.is-maitrise {
+  background: var(--or-fond);
+}
+
+.revele__carte {
+  grid-row: 1 / span 2;
+  aspect-ratio: 3 / 4;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-s);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.revele.joue .revele__carte {
+  animation: tor-retourne 800ms var(--e-punch) both;
+  animation-delay: 1.3s;
+}
+
+.revele.joue {
+  animation: tor-monte 420ms var(--e-out) both;
+  animation-delay: 1.2s;
+}
+
+@keyframes tor-retourne {
+  0% { transform: perspective(600px) rotateY(180deg) scale(0.7); filter: brightness(0); }
+  55% { filter: brightness(0); }
+  100% { transform: perspective(600px) rotateY(0) scale(1); filter: brightness(1); }
+}
+
+@keyframes tor-monte {
+  from { transform: translateY(18px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.revele__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--signal);
+}
+
+.revele.is-maitrise .revele__titre {
+  color: var(--or);
+}
+
+.revele__note {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: var(--t-base);
+  color: var(--encre);
+  align-self: start;
+}
+
+.niveau__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ==================================================================
+   BOUTIQUE
+   ================================================================== */
+.boutique {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 18px 16px 110px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.boutique__tete {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.boutique__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--encre);
+}
+
+.boutique__chapo {
+  margin: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+  color: var(--paper-dim);
+}
+
+.skins {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.skin {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre);
+  overflow: hidden;
+}
+
+.skin.is-porte {
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+.skin__apercu {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  height: auto;
+  display: block;
+  border-bottom: var(--trait) solid var(--encre);
+}
+
+.skin__corps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px 4px;
+}
+
+.skin__nom {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--encre);
+}
+
+.skin__desc {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: var(--t-base);
+  color: var(--paper-dim);
+  line-height: 1.3;
+}
+
+.skin__btn {
+  margin: 10px 14px 14px;
+}
+
+/* Le héros sur téléphone : la carte à côté du titre, le reste en pleine largeur. */
+@media (max-width: 559px) {
+  .hero {
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-areas:
+      "carte tete"
+      "corps corps";
+    gap: 12px 14px;
+    padding: 14px;
+  }
+
+  .hero__carte {
+    grid-area: carte;
+  }
+
+  .hero__corps {
+    display: contents;
+  }
+
+  .hero__eyebrow,
+  .hero__nom {
+    grid-area: tete;
+  }
+
+  .hero__eyebrow {
+    align-self: start;
+  }
+
+  .hero__nom {
+    align-self: end;
+    padding-bottom: 6px;
+  }
+
+  .hero__brief,
+  .piste,
+  .hero .btn--gros {
+    grid-column: 1 / -1;
+  }
+
+  .modes .prof__nom {
+    display: none;
+  }
+}
+
+/* Un visiteur neuf n'a qu'un geste à faire : pas de barre de navigation. La
+   fin de niveau non plus — elle a sa propre suite, et une seule. */
+#app:has(#home.is-neuf:not(.hidden)) .nav,
+#app:has(#niveau:not(.hidden)) .nav {
+  display: none;
+}
+
+/* « TA RÈGLE T'ATTEND » sous JOUER : dans la barre basse, il n'a pas la place. */
+.nav .nav__attend {
+  display: none;
+}
+
+.skins {
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+}
+
+/* ==================================================================
+   Reprises de l'ancienne feuille — ce qui était pensé pour le noir
+   ================================================================== */
+
+/* Le filet en pointillés pixel sous la barre haute. */
+.topbar::after {
+  background: var(--line);
+  height: 2px;
+}
+
+/* Le nom de la règle en grand : une ÉTIQUETTE, plus deux bandes hachurées. */
+.rulename--hero {
+  display: block;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px 22px 12px;
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: 0 6px 0 var(--ombre-c);
+  text-shadow: none;
+  transform: rotate(-1.5deg);
+  letter-spacing: -0.01em;
+}
+
+.band__rule {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+#briefWarn,
+.warn {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.tuto__aide {
+  color: var(--encre);
+  font-weight: 800;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  padding: 8px 14px;
+}
+
+.tuto__note {
+  background: none;
+  font-weight: 700;
+}
+
+/* Les vies : des CŒURS, qui se vident. */
+.plate__lives i,
+.lifedots i {
+  width: 16px;
+  height: 15px;
+  border: none;
+  background: var(--line);
+  clip-path: path("M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z");
+}
+
+.plate__lives i.is-on,
+.lifedots i.is-on {
+  background: var(--rouge);
+}
+
+/* DÉJOUER : un gros bouton franc, plus une plaque de grain. */
+.dejoue {
+  color: #fff;
+  background: var(--signal);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.dejoue:active {
+  transform: translateY(3px);
+  box-shadow: var(--ombre-basse);
+}
+
+@keyframes dejoue-eclat {
+  0% { background-color: var(--ambre); color: var(--encre); }
+  100% { background-color: var(--signal); }
+}
+
+/* Les titres d'écran : encre, ombre de lilas, et un trait plein en dessous. */
+.rulename {
+  color: var(--encre);
+  font-weight: 700;
+  text-shadow: 0 3px 0 var(--lilas);
+  /* L'espace de Fredoka est étroite, et l'interlettrage négatif d'origine
+     (−0,03em) finissait de la manger : « YOU VS YOU » se lisait « YOUVS YOU »
+     devant le V, dont l'approche gauche est large. */
+  word-spacing: 0.14em;
+}
+
+.rulename::after {
+  width: 56px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--signal);
+}
+
+.rulename--hero::after {
+  display: none;
+}
+
+.panel {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre);
+}
+
+/* Collection : filtres en pastilles, cartes en autocollants. */
+.filtre {
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  background: var(--surface);
+  color: var(--encre);
+  font-weight: 800;
+}
+
+.filtre.is-on {
+  background: var(--encre);
+  color: var(--surface);
+}
+
+.carte {
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.carte.is-verrou {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+/* Fiche d'une carte : chiffres et niveaux du chapitre. */
+.fiche__cel {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.fiche__cases .cas {
+  border-color: var(--line);
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+.fiche__cases .cas.is-faite {
+  background: var(--miel);
+}
+
+.fiche__cases .cas__reste {
+  color: var(--ambre);
+  -webkit-text-stroke: 0.5px var(--encre);
+  letter-spacing: 2px;
+}
+
+.fiche__img {
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+}
+
+/* Réglages : interrupteurs et allures arrondis. */
+.rgl,
+.rgl__ligne,
+.option {
+  border-radius: var(--r-m);
+}
+
+/* La démo derrière l'accueil neuf : sur le sable, plus sur la nuit. */
+.attract,
+.attract--nuit {
+  background: var(--ink);
+}
+
+/* En large, la démo passe DERRIÈRE le titre : on l'estompe pour que le texte
+   se lise, sans la couper — c'est elle qui montre le jeu. */
+@media (min-width: 900px) {
+  #home.is-neuf .attract__cvs {
+    opacity: 0.38;
+  }
+
+  #home.is-neuf .bienvenue__titre {
+    text-shadow: 0 3px 0 var(--surface), 0 0 24px var(--ink);
+  }
+}
+
+/* ==================================================================
+   EN PARTIE
+   ================================================================== */
+
+/* L'annonce du piège (niveaux d'apprentissage) : la consigne se barre et
+   porte une pastille. Jamais ailleurs que sur le parcours. */
+#app.piege-annonce #instr {
+  text-decoration: line-through;
+  text-decoration-color: var(--rouge);
+  text-decoration-thickness: 0.12em;
+}
+
+#app.piege-annonce #instr::after {
+  content: attr(data-piege);
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.4em;
+  padding: 0.18em 0.5em 0.12em;
+  font-size: 0.45em;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: var(--rouge);
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  box-shadow: 0 2px 0 var(--ombre-c);
+  text-decoration: none;
+  animation: tor-piege 700ms ease-in-out infinite alternate;
+}
+
+@keyframes tor-piege {
+  from { transform: rotate(-4deg) scale(1); }
+  to { transform: rotate(4deg) scale(1.08); }
+}
+
+/* Le score saute à chaque manche tenue. */
+#fScore.a-monte {
+  animation: tor-monte-score 320ms var(--e-punch);
+  display: inline-block;
+}
+
+@keyframes tor-monte-score {
+  0% { transform: scale(1); color: var(--encre); }
+  35% { transform: scale(1.45) translateY(-3px); color: var(--signal); }
+  100% { transform: scale(1); }
+}
+
+#instr {
+  color: var(--encre);
+}
+
+/* ==================================================================
+   LE SALON — entrée, salle d'attente, partie, fin de match
+
+   La refonte STICKER n'avait touché AUCUN sélecteur du multijoueur : vu pour
+   la première fois avec un vrai serveur et deux navigateurs, le salon était à
+   moitié dans l'ancien monde — filets de 1 px, cases carrées, ombres pensées
+   pour le noir — et trois défauts ne se voyaient qu'en jouant :
+
+     · « COPIER LE LIEN » invisible quand on est seul : le bouton porte alors
+       `btn--primary` (texte blanc) ET `btn--ghost` (sans fond) ;
+     · les hachures de flanc de `.screen::before` tombaient SUR les réglages
+       et le classement, parce qu'un écran à dock commence à 24 px du bord ;
+     · « 1RE PARTIE » restait en français sur les plaques anglaises : le mot
+       vit dans un `content:` CSS, que l'i18n ne voit pas.
+
+   ⚠️ AUCUNE DIMENSION DES PLAQUES NE BOUGE. `.plate` garde `min-width` et ses
+   marges : `render/layout.ts` lit 150 px, et les bandes réservées au HUD
+   multi sont des constantes (n°16, n°17). On ne change ici que la matière.
+   ================================================================== */
+
+/* Le lien d'invitation qui devient l'action principale reste lisible. */
+.btn--primary.btn--ghost {
+  background: var(--signal);
+  border-color: var(--encre);
+  color: #fff;
+  box-shadow: var(--ombre);
+}
+
+/* Un écran n'est plus signé par des hachures de flanc : la trame suffit, et
+   elle ne rencontre jamais un contenu. */
+.screen::before {
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--encre) 9%, transparent) 1.3px,
+    transparent 1.7px
+  );
+  background-repeat: repeat;
+  background-position: 0 0;
+  background-size: 24px 24px;
+}
+
+/* Les équerres et l'arête gauche des panneaux étaient le gabarit de découpe
+   de l'identité Nocturne. En autocollant, le contour suffit. */
+.panel::before,
+.panel::after,
+.card::before,
+.card::after {
+  display: none;
+}
+
+.panel {
+  padding: var(--sp-4);
+}
+
+.panel:hover,
+.panel:focus-within {
+  border-color: var(--encre);
+}
+
+.panel__title {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+/* ---- Les cases du code : celles qu'on tape, celles qu'on dicte ---- */
+.codein__cases i,
+.roomcode__char {
+  background: var(--surface);
+  background-image: none;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: var(--ombre);
+  color: var(--encre);
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.codein__cases i.is-plein {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.codein__cases i.is-actif {
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+/* ---- Les réglages de l'hôte : des pastilles, pas des cases ---- */
+.opt {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: none;
+  color: var(--encre);
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+.opt:hover:not(:disabled) {
+  background: var(--lilas);
+}
+
+.opt.is-on,
+.opt.is-on:hover {
+  background: var(--encre);
+  border-color: var(--encre);
+  color: var(--surface);
+}
+
+.opt.is-on .opt__hint {
+  color: var(--surface);
+}
+
+.settings__label,
+.settings__who {
+  color: var(--paper-dim);
+  font-weight: 700;
+}
+
+/* L'intitulé du bloc se collait au premier libellé (« RÉGLAGES · HÔTE »
+   puis « VITESSE » sans respiration) : deux étages, deux lignes. */
+.settings__who {
+  margin-bottom: var(--sp-3);
+}
+
+/*
+ * La barre segmentée devient UNE pastille : le conteneur porte le contour, et
+ * ses gouttières de 2 px laissent voir l'encre entre les segments. Même
+ * mécanique que l'origine (voir le commentaire de `.settings--seg
+ * .settings__opts` dans `style.css`) — elle reste juste quand la barre se
+ * replie, là où des bordures partagées ne voudraient plus rien dire.
+ */
+.settings--seg .settings__opts {
+  gap: 2px;
+  background: var(--encre);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  overflow: hidden;
+}
+
+.settings--seg .opt {
+  border-radius: 0;
+}
+
+.settings--seg .opt.is-on,
+.settings--seg .opt.is-on:hover {
+  background: var(--signal);
+  color: #fff;
+}
+
+.settings--seg .opt.is-on .opt__hint {
+  color: #fff;
+}
+
+/* LA phrase du jeu — « si une consigne enfreint ta règle, ne fais rien » :
+   une étiquette collée, pas une note de bas de page. */
+.piege {
+  background: var(--lilas);
+  border: 2px solid var(--encre);
+  border-left-width: 6px;
+  border-radius: var(--r-s);
+  color: var(--encre);
+  font-weight: 700;
+}
+
+/* ---- Les sièges ---- */
+.seat {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.seat.is-me {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.seat--libre {
+  background: transparent;
+  border: 2px dashed var(--line);
+  box-shadow: none;
+}
+
+.seat__name {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+.seat.is-host .seat__status,
+.seat.is-rookie .seat__status {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+/* ---- La bande de discussion : une pièce à côté, pas un renfoncement ---- */
+.chatdock {
+  background: var(--surface);
+  border-left: var(--trait) solid var(--encre);
+  box-shadow: none;
+}
+
+.chatdock::before {
+  color: var(--signal);
+  font-weight: 800;
+  border-bottom: 2px solid var(--encre);
+}
+
+.chat__input {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.chat__input:focus {
+  border-color: var(--signal);
+}
+
+/* ---- Les plaques, en partie ---- */
+.plate {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.plate--me {
+  background: var(--lilas);
+  border-color: var(--encre);
+  border-left-width: 6px;
+  color: var(--encre);
+}
+
+.plate--rookie {
+  border-color: var(--signal);
+}
+
+.plate--rookie::before {
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  border-radius: 0 var(--r-s) 0 var(--r-s);
+}
+
+/* Le mot vit dans le CSS : il se traduit ici, comme `.chap.is-fini`. */
+:root[lang="en"] .plate--rookie::before {
+  content: "1ST GAME";
+}
+
+:root[lang="en"] .plates--compact .plate--rookie::before,
+:root[lang="en"] #app:not(.has-gutters) .plates .plate--rookie::before {
+  content: "1ST";
+}
+
+/* La case META du bandeau est une structure à deux enfants : elle n'est donc
+   jamais `:empty`, et son cadre se peignait vide sous les vies du multi. */
+.band__meta:not(.is-on) {
+  border: none;
+  padding: 0;
+}
+
+/* ---- La fin de match ---- */
+.lobbyrow {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  margin-bottom: 6px;
+  color: var(--encre);
+}
+
+.lobbyrow.is-winner {
+  background: var(--miel);
+  border-color: var(--encre);
+  box-shadow: var(--ombre);
+}
+
+.lobbyrow.is-host {
+  border-color: var(--encre);
+}
+
+.lobbyrow.is-off {
+  border-style: dashed;
+}
+
+.lobbyrow__name {
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+/*
+ * ⚠️ SUR TÉLÉPHONE, UNE RANGÉE ÉLIMINÉE DÉBORDAIT DE SA BOÎTE. Mesuré à
+ * 375 px : 369 px de contenu pour 291 — « 1 MANCHE » coupé au bord de
+ * l'écran. Ses trois cœurs vides ne disent rien que « ÉLIMINÉ » ne dise déjà
+ * à côté : ils partent, et les gouttières se resserrent.
+ */
+@media (max-width: 560px) {
+  #multiPodium .lobbyrow {
+    gap: 10px;
+  }
+
+  #multiPodium .lobbyrow.is-off .lifedots {
+    display: none;
+  }
+}
+
+.titles__row {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.titles__who {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+/* ==================================================================
+   LES ÉCRANS DE SERVICE — réglages, classement, compte, identité
+
+   Même constat que le salon : aucun sélecteur de la refonte ne les
+   atteignait, et ils gardaient les filets de 1 px et les champs creusés
+   d'une ombre intérieure noire — pensés pour un fond sombre, lus comme des
+   trous sur le sable. Rien n'est déplacé ; seule la matière change.
+   ================================================================== */
+
+/* ---- Réglages ---- */
+.rgl__bloc {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  overflow: hidden;
+}
+
+.rgl__ligne {
+  background: transparent;
+}
+
+.rgl__ligne + .rgl__ligne {
+  border-top: 2px solid var(--line);
+}
+
+.rgl__bloc--vedette {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.rgl__nom {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.rgl__inter {
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.rgl__inter i {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--paper-dim);
+}
+
+.rgl__inter.is-on i:first-child {
+  background: var(--signal);
+  color: #fff;
+}
+
+.rgl__inter:not(.is-on) i:last-child {
+  background: var(--encre);
+  color: var(--surface);
+}
+
+.rgl__inter:hover,
+.rgl__inter:focus-visible {
+  border-color: var(--signal);
+}
+
+/* ---- Identité : le nom et le signe ---- */
+.field {
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.field:focus {
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+.glyphpick__opt {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.glyphpick__opt:hover {
+  border-color: var(--encre);
+  background: var(--lilas);
+}
+
+.glyphpick__opt[aria-checked="true"] {
+  border-color: var(--encre);
+  background: var(--miel);
+  box-shadow: 0 3px 0 var(--signal);
+}
+
+/* ---- Le mur des records ---- */
+.mur__cible,
+.mur__moi {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.mur__cible {
+  background: var(--miel);
+}
+
+.mur__cible .mur__kicker {
+  color: var(--or);
+  font-weight: 800;
+}
+
+.mur__gros {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.mur__jauge {
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  background: var(--surface);
+}
+
+.mur__jauge i {
+  border-radius: 999px;
+}
+
+/* ---- Le compte ---- */
+.cpt__cel,
+.cpt__jour {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.cpt__val {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+/* ---- Les quêtes du jour ---- */
+.quest {
+  border-bottom: 2px dashed var(--line);
+}
+
+.quest__box {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--encre);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.quest.is-done .quest__box {
+  background: var(--ok);
+  border-color: var(--encre);
+}
+
+/* ==================================================================
+   Mouvement réduit : rien ne bouge, rien ne disparaît
+   ================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .play,
+  .piste__pas.is-courant .piste__n,
+  .etoiles.joue .etoile.is-on,
+  .revele.joue,
+  .revele.joue .revele__carte,
+  #app.piege-annonce #instr::after,
+  #fScore.a-monte {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}

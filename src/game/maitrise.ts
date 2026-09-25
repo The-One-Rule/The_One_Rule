@@ -52,6 +52,23 @@ export const MANCHES_MAITRISE = 15;
  */
 export function estMaitrisee(regle: OneRule, rec: RuleRecord | undefined): boolean {
   if (!rec) return false;
+  /*
+   * ⚠️ UNE SEULE MAÎTRISE, ET C'EST LE BOSS DU CHAPITRE.
+   *
+   * Trois définitions coexistaient — ce seuil, l'échelle à six cases, le
+   * palier 15 de l'escalier — et une carte pouvait être « maîtrisée » au
+   * carnet, à 3/6 sur sa fiche et au palier 4 de sa montée. Le mot le plus
+   * fort du jeu ne voulait plus rien dire.
+   *
+   * Le parcours tranche : battre le boss du chapitre, c'est maîtriser la
+   * règle. Les deux anciennes voies restent reconnues pour ce qu'elles ont
+   * DÉJÀ donné — personne ne perd une carte le jour du déploiement — mais le
+   * seuil d'entraînement ne compte plus dès que la règle a été jouée au
+   * parcours : on ne peut pas y contourner le boss.
+   */
+  if ((rec.etoiles?.[4] ?? 0) > 0) return true;
+  if ((rec.escalier?.palier ?? 0) >= 15) return true;
+  if (rec.etoiles) return false;
   if (rec.best < MANCHES_MAITRISE) return false;
   // Une règle qui ne piège pas ne peut pas exiger un piège déjoué : la barre
   // serait inatteignable pour sept règles sur douze.

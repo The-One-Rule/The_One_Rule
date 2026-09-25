@@ -499,61 +499,116 @@
                que le jeu ne repond pas a sa souris ou a son doigt. -->
           <p class="home__demo" id="attractMeta"></p>
 
-          <!-- ░ LE CENTRE DE GRAVITE ░
-
-               ⚠️ PLUS D'ENSEIGNE GEANTE ICI, ET C'EST DEMANDE : « supprime le
-               the one rule en gros sur l'ecran d'accueil, garde juste le reste
-               du texte ». Le nom n'est pas perdu — il tient la barre du haut,
-               centre, sur tous les ecrans de menu. Il etait donc ecrit DEUX
-               fois sur le meme ecran, et le plus gros des deux occupait la
-               place de ce qui devait convaincre : le champ qui tourne derriere.
-
-               ⚠️ UN SEUL BOUTON, ET C'EST PLAY. « ENTRER DANS LE JEU » menait
-               exactement ou mene PLAY — meme fonction, meme premiere arrivee —
-               a soixante pixels sous lui. Deux boutons du meme nom a trois
-               cents pixels l'un de l'autre, « ce n'est pas une insistance,
-               c'est une hesitation » ; a soixante, c'est une faute. C'est la
-               troisieme fois que le depot supprime un doublon de JOUER.
-               ░ -->
-          <div class="home__centre">
-            <p class="lede lede--court" id="ledeHome">One <b>unique rule</b>. Sometimes, obeying is the mistake.</p>
-
-            <button class="btn play" id="btnPlay" data-i18n="but.tenter">PLAY</button>
-
-            <p class="fineprint home__second" id="homeFineprint">TRAINING · NO RISK · <b>SPACE</b></p>
+          <!-- ░ LA PREMIÈRE ARRIVÉE ░
+               Un visiteur neuf voit la démo qui tourne derrière et UN geste :
+               JOUER, qui ouvre le tutoriel joué. Rien d'autre à choisir. -->
+          <div class="home__centre bienvenue" id="bienvenue">
+            <p class="bienvenue__eyebrow" data-i18n="bienvenue.eyebrow">A REFLEX GAME WITH A TWIST</p>
+            <h1 class="bienvenue__titre" id="ledeHome">One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em></h1>
+            <button class="btn play" id="btnPlay" data-i18n="bienvenue.jouer">PLAY</button>
+            <p class="fineprint home__second" id="homeFineprint">2 MINUTES TO LEARN · NO ACCOUNT</p>
           </div>
 
-          <!-- ░ LA PROFONDEUR — une rangee, pas un tableau de bord ░
-               Pour qui veut s'investir. Elle vient APRES le centre de gravite
-               et n'a pas le droit de lui disputer l'attention : c'est pourquoi
-               aucune de ces cartes ne porte l'accent. -->
-          <div class="profondeur" id="profondeur">
-            <button class="prof" id="profJour">
-              <span class="prof__quoi" data-i18n="prof.jour">DAILY</span>
-              <span class="prof__nom" data-i18n="prof.jourNom">Everyone's run</span>
-              <span class="prof__note" id="profJourNote" data-i18n="prof.jourNote">SAME RULE · 3 TRIES · ONCE A DAY</span>
-            </button>
-            <button class="prof" id="profClassement">
-              <span class="prof__quoi" data-i18n="prof.classement">LEADERBOARD</span>
-              <span class="prof__nom" data-i18n="prof.classementNom">The wall of scores</span>
-              <span class="prof__note" data-i18n="prof.classementNote">VERIFIED SERVER-SIDE</span>
-            </button>
-            <button class="prof" id="btnMulti">
-              <span class="prof__quoi" data-i18n="prof.multi">MULTI</span>
-              <span class="prof__nom" data-i18n="prof.multiNom">Your code, your friends</span>
-              <span class="prof__note" id="profMultiNote" data-i18n="prof.multiNote">ONE RULE EACH · UP TO 10</span>
-            </button>
-            <button class="prof" id="profEscalade">
-              <span class="prof__quoi" data-i18n="prof.escalade">ESCALATION</span>
-              <span class="prof__nom" data-i18n="prof.escaladeNom">One rule. Then two.</span>
-              <span class="prof__note" data-i18n="prof.escaladeNote">HOW FAR DO YOU HOLD</span>
-            </button>
-            <button class="prof" id="profCartes">
-              <span class="prof__quoi" data-i18n="prof.cartes">CODEX</span>
-              <span class="prof__nom" data-i18n="prof.cartesNom">Your 16 cards</span>
-              <span class="prof__note" id="profCartesNote"></span>
-            </button>
+          <!-- ░ LE PARCOURS ░
+               Dès la première partie jouée, l'accueil EST le parcours : ce qui
+               vient ensuite en grand, puis la carte des chapitres, puis les
+               autres façons de jouer. -->
+          <div class="parcours hidden" id="parcours">
+            <div class="pstats" id="pstats" aria-live="polite">
+              <span class="pstat pstat--etoiles"><i aria-hidden="true">★</i><b id="pstatEtoiles">0</b></span>
+              <span class="pstat pstat--pieces"><i aria-hidden="true">●</i><b id="pstatPieces">0</b></span>
+              <span class="pstat pstat--serie"><i aria-hidden="true">▲</i><b id="pstatSerie">0</b></span>
+            </div>
+
+            <div class="hero" id="hero">
+              <div class="hero__carte" id="heroCarte" aria-hidden="true"></div>
+              <div class="hero__corps">
+                <p class="hero__eyebrow" id="heroEyebrow"></p>
+                <h2 class="hero__nom" id="heroNom"></h2>
+                <p class="hero__brief" id="heroBrief"></p>
+                <ol class="piste" id="heroPiste" aria-label="Niveaux"></ol>
+                <button class="btn btn--gros" id="btnHeroJouer"></button>
+              </div>
+            </div>
+
+            <div class="profondeur modes" id="profondeur">
+              <button class="prof" id="profJour">
+                <span class="prof__quoi" data-i18n="prof.jour">DAILY</span>
+                <span class="prof__nom" data-i18n="prof.jourNom">Everyone's run</span>
+                <span class="prof__note" id="profJourNote" data-i18n="prof.jourNote">SAME RULE · 3 TRIES · ONCE A DAY</span>
+              </button>
+              <button class="prof" id="btnMulti">
+                <span class="prof__quoi" data-i18n="prof.multi">MULTI</span>
+                <span class="prof__nom" data-i18n="prof.multiNom">Your code, your friends</span>
+                <span class="prof__note" id="profMultiNote" data-i18n="prof.multiNote">ONE RULE EACH · UP TO 10</span>
+              </button>
+              <button class="prof" id="profLibre">
+                <span class="prof__quoi" data-i18n="prof.libre">FREE PLAY</span>
+                <span class="prof__nom" data-i18n="prof.libreNom">Endless, your pace</span>
+                <span class="prof__note" id="profLibreNote" data-i18n="prof.libreNote">PICK A CARD · BEAT YOUR RECORD</span>
+              </button>
+              <button class="prof" id="profEscalade">
+                <span class="prof__quoi" data-i18n="prof.escalade">THE STACK</span>
+                <span class="prof__nom" data-i18n="prof.escaladeNom">One rule. Then two.</span>
+                <span class="prof__note" id="profEscaladeNote" data-i18n="prof.escaladeNote">HOW FAR DO YOU HOLD</span>
+              </button>
+              <button class="prof" id="profClassement">
+                <span class="prof__quoi" data-i18n="prof.classement">LEADERBOARD</span>
+                <span class="prof__nom" data-i18n="prof.classementNom">The wall of scores</span>
+                <span class="prof__note" data-i18n="prof.classementNote">VERIFIED SERVER-SIDE</span>
+              </button>
+              <button class="prof" id="profCartes">
+                <span class="prof__quoi" data-i18n="prof.cartes">CODEX</span>
+                <span class="prof__nom" data-i18n="prof.cartesNom">Your 16 cards</span>
+                <span class="prof__note" id="profCartesNote"></span>
+              </button>
+            </div>
+
+            <h2 class="parcours__titre" data-i18n="parcours.titre">THE PATH</h2>
+            <ol class="chemin" id="chemin"></ol>
           </div>
+        </div>
+      </section>
+
+      <!-- FIN DE NIVEAU — des étoiles, parfois une carte, toujours une suite.
+           Remplace l'écran de fin pour les niveaux du parcours : il répond à
+           « qu'est-ce que je viens de gagner ? » avant « combien j'ai fait ». -->
+      <section class="screen hidden" id="niveau">
+        <div class="screen__scroll niveau">
+          <p class="niveau__eyebrow" id="niveauEyebrow"></p>
+          <h2 class="niveau__titre" id="niveauTitre"></h2>
+          <div class="etoiles" id="niveauEtoiles" role="img">
+            <span class="etoile"></span><span class="etoile"></span><span class="etoile"></span>
+          </div>
+          <p class="niveau__note" id="niveauNote"></p>
+          <p class="niveau__motif" id="niveauMotif"></p>
+          <div class="niveau__chiffres">
+            <div class="nchiffre"><b id="niveauManches">0</b><span data-i18n="niveau.manches">ROUNDS</span></div>
+            <div class="nchiffre"><b id="niveauPieges">0</b><span data-i18n="niveau.pieges">TRAPS DODGED</span></div>
+            <div class="nchiffre nchiffre--pieces"><b id="niveauPieces">+0</b><span data-i18n="niveau.pieces">COINS</span></div>
+          </div>
+          <div class="revele hidden" id="niveauRevele">
+            <div class="revele__carte" id="niveauReveleCarte"></div>
+            <p class="revele__titre" id="niveauReveleTitre"></p>
+            <p class="revele__note" id="niveauReveleNote"></p>
+          </div>
+          <div class="niveau__actions">
+            <button class="btn btn--gros" id="btnNiveauSuite"></button>
+            <button class="btn" id="btnNiveauParcours" data-i18n="niveau.parcours">PATH</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOUTIQUE — les pièces achètent des styles de pièces. -->
+      <section class="screen hidden" id="boutique">
+        <div class="screen__scroll boutique">
+          <div class="boutique__tete">
+            <h2 class="boutique__titre" data-i18n="boutique.titre">SHOP</h2>
+            <span class="pstat pstat--pieces"><i aria-hidden="true">●</i><b id="boutiquePieces">0</b></span>
+          </div>
+          <p class="boutique__chapo" data-i18n="boutique.chapo">Styles for your pieces. They change the look, never the rule.</p>
+          <div class="skins" id="skins"></div>
+          <button class="btn" id="btnBoutiqueRetour" data-i18n="boutique.retour">BACK</button>
         </div>
       </section>
 
@@ -581,7 +636,7 @@
                    douze seulement piègent. Empiler les multiplie sans écrire
                    une règle de plus. Voir src/game/escalade.ts. -->
               <button class="card" id="btnEscalade">
-                <span class="card__title" data-i18n="carte.escalade.titre">CLIMB</span>
+                <span class="card__title" data-i18n="carte.escalade.titre">THE STACK</span>
                 <span class="card__desc" data-i18n="carte.escalade.desc">One rule. Then two. Then three.</span>
                 <span class="card__state" id="cardEscaladeState">HOW FAR DO YOU HOLD?</span>
               </button>
@@ -661,85 +716,9 @@
 
           <div class="btnrow">
             <button class="btn btn--primary" id="btnFicheTrain"></button>
-            <!-- L'ESCALIER. En second, et c'est voulu : la fiche désigne déjà
-                 l'exercice qui comble la prochaine case, et c'est la réponse
-                 la plus courte. La montée est l'engagement long. -->
+            <!-- Le prochain niveau du chapitre de cette règle. -->
             <button class="btn" id="btnFicheEsc"></button>
             <button class="btn btn--ghost" id="btnFicheBack" data-i18n="fiche.retour">‹ COLLECTION</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ============================================================
-           L'ESCALIER D'UNE RÈGLE — vingt paliers, quatre volées.
-
-           UN SEUL ÉCRAN, DEUX MISES EN PAGE. Sur téléphone, la montée et le
-           palier sont deux VUES qui alternent (`.esc.est-detail`) ; à partir
-           de 900 px, elles sont deux colonnes visibles ensemble. La maquette
-           dessine bien deux écrans mobiles distincts, mais son « glisse vers
-           le bas pour revenir » est un geste que ce dépôt n'a nulle part
-           ailleurs — un panneau qui ne se ferme que par un geste inconnu est
-           un cul-de-sac. On utilise l'idiome existant : un bouton de retour.
-
-           L'ORDRE EST DESCENDANT, comme sur la maquette : le palier 20 en
-           haut, le 1 en bas. C'est un escalier, on le monte.
-           ============================================================ -->
-      <section class="screen hidden" id="escalier">
-        <div class="screen__scroll esc" id="escBoite">
-          <div class="esc__tete">
-            <button class="esc__back" id="btnEscBack">
-              <span aria-hidden="true">&#9666;</span>
-              <span id="btnEscBackTxt"></span>
-            </button>
-            <p class="esc__ou" id="escOu"></p>
-          </div>
-
-          <!-- LA MONTÉE -->
-          <div class="esc__montee" id="escMontee">
-            <div class="esc__ident">
-              <div class="esc__vue" id="escVue"></div>
-              <div class="esc__identtxt">
-                <p class="eyebrow" id="escVolee"></p>
-                <p class="lede" id="escAjout"></p>
-              </div>
-            </div>
-
-            <!-- La jauge des vingt paliers. Une case par palier : à cette
-                 échelle une barre continue ne dirait plus « vingt marches ». -->
-            <ol class="esc__jauge" id="escJauge" aria-hidden="true"></ol>
-            <p class="esc__vers" id="escVers"></p>
-
-            <ol class="esc__liste" id="escListe"></ol>
-
-            <p class="esc__total" id="escTotal"></p>
-
-            <!-- LA SEULE RÈGLE DU MODE, ET ELLE VA SOUS LA MONTÉE.
-                 « Un palier raté se rejoue, tu ne redescends jamais » répond à
-                 la question qu'on se pose devant vingt marches — qu'est-ce que
-                 je risque ? Elle appartient donc à la vue qui les montre
-                 toutes, pas à la fiche d'une seule. -->
-            <p class="esc__note" id="escNote"></p>
-          </div>
-
-          <!-- LE PALIER -->
-          <div class="esc__palier" id="escPalier">
-            <p class="eyebrow" id="palVolee"></p>
-            <div class="pal__tete">
-              <h2 class="pal__nom" id="palNom"></h2>
-              <span class="pal__jauge" id="palEssai"></span>
-            </div>
-
-            <p class="eyebrow" id="palAjoutTitre"></p>
-            <p class="piege" id="palAjout"></p>
-
-            <div class="pal__chiffres" id="palChiffres"></div>
-
-            <p class="pal__meilleur" id="palMeilleur"></p>
-
-            <div class="btnrow">
-              <button class="btn btn--primary" id="btnPalGo"></button>
-              <button class="btn btn--ghost" id="btnPalBack"></button>
-            </div>
           </div>
         </div>
       </section>
@@ -1103,11 +1082,6 @@
                    d'aucun autre message. -->
               <button class="btn" id="btnShareCarte"></button>
               <button class="btn" id="btnDuel" data-i18n="fin.defier">CHALLENGE A FRIEND</button>
-              <!-- LE RETOUR A LA MONTEE. Il n'existe qu'apres un palier, et il
-                   manquait : « le bouton rejouer n'amene pas exactement a
-                   l'escalier ». Sans lui, la seule sortie etait MENU, qui rend
-                   l'accueil et fait recommencer tout le chemin. -->
-              <button class="btn hidden" id="btnVersEscalier"></button>
               <button class="btn btn--ghost" id="btnHome" data-i18n="commun.menu">MENU</button>
             </div>
           </div>
@@ -1226,33 +1200,27 @@
            dont l'identite est faite d'angles droits ne charge pas 300 Ko de
            glyphes arrondis pour cinq formes de quatre rectangles. -->
       <nav id="nav" class="nav hidden" aria-label="Navigation">
-          <button type="button" class="nav__item" id="navCartes">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="4" width="8" height="11"/><rect x="13" y="7" width="8" height="11" opacity=".55"/></svg>
-            <span class="nav__lab" data-i18n="nav.cartes">CARDS</span><b class="nav__compte" id="navCartesCompte"></b>
+          <!-- PARCOURS · CARTES · [JOUER] · BOUTIQUE · MULTI
+               Le parcours est la maison : le premier bouton y ramène. Le défi
+               du jour et le classement vivent sur l'accueil, dans les modes. -->
+          <button type="button" class="nav__item" id="navParcours">
+            <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="6" r="2.4"/><path d="M8 17c5 0 3-9 8-10"/></svg>
+            <span class="nav__lab" data-i18n="nav.parcours">PATH</span>
           </button>
-          <!-- CLASSEMENT prend la place qu'ENTRAINEMENT occupait.
-               ENTRAINEMENT et JOUER menaient au MEME ecran — `openBrief("training")`
-               dans les deux cas, a l'onboarding pres — soit deux cases voisines
-               de la meme barre pour une seule destination. Un doublon exact ne
-               se defend pas dans une barre de cinq.
-               La case liberee garde la symetrie 2-2 autour du bouton central, et
-               CLASSEMENT cesse d'etre reserve au large : il etait masque faute de
-               place, pas par choix. L'entrainement reste atteignable par JOUER et
-               par SOLO. -->
-          <button type="button" class="nav__item" id="navClassement">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="12" width="5" height="8"/><rect x="10" y="6" width="5" height="14"/><rect x="17" y="15" width="5" height="5" opacity=".55"/></svg>
-            <span class="nav__lab" data-i18n="nav.classement">RANKING</span>
+          <button type="button" class="nav__item" id="navCartes">
+            <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="3" y="5" width="10" height="14" rx="2"/><path d="M15 7.5l4.5 1.2-3 11.5-4-1"/></svg>
+            <span class="nav__lab" data-i18n="nav.cartes">CARDS</span><b class="nav__compte" id="navCartesCompte"></b>
           </button>
           <div class="nav__centre">
             <button type="button" class="nav__jouer" id="navJouer" data-i18n="nav.jouer">PLAY</button>
             <span class="nav__attend" id="navAttend"></span>
           </div>
-          <button type="button" class="nav__item" id="navDaily">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="3" y="5" width="18" height="15" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="5" width="18" height="4"/></svg>
-            <span class="nav__lab" data-i18n="nav.daily">DAILY</span><b class="nav__compte nav__compte--point" id="navDailyPoint"></b>
+          <button type="button" class="nav__item" id="navBoutique">
+            <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><path d="M4 9h16l-1.5 11h-13z"/><path d="M8.5 9a3.5 3.5 0 0 1 7 0"/></svg>
+            <span class="nav__lab" data-i18n="nav.boutique">SHOP</span><b class="nav__compte" id="navBoutiquePieces"></b>
           </button>
           <button type="button" class="nav__item" id="navMulti">
-            <svg class="nav__ico" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true" fill="currentColor"><rect x="2" y="8" width="7" height="7"/><rect x="10" y="5" width="7" height="7" opacity=".55"/><rect x="15" y="12" width="7" height="7"/></svg>
+            <svg class="nav__ico" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="8" cy="9" r="3"/><circle cx="16.5" cy="10" r="2.4"/><path d="M3 19c.6-3 2.6-4.6 5-4.6s4.4 1.6 5 4.6M14 18.6c.4-2 1.4-3.2 3-3.2 1.7 0 3 1.2 3.4 3.2"/></svg>
             <span class="nav__lab" data-i18n="nav.multi">MULTI</span>
           </button>
       </nav>
@@ -1346,6 +1314,15 @@
               <span class="rgl__ech rgl__ech--ambre"></span>
             </div>
           </div>
+
+          <!-- L'APPARENCE. Trois crans et non un interrupteur : AUTO suit le
+               système, et c'est la bonne réponse par défaut — un interrupteur
+               CLAIR / SOMBRE forcerait à choisir avant d'avoir eu à le faire. -->
+          <p class="eyebrow rgl__groupe" data-i18n="rgl.apparence">APPEARANCE</p>
+          <div class="settings settings--seg rgl__theme">
+            <div class="settings__opts" id="rglTheme"></div>
+          </div>
+          <p class="rgl__note" data-i18n="rgl.apparenceQuoi">AUTO follows your device. DARK is easier on the eyes at night.</p>
 
           <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
           <div class="opts" id="rglAllure"></div>

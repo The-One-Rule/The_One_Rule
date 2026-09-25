@@ -24,6 +24,9 @@ import { MOTIFS } from "./engine/motifs";
 import type { MotifId } from "./engine/motifs";
 import type { SeatStatus } from "./render/seat";
 
+import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours";
+import type { TextesParcours } from "./i18n-parcours";
+
 export type Lang = "fr" | "en";
 
 export const estLang = (v: unknown): v is Lang => v === "fr" || v === "en";
@@ -79,7 +82,7 @@ type Textes = {
 
 export const TEXTES: Record<Lang, Textes> = {
   fr: {
-    ledeHtml: "Une règle unique. Les consignes changent.<br><span>Parfois, obéir est la faute.</span>",
+    ledeHtml: "Une règle.<br>Des ordres.<br><em>Parfois, obéir est la faute.</em>",
     failleLabel: "Modes de jeu",
     soloDesc: "Run du jour, escalade, entraînement.",
     multiDesc: "Ton code, tes potes, une règle chacun.",
@@ -95,7 +98,7 @@ export const TEXTES: Record<Lang, Textes> = {
      * L'écran des RÉGLAGES garde l'ancienne, qui y est à sa place — d'où deux
      * clés au lieu d'une.
      */
-    fineprintHtml: "ENTRAÎNEMENT · SANS RISQUE · <b>ESPACE</b>",
+    fineprintHtml: "2 MINUTES POUR APPRENDRE · SANS COMPTE",
     fineprintReglagesHtml:
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
@@ -112,11 +115,11 @@ export const TEXTES: Record<Lang, Textes> = {
     titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
-    ledeHtml: "One rule. The orders keep changing.<br><span>Sometimes, obeying is the mistake.</span>",
+    ledeHtml: "One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em>",
     failleLabel: "Game modes",
     soloDesc: "Daily run, climb, training.",
     multiDesc: "Your code, your friends, one rule each.",
-    fineprintHtml: "TRAINING · NO RISK · <b>SPACE</b>",
+    fineprintHtml: "2 MINUTES TO LEARN · NO ACCOUNT",
     fineprintReglagesHtml:
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
@@ -180,7 +183,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "solo.eyebrow": "SOLO",
     "solo.titre": "TOI CONTRE TOI",
     "carte.daily.titre": "RUN DU JOUR",
-    "carte.escalade.titre": "ESCALADE",
+    "carte.escalade.titre": "LA PILE",
     "carte.escalade.desc": "Une règle. Puis deux. Puis trois.",
     "carte.training.titre": "ENTRAÎNEMENT",
     "carte.training.desc": "Sans risque. Pour comprendre.",
@@ -220,6 +223,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effets": "EFFETS",
     "rgl.effetsQuoi": "Alerte au dernier quart de la fenêtre.",
     "rgl.lisibilite": "LISIBILITÉ",
+    "rgl.apparence": "APPARENCE",
+    "rgl.apparenceQuoi": "AUTO suit ton appareil. SOMBRE ménage les yeux le soir.",
     "rgl.motifs": "MOTIFS SUR LES PIÈCES",
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
@@ -259,8 +264,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "CE RUN",
     "fin.avance": "CE QUE CE RUN A FAIT AVANCER",
     "fin.decouverte": "RÈGLE DÉCOUVERTE",
-    "nav.classement": "CLASSEMENT",
-    "but.tenter": "JOUER",
     "prof.jour": "DU JOUR",
     "prof.jourNom": "Le run de tout le monde",
     "prof.jourNote": "MÊME RÈGLE · 3 ESSAIS · UNE FOIS PAR JOUR",
@@ -277,7 +280,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "prof.cartesNom": "Tes 16 cartes",
     "nav.cartes": "CARTES",
     "nav.jouer": "JOUER",
-    "nav.daily": "DAILY",
     "nav.multi": "MULTI",
     "carnet.collection": "COLLECTION",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
@@ -372,7 +374,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "solo.eyebrow": "SOLO",
     "solo.titre": "YOU VS YOU",
     "carte.daily.titre": "DAILY RUN",
-    "carte.escalade.titre": "CLIMB",
+    "carte.escalade.titre": "THE STACK",
     "carte.escalade.desc": "One rule. Then two. Then three.",
     "carte.training.titre": "TRAINING",
     "carte.training.desc": "No risk. Just to get it.",
@@ -412,6 +414,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effets": "EFFECTS",
     "rgl.effetsQuoi": "Alert on the last quarter of the window.",
     "rgl.lisibilite": "READABILITY",
+    "rgl.apparence": "APPEARANCE",
+    "rgl.apparenceQuoi": "AUTO follows your device. DARK is easier on the eyes at night.",
     "rgl.motifs": "PATTERNS ON PIECES",
     "rgl.motifsQuoi": "Every colour also carries a texture.",
     "rgl.allure": "DEFAULT PACE · TRAINING",
@@ -451,8 +455,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "gout.run": "THIS RUN",
     "fin.avance": "WHAT THIS RUN ADVANCED",
     "fin.decouverte": "RULE DISCOVERED",
-    "nav.classement": "RANKING",
-    "but.tenter": "PLAY",
     "prof.jour": "DAILY",
     "prof.jourNom": "Everyone's run",
     "prof.jourNote": "SAME RULE · 3 TRIES · ONCE A DAY",
@@ -469,7 +471,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "prof.cartesNom": "Your 16 cards",
     "nav.cartes": "CARDS",
     "nav.jouer": "PLAY",
-    "nav.daily": "DAILY",
     "nav.multi": "MULTI",
     "carnet.collection": "COLLECTION",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
@@ -542,6 +543,13 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
   },
 };
 
+/*
+ * Les chaînes du PARCOURS s'écrivent dans leur propre module, typé, et sont
+ * versées ici : l'attribut `data-i18n` n'a qu'une table à lire. Elles passent
+ * APRÈS, donc un intitulé renommé (« ESCALADE » devenue « LA PILE ») gagne.
+ */
+for (const l of ["fr", "en"] as const) Object.assign(STATIQUE[l], STATIQUE_PARCOURS[l]);
+
 /** Le dictionnaire statique, exposé pour que les tests puissent l'éprouver. */
 export const CHAINES = STATIQUE;
 
@@ -584,7 +592,7 @@ type Dyn = {
   filtreContraintes: (n: number) => string;
   filtreVerrouillees: (n: number) => string;
   salleJamaisVues: (n: number) => string;
-  resisteNote: (runs: number, cases: number) => string;
+  resisteNote: (runs: number, etoiles: number, max: number) => string;
   resisteBouton: string;
   etatCollReste: (n: number) => string;
   etatCollTout: string;
@@ -931,7 +939,7 @@ type Dyn = {
   murManque: (n: number) => string;
   resteFait: (score: number, sur: number) => string;
   resteEpuise: (score: number) => string;
-  resteTravailler: (regle: string, cases: number) => string;
+  resteTravailler: (regle: string, etoiles: number, max: number) => string;
   coupureEtat: (essai: number, sur: number, s: number) => string;
   sortieOuvrir: string;
   sortieRecharger: string;
@@ -996,19 +1004,6 @@ type Dyn = {
   bilanSerie: string;
   bilanCarnet: string;
 
-  /* ---- L'ESCALIER D'UNE RÈGLE ---- */
-  /*
-   * ⚠️ AUCUNE PHRASE DE PALIER N'EST ÉCRITE VINGT FOIS. `ajoutDuPalier` rend un
-   * identifiant et un chiffre ; `escAjout` en fait une phrase. Vingt lignes
-   * figées par langue dériveraient de la table dès le premier chiffre changé,
-   * et rien ne le dirait.
-   */
-  /** Le palier suivant, depuis l'écran de fin. */
-  finPalierSuivant: (n: number) => string;
-  /** Le même palier, quand il n'est pas passé. */
-  finPalierReprendre: (n: number) => string;
-  /** Le retour à la montée. */
-  finVersEscalier: string;
 
   /* ---- LE MODE ATTRACT ---- */
   /** L'intitulé au-dessus du nom de la règle, coin haut gauche. */
@@ -1076,40 +1071,10 @@ type Dyn = {
    *     « × 2,0 » et « × 0,8 », jamais « × 2 ».
    */
   allureTxt: (a: number) => string;
-  escTitre: string;
-  escRetour: string;
-  escSurN: (n: number, tot: number) => string;
-  escVolee: (n: number, nom: string, allure: string) => string;
-  escVoleeNom: (id: "decouverte" | "apprentissage" | "controle" | "perfection") => string;
-  escVoleeNote: (id: "decouverte" | "apprentissage" | "controle" | "perfection") => string;
-  escAjoutTitre: string;
-  escAjout: (id: string, valeur: number | null) => string;
-  escTuEsIci: string;
-  escSommet: string;
-  escMaitrisee: string;
-  escManches: (n: number) => string;
-  escTenir: string;
-  escAllure: string;
-  escPieges: string;
-  escMorts: string;
-  escPiegesVal: (cadence: number) => string;
-  escMeilleurEssai: string;
-  escMeilleurVal: (manches: number, essais: number) => string;
-  escAucunEssai: string;
-  escLancer: string;
-  escReprendre: (n: number) => string;
-  escNote: string;
-  escTotal: string;
-  escTotalVal: (manches: number, minutes: number) => string;
-  escVersSommet: (de: number, a: number) => string;
-  escFini: string;
-  escFiniNote: string;
-  escOuvrir: string;
-  escProgres: (franchis: number, tot: number) => string;
-  /** L'annonce du piège EN JEU — volées 2 et 3 basse, jamais ailleurs. */
+  /** Le nom d'un cran d'APPARENCE. */
+  themeNom: (t: "auto" | "clair" | "sombre") => string;
+  /** L'annonce du piège EN JEU — premiers niveaux d'un chapitre, jamais ailleurs. */
   escAnnonce: string;
-  escFranchi: (n: number) => string;
-  escRate: (manches: number, cible: number) => string;
   defiGagne: (score: number, cible: number) => string;
   defiEgalite: (cible: number) => string;
   defiPerdu: (score: number, cible: number) => string;
@@ -1226,8 +1191,8 @@ const DYN: Record<Lang, Dyn> = {
       n === 0
         ? "Tu as rencontré les seize règles."
         : `Il te reste ${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
-    resisteNote: (runs, cases) =>
-      `${runs} run${runs > 1 ? "s" : ""} sous cette règle, et ${cases} case${cases > 1 ? "s" : ""} sur 6.`,
+    resisteNote: (runs, et, max) =>
+      `${runs} run${runs > 1 ? "s" : ""} sous cette règle · ★ ${et} / ${max} au chapitre.`,
     resisteBouton: "TRAVAILLER CELLE-LÀ",
     etatCollReste: (n) =>
       `${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
@@ -1371,7 +1336,7 @@ const DYN: Record<Lang, Dyn> = {
     vainqueur: "VAINQUEUR",
     finDuMatch: "FIN DU MATCH",
     modeDaily: (j) => `RUN DU JOUR · #${j}`,
-    modeEscalade: "ESCALADE",
+    modeEscalade: "LA PILE",
     modeTraining: "ENTRAÎNEMENT",
     briefDejoue: (touche) =>
       touche
@@ -1581,7 +1546,7 @@ const DYN: Record<Lang, Dyn> = {
     murManque: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""}.`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
-    resteTravailler: (regle, cases) => `TRAVAILLER ${regle} · ${cases}/6`,
+    resteTravailler: (regle, et, max) => `TRAVAILLER ${regle} · ★ ${et}/${max}`,
     coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
     sortieOuvrir: "OUVRIR LE MIEN",
     sortieRecharger: "RECHARGER",
@@ -1653,9 +1618,6 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "SÉRIE",
     bilanCarnet: "CARNET",
 
-    finPalierSuivant: (n) => `PALIER ${n} · SUIVANT`,
-    finPalierReprendre: (n) => `REPRENDRE LE PALIER ${n}`,
-    finVersEscalier: "‹ L'ESCALIER",
     profJourRecord: (n) => `À BATTRE AUJOURD'HUI · ${n}`,
     profJourBattu: (n) => `TU FAIS MIEUX QUE ${n}`,
     attractRegle: "TA RÈGLE",
@@ -1679,70 +1641,8 @@ const DYN: Record<Lang, Dyn> = {
     slogan: "PARFOIS, OBÉIR EST LA FAUTE",
     modeClasse: "CLASSÉ",
     allureTxt: (a) => a.toFixed(1).replace(".", ","),
-    escTitre: "ESCALIER",
-    escRetour: "ESCALIER",
-    escSurN: (n, tot) => `PALIER ${n} / ${tot}`,
-    escVolee: (n, nom, allure) => `VOLÉE ${n} · ${nom} · × ${allure}`,
-    escVoleeNom: (id) =>
-      id === "decouverte"
-        ? "DÉCOUVERTE"
-        : id === "apprentissage"
-          ? "APPRENTISSAGE"
-          : id === "controle"
-            ? "CONTRÔLE"
-            : "PERFECTION",
-    escVoleeNote: (id) =>
-      id === "decouverte"
-        ? "AUCUN PIÈGE"
-        : id === "apprentissage"
-          ? "LES PIÈGES S'ANNONCENT"
-          : id === "controle"
-            ? "LES PIÈGES NE S'ANNONCENT PLUS"
-            : "PLUS RIEN DE NEUF, SEULEMENT LA DURÉE",
-    escAjoutTitre: "CE QUE CE PALIER AJOUTE",
-    escAjout: (id, v) => {
-      switch (id) {
-        case "premierPiege":
-          return `Premier piège : il en tombe un toutes les ${v} manches, et le jeu te le dit.`;
-        case "cadence":
-          return `Les pièges se resserrent : un toutes les ${v} manches.`;
-        case "annonceMoitie":
-          return "L'annonce du piège disparaît une manche sur deux.";
-        case "annonceJamais":
-          return "Plus aucune annonce. À partir d'ici, c'est le jeu réel.";
-        case "allure":
-          return `La fenêtre se resserre : × ${(v ?? 1).toFixed(1).replace(".", ",")}.`;
-        case "duree":
-          return v === 1 ? "Une manche de plus à tenir." : `${v} manches de plus à tenir.`;
-        default:
-          return "La première marche. Ta règle, rien d'autre.";
-      }
-    },
-    escTuEsIci: "TU ES ICI",
-    escSommet: "SOMMET",
-    escMaitrisee: "MAÎTRISÉE",
-    escManches: (n) => `${n} MANCHES`,
-    escTenir: "TENIR",
-    escAllure: "ALLURE",
-    escPieges: "PIÈGES",
-    escMorts: "MORTS TOLÉRÉES",
-    escPiegesVal: (c) => (c > 0 ? `1 SUR ${c}` : "AUCUN FORCÉ"),
-    escMeilleurEssai: "MEILLEUR ESSAI",
-    escMeilleurVal: (m, e) => `${m} manches · ${e === 1 ? "1er" : `${e}e`} essai`,
-    escAucunEssai: "JAMAIS TENTÉ",
-    escLancer: "LANCER LE PALIER",
-    escReprendre: (n) => `REPRENDRE LE PALIER ${n}`,
-    escNote: "UN PALIER RATÉ SE REJOUE · TU NE REDESCENDS JAMAIS",
-    escTotal: "TOTAL DE LA MONTÉE",
-    escTotalVal: (m, min) => `${m} MANCHES · ≈ ${min} MIN`,
-    escVersSommet: (de, a) => `↑ P${de} → P${a} · LE SOMMET`,
-    escFini: "MONTÉE TERMINÉE",
-    escFiniNote: "Tu as gravi les vingt paliers. Cette règle ne te doit plus rien.",
-    escOuvrir: "GRAVIR CETTE RÈGLE",
-    escProgres: (f, tot) => `${f} / ${tot} PALIERS`,
+    themeNom: (x) => (x === "auto" ? "AUTO" : x === "clair" ? "CLAIR" : "SOMBRE"),
     escAnnonce: "PIÈGE",
-    escFranchi: (n) => `PALIER ${n} FRANCHI`,
-    escRate: (m, cible) => `${m} / ${cible} MANCHES`,
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
     defiPerdu: (sc, cible) => `PERDU · ${sc} CONTRE ${cible}`,
@@ -1796,8 +1696,8 @@ const DYN: Record<Lang, Dyn> = {
       n === 0
         ? "You have met all sixteen rules."
         : `${n} rule${n === 1 ? "" : "s"} you have never seen. They only come up by playing.`,
-    resisteNote: (runs, cases) =>
-      `${runs} run${runs === 1 ? "" : "s"} under this rule, and ${cases} of 6 boxes.`,
+    resisteNote: (runs, et, max) =>
+      `${runs} run${runs === 1 ? "" : "s"} under this rule · ★ ${et} / ${max} in the chapter.`,
     resisteBouton: "WORK ON THAT ONE",
     etatCollReste: (n) =>
       `${n} rule${n === 1 ? "" : "s"} you have never seen. They only turn up by playing.`,
@@ -1941,7 +1841,7 @@ const DYN: Record<Lang, Dyn> = {
     vainqueur: "WINNER",
     finDuMatch: "MATCH OVER",
     modeDaily: (j) => `DAILY RUN · #${j}`,
-    modeEscalade: "CLIMB",
+    modeEscalade: "THE STACK",
     modeTraining: "TRAINING",
     briefDejoue: (touche) =>
       touche
@@ -2124,7 +2024,7 @@ const DYN: Record<Lang, Dyn> = {
     murManque: (n) => `You are ${n} round${n === 1 ? "" : "s"} short.`,
     resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
     resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
-    resteTravailler: (regle, cases) => `WORK ON ${regle} · ${cases}/6`,
+    resteTravailler: (regle, et, max) => `WORK ON ${regle} · ★ ${et}/${max}`,
     coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
     sortieOuvrir: "OPEN MY OWN",
     sortieRecharger: "RELOAD",
@@ -2185,9 +2085,6 @@ const DYN: Record<Lang, Dyn> = {
     bilanSerie: "STREAK",
     bilanCarnet: "CODEX",
 
-    finPalierSuivant: (n) => `STEP ${n} · NEXT`,
-    finPalierReprendre: (n) => `RETRY STEP ${n}`,
-    finVersEscalier: "‹ THE CLIMB",
     profJourRecord: (n) => `TO BEAT TODAY · ${n}`,
     profJourBattu: (n) => `YOU ARE ABOVE ${n}`,
     attractRegle: "YOUR RULE",
@@ -2211,70 +2108,8 @@ const DYN: Record<Lang, Dyn> = {
     slogan: "SOMETIMES, OBEYING IS THE MISTAKE",
     modeClasse: "RANKED",
     allureTxt: (a) => a.toFixed(1),
-    escTitre: "THE CLIMB",
-    escRetour: "THE CLIMB",
-    escSurN: (n, tot) => `STEP ${n} / ${tot}`,
-    escVolee: (n, nom, allure) => `FLIGHT ${n} · ${nom} · × ${allure}`,
-    escVoleeNom: (id) =>
-      id === "decouverte"
-        ? "DISCOVERY"
-        : id === "apprentissage"
-          ? "LEARNING"
-          : id === "controle"
-            ? "CONTROL"
-            : "PERFECTION",
-    escVoleeNote: (id) =>
-      id === "decouverte"
-        ? "NO TRAPS"
-        : id === "apprentissage"
-          ? "TRAPS ARE CALLED OUT"
-          : id === "controle"
-            ? "TRAPS ARE NO LONGER CALLED OUT"
-            : "NOTHING NEW, ONLY THE DISTANCE",
-    escAjoutTitre: "WHAT THIS STEP ADDS",
-    escAjout: (id, v) => {
-      switch (id) {
-        case "premierPiege":
-          return `First trap: one every ${v} rounds, and the game tells you.`;
-        case "cadence":
-          return `Traps close in: one every ${v} rounds.`;
-        case "annonceMoitie":
-          return "The trap warning disappears every other round.";
-        case "annonceJamais":
-          return "No more warnings. From here on, this is the real game.";
-        case "allure":
-          return `The window tightens: × ${(v ?? 1).toFixed(1)}.`;
-        case "duree":
-          return v === 1 ? "One more round to hold." : `${v} more rounds to hold.`;
-        default:
-          return "The first step. Your rule, nothing else.";
-      }
-    },
-    escTuEsIci: "YOU ARE HERE",
-    escSommet: "SUMMIT",
-    escMaitrisee: "MASTERED",
-    escManches: (n) => `${n} ROUNDS`,
-    escTenir: "HOLD",
-    escAllure: "PACE",
-    escPieges: "TRAPS",
-    escMorts: "DEATHS ALLOWED",
-    escPiegesVal: (c) => (c > 0 ? `1 IN ${c}` : "NONE FORCED"),
-    escMeilleurEssai: "BEST ATTEMPT",
-    escMeilleurVal: (m, e) => `${m} rounds · attempt ${e}`,
-    escAucunEssai: "NEVER ATTEMPTED",
-    escLancer: "START THE STEP",
-    escReprendre: (n) => `RETRY STEP ${n}`,
-    escNote: "A FAILED STEP IS REPLAYED · YOU NEVER FALL BACK",
-    escTotal: "WHOLE CLIMB",
-    escTotalVal: (m, min) => `${m} ROUNDS · ≈ ${min} MIN`,
-    escVersSommet: (de, a) => `↑ S${de} → S${a} · THE SUMMIT`,
-    escFini: "CLIMB COMPLETE",
-    escFiniNote: "You climbed all twenty steps. This rule owes you nothing more.",
-    escOuvrir: "CLIMB THIS RULE",
-    escProgres: (f, tot) => `${f} / ${tot} STEPS`,
+    themeNom: (x) => (x === "auto" ? "AUTO" : x === "clair" ? "LIGHT" : "DARK"),
     escAnnonce: "TRAP",
-    escFranchi: (n) => `STEP ${n} CLEARED`,
-    escRate: (m, cible) => `${m} / ${cible} ROUNDS`,
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
     defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,
@@ -2319,6 +2154,9 @@ const DYN: Record<Lang, Dyn> = {
 let courante: Lang = "fr";
 
 export const langue = (): Lang => courante;
+
+/** Les textes du parcours, de la boutique et de la fin de niveau, dans la langue courante. */
+export const tp = (): TextesParcours => PARCOURS[courante];
 
 export function poseLangue(l: Lang): void {
   courante = l;

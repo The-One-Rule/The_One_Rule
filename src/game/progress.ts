@@ -4,9 +4,11 @@ import { cleEntrainement } from "./perfs";
 import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
 import { fusionne } from "../../shared/compte";
 import type { Agregats, EscalierEntree } from "../../shared/compte";
-import { ESCALIER_VIERGE, majEscalier } from "./escalier";
 import { normaliseDejoue, reglageDejoueDefaut } from "./dejoue";
 import type { ReglageDejoue } from "./dejoue";
+import { litEtoiles } from "./parcours";
+import { litBoutique } from "./boutique";
+import type { EtatBoutique } from "./boutique";
 
 const KEY = "oneRule.save.v1";
 
@@ -61,15 +63,22 @@ export interface RuleRecord {
    */
   runs?: number;
   /**
-   * L'ESCALIER de cette règle — vingt paliers, voir `game/escalier.ts`.
+   * L'ESCALIER de cette règle — DONNÉE HÉRITÉE, voir `game/escalier.ts`.
    *
-   * ⚠️ Absent vaut « la montée n'a pas commencé », comme tout ce qui est arrivé
-   * après. Lire avec `escalierDe`, jamais directement : un joueur qui a déjà
-   * joué cent runs d'entraînement n'a aucun palier franchi, et c'est juste —
-   * ces runs n'avaient ni longueur, ni cadence, ni allure imposées.
+   * Son écran a disparu et plus rien ne l'écrit. On la garde parce qu'un
+   * joueur qui avait atteint le palier 15 conserve sa maîtrise
+   * (`estMaitrisee`) : l'effacer ferait reculer des cartes en silence.
    */
   escalier?: EscalierEntree;
+  /**
+   * LE PARCOURS — les étoiles des cinq niveaux du chapitre de cette règle.
+   * Voir `game/parcours.ts`. Absent vaut « chapitre jamais joué ».
+   */
+  etoiles?: number[];
 }
+
+export type Theme = "auto" | "clair" | "sombre";
+export const THEMES: readonly Theme[] = ["auto", "clair", "sombre"];
 
 export interface Save {
   v: 1;
@@ -91,6 +100,8 @@ export interface Save {
   daily: { day: number; played: boolean; score: number; cleared: boolean; essais?: number };
   quests: { day: number; state: Record<string, number>; claimed: string[] };
   coins: number;
+  /** LA BOUTIQUE — styles de pièces possédés et porté. Voir `game/boutique.ts`. */
+  boutique: EtatBoutique;
   /** identité du classé : pseudo court et dernier classement connu */
   ranked: { name: string; rating: number; games: number };
   /**
@@ -113,6 +124,12 @@ export interface Save {
    * règle matériellement injouable sur l'appareil.
    */
   daltonien: boolean;
+  /**
+   * L'APPARENCE de la page. `auto` suit le système (`prefers-color-scheme`),
+   * les deux autres le forcent. Purement du rendu : rien du jeu n'en dépend,
+   * et elle n'entre ni dans le compte ni dans `VERSION_CONTENU`.
+   */
+  theme: Theme;
   /**
    * Langue de l'accueil. Le jeu (règles, consignes, canvas) ne suit pas.
    *
@@ -158,6 +175,17 @@ export interface Save {
    * L'inverse est exactement le défaut qu'on corrige.
    */
   onboarded?: boolean;
+  /**
+   * Joueur d'AVANT le parcours : il avait déjà joué quand les modes ont
+   * commencé à s'ouvrir en jouant. Il garde tout ouvert — lui retirer le run du
+   * jour qu'il jouait la veille serait une régression, pas un onboarding.
+   *
+   * Posé UNE fois, à la relecture d'une sauvegarde qui a un historique mais pas
+   * encore de boutique (le champ est arrivé avec le parcours) : une sauvegarde
+   * neuve reçoit la boutique dès sa première écriture, donc ne devient jamais
+   * vétérane par accident.
+   */
+  veteran?: boolean;
   /**
    * Règle épinglée pour l'entraînement, ou `null` pour un tirage.
    *
@@ -220,11 +248,13 @@ const fresh = (): Save => ({
   daily: { day: -1, played: false, score: 0, cleared: false },
   quests: { day: -1, state: {}, claimed: [] },
   coins: 0,
+  boutique: { possedes: ["sticker"], porte: "sticker" },
   ranked: { name: "", rating: 1000, games: 0 },
   multi: { glyph: 0, matches: 0 },
   sound: true,
   music: true,
   daltonien: false,
+  theme: "auto",
   /*
    * Suit le navigateur a la premiere visite. `navigator` peut manquer (test,
    * rendu serveur) : `langueDuNavigateur` retombe alors sur le francais.
@@ -303,8 +333,10 @@ function normaliseEntree(v: unknown): RuleRecord | null {
   if (typeof v.serie === "number" && Number.isFinite(v.serie)) e.serie = v.serie;
   if (typeof v.sansFaute === "boolean") e.sansFaute = v.sansFaute;
   if (typeof v.runs === "number" && Number.isFinite(v.runs)) e.runs = v.runs;
-  // L'escalier a sa propre relecture (`escalierDe`) : on ne garde que sa forme.
+  // Donnée héritée : on ne garde que sa forme.
   if (estObjet(v.escalier)) e.escalier = v.escalier as unknown as EscalierEntree;
+  const et = litEtoiles(v.etoiles);
+  if (et) e.etoiles = et;
   return e;
 }
 
@@ -365,6 +397,7 @@ export function normaliseSave(brut: unknown): Save {
       claimed: Array.isArray(qu.claimed) ? qu.claimed.filter((x): x is string => typeof x === "string") : [],
     },
     coins: nombre(brut.coins, d.coins),
+    boutique: litBoutique(brut.boutique),
     ranked: {
       name: texte(rk.name, d.ranked.name),
       rating: nombre(rk.rating, d.ranked.rating),
@@ -374,6 +407,7 @@ export function normaliseSave(brut: unknown): Save {
     sound: booleen(brut.sound, d.sound),
     music: booleen(brut.music, d.music),
     daltonien: booleen(brut.daltonien, d.daltonien),
+    theme: THEMES.includes(brut.theme as Theme) ? (brut.theme as Theme) : d.theme,
     lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
     bestTraining: nombre(brut.bestTraining, d.bestTraining),
     trainingPace: nombre(brut.trainingPace, d.trainingPace),
@@ -395,6 +429,8 @@ export function normaliseSave(brut: unknown): Save {
   // commentaire respectif). On ne les pose que s'ils sont vraiment booléens.
   if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
   if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
+  if (typeof brut.veteran === "boolean") s.veteran = brut.veteran;
+  else if (!estObjet(brut.boutique) && (s.recent.length > 0 || Object.keys(carnet).length > 0)) s.veteran = true;
   return s;
 }
 
@@ -552,43 +588,6 @@ export function majCarnet(
     ...(serie ? { serie } : {}),
     ...(sansFaute ? { sansFaute } : {}),
   };
-}
-
-/**
- * Où en est la montée d'une règle. Absent vaut « pas commencée ».
- *
- * Un accesseur plutôt qu'un `?? ESCALIER_VIERGE` recopié partout : c'est la
- * même précaution que `essaisDuJour`, et pour la même raison — le repli d'un
- * champ arrivé après coup doit être écrit à un seul endroit.
- */
-export const escalierDe = (s: Save, ruleId: string): EscalierEntree =>
-  s.encountered[ruleId]?.escalier ?? ESCALIER_VIERGE;
-
-/**
- * Ce qu'un essai de palier laisse derrière lui.
- *
- * ⚠️ ÉCRIT À PART DE `majCarnet`, ET C'EST DÉLIBÉRÉ. Un run de palier n'est pas
- * un run d'entraînement : sa longueur est bornée, son allure est imposée et sa
- * cadence de pièges est forcée. Le laisser remplir `parAllure` — donc les
- * cases de l'échelle de maîtrise — rendrait « MAÎTRISÉE » atteignable en
- * quinze manches à un palier qui annonce ses pièges. Ce qui se compare ne se
- * gagne pas sur un échafaudage (décision n°14).
- *
- * Ce qu'un palier écrit malgré tout au carnet : les PIÈGES déjoués, qui sont
- * des faits, et la rencontre de la règle. Rien d'autre.
- */
-export function majEscalierDe(ruleId: string, manches: number, pieges: number): Save {
-  return mutate((s) => {
-    const prev = s.encountered[ruleId];
-    const apres = majEscalier(prev?.escalier ?? ESCALIER_VIERGE, manches);
-    s.encountered[ruleId] = {
-      ...prev,
-      best: prev?.best ?? 0,
-      cleared: prev?.cleared ?? false,
-      pieges: (prev?.pieges ?? 0) + pieges,
-      escalier: apres,
-    };
-  });
 }
 
 export function recordRun(

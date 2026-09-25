@@ -41,7 +41,8 @@ beforeAll(() => {
   // On aplatit : commentaires retirés (ils contiennent des accolades et des
   // déclarations en exemple), puis les ouvertures d'at-rules, pour que les
   // règles imbriquées dans un `@media` se lisent comme les autres.
-  const css = readFileSync("src/style.css", "utf8")
+  // Les deux feuilles : `theme.css` porte les composants du parcours.
+  const css = (readFileSync("src/style.css", "utf8") + readFileSync("src/theme.css", "utf8"))
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/@[a-z-]+[^{]*\{/g, "");
   for (const [, selecteurs, corps] of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {

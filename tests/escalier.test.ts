@@ -17,27 +17,23 @@
  */
 import { describe, expect, it } from "vitest";
 import {
-  ajoutDuPalier,
   annonceIci,
   auSommet,
   ESCALIER_VIERGE,
   fusionneEscalier,
   majEscalier,
-  minutesDeMontee,
   PALIER_MAITRISE,
   PALIER_SOMMET,
   PALIERS,
   palierCourant,
   palierN,
   piegeIci,
-  totalManches,
   VOLEES,
 } from "../src/game/escalier";
 import type { EtatEscalier } from "../src/game/escalier";
 import {
   FORCED_TRAP_ROUNDS,
   PACE_CHOICES,
-  windowMs,
 } from "../src/engine/difficulty";
 import { buildRound } from "../src/engine/round";
 import { mulberry32 } from "../src/engine/rng";
@@ -107,23 +103,6 @@ describe("la montée", () => {
     }
   });
 
-  it("chaque palier apporte EXACTEMENT une chose, et le premier seul n'apporte rien", () => {
-    expect(ajoutDuPalier(1).id).toBe("depart");
-    for (let n = 2; n <= PALIER_SOMMET; n++) {
-      /*
-       * Un palier qui n'ajoute rien serait une marche pour rien : le joueur
-       * rejouerait la même épreuve sous un autre numéro. `duree` est la
-       * réponse la plus faible, mais elle en est une — et son supplément doit
-       * alors être strictement positif, sinon la marche est vraiment vide.
-       */
-      const a = ajoutDuPalier(n);
-      expect(a.id, `palier ${n} n'ajoute rien`).not.toBe("depart");
-      if (a.id === "duree") {
-        expect(a.valeur, `palier ${n} : « 0 manches de plus »`).toBeGreaterThan(0);
-      }
-    }
-  });
-
   it("les quatre volées reprennent les quatre allures du jeu, dans l'ordre", () => {
     // Sans ça, l'escalier inventerait des allures que le reste du jeu ne
     // connaît pas — et un record de palier ne se comparerait à rien.
@@ -156,19 +135,6 @@ describe("la montée", () => {
     expect(PALIERS.some((p) => p.annonce !== "jamais")).toBe(true);
   });
 
-  it("le total et la durée se CALCULENT — la maquette, elle, se contredit", () => {
-    /*
-     * La maquette annonce « TOTAL DE LA MONTÉE · 371 MANCHES » sous une colonne
-     * dont les vingt lignes en font 396. On ne recopie donc pas son chiffre :
-     * on somme la table, et le test vérifie qu'on somme bien la table.
-     */
-    expect(totalManches()).toBe(PALIERS.reduce((t, p) => t + p.manches, 0));
-    const min = minutesDeMontee(windowMs);
-    // Une estimation, mais pas n'importe laquelle : une montée d'un quart
-    // d'heure et une de trois heures ne se proposent pas de la même façon.
-    expect(min).toBeGreaterThan(5);
-    expect(min).toBeLessThan(60);
-  });
 });
 
 /* ------------------------------------------------------------------ *

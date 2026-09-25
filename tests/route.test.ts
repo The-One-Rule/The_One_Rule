@@ -26,7 +26,7 @@ import {
 import type { EcranId } from "../src/route";
 
 const ECRANS: EcranId[] = [
-  "home", "fiche", "escalier", "solo", "brief", "over", "codex",
+  "home", "fiche", "solo", "brief", "over", "codex",
   "compte", "classement", "reglages", "multi-id", "multi-join",
   "multi-lobby", "multi-end", "partie",
 ];

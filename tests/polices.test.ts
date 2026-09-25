@@ -89,6 +89,7 @@ describe("les polices ont une seule source", () => {
    */
   it("chaque pile finit par une famille générique", () => {
     expect(DISPLAY_STACK.trim().endsWith("sans-serif")).toBe(true);
-    expect(MONO_STACK.trim().endsWith("monospace")).toBe(true);
+    // Le second rôle est devenu le TEXTE (Nunito) : sa pile finit en sans-serif.
+    expect(MONO_STACK.trim().endsWith("sans-serif")).toBe(true);
   });
 });

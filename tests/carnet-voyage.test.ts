@@ -41,6 +41,7 @@ const ENTREE_PLEINE: Required<RuleRecord> = {
   sansFaute: true,
   runs: 31,
   escalier: { palier: 8, essais: 3, meilleur: 11 },
+  etoiles: [3, 2, 1, 0, 0],
 };
 
 const sauve = (encountered: Record<string, RuleRecord>): Save =>

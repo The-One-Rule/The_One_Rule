@@ -94,7 +94,9 @@ describe("appliqueLangue", () => {
      * ligne en `<span>`, qui est le seul morceau que le style colore.
      */
     expect(document.getElementById("ledeHome")!.innerHTML).toBe(TEXTES.en.ledeHtml);
-    expect(document.getElementById("ledeHome")!.querySelectorAll("span").length).toBe(1);
+    // L'accroche du nouvel accueil : trois temps, le dernier en `<em>` — le
+    // seul morceau que le style met en accent.
+    expect(document.getElementById("ledeHome")!.querySelectorAll("em").length).toBe(1);
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("SETTINGS");
     expect(document.getElementById("btnLangEn")!.getAttribute("aria-pressed")).toBe("true");
     expect(document.getElementById("btnLangFr")!.getAttribute("aria-pressed")).toBe("false");
@@ -110,7 +112,7 @@ describe("appliqueLangue", () => {
   it("le français restaure le texte d'origine", () => {
     appliqueLangue(document, "fr");
     expect(document.documentElement.lang).toBe("fr");
-    expect(document.getElementById("ledeHome")!.innerHTML).toContain("règle unique");
+    expect(document.getElementById("ledeHome")!.innerHTML).toContain("obéir est la faute");
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("RÉGLAGES");
     expect(document.getElementById("btnLangFr")!.classList.contains("is-on")).toBe(true);
   });

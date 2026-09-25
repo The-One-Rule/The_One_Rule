@@ -147,6 +147,8 @@ export interface CarnetEntree {
    * `parAllure` ont déjà appris à éviter.
    */
   escalier?: EscalierEntree;
+  /** LE PARCOURS : étoiles des cinq niveaux du chapitre. Fusion au maximum. */
+  etoiles?: number[];
 }
 
 /**
@@ -207,8 +209,10 @@ function maigre(
   sansFaute: boolean,
   runs: number,
   escalier: EscalierEntree | undefined,
+  etoiles?: number[],
 ): Partial<CarnetEntree> {
   return {
+    ...(etoiles && etoiles.some((x) => x > 0) ? { etoiles } : {}),
     ...(Object.keys(parAllure).length ? { parAllure } : {}),
     ...(runs ? { runs } : {}),
     ...(serie ? { serie } : {}),
@@ -219,6 +223,21 @@ function maigre(
       ? { escalier }
       : {}),
   };
+}
+
+/**
+ * Étoiles du parcours : maximum case par case. Cinq cases, 0 à 3 chacune.
+ *
+ * Écrite ici et non importée de `src/game/parcours.ts` : ce fichier est la
+ * seule source que les deux côtés partagent, et il n'importe rien.
+ */
+function fusionneEtoiles(
+  x: readonly number[] | undefined,
+  y: readonly number[] | undefined,
+): number[] | undefined {
+  if (!x && !y) return undefined;
+  const n = Math.max(x?.length ?? 0, y?.length ?? 0);
+  return Array.from({ length: n }, (_, k) => Math.max(x?.[k] ?? 0, y?.[k] ?? 0));
 }
 
 /** Union clé par clé, au maximum. Idempotente, commutative, monotone. */
@@ -363,6 +382,7 @@ export function fusionne(a: Agregats, b: Agregats): Agregats {
         (x?.sansFaute ?? false) || (y?.sansFaute ?? false),
         Math.max(x?.runs ?? 0, y?.runs ?? 0),
         fusionneEscalier(x?.escalier, y?.escalier),
+        fusionneEtoiles(x?.etoiles, y?.etoiles),
       ),
     };
   }

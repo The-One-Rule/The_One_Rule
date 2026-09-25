@@ -958,7 +958,15 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   };
 
   let dent = false;
-  for (let essai = 0; essai < 10 && !dent; essai++) {
+  /*
+   * ⚠️ 40 ESSAIS, PAS 10. La graine vient du serveur : il faut que LE GAUCHER
+   * tombe sur l'un des quatre sièges ET que la pièce 3 soit hors de sa zone,
+   * soit environ une chance sur cinq par essai. À dix essais, l'assertion
+   * échouait par pur hasard une fois sur dix environ (0,79^10) — vu tomber
+   * sur un lancement sans qu'aucun code de coop n'ait changé. À quarante,
+   * moins d'une fois sur dix mille, et un essai raté ne coûte qu'une seconde.
+   */
+  for (let essai = 0; essai < 40 && !dent; essai++) {
     const js = [];
     for (const n of ["K1", "K2", "K3", "K4"]) {
       const c = await client(n, "cle-cur-" + n + "-" + essai);

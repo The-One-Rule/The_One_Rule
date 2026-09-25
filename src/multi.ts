@@ -2461,7 +2461,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
-  function renderPodium(players: PlayerPublic[]): void {
+  function renderPodium(players: PlayerPublic[], winnerId: string | null): void {
     /*
      * Le classement doit se lire d'un coup d'œil.
      *
@@ -2483,13 +2483,27 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      */
     const joueurs = players.filter((p) => !p.spectator);
     const spectateurs = players.filter((p) => p.spectator);
-    const sorted = [...joueurs].sort((a, b) => b.lives - a.lives || b.score - a.score);
+    /*
+     * ⚠️ LE VAINQUEUR EST CELUI DU SERVEUR, jamais redéduit ici.
+     *
+     * La rangée le déduisait (« premier du tri ET encore en vie ») pendant que
+     * le titre lisait `winnerId` : quand les deux derniers tombaient à la même
+     * manche, le titre disait « TU AS GAGNÉ » et la rangée « ÉLIMINÉ ». Deux
+     * jugements sur un même écran finissent par se contredire ; il n'en reste
+     * qu'un, et il est en tête du classement.
+     */
+    const sorted = [...joueurs].sort(
+      (a, b) =>
+        Number(b.id === winnerId) - Number(a.id === winnerId) ||
+        b.lives - a.lives ||
+        b.score - a.score,
+    );
     const maxLives = Math.max(roomSettings.lives, ...joueurs.map((p) => p.lives), 1);
     const list = $("multiPodium");
     list.innerHTML = "";
     sorted.forEach((p, rang) => {
       const row = document.createElement("div");
-      const isWinner = rang === 0 && p.lives > 0;
+      const isWinner = p.id === winnerId;
       row.className =
         "lobbyrow" +
         (p.id === net?.myId ? " is-host" : "") +
@@ -2705,7 +2719,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         : "";
 
     renderTitles(msg.players);
-    renderPodium(msg.players);
+    renderPodium(msg.players, msg.winnerId);
     $("multiEndInviteHint").textContent = tr("lienInvitation");
 
     show("multi-end");

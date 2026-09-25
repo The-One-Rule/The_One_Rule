@@ -5,6 +5,8 @@ import { policeMono } from "./polices";
 import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
 import { FIELD_GUTTER, cadrePour, decalage, orientationPour, rectEcran, versChamp, versEcran } from "./orientation";
 import type { Cadre, Orientation } from "./orientation";
+import { dessinePiece, dessineTerrain, ENCRE, TEINTES, terrainDe } from "./skins";
+import type { SkinId } from "../game/boutique";
 
 /**
  * Palette de jeu.
@@ -23,12 +25,7 @@ import type { Cadre, Orientation } from "./orientation";
  * En dessous de 25, deux pièces sont indiscernables — et comme la consigne
  * NOMME la couleur, le joueur concerné n'a aucun moyen de compenser.
  */
-const HEX: Record<ColorId, string> = {
-  garance: "#F74058",
-  azur: "#237EF6",
-  jade: "#40F7C0",
-  ambre: "#F5B214",
-};
+const HEX: Record<ColorId, string> = TEINTES;
 
 const ACCENT = "#9184D9";
 const PAPER = "#EFEAE0";
@@ -45,8 +42,8 @@ const LINE = "#26344A";
  * dégradé et sans ombre floue : `shadowBlur` coûte cher sur une machine
  * modeste, et une ombre nette dit la même chose.
  */
-const SOL = "#111A28";
-const SOL_TRAME = "rgba(145,132,217,0.055)";
+// Le terrain et la matière des pièces vivent désormais dans `render/skins.ts` :
+// chaque style de la boutique apporte les siens.
 
 /**
  * Trame du mode daltonien : encre et pas, en unités du champ.
@@ -65,8 +62,6 @@ const rgbDe = (hex: string): number[] => {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-const OMBRE = "rgba(0,0,0,0.42)";
-const ARETE = "rgba(255,255,255,0.20)";
 
 /** Une particule du bac. Réutilisée, jamais réallouée. */
 interface Particle {
@@ -244,6 +239,18 @@ export class SceneRenderer {
    * C'est ce qui rend le second canal réalisable ici sans rien risquer.
    */
   daltonien = false;
+  /**
+   * LE STYLE DES PIÈCES — acheté à la boutique. Purement du dessin : le hit-test
+   * lit `e.x`, `e.y`, `e.r` et ne sait rien du style (décision n°3).
+   */
+  skin: SkinId = "sticker";
+  /**
+   * LA PAGE EST-ELLE SOMBRE ? Posé par `appliqueTheme`. Décoratif comme
+   * `skin` : le terrain de nuit et l'encre du cadre de temps, rien d'autre.
+   * Le cadre de temps vit HORS du champ, sur la page : écrit à l'encre sur
+   * une page noire, il disparaissait.
+   */
+  sombre = false;
   /**
    * Trames prêtes à l'emploi, une par couleur.
    *
@@ -555,13 +562,15 @@ export class SceneRenderer {
     const inset = 2;
     const w = W - inset * 2;
     const h = H - inset * 2;
-    ctx.strokeStyle = LINE;
+    ctx.strokeStyle = this.sombre ? "rgba(241,232,216,0.16)" : "rgba(36,27,58,0.14)";
     ctx.lineWidth = 4;
     ctx.strokeRect(inset, inset, w, h);
 
     const per = (w + h) * 2;
     const left = Math.max(0, 1 - ratio) * per;
-    ctx.strokeStyle = PAPER;
+    // Le temps restant s'écrit dans l'encre de la PAGE : prune sur le sable,
+    // crème sur la nuit.
+    ctx.strokeStyle = this.sombre ? "#F1E8D8" : ENCRE;
     ctx.lineWidth = 4;
     ctx.beginPath();
 
@@ -672,19 +681,7 @@ export class SceneRenderer {
    * et rien du jeu n'en dépend. Dessinée en premier, donc sous tout le reste.
    */
   private drawField(): void {
-    const { ctx } = this;
-    ctx.fillStyle = SOL;
-    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
-
-    // Un point tous les 50 : assez dense pour donner une texture, assez espacé
-    // pour ne jamais concurrencer une pièce. 220 points, un seul chemin.
-    ctx.fillStyle = SOL_TRAME;
-    const pas = 50;
-    for (let x = pas; x < FIELD_W; x += pas) {
-      for (let y = pas; y < FIELD_H; y += pas) {
-        ctx.fillRect(x - 1.5, y - 1.5, 3, 3);
-      }
-    }
+    dessineTerrain(this.ctx, this.skin, FIELD_W, FIELD_H, this.sombre);
   }
 
   /** Zones interdites d'une règle spatiale : invisibles, elles seraient injustes. */
@@ -806,10 +803,15 @@ export class SceneRenderer {
       // joue sur la position ; respirer en échelle en parallèle est trop mince.
       const breathes = !this.reduced && !round.ents.some((e) => e.moving);
       // Naissance 120 ms, 0,62 → 1, sans rebond. Hit-test inchangé (e.r plein).
+      // Naissance en « pop » : 0,55 → 1,08 → 1 en 200 ms. Le hit-test reste
+      // sur `e.r` plein : c'est le dessin qui rebondit, pas la cible.
+      const age = Math.max(0, now - this.bornAt);
       const birth =
-        this.reduced || now - this.bornAt >= 120
+        this.reduced || age >= 200
           ? 1
-          : 0.62 + (0.38 * Math.max(0, now - this.bornAt)) / 120;
+          : age < 130
+            ? 0.55 + (0.53 * age) / 130
+            : 1.08 - (0.08 * (age - 130)) / 70;
       /*
        * Trois passes par pièce : l'ombre, l'aplat, l'arête.
        *
@@ -835,33 +837,14 @@ export class SceneRenderer {
         }
         const r = e.r * scale;
 
-        ctx.save();
-        const [odx, ody] = decalage(this.orientation, 0, e.r * 0.14);
-        ctx.translate(odx, ody);
-        ctx.fillStyle = OMBRE;
-        this.path(e, r);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = HEX[e.color];
-        this.path(e, r);
-        ctx.fill();
-
-        // Second canal : la trame se pose SUR la teinte, elle ne la remplace
-        // pas. Même chemin, donc elle épouse la forme sans découpe.
-        if (this.daltonien) {
-          const trame = this.trame(e.color);
-          if (trame) {
-            ctx.fillStyle = trame;
-            this.path(e, r);
-            ctx.fill();
-          }
-        }
-
-        ctx.strokeStyle = ARETE;
-        ctx.lineWidth = 2;
-        this.path(e, r);
-        ctx.stroke();
+        dessinePiece(
+          ctx,
+          { shape: e.shape, color: e.color, x: e.x, y: e.y, r, r0: e.r, phase: e.phase },
+          this.skin,
+          this.orientation,
+          this.daltonien ? this.trame(e.color) : null,
+          now,
+        );
 
         const need = needs?.get(e.idx);
         if (need && need >= 2) {
@@ -890,7 +873,9 @@ export class SceneRenderer {
       if (k >= 1) {
         this.pulse = null;
       } else {
-        ctx.strokeStyle = `rgba(233,233,237,${0.55 * (1 - k)})`;
+        ctx.strokeStyle = terrainDe(this.skin, this.sombre).clair
+          ? `rgba(36,27,58,${0.5 * (1 - k)})`
+          : `rgba(233,233,237,${0.55 * (1 - k)})`;
         ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.arc(this.pulse.x, this.pulse.y, 12 + k * 46, 0, Math.PI * 2);

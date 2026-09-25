@@ -47,6 +47,7 @@ const PLEINE: Required<RuleRecord> = {
   sansFaute: true,
   runs: 31,
   escalier: { palier: 8, essais: 3, meilleur: 11 },
+  etoiles: [3, 2, 1, 0, 0],
 };
 
 describe("majCarnet ne perd rien en chemin", () => {
