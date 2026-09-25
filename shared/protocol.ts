@@ -424,6 +424,13 @@ export type ClientMsg =
       rookie?: boolean;
       clavier?: boolean;
       tok?: string;
+      /**
+       * La version du jeu de consignes que ce client sait reconstruire
+       * (`CONSIGNES_VERSION`). ABSENT VAUT 1 — le catalogue d'origine — pour
+       * la même raison que `clavier` : un client ancien ne l'envoie pas, et
+       * sa table retombe sur ce qu'il sait jouer.
+       */
+      consignes?: number;
     }
   | { t: "create" }
   | { t: "join"; code: string }
@@ -601,6 +608,12 @@ export type ServerMsg =
        * divergence sur le tirage, c'est un aperçu qui contredit le verdict.
        */
       clavier: boolean;
+      /**
+       * La version du jeu de consignes de ce match — le minimum du serveur et
+       * de chaque siège. ABSENTE (serveur ancien) VAUT 1 : le client retombe
+       * alors sur le catalogue que ce serveur sait juger.
+       */
+      consignes?: number;
     }
   | {
       t: "round";

@@ -2439,6 +2439,8 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     clicPlusPetitCouleur: (m) => `CLIQUE LE PLUS PETIT ${m.couleur}`,
     tapeInitiale: () => "TAPE L'INITIALE DE LA COULEUR",
     couleurPuis: (m) => `${m.couleur} PUIS ${m.couleur2}`,
+    deuxFoisCouleur: (m) => `CLIQUE DEUX FOIS LE ${m.couleur}`,
+    deuxFoisForme: (m) => `CLIQUE DEUX FOIS LE ${m.forme}`,
     clicSauf: (m) => `CLIQUE PARTOUT SAUF SUR DU ${m.couleur}`,
     "coop.nettoyez": () => "NETTOIEZ LE TERRAIN",
   },
@@ -2473,6 +2475,8 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
      */
     tapeInitiale: () => "TYPE THE COLOUR'S INITIAL",
     couleurPuis: (m) => `${m.couleur} THEN ${m.couleur2}`,
+    deuxFoisCouleur: (m) => `CLICK THE ${m.couleur} TWICE`,
+    deuxFoisForme: (m) => `CLICK THE ${m.forme} TWICE`,
     clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
     "coop.nettoyez": () => "CLEAR THE FIELD",
   },

@@ -54,6 +54,7 @@ import {
 } from "../shared/protocol";
 import type { Glyph, PlayerPublic, RoundOutcome, ServerMsg } from "../shared/protocol";
 import { carteValide, PHOTO_MAX, photoValide } from "../shared/profil";
+import { CONSIGNES_VERSION } from "../src/engine/instructions";
 import { windowMs } from "../src/engine/difficulty";
 import { glyphFor, glyphFromIndex, PATTERN_COUNT } from "../src/net/glyph";
 
@@ -122,6 +123,11 @@ interface Client {
    * qui est exactement ce qu'il sait reconstruire.
    */
   clavier: boolean;
+  /**
+   * La version du jeu de consignes que ce client sait reconstruire. 1 par
+   * défaut — le catalogue d'origine —, bornée par celle du serveur.
+   */
+  consignes: number;
   /**
    * Identifiant de compte TOR, si le `hello` portait un jeton valide.
    *
@@ -384,7 +390,25 @@ function startMatch(room: Room): void {
    */
   const clavier =
     ids.length > 0 && ids.every((id) => room.clients.get(id)?.clavier === true);
-  room.match = new MatchLogic(seed, ids, room.settings, rookies, clavier, room.settings.duo);
+  /*
+   * Le jeu de consignes : le plus ANCIEN de la table, et jamais plus récent
+   * que celui du serveur. Un seul siège d'une version antérieure fait
+   * retomber tout le salon sur ce qu'il sait reconstruire — la scène doit
+   * rester commune, exactement comme pour `clavier`.
+   */
+  const consignes = Math.min(
+    CONSIGNES_VERSION,
+    ...ids.map((id) => room.clients.get(id)?.consignes ?? 1),
+  );
+  room.match = new MatchLogic(
+    seed,
+    ids,
+    room.settings,
+    rookies,
+    clavier,
+    room.settings.duo,
+    consignes,
+  );
 
   const rules = room.match.reglesPubliques(0);
 
@@ -407,6 +431,7 @@ function startMatch(room: Room): void {
     firstRoundAt,
     settings: room.settings,
     clavier: room.match.clavier,
+    consignes: room.match.consignes,
   });
   chuchoteRole(room);
 
@@ -755,6 +780,7 @@ wss.on("connection", (ws) => {
     graceTimer: null,
     rookie: false,
     clavier: false,
+    consignes: 1,
     compte: null,
   };
   client.glyph = glyphFor(client.id);
@@ -792,6 +818,12 @@ wss.on("connection", (ws) => {
         client.rookie = msg.rookie === true;
         // `=== true` et non une coercition : absent doit valoir NON.
         client.clavier = msg.clavier === true;
+        // Absent, douteux ou inconnu vaut 1 ; plus récent que le serveur est
+        // ramené au sien — il ne sait juger que ce qu'il connaît.
+        client.consignes =
+          Number.isInteger(msg.consignes) && (msg.consignes as number) >= 1
+            ? Math.min(msg.consignes as number, CONSIGNES_VERSION)
+            : 1;
         client.glyph = parseGlyph(msg.glyph, client.id);
 
         /*
@@ -986,6 +1018,7 @@ wss.on("connection", (ws) => {
             // l'arrivant : il est spectateur, il n'a pas voix au tirage, et
             // il doit reconstruire exactement ce que les autres voient.
             clavier: m.clavier,
+            consignes: m.consignes,
           });
           if (m.imposteur && m.imposteurId === client.id) {
             send(client, { t: "role", imposteur: true });

@@ -791,6 +791,43 @@ Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket
 joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
 **Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
 
+### Le double appui — première consigne neuve, multijoueur seulement (25/09/2026)
+
+« CLIQUE DEUX FOIS LE ROUGE / LE ROND » (`doubleTap`, niveau 4, poids 2,
+tactile). C'est une `sequence` qui désigne deux fois la même pièce : le fil ne
+transporte que des index, `resolve` et les règles (`targets`) lisaient déjà
+les séquences. Aucune mécanique neuve, donc aucune prise pour la famille du
+§11. Le terrain est en `touch-action: none` : pas de zoom au double-tap.
+
+⚠️ **Elle n'est PAS au catalogue solo, et c'est mesuré** : `VERSION_CONTENU`
+se calcule sur `INSTRUCTIONS`, et les records d'entraînement AFFICHÉS sont
+indexés sur elle (`cleEntrainement`). L'y mettre ferait lire « TON RECORD · 0 »
+à chaque joueur au déploiement et couperait en deux le classement du jour de
+la mise en ligne. Elle vit dans `CONSIGNES_MULTI` ; l'ouvrir au solo est une
+ligne (la déplacer dans `INSTRUCTIONS`) — **une décision de Pierre**, coût
+écrit. `VERSION_CONTENU` = `5m4fgw` avant et après, gardée par un test.
+
+⚠️ **NÉGOCIÉE sur le fil**, parce que front et salons se déploient séparément :
+`hello.consignes` (absent = 1), le serveur retient le MINIMUM du sien et de
+chaque siège, le fige au lancement et l'envoie dans `match_start` (absent = 1).
+Les quatre combinaisons de versions retombent sur un pool que les deux côtés
+connaissent. `CONSIGNES_VERSION` monte à chaque ajout à `CONSIGNES_MULTI`, ne
+descend jamais. `PROTOCOL_VERSION` inchangée.
+
+**L'e2e a failli la valider par chance, deux fois :**
+- un scénario de 16 s ne couvrait que les manches 0 à 4 — or la consigne
+  n'entre au tirage qu'à la 4 : un client resté en version 1 passait sans une
+  faute (éprouvé). Il dure 40 s et exige d'avoir couvert 10 manches ;
+- les verdicts du fil n'ont PAS de champ `cause` (`RoundOutcome` ne porte que
+  `reason`) : un filtre `cause === "wrong"` ne pouvait rien attraper. On
+  écarte les deux motifs d'horloge, et tout le reste compte.
+- Et une faute « de désaccord » n'en était pas une : le **pilote** cliquait
+  `ents[0]` sur « n'importe où », mortel sous LES ANGLES ou L'AZUR. Il choisit
+  désormais une pièce que sa règle autorise. Même famille que `playPerfect`.
+
+Mesuré : 5 passages sur 5 sans faute (double appui joué dans 4), 6 fautes
+quand le client reste en version 1.
+
 ### Les amis — fait, jamais vus par un joueur (25/09/2026)
 
 Demandé par Pierre : amis, classement des amis, comparer scores et runs.
@@ -2874,10 +2911,11 @@ désormais au-dessus du pied.
 
 ### Backlog
 
-1. **Nouvelles consignes** — glisser, balayer, double-appui, maintien. De
-   nouveaux types d'entrée, donc de nouvelles actions sur le fil et une
-   nouvelle résolution : un chantier, pas un ajout de contenu. C'est aussi ce
-   qui donnerait des pièges aux sept règles qui n'en ont pas.
+1. **Nouvelles consignes** — glisser, balayer, maintien. Le double-appui est
+   fait (multi, voir plus haut) parce qu'il tient dans `sequence` ; les trois
+   autres sont de nouveaux types d'entrée, donc de nouvelles actions sur le
+   fil et une nouvelle résolution : un chantier, pas un ajout de contenu.
+   Toute consigne neuve passe par `CONSIGNES_MULTI` et `CONSIGNES_VERSION`.
 2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
    côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
    liste vide dit « personne ne joue ».
