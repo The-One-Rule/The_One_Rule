@@ -191,9 +191,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carte.ranked.desc": "Quelqu'un de ton niveau. La même partie que lui.",
     "carnet.titre": "CARNET DES RÈGLES",
     "brief.meme": "MÊME PARTIE POUR TOUT LE MONDE",
-    "fin.labQuetes": "QUÊTES",
-    "fin.labSerie": "SÉRIE",
-    "fin.labCarnet": "CARNET",
     "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
@@ -209,8 +206,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.quitter": "QUITTER",
     "mur.eyebrow": "CLASSEMENT",
     "mur.titre": "LE MUR DES RECORDS",
-    "mur.tonMieux": "TON MIEUX",
-    "mur.tenter": "TENTER LE RECORD",
+    "mur.tenter": "JOUER LE RUN DU JOUR",
+    "mur.records": "TES RECORDS",
+    "mur.recordsVide": "Ta première partie inscrit ton chiffre ici.",
     "solo.reste": "CE QUI RESTE À FAIRE AUJOURD'HUI",
     "solo.demain": "DEMAIN",
     "reglages.titre": "RÉGLAGES",
@@ -386,9 +384,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carte.ranked.desc": "Someone at your level. The very same run.",
     "carnet.titre": "RULE BOOK",
     "brief.meme": "SAME RUN FOR EVERYONE",
-    "fin.labQuetes": "QUESTS",
-    "fin.labSerie": "STREAK",
-    "fin.labCarnet": "CODEX",
     "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
@@ -404,8 +399,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.quitter": "LEAVE",
     "mur.eyebrow": "LEADERBOARD",
     "mur.titre": "THE WALL OF RECORDS",
-    "mur.tonMieux": "YOUR BEST",
-    "mur.tenter": "GO FOR IT",
+    "mur.tenter": "PLAY THE DAILY RUN",
+    "mur.records": "YOUR RECORDS",
+    "mur.recordsVide": "Your first run puts your number here.",
     "solo.reste": "WHAT IS LEFT TODAY",
     "solo.demain": "TOMORROW",
     "reglages.titre": "SETTINGS",
@@ -888,6 +884,14 @@ type Dyn = {
   photoIllisible: string;
   /** Les amis : erreurs d'ajout, une par cause — chacune dit quoi faire. */
   amisErr: Record<"code" | "soi" | "inconnu" | "plein" | "reseau", string>;
+  /** Le mur des records. */
+  murJourTitre: string;
+  murJourMien: (score: number | null, essais: number) => string;
+  recordJour: string;
+  recordAllure: (allure: string) => string;
+  recordPile: string;
+  recordUnite: string;
+  recordUnitePile: string;
   amisSeul: string;
   amisNote: string;
   amisPasJoue: string;
@@ -944,14 +948,6 @@ type Dyn = {
   briefEchauffement: string;
   avanceMaitrisee: (regle: string) => string;
   avanceParfaite: (regle: string) => string;
-  murDuJour: string;
-  murDuJourNote: string;
-  murEntrainement: string;
-  murEntrainementNote: string;
-  murRien: string;
-  murPremier: string;
-  murDevant: string;
-  murManque: (n: number) => string;
   resteFait: (score: number, sur: number) => string;
   resteEpuise: (score: number) => string;
   resteTravailler: (regle: string, etoiles: number, max: number) => string;
@@ -1491,6 +1487,18 @@ const DYN: Record<Lang, Dyn> = {
       reseau: "PAS DE RÉPONSE. RÉESSAIE DANS UN INSTANT.",
     },
     amisSeul: "DONNE TON CODE À UN AMI, OU TAPE LE SIEN.",
+    murJourTitre: "RUN DU JOUR · LE MÊME POUR TOUS",
+    murJourMien: (score, essais) =>
+      score !== null && score > 0
+        ? `TON MEILLEUR AUJOURD'HUI · ${score} / 40${essais > 0 ? ` · ${essais} ESSAI${essais > 1 ? "S" : ""} RESTANT${essais > 1 ? "S" : ""}` : ""}`
+        : essais > 0
+          ? `PAS ENCORE JOUÉ · ${essais} ESSAI${essais > 1 ? "S" : ""}`
+          : "PLUS D'ESSAI AUJOURD'HUI · RENDEZ-VOUS DEMAIN",
+    recordJour: "RUN DU JOUR · AUJOURD'HUI",
+    recordAllure: (allure) => `ENTRAÎNEMENT · ${allure}`,
+    recordPile: "LA PILE",
+    recordUnite: "MANCHES",
+    recordUnitePile: "RÈGLES TENUES",
     amisNote: "CLASSÉS SUR LE RUN DU JOUR — LE MÊME POUR TOUT LE MONDE. LES BARRES : LES 7 DERNIERS JOURS. « 30 J » : LE MEILLEUR DU MOIS.",
     amisPasJoue: "PAS JOUÉ",
     amisCopie: "COPIÉ",
@@ -1558,14 +1566,6 @@ const DYN: Record<Lang, Dyn> = {
     briefEchauffement: "SANS RISQUE",
     avanceMaitrisee: (regle) => `${regle} · MAÎTRISÉE`,
     avanceParfaite: (regle) => `${regle} · PARFAITE · 6 / 6`,
-    murDuJour: "LE MEILLEUR DU JOUR",
-    murDuJourNote: "Vérifié par rejeu. Il change chaque jour.",
-    murEntrainement: "LE MEILLEUR CONNU · ENTRAÎNEMENT",
-    murEntrainementNote: "Relevé à la main, à une allure d'entraînement. Ce n'est pas un run du jour.",
-    murRien: "—",
-    murPremier: "Ton premier run posera ton chiffre ici.",
-    murDevant: "Tu fais mieux que ça.",
-    murManque: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""}.`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
     resteTravailler: (regle, et, max) => `TRAVAILLER ${regle} · ★ ${et}/${max}`,
@@ -1993,6 +1993,18 @@ const DYN: Record<Lang, Dyn> = {
       reseau: "NO ANSWER. TRY AGAIN IN A MOMENT.",
     },
     amisSeul: "GIVE YOUR CODE TO A FRIEND, OR TYPE THEIRS.",
+    murJourTitre: "DAILY RUN · THE SAME FOR EVERYONE",
+    murJourMien: (score, essais) =>
+      score !== null && score > 0
+        ? `YOUR BEST TODAY · ${score} / 40${essais > 0 ? ` · ${essais} ${essais === 1 ? "TRY" : "TRIES"} LEFT` : ""}`
+        : essais > 0
+          ? `NOT PLAYED YET · ${essais} ${essais === 1 ? "TRY" : "TRIES"}`
+          : "NO TRIES LEFT TODAY · SEE YOU TOMORROW",
+    recordJour: "DAILY RUN · TODAY",
+    recordAllure: (allure) => `TRAINING · ${allure}`,
+    recordPile: "THE STACK",
+    recordUnite: "ROUNDS",
+    recordUnitePile: "RULES HELD",
     amisNote: "RANKED ON THE DAILY RUN — THE SAME FOR EVERYONE. THE BARS: THE LAST 7 DAYS. “30 D”: THE BEST OF THE MONTH.",
     amisPasJoue: "NOT YET",
     amisCopie: "COPIED",
@@ -2043,14 +2055,6 @@ const DYN: Record<Lang, Dyn> = {
     briefEchauffement: "RISK-FREE",
     avanceMaitrisee: (regle) => `${regle} · MASTERED`,
     avanceParfaite: (regle) => `${regle} · PERFECT · 6 / 6`,
-    murDuJour: "TODAY'S BEST",
-    murDuJourNote: "Replayed and checked by the server. It changes every day.",
-    murEntrainement: "BEST KNOWN · TRAINING",
-    murEntrainementNote: "Read by hand, at a training pace. It is not a daily run.",
-    murRien: "—",
-    murPremier: "Your first run puts your number here.",
-    murDevant: "You do better than that.",
-    murManque: (n) => `You are ${n} round${n === 1 ? "" : "s"} short.`,
     resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
     resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
     resteTravailler: (regle, et, max) => `WORK ON ${regle} · ★ ${et}/${max}`,

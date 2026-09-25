@@ -99,6 +99,7 @@ import {
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
 import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
+import { lignesRecords } from "./game/murRecords";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
 import type { Resultat } from "./compte/file";
@@ -1081,6 +1082,14 @@ function chapitreJouable(id: string): boolean {
   return !(TOUCH_ONLY && id === "voyelle");
 }
 
+/**
+ * Les règles déjà au carnet : leur chapitre est ouvert d'office (voir
+ * `chapitreOuvert`). C'est ce qui rattrape un ancien joueur.
+ */
+function reglesConnues(): ReadonlySet<string> {
+  return new Set(Object.keys(P.load().encountered));
+}
+
 /** Les étoiles du carnet, sous la forme qu'attend `game/parcours.ts`. */
 function etoilesDuCarnet(s: P.Save): PC.Etoiles {
   const e: PC.Etoiles = {};
@@ -1116,7 +1125,20 @@ function chapitresBoucles(s: P.Save): number {
 const VERROU_MODES = { jour: 1, libre: 1, escalade: 3 } as const;
 
 function modeOuvert(quoi: keyof typeof VERROU_MODES, s: P.Save = P.load()): boolean {
-  return !!s.veteran || chapitresBoucles(s) >= VERROU_MODES[quoi];
+  if (s.veteran || chapitresBoucles(s) >= VERROU_MODES[quoi]) return true;
+  /*
+   * ⚠️ « Après le chapitre N » = le chapitre N+1 est OUVERT — et un chapitre
+   * s'ouvre aussi quand sa règle est déjà au carnet (`chapitreOuvert`).
+   * Sans ça, un ancien joueur aux seize règles rencontrées voyait RUN DU
+   * JOUR et LIBRE verrouillés « après le chapitre 1 » (relevé à l'écran).
+   */
+  const ouverts = PC.chapitresOuverts(
+    etoilesDuCarnet(s),
+    chapitreJouable,
+    PC.CHAPITRES,
+    new Set(Object.keys(s.encountered)),
+  );
+  return ouverts > VERROU_MODES[quoi];
 }
 
 /** L'ancien bloc « ce que ce run a fait avancer » sur l'échelle à six cases. Éteint. */
@@ -1157,9 +1179,9 @@ function renderParcours(): void {
   $("pstatPieces").textContent = String(s.coins);
   $("pstatSerie").textContent = String(s.streak.count);
 
-  const prochain = PC.prochainNiveau(e, chapitreJouable);
+  const prochain = PC.prochainNiveau(e, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const ch =
-    chapitreVu !== null && PC.chapitreOuvert(e, chapitreVu, chapitreJouable) && chapitreJouable(PC.CHAPITRES[chapitreVu]!)
+    chapitreVu !== null && PC.chapitreOuvert(e, chapitreVu, chapitreJouable, PC.CHAPITRES, reglesConnues()) && chapitreJouable(PC.CHAPITRES[chapitreVu]!)
       ? chapitreVu
       : (prochain?.chapitre ?? 0);
   const id = PC.CHAPITRES[ch]!;
@@ -1184,7 +1206,7 @@ function renderParcours(): void {
   piste.innerHTML = "";
   for (const def of PC.NIVEAUX) {
     const et = PC.etoilesDe(e, id, def.n);
-    const ouvert = PC.niveauOuvert(e, ch, def.n, chapitreJouable);
+    const ouvert = PC.niveauOuvert(e, ch, def.n, chapitreJouable, PC.CHAPITRES, reglesConnues());
     const li = document.createElement("li");
     const b = document.createElement("button");
     b.type = "button";
@@ -1233,7 +1255,7 @@ function renderParcours(): void {
   chemin.innerHTML = "";
   PC.CHAPITRES.forEach((cid, i) => {
     const jouable = chapitreJouable(cid);
-    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable);
+    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues());
     const fini = PC.chapitreFini(e, cid);
     const et = PC.etoilesChapitre(e, cid);
     const li = document.createElement("li");
@@ -1287,7 +1309,7 @@ function lanceNiveau(pos: Position): void {
     ouvreOnboarding();
     return;
   }
-  if (!PC.niveauOuvert(etoilesDuCarnet(P.load()), pos.chapitre, pos.niveau, chapitreJouable)) return;
+  if (!PC.niveauOuvert(etoilesDuCarnet(P.load()), pos.chapitre, pos.niveau, chapitreJouable, PC.CHAPITRES, reglesConnues())) return;
   niveauDemande = pos;
   openBrief("training");
 }
@@ -1295,7 +1317,7 @@ function lanceNiveau(pos: Position): void {
 /** Le niveau qui suit `pos` quand il vient d'être réussi, ou `null`. */
 function niveauSuivant(pos: Position): Position | null {
   if (pos.niveau < PC.NIVEAU_BOSS) return { ...pos, niveau: pos.niveau + 1 };
-  return PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable);
+  return PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable, PC.CHAPITRES, reglesConnues());
 }
 
 /** Les sons de l'écran de fin, annulés si l'on quitte avant qu'ils sonnent. */
@@ -2653,48 +2675,57 @@ function peintPodium(quoi: string, ecran: ScreenId): void {
 function renderClassement(): void {
   rafraichitJour();
   const s = P.load();
-  /*
-   * ⚠️ LES DEUX CHIFFRES, ET C'EST LE MODULE QUI CHOISIT.
-   *
-   * Le mur passait ici `recordDeSonAllure` — le record d'ENTRAINEMENT — alors
-   * que sa cible vient du classement du JOUR des que celui-ci repond. Il
-   * comparait donc un record fait a une allure choisie sur une regle choisie
-   * au meilleur du jour, ou tout le monde joue la meme graine et la meme
-   * regle : « il te manque 170 manches » ne voulait rien dire.
-   */
-  // Il DEMANDE, au lieu de lire un cache que lui-meme ne remplissait jamais.
-  // On peint tout de suite avec ce qu'on a, on repeint quand la reponse arrive.
+  // On peint tout de suite avec ce qu'on a, on repeint quand le podium répond.
   void rafraichitClassement();
-  const siennes = { jour: monScoreDuJour(s), entrainement: P.recordDeSonAllure(s) };
-  const vue = vueBut(siennes, recordDuJour);
-  const mien = vue.sien ?? 0;
 
-  $("murCibleQuoi").textContent =
-    vue.cible.source === "jour" ? t("murDuJour") : t("murEntrainement");
-  $("murCibleVal").textContent = String(vue.cible.score);
-  $("murCibleNote").textContent =
-    vue.cible.source === "jour" ? t("murDuJourNote") : t("murEntrainementNote");
+  /* --- LE RUN DU JOUR : la même épreuve pour tout le monde --- */
+  const regle = ruleOfDay(day);
+  $("murJourTitre").textContent = t("murJourTitre");
+  $("murJourRegle").textContent = nomDeRegle(regle.id, regle.name);
+  const vj = vueDuJour(s, day);
+  const mien = monScoreDuJour(s);
+  $("murJourMien").textContent = t("murJourMien")(mien, vj.restants);
+  $<HTMLButtonElement>("btnMurJouer").disabled = vj.restants <= 0;
 
-  $("murMien").textContent = mien > 0 ? String(mien) : t("murRien");
-  /*
-   * La JAUGE est décorative, et la phrase dit le même fait en chiffres : rien
-   * ne se perd si le mouvement est coupé. Elle est bornée à 1 — un joueur qui
-   * dépasse la cible ne doit pas voir une barre qui sort de son cadre.
-   */
-  const part = vue.cible.score > 0 ? Math.min(1, mien / vue.cible.score) : 0;
-  $("murJauge").style.transform = `scaleX(${part.toFixed(3)})`;
-  /*
-   * ⚠️ LE JEU NE DIT JAMAIS À QUELQU'UN QU'IL EST MOINS BON QUE CE QU'IL FAIT.
-   * Au-dessus de la cible, la phrase le constate ; en dessous, elle chiffre ce
-   * qui manque, ce qui est une consigne et pas un jugement ; et sans record du
-   * tout, elle n'oppose rien — comparer un joueur neuf à 201 est un mur.
-   */
-  $("murEcart").textContent =
-    mien <= 0
-      ? t("murPremier")
-      : vue.depasse
-        ? t("murDevant")
-        : t("murManque")(vue.cible.score - mien);
+  /* --- TES RECORDS : chaque ligne dit son épreuve --- */
+  const parAllure = new Map<number, number>();
+  for (const v of PACE_CHOICES) {
+    const r = Math.max(s.records[cleEntrainement(v)] ?? 0, v === PACE_DEFAULT ? s.bestTraining : 0);
+    parAllure.set(v, r);
+  }
+  const parRegle = new Map<string, number>();
+  for (const [id, rec] of Object.entries(s.encountered)) parRegle.set(id, rec.best);
+  const lignes = lignesRecords({
+    jour: mien,
+    parAllure,
+    pile: s.records[cleEscalade()] ?? 0,
+    parRegle,
+  });
+  const liste = $("murRecords");
+  liste.replaceChildren();
+  for (const l of lignes) {
+    const li = document.createElement("li");
+    li.className = "records__ligne records__ligne--" + l.quoi;
+    const quoi = document.createElement("span");
+    quoi.className = "records__quoi";
+    quoi.textContent =
+      l.quoi === "jour"
+        ? t("recordJour")
+        : l.quoi === "allure"
+          ? t("recordAllure")(nomAllure(l.cle as number, PACE_LABELS[l.cle as number] ?? String(l.cle)))
+          : l.quoi === "pile"
+            ? t("recordPile")
+            : nomDeRegleId(l.cle as string);
+    const val = document.createElement("b");
+    val.className = "records__val";
+    val.textContent = String(l.valeur);
+    const unite = document.createElement("span");
+    unite.className = "records__unite";
+    unite.textContent = l.quoi === "pile" ? t("recordUnitePile") : t("recordUnite");
+    li.append(quoi, val, unite);
+    liste.appendChild(li);
+  }
+  $("murRecordsVide").classList.toggle("hidden", lignes.length > 0);
 
   peintPodium("murPodium", "classement");
   peintAmis();
@@ -4157,7 +4188,7 @@ function ouvreFiche(r: OneRule): void {
     li.querySelector<HTMLElement>(".cas__reste")!.textContent = "★".repeat(n) + "☆".repeat(PC.ETOILES_MAX - n);
     liste.appendChild(li);
   }
-  const ouvert = ch >= 0 && chapitreJouable(r.id) && PC.chapitreOuvert(e, ch, chapitreJouable);
+  const ouvert = ch >= 0 && chapitreJouable(r.id) && PC.chapitreOuvert(e, ch, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const suivant = PC.NIVEAUX.find((d) => PC.etoilesDe(e, r.id, d.n) === 0);
   const aParfaire = PC.NIVEAUX.find((d) => PC.etoilesDe(e, r.id, d.n) < PC.ETOILES_MAX);
   $("ficheManque").textContent = !ouvert
@@ -6010,7 +6041,7 @@ function joueLaSuite(): void {
     ouvreOnboarding();
     return;
   }
-  const pos = PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable);
+  const pos = PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable, PC.CHAPITRES, reglesConnues());
   if (pos) {
     chapitreVu = null;
     lanceNiveau(pos);

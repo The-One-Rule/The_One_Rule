@@ -2545,3 +2545,265 @@ body {
 .ami__retire:focus-visible {
   color: var(--encre);
 }
+
+/* ==================================================================
+   LA COLLECTION — la barre latérale et les cartes acquises
+
+   Rapporté par Pierre, capture à l'appui, et mesuré : la barre latérale
+   gardait son fond d'avant la refonte (`#0b0f18`, écrit en dur dans
+   style.css) pendant que ses textes suivaient le thème — prune sur noir,
+   **1,18:1**. Le nom d'une carte MAÎTRISÉE tombait à **1,01:1** pour la même
+   raison (`#1a1d3a` en dur). Les deux passent sur les jetons : ils suivent le
+   jour, la nuit et les plateaux.
+   ================================================================== */
+@media (min-width: 900px) {
+  .codexbar {
+    background: var(--surface);
+    border: var(--trait) solid var(--encre);
+    border-radius: var(--r-m);
+    box-shadow: var(--ombre);
+  }
+
+  .codexbar__total {
+    color: var(--encre);
+  }
+
+  #codex .filtre {
+    color: var(--paper-dim);
+    border-radius: var(--r-s);
+  }
+
+  #codex .filtre:hover,
+  #codex .filtre:focus-visible {
+    color: var(--encre);
+    background: color-mix(in srgb, var(--lilas) 60%, transparent);
+  }
+
+  #codex .filtre.is-on {
+    color: var(--encre);
+    background: var(--lilas);
+    border-left-color: var(--signal);
+  }
+}
+
+.codexbar__jauge i {
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.codexbar__jauge i.est-decouverte {
+  background: var(--paper-dim);
+}
+
+.carte.is-maitrisee {
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__pied {
+  background: var(--lilas);
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__nom {
+  color: var(--encre);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__etat {
+  color: var(--signal-pale);
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__pied {
+  background: var(--or-fond);
+  border-color: var(--or);
+}
+
+.carte.is-parfaite .carte__nom {
+  color: var(--encre);
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__etat {
+  color: var(--or);
+}
+
+.piste__etoiles {
+  color: var(--paper-dim);
+}
+
+/*
+ * UN RETRAIT HAUT SOUS LA BARRE, pour tous les écrans de menu sauf l'accueil.
+ *
+ * `.screen__scroll` se centre par `margin: auto` (décision n°6). Tant que le
+ * contenu tient, la marge le décolle de la barre ; dès qu'il DÉBORDE — l'écran
+ * de fin, la collection — elle tombe à zéro et le titre se colle au bord :
+ * mesuré, « ROMPU » à y=75 sous une barre qui finit à 74. `#home` est exclu :
+ * sa hauteur est calée au pixel près pour tenir sans défiler.
+ */
+#app.has-topbar .screen:not(#home) > .screen__scroll {
+  padding-top: 28px;
+}
+
+/* Au téléphone, MENU était un mot seul sous la grille des boutons — un lien
+   flottant, pas une action. Il prend la rangée, comme ENCORE au-dessus. */
+@media (max-width: 680px) and (orientation: portrait) {
+  #over #btnHome {
+    grid-column: 1 / -1;
+  }
+}
+
+/* L'en-tête d'une carte tient sur UNE ligne : « DÉFORMATION ★ 0/15 » se
+   cassait en deux dans 150 px (interlettrage 0,16em), et les cartes d'une même
+   rangée n'avaient plus la même tête. Raccourcir l'écartement, pas le mot. */
+.carte__tete {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+.carte__famille,
+.carte__cases {
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 680px) and (orientation: portrait) {
+  #over #btnHome {
+    background: var(--surface);
+    border: var(--trait) solid var(--encre);
+    box-shadow: 0 3px 0 var(--ombre-c);
+  }
+}
+
+/* ==================================================================
+   LE MUR DES RECORDS — trois blocs, chacun son épreuve
+   ================================================================== */
+.mur__tete,
+.mur__pied {
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .mur__tete,
+  .mur__pied {
+    grid-column: 1 / -1;
+  }
+}
+
+.mur__col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.mur__bloc,
+#classement .amis {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 20px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  text-align: left;
+}
+
+#classement .amis {
+  margin-top: 0;
+}
+
+.mur__bloc .eyebrow,
+#classement .amis > .eyebrow {
+  margin: 0;
+}
+
+.mur__regle {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--encre);
+}
+
+#classement .mur__mien {
+  margin: 0;
+  font-size: var(--t-petit);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+#classement .podium {
+  margin: 4px 0 0;
+}
+
+#btnMurJouer {
+  align-self: stretch;
+}
+
+#btnMurJouer:disabled {
+  opacity: 0.5;
+}
+
+.mur__vide.hidden {
+  display: none;
+}
+
+.mur__vide {
+  margin: 0;
+  color: var(--paper-dim);
+}
+
+.records {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.records__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.records__ligne:last-child {
+  border-bottom: 0;
+}
+
+.records__quoi {
+  font-size: var(--t-petit);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records__val {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--encre);
+}
+
+.records__unite {
+  min-width: 8ch;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+/* La première ligne est le run du jour quand il existe : l'épreuve commune. */
+.records__ligne--jour .records__quoi {
+  color: var(--signal-pale);
+}
+
+#classement .mur__tete {
+  text-align: center;
+}

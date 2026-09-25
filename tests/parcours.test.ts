@@ -17,6 +17,7 @@ import {
   chapitreOuvert,
   enregistreEssai,
   ETOILES_MAX,
+  etoilesChapitre,
   etoilesDeLEssai,
   fusionneEtoiles,
   litEtoiles,
@@ -216,5 +217,33 @@ describe("les vies dans Session", () => {
     expect(s.vies).toBe(VIES_NIVEAU - 1);
     expect(s.phase).toBe("playing");
     expect(s.vieJustePerdue).toBe(true);
+  });
+});
+
+describe("⚠️ un ancien joueur n'est pas renvoyé au chapitre 1", () => {
+  const tout = () => true;
+  it("un chapitre dont la règle est déjà au carnet est ouvert, sans boss", () => {
+    const connues = new Set(CHAPITRES);
+    for (let i = 0; i < CHAPITRES.length; i++) {
+      expect(chapitreOuvert({}, i, tout, CHAPITRES, connues), CHAPITRES[i]).toBe(true);
+      expect(niveauOuvert({}, i, 1, tout, CHAPITRES, connues)).toBe(true);
+    }
+  });
+
+  it("…mais ses niveaux s'enchaînent toujours dans l'ordre, et rien n'est offert", () => {
+    const connues = new Set(CHAPITRES);
+    expect(niveauOuvert({}, 3, 2, tout, CHAPITRES, connues)).toBe(false);
+    expect(etoilesChapitre({}, CHAPITRES[3]!)).toBe(0);
+  });
+
+  it("une règle jamais rencontrée reste verrouillée derrière son boss", () => {
+    const connues = new Set([CHAPITRES[0]!]);
+    expect(chapitreOuvert({}, 2, tout, CHAPITRES, connues)).toBe(false);
+  });
+
+  it("JOUER mène au premier niveau non réussi, pas au premier chapitre verrouillé", () => {
+    const connues = new Set(CHAPITRES);
+    const e = { [CHAPITRES[0]!]: [3, 3, 3, 3, 3] };
+    expect(prochainNiveau(e, tout, CHAPITRES, connues)).toEqual({ chapitre: 1, ruleId: CHAPITRES[1], niveau: 1 });
   });
 });
