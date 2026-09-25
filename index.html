@@ -1429,8 +1429,50 @@
            salon n'en dépend : c'est une couche au-dessus de l'identité, pas un
            préalable. -->
       <section class="screen hidden" id="compte">
-        <div class="screen__scroll">
-          <p class="eyebrow" data-i18n="compte.eyebrow">ACCOUNT</p>
+        <div class="screen__scroll profil">
+          <p class="eyebrow" data-i18n="profil.eyebrow">PROFILE</p>
+
+          <!-- QUI TU ES — ce que les autres voient de toi, sur UNE carte.
+               Rapporté par Pierre : « c'est quand on clique sur changer de nom
+               qu'on peut changer sa photo de profil ». La photo et la carte de
+               visite vivaient cachées derrière l'écran NOM ET SIGNE du multi.
+               Elles sont ici, à découvert, et l'écran se tient SANS compte :
+               un profil n'est pas un compte (décision n°12). -->
+          <div class="profil__tete">
+            <!-- L'avatar EST l'aperçu de la photo : un seul visage par écran. -->
+            <span class="profil__avatar" id="idPhotoApercu" aria-hidden="true"></span>
+            <div class="profil__qui">
+              <p class="profil__nom" id="profilNom"></p>
+              <p class="profil__via" id="profilVia"></p>
+            </div>
+            <button class="btn profil__modifier" id="btnCompteNom" data-i18n="compte.nom">NAME AND SIGN</button>
+          </div>
+
+          <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
+               collection ne dévoile pas une règle jamais rencontrée (n°7), et
+               un choix qui se débloque en jouant est une raison de jouer.
+               Elle habille le siège, la plaque et la ligne du classement :
+               c'est ce qui fait reconnaître un joueur sans lire son nom. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.carte">YOUR CARD</p>
+          <div class="cartepick" id="idCartes" role="radiogroup" aria-label="YOUR CARD" data-i18n-aria="profil.carte"></div>
+          <p class="fineprint" data-i18n="profil.carteAide">WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.</p>
+
+          <!-- LA PHOTO. Réduite à 96 × 96 PAR LE CLIENT avant d'être gardée
+               ou envoyée (`render/photo.ts`) : la pleine résolution ne quitte
+               jamais l'appareil. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.photo">YOUR PHOTO</p>
+          <div class="photopick">
+            <label class="btn photopick__choisir" for="idPhotoFichier" data-i18n="profil.photoChoisir">CHOOSE A PHOTO</label>
+            <input class="photopick__fichier" id="idPhotoFichier" type="file" accept="image/*" />
+            <button type="button" class="btn btn--ghost hidden" id="btnPhotoRetirer" data-i18n="profil.photoRetirer">REMOVE</button>
+          </div>
+          <p class="fineprint" data-i18n="profil.photoAide">ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.</p>
+          <p class="warn hidden" id="profilErr"></p>
+
+          <!-- LE COMPTE — sous le profil, et seulement s'il existe sur ce
+               déploiement : sans fournisseur, la section se tait entière. -->
+          <div class="profil__compte" id="profilCompte">
+          <p class="eyebrow profil__titre" data-i18n="compte.eyebrow">ACCOUNT</p>
           <h2 class="rulename" id="compteTitre">SAVE YOUR RUNS</h2>
           <p class="lede" id="compteLede"></p>
 
@@ -1447,17 +1489,6 @@
 
           <!-- Connecté : qui l'on est, et ce que le compte porte. -->
           <div class="account__on hidden" id="compteConnecte">
-            <!-- L'IDENTITE : le signe, le nom, le fournisseur. Le signe est ce
-                 a quoi les autres reconnaissent le joueur en salon — il vient
-                 avant le nom. -->
-            <div class="cpt__tete">
-              <div class="cpt__signe" id="cptSigne" aria-hidden="true"></div>
-              <div class="cpt__qui">
-                <p class="cpt__nom" id="cptNom"></p>
-                <p class="cpt__via" id="cptVia"></p>
-              </div>
-            </div>
-
             <!-- Quatre chiffres, et aucun n'est un jugement. -->
             <div class="cpt__grille" id="cptGrille"></div>
 
@@ -1482,13 +1513,6 @@
 
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
-              <!-- CHANGER DE NOM.
-                   Rapporte par un joueur : « impossible de changer nom apres
-                   connexion ». Le nom n'etait saisissable que sur le chemin du
-                   multijoueur, donc un joueur solo n'en avait aucun et personne
-                   ne pouvait revenir sur le sien. Ce bouton rouvre l'ecran NOM
-                   ET SIGNE deja existant plutot que d'en dupliquer un ici. -->
-              <button class="btn" id="btnCompteNom" data-i18n="compte.nom">CHANGE NAME</button>
               <button class="btn btn--ghost" id="btnCompteQuitter" data-i18n="compte.deconnexion">SIGN OUT</button>
               <!-- Deux temps, jamais un seul : le premier clic dit ce qui va
                    disparaître, le second le fait. Un bouton de suppression qui
@@ -1496,6 +1520,7 @@
               <button class="btn btn--ghost" id="btnCompteSupprimer" data-i18n="compte.supprimer">DELETE ACCOUNT</button>
             </div>
             <p class="warn hidden" id="compteDanger"></p>
+          </div>
           </div>
 
           <div class="btnrow">
@@ -1535,26 +1560,6 @@
                personne ne pouvait le deviner. -->
           <p class="fineprint" data-i18n="multi.signeVoyage">YOUR SIGN TRAVELS IN YOUR ACCOUNT TOKEN: IT SURVIVES A CHANGE OF DEVICE.</p>
 
-          <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
-               collection ne dévoile pas une règle jamais rencontrée (n°7), et
-               un choix qui se débloque en jouant est une raison de jouer.
-               Elle habille le siège, la plaque et la ligne du classement :
-               c'est ce qui fait reconnaître un joueur sans lire son nom. -->
-          <p class="eyebrow profil__titre" data-i18n="profil.carte">YOUR CARD</p>
-          <div class="cartepick" id="idCartes" role="radiogroup" aria-label="YOUR CARD" data-i18n-aria="profil.carte"></div>
-          <p class="fineprint" data-i18n="profil.carteAide">WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.</p>
-
-          <!-- LA PHOTO. Réduite à 96 × 96 PAR LE CLIENT avant d'être gardée
-               ou envoyée (`render/photo.ts`) : la pleine résolution ne quitte
-               jamais l'appareil. -->
-          <p class="eyebrow profil__titre" data-i18n="profil.photo">YOUR PHOTO</p>
-          <div class="photopick">
-            <span class="photopick__apercu" id="idPhotoApercu" aria-hidden="true"></span>
-            <label class="btn photopick__choisir" for="idPhotoFichier" data-i18n="profil.photoChoisir">CHOOSE A PHOTO</label>
-            <input class="photopick__fichier" id="idPhotoFichier" type="file" accept="image/*" />
-            <button type="button" class="btn btn--ghost hidden" id="btnPhotoRetirer" data-i18n="profil.photoRetirer">REMOVE</button>
-          </div>
-          <p class="fineprint" data-i18n="profil.photoAide">ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.</p>
           <p class="warn hidden" id="idErr"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnIdOk" data-i18n="multi.continuer">CONTINUE</button>

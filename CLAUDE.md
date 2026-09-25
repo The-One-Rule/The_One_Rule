@@ -882,6 +882,28 @@ voyage À PART du `room`, une fois à l'arrivée, jamais à chaque état du salo
 - Mesuré à deux navigateurs : plaques identiques avec et sans profil
   (210 × 102 bureau, 90/76 × 75 téléphone). La taille du champ ne bouge pas.
 
+### Le PROFIL est un écran, pas un détour (25/09/2026)
+
+Rapporté par Pierre : « c'est quand on clique sur changer de nom qu'on peut
+changer sa photo de profil ». La carte de visite et la photo vivaient DERRIÈRE
+l'écran NOM ET SIGNE du multi — et dans `multi.ts`, qui rend un objet INERTE
+sans `VITE_WS_URL` : sans serveur de salons, elles n'existaient pas.
+
+- `#compte` devient PROFIL : une carte d'identité (visage, nom, `SUR CET
+  APPAREIL` / `CONNECTÉ`, bouton NOM ET SIGNE), la carte et la photo à
+  découvert, puis la section COMPTE (`#profilCompte`) en dessous.
+- ⚠️ **Le bouton de la barre haute est TOUJOURS visible** — il portait
+  l'invariant « masqué sans fournisseur ». Il ouvre maintenant un profil qui se
+  tient sans compte ; c'est `#profilCompte` qui se tait sans fournisseur, et
+  `tests/invariants-compte` le vérifie là. Il porte un visage et un nom, donc
+  **jamais de `textContent`** dessus (`peintBoutonProfil`) : `appliqueLangue`
+  ne le touche plus, et `libelleCompte` est parti avec.
+- `src/profil.ts` porte les deux sélecteurs, sans réseau ; `multi.envoieProfil()`
+  prévient le salon. L'avatar du profil EST l'aperçu de la photo (un seul
+  visage par écran) et lit `signeAffiche` comme la barre et les salons.
+- ⚠️ Reste vrai : NOM ET SIGNE passe par `multi.ouvreIdentite`, donc il est
+  inerte sans serveur de salons. Sans conséquence en production.
+
 ### Les plateaux habillent toute la partie (25/09/2026)
 
 Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas

@@ -2289,22 +2289,7 @@ body {
   margin: 8px 0 4px;
 }
 
-.photopick__apercu {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 50%;
-  border: 3px solid var(--encre);
-  background: var(--surface);
-}
 
-.photopick__apercu img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 /* Le vrai champ est masqué, pas retiré : le `<label>` le déclenche, et un
    `display: none` l'empêcherait de recevoir le focus clavier. */
@@ -2318,6 +2303,159 @@ body {
 
 .photopick__choisir {
   cursor: pointer;
+}
+
+/* ==================================================================
+   LE PROFIL — qui tu es, ce que les autres voient de toi
+   ------------------------------------------------------------------
+   Une carte d'identité en tête (visage, nom, signe, NOM ET SIGNE), la
+   carte de visite et la photo à découvert, le compte en dessous. Même
+   matière que le mur des records : un bloc est un autocollant.
+   ================================================================== */
+#compte .profil {
+  text-align: left;
+}
+
+.profil__tete {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 4px;
+  padding: 14px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.profil__avatar {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: var(--trait) solid var(--encre);
+  background: var(--lilas);
+}
+
+.profil__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profil__qui {
+  min-width: 0;
+}
+
+.profil__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--encre);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profil__via {
+  margin: 6px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+/* À 375, le bouton passe SOUS le nom : trois colonnes y laissaient au nom
+   moins de largeur qu'un prénom. */
+@media (max-width: 520px) {
+  .profil__tete {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .profil__modifier {
+    grid-column: 1 / -1;
+  }
+}
+
+#compte .profil .fineprint,
+#compte .profil .eyebrow {
+  text-align: left;
+}
+
+#compte .cartepick,
+#compte .photopick {
+  justify-content: flex-start;
+}
+
+.profil__compte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: var(--trait) dashed var(--line);
+}
+
+.profil__compte.hidden {
+  display: none;
+}
+
+/* Le compte est une section du profil, pas un second écran : son titre
+   descend d'un cran, et le filet décoratif (centré ailleurs) s'aligne. */
+.profil__compte .rulename {
+  text-align: left;
+  margin: 0;
+  font-size: clamp(24px, 6vw, 32px);
+}
+
+.profil__compte .rulename::after {
+  margin-left: 0;
+}
+
+.profil__compte .lede {
+  margin: 0;
+  max-width: none;
+  text-align: left;
+}
+
+/* Le bouton PROFIL de la barre haute : un visage et un nom. */
+#btnTopCompte {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 180px;
+  padding-left: 6px;
+}
+
+#btnTopCompte.hidden {
+  display: none;
+}
+
+.topprofil__visage {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  background: var(--lilas);
+}
+
+.topprofil__visage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topprofil__nom {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ==================================================================

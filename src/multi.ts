@@ -33,7 +33,6 @@ import { track } from "./analytics";
 import { cleanEnv } from "./env";
 import { NetClient } from "./net/client";
 import { photoValide } from "../shared/profil";
-import { reduitPhoto } from "./render/photo";
 import { GLYPH_COUNT, glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
@@ -150,6 +149,11 @@ export type MultiApi = {
    * lui apprendre à en nommer d'autres l'attacherait à l'application.
    */
   ouvreIdentite: (revenir: () => void) => void;
+  /**
+   * La carte ou la photo vient de changer : on la renvoie au salon si l'on y
+   * est (message `profil`), sans reconnexion contrairement au nom.
+   */
+  envoieProfil: () => void;
   /**
    * Le nom vient d'être validé — quel que soit l'écran d'où l'on venait.
    *
@@ -987,6 +991,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     onScreen: () => {},
     onLangue: () => {},
     ouvreIdentite: () => {},
+    envoieProfil: () => {},
     onIdentite: () => {},
   };
 
@@ -3069,92 +3074,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     $<HTMLInputElement>("idName").value = savedName() ?? "";
     $("idErr").classList.add("hidden");
     renderGlyphPicker();
-    renderProfilPicker();
     show("multi-id");
   }
-
-  /**
-   * LA CARTE DE VISITE ET LA PHOTO — enregistrées DÈS le choix, et renvoyées
-   * au salon si l'on y est : contrairement au nom, elles ne demandent pas de
-   * reconnexion (message `profil`).
-   */
-  function renderProfilPicker(): void {
-    const s = P.load();
-    const hote = $("idCartes");
-    hote.replaceChildren();
-    const gagnees = Object.keys(s.encountered)
-      .map((id) => ruleById(id))
-      .filter((r): r is OneRule => !!r);
-    const choix: (OneRule | null)[] = [null, ...gagnees];
-    for (const r of choix) {
-      const opt = document.createElement("button");
-      opt.type = "button";
-      opt.className = "cartepick__opt" + (r ? "" : " cartepick__opt--aucune");
-      opt.setAttribute("role", "radio");
-      const pris = (s.profil.carte ?? null) === (r?.id ?? null);
-      opt.setAttribute("aria-checked", String(pris));
-      opt.setAttribute("aria-label", r ? nomDeRegle(r.id, r.name) : tr("carteAucune"));
-      if (r) {
-        const img = document.createElement("img");
-        img.src = `/cartes/${r.id}.png`;
-        img.alt = "";
-        img.loading = "lazy";
-        opt.appendChild(img);
-      } else {
-        opt.textContent = "—";
-      }
-      opt.addEventListener("click", () => {
-        sfx.ui();
-        P.mutate((st) => {
-          if (r) st.profil.carte = r.id;
-          else delete st.profil.carte;
-        });
-        net?.envoieProfil();
-        renderProfilPicker();
-      });
-      hote.appendChild(opt);
-    }
-    const photo = s.profil.photo;
-    const apercu = $("idPhotoApercu");
-    if (photo) {
-      const img = document.createElement("img");
-      img.src = photo;
-      img.alt = "";
-      apercu.replaceChildren(img);
-    } else {
-      apercu.innerHTML = glyphSvg(glyphVariant(s.anonId, glyphChoisi), 40);
-    }
-    $("btnPhotoRetirer").classList.toggle("hidden", !photo);
-  }
-
-  $<HTMLInputElement>("idPhotoFichier").addEventListener("change", async (ev) => {
-    const champ = ev.currentTarget as HTMLInputElement;
-    const fichier = champ.files?.[0];
-    champ.value = "";
-    if (!fichier) return;
-    const photo = await reduitPhoto(fichier);
-    if (!photo) {
-      $("idErr").textContent = tr("photoIllisible");
-      $("idErr").classList.remove("hidden");
-      return;
-    }
-    $("idErr").classList.add("hidden");
-    P.mutate((st) => {
-      st.profil.photo = photo;
-    });
-    sfx.ui();
-    net?.envoieProfil();
-    renderProfilPicker();
-  });
-
-  $("btnPhotoRetirer").addEventListener("click", () => {
-    P.mutate((st) => {
-      delete st.profil.photo;
-    });
-    sfx.ui();
-    net?.envoieProfil();
-    renderProfilPicker();
-  });
 
   /**
    * Exige une identité avant d'agir. Retourne vrai si l'écran a été ouvert —
@@ -4162,5 +4083,6 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     onIdentite: (cb) => {
       surIdentite = cb;
     },
+    envoieProfil: () => net?.envoieProfil(),
   };
 }

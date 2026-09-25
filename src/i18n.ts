@@ -67,8 +67,6 @@ type Textes = {
   fineprintReglagesHtml: string;
   menu: string;
   reglages: string;
-  compte: string;
-  monCompte: string;
   brandAria: string;
   langAria: string;
   runFait: (score: number) => string;
@@ -103,8 +101,6 @@ export const TEXTES: Record<Lang, Textes> = {
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
     reglages: "RÉGLAGES",
-    compte: "COMPTE",
-    monCompte: "MON COMPTE",
     brandAria: "THE ONE RULE, retour à l'accueil",
     langAria: "Langue",
     runFait: (score) => `RUN DU JOUR FAIT · ${score}`,
@@ -124,8 +120,6 @@ export const TEXTES: Record<Lang, Textes> = {
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
     reglages: "SETTINGS",
-    compte: "ACCOUNT",
-    monCompte: "MY ACCOUNT",
     brandAria: "THE ONE RULE, back to home",
     langAria: "Language",
     runFait: (score) => `DAILY RUN DONE · ${score}`,
@@ -286,7 +280,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carnet.collection": "COLLECTION",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
     "fiche.retour": "‹ LA COLLECTION",
-    "compte.nom": "CHANGER DE NOM",
+    "compte.nom": "NOM ET SIGNE",
+    "profil.eyebrow": "PROFIL",
     "compte.deconnexion": "SE DÉCONNECTER",
     "compte.supprimer": "SUPPRIMER LE COMPTE",
     "multi.eyebrow": "MULTIJOUEUR",
@@ -479,7 +474,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carnet.collection": "COLLECTION",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
     "fiche.retour": "‹ COLLECTION",
-    "compte.nom": "CHANGE NAME",
+    "compte.nom": "NAME AND SIGN",
+    "profil.eyebrow": "PROFILE",
     "compte.deconnexion": "SIGN OUT",
     "compte.supprimer": "DELETE ACCOUNT",
     "multi.eyebrow": "MULTIPLAYER",
@@ -683,7 +679,6 @@ type Dyn = {
   tutoRalenti: string;
   tutoPasCelleLa: string;
   tutoInterdit: string;
-  cptNomEnvoi: string;
   cptNomRate: string;
   compteConfirmer: string;
   compteTitreConnecte: string;
@@ -769,8 +764,9 @@ type Dyn = {
   tenu: string;
   faitMaj: string;
   /* --- ecran de compte --- */
-  cptNom: string;
   cptSansNom: string;
+  profilLocal: string;
+  profilTop: string;
   cptCarnet: string;
   cptRegles: (n: number, total: number) => string;
   cptSerie: string;
@@ -1289,7 +1285,6 @@ const DYN: Record<Lang, Dyn> = {
     tutoRalenti: "CHRONO RALENTI POUR CETTE MANCHE",
     tutoPasCelleLa: "PAS CELLE-LÀ — REGARDE LA COULEUR DEMANDÉE",
     tutoInterdit: "TA RÈGLE INTERDIT LE ROUGE",
-    cptNomEnvoi: "ENVOI…",
     cptNomRate: "LE NOM N'A PAS PU ÊTRE ENREGISTRÉ — IL RESTE VALABLE SUR CET APPAREIL",
     compteConfirmer: "CONFIRMER LA SUPPRESSION",
     compteTitreConnecte: "TON COMPTE",
@@ -1368,8 +1363,9 @@ const DYN: Record<Lang, Dyn> = {
     piegeDejoue: "PIÈGE DÉJOUÉ",
     tenu: "TENU",
     faitMaj: "FAIT",
-    cptNom: "NOM",
     cptSansNom: "SANS NOM",
+    profilLocal: "SUR CET APPAREIL",
+    profilTop: "PROFIL",
     cptCarnet: "CARNET",
     cptRegles: (n, tot) => `${n} / ${tot} RÈGLES`,
     cptSerie: "SÉRIE",
@@ -1805,7 +1801,6 @@ const DYN: Record<Lang, Dyn> = {
     tutoRalenti: "CLOCK SLOWED FOR THIS ROUND",
     tutoPasCelleLa: "NOT THAT ONE — LOOK AT THE COLOUR ASKED FOR",
     tutoInterdit: "YOUR RULE FORBIDS RED",
-    cptNomEnvoi: "SAVING…",
     cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
     compteConfirmer: "CONFIRM DELETION",
     compteTitreConnecte: "YOUR ACCOUNT",
@@ -1884,8 +1879,9 @@ const DYN: Record<Lang, Dyn> = {
     piegeDejoue: "TRAP AVOIDED",
     tenu: "HELD",
     faitMaj: "DONE",
-    cptNom: "NAME",
     cptSansNom: "NO NAME",
+    profilLocal: "ON THIS DEVICE",
+    profilTop: "PROFILE",
     cptCarnet: "RULE BOOK",
     cptRegles: (n, tot) => `${n} / ${tot} RULES`,
     cptSerie: "STREAK",
@@ -2269,11 +2265,7 @@ const poseTexte = (el: HTMLElement | null, texte: string): void => {
  * N'écrit JAMAIS dans `#btnSolo` ni `#btnMulti` : ce sont des boutons à
  * trois `<span>`, et un `textContent` les détruit (voir `tests/cartes.test.ts`).
  */
-export function appliqueLangue(
-  doc: Document,
-  lang: Lang,
-  extra?: { compte?: string },
-): void {
+export function appliqueLangue(doc: Document, lang: Lang): void {
   const t = TEXTES[lang];
   poseLangue(lang);
   doc.documentElement.lang = lang;
@@ -2340,7 +2332,8 @@ export function appliqueLangue(
 
   poseTexte(doc.getElementById("btnTopMenu"), t.menu);
   poseTexte(doc.getElementById("btnTopReglages"), t.reglages);
-  poseTexte(doc.getElementById("btnTopCompte"), extra?.compte ?? t.compte);
+  // PROFIL n'est pas posé ici : le bouton porte un visage et un nom
+  // (`peintBoutonProfil`), et un `textContent` les détruirait.
 
   const brand = doc.getElementById("btnTopBrand");
   if (brand) brand.setAttribute("aria-label", t.brandAria);
@@ -2369,11 +2362,6 @@ export function etatSolo(
   return morceaux.join(" · ");
 }
 
-export function libelleCompte(lang: Lang, pseudo: string | null): string {
-  const t = TEXTES[lang];
-  if (pseudo === null) return t.compte;
-  return pseudo || t.monCompte;
-}
 
 /* ------------------------------------------------------------------ *
  * LA CONSIGNE, COMPOSÉE

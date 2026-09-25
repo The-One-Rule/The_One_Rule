@@ -259,15 +259,20 @@ describe("l'écran de compte", () => {
     expect(ouvertures).toHaveLength(1);
   });
 
-  it("le bouton de compte est masqué tant qu'aucun fournisseur n'existe", () => {
+  it("la section COMPTE se tait tant qu'aucun fournisseur n'existe", () => {
     // Un bouton qui mène à « indisponible » annonce une fonctionnalité que le
     // jeu ne tient pas : c'est le piège de confiance le plus facile à
     // commettre dans ce chantier.
+    //
+    // ⚠️ Le bouton de la barre haute, lui, est TOUJOURS là depuis qu'il ouvre
+    // le PROFIL (photo, carte, nom et signe), qui se tient sans compte. C'est
+    // la section du compte, dans l'écran, qui porte l'invariant désormais.
     const html = lit("index.html");
-    // Il vit dans la barre haute depuis qu'il était noyé dans le pied de
-    // l'accueil, entre MUSIQUE et MOTIFS.
     expect(html).toMatch(/id="btnTopCompte"/);
-    expect(lit("src/main.ts")).toContain('$("btnTopCompte").classList.toggle("hidden"');
+    expect(html).toMatch(/id="profilCompte"/);
+    expect(lit("src/main.ts")).toMatch(
+      /\$\("profilCompte"\)\.classList\.toggle\("hidden", !connecte && !comptesPossibles\(\)\)/,
+    );
   });
 
   it("la barre haute n'existe pas pendant la partie", () => {

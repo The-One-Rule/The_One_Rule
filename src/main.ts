@@ -100,6 +100,7 @@ import {
 import { enfile, estRefusReel, vide } from "./compte/file";
 import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
 import { lignesRecords } from "./game/murRecords";
+import { brancheProfil, rendProfil } from "./profil";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
 import type { Resultat } from "./compte/file";
@@ -124,7 +125,6 @@ import {
   estLang,
   jetons,
   langue,
-  libelleCompte,
   accrocheDuJour,
   briefDeRegle,
   libelleQuete,
@@ -968,10 +968,7 @@ function renderHome(): void {
    * chaque bascule, qui ne se rattrapait qu'au repeint suivant.
    */
   const lang: Lang = estLang(s.lang) ? s.lang : "fr";
-  const c = compte();
-  appliqueLangue(document, lang, {
-    compte: libelleCompte(lang, c ? c.pseudo : null),
-  });
+  appliqueLangue(document, lang);
 
   hud.setRule(null);
   hud.clearRound();
@@ -1042,7 +1039,7 @@ function renderHome(): void {
    * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
    * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
    */
-  $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
+  peintBoutonProfil();
 
   /*
    * DEUX ACCUEILS, UN SEUL ÉCRAN.
@@ -2285,10 +2282,19 @@ function renderCompte(): void {
   const maitriseesN = combien("maitrisee") + combien("parfaite");
   const monRecord = P.recordDeSonAllure(s);
 
+  /*
+   * LE PROFIL D'ABORD — il existe sans compte (décision n°12). Le nom vient
+   * de l'appareil, qui est aussi ce que le salon reçoit ; celui du jeton ne
+   * sert que si l'appareil n'en a pas encore.
+   */
+  rendProfil();
+  $("profilNom").textContent = s.ranked.name || c?.pseudo || t("cptSansNom");
+  $("profilVia").textContent = connecte ? t("cptConnecte") : t("profilLocal");
+  // La section COMPTE se tait entière quand ce déploiement n'en a pas.
+  $("profilCompte").classList.toggle("hidden", !connecte && !comptesPossibles());
+
   if (connecte) {
     $("compteLede").textContent = t("cptEnregistre");
-    $("cptSigne").innerHTML = glyphSvg(signeAffiche(s), 34);
-    $("cptNom").textContent = c.pseudo || t("cptSansNom");
     /*
      * ⚠️ Le FOURNISSEUR n'est pas affiché, et c'est un manque assumé.
      *
@@ -2298,7 +2304,6 @@ function renderCompte(): void {
      * donc de toucher aussi le serveur de salons, qui le vérifie. Deviner
      * serait pire que se taire.
      */
-    $("cptVia").textContent = t("cptConnecte");
     grille($("cptGrille"), [
       [String(monRecord), t("cptMeilleur")],
       [`${vues} / ${ONE_RULES.length}`, t("cptRegleCarnet")],
@@ -2460,6 +2465,37 @@ function renderCompte(): void {
       : "";
   err.classList.toggle("hidden", !vide && !refus);
   err.textContent = refus || (vide ? t("compteIndispo") : "");
+}
+
+/**
+ * Le bouton PROFIL de la barre haute : ton visage et ton nom.
+ *
+ * Il était masqué tant que ce déploiement n'avait pas de comptes. Or l'écran
+ * est devenu un PROFIL — photo, carte, nom et signe — qui se tient sans
+ * compte : le masquer cachait la photo à tout le monde, ce qui est exactement
+ * le défaut rapporté. Le bouton est donc toujours là ; c'est la section
+ * COMPTE, dans l'écran, qui se tait sans fournisseur.
+ */
+function peintBoutonProfil(): void {
+  const s = P.load();
+  const b = $("btnTopCompte");
+  b.classList.remove("hidden");
+  const visage = document.createElement("span");
+  visage.className = "topprofil__visage";
+  visage.setAttribute("aria-hidden", "true");
+  if (s.profil.photo) {
+    const img = document.createElement("img");
+    img.src = s.profil.photo;
+    img.alt = "";
+    visage.appendChild(img);
+  } else {
+    visage.innerHTML = glyphSvg(signeAffiche(s), 22);
+  }
+  const nom = document.createElement("span");
+  nom.className = "topprofil__nom";
+  nom.textContent = s.ranked.name || t("profilTop");
+  b.replaceChildren(visage, nom);
+  b.setAttribute("aria-label", t("profilTop"));
 }
 
 async function ouvreCompte(): Promise<void> {
@@ -7344,7 +7380,13 @@ multi.onLangue();
  * quand on arrive ici — le multijoueur marchera. Le serveur, lui, rattrapera au
  * prochain rafraîchissement de jeton.
  */
+brancheProfil(() => {
+  multi.envoieProfil();
+  peintBoutonProfil();
+});
+
 multi.onIdentite((nom, glyphe) => {
+  peintBoutonProfil();
   if (!estConnecte()) return;
   void changeIdentite(nom, glyphe, P.load().profil.carte ?? null).then((moi) => {
     if (!moi) {
