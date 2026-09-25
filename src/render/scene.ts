@@ -465,6 +465,49 @@ export class SceneRenderer {
   }
 
   /** Voile signal court en repère CSS (sans secousse). */
+  /**
+   * LA PRESSION — voir `render/tension.ts`. Le voile du palier et l'éclat du
+   * battement, posés par la boucle à chaque image. Ils ne touchent QUE le
+   * pourtour du terrain : le champ est découpé, au pixel.
+   */
+  pression = { voile: 0, eclat: 0 };
+  private sursautJusque = 0;
+
+  /** Un palier vient d'être franchi : le pourtour s'embrase un instant. */
+  sursaut(now: number): void {
+    this.sursautJusque = now + 700;
+  }
+
+  private drawPression(now: number): void {
+    const { ctx, cssW: W, cssH: H } = this;
+    const sursaut = now < this.sursautJusque ? (this.sursautJusque - now) / 700 : 0;
+    const eclat = this.reduced ? 0 : this.pression.eclat;
+    const a = Math.min(0.6, this.pression.voile * (1 + eclat * 0.9) + sursaut * 0.35);
+    if (a <= 0.004) return;
+    const f = rectEcran(this.cadreCourant);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.rect(f.x, f.y, f.w, f.h);
+    ctx.clip("evenodd");
+    /*
+     * Plus dense aux BORDS de l'écran qu'au bord du terrain : la pression
+     * vient de l'extérieur et se referme sur le jeu. Un aplat uniforme se
+     * lisait comme un changement de couleur de page, pas comme une menace.
+     */
+    const cx = f.x + f.w / 2;
+    const cy = f.y + f.h / 2;
+    const r0 = Math.min(f.w, f.h) / 2;
+    const r1 = Math.hypot(W, H) / 2 + 1;
+    const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+    const teinte = this.sombre ? "196,34,64" : "142,18,38";
+    g.addColorStop(0, `rgba(${teinte},${a * 0.45})`);
+    g.addColorStop(1, `rgba(${teinte},${a})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
   flashViolet(now: number): void {
     // Célébration pure : la gerbe et le son portent déjà l'information, le
     // voile ne fait que la rendre spectaculaire. Il peut donc s'effacer.
@@ -893,6 +936,9 @@ export class SceneRenderer {
         ctx.stroke();
       }
     }
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.drawPression(now);
 
     if (ratio !== undefined) {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

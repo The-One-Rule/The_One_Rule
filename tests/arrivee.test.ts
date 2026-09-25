@@ -10,7 +10,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
-const ctxStub = new Proxy({}, { get: () => () => undefined }) as CanvasRenderingContext2D;
+// Chaque méthode rend le contexte lui-même : un dégradé (`createRadialGradient`)
+// doit accepter `addColorStop`, comme dans un vrai navigateur.
+const ctxStub: CanvasRenderingContext2D = new Proxy({}, { get: () => () => ctxStub }) as never;
 
 beforeAll(() => {
   const html = readFileSync("index.html", "utf8");

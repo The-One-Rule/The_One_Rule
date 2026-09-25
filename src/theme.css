@@ -2583,6 +2583,24 @@ body {
 }
 
 /* ==================================================================
+   LE HALO DE CHALEUR, rendu visible
+
+   `.heat__vignette` peignait ses bords en `--ink` — le NOIR de l'identité
+   d'origine. Depuis STICKER, `--ink` est le sable du fond : le halo était du
+   sable sur du sable, invisible sur chaque partie depuis la refonte. Il
+   reprend la couleur de l'alerte, plus bas en opacité : la chaleur monte
+   vers le rouge, la zone critique l'atteint.
+   ================================================================== */
+.heat__vignette {
+  background:
+    linear-gradient(to right, var(--dead), transparent min(6%, 60px)),
+    linear-gradient(to left, var(--dead), transparent min(6%, 60px)),
+    linear-gradient(to bottom, var(--dead), transparent min(9%, 70px)),
+    linear-gradient(to top, var(--dead), transparent min(9%, 70px));
+  opacity: calc(var(--heat) * var(--heat) * 0.3);
+}
+
+/* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {

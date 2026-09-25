@@ -32,7 +32,6 @@ import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
-import * as F from "./render/flammes";
 import { doitDemanderAvis, nettoieAvis } from "./game/avis";
 import type { NoteAvis } from "./game/avis";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
@@ -100,6 +99,7 @@ import {
 import { enfile, estRefusReel, vide } from "./compte/file";
 import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
 import { lignesRecords } from "./game/murRecords";
+import { eclatBattement, palierTension, periodeCoeur } from "./render/tension";
 import { brancheProfil, rendProfil } from "./profil";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
@@ -4423,7 +4423,6 @@ function majTuto(now: number): void {
   if (now - tuto.debut < CHRONO_PIEGE_MS) return;
   // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
   sfx.trapAvoided();
-  attiseFlammes(0.6);
   if (tuto.temps === 2) {
     reussitTemps(t("tutoRienFaitBravo"), t("tutoRienFaitNote"), apresPiege);
   } else {
@@ -5588,8 +5587,6 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
-      // Tenu jusqu'au bout : le feu s'attise.
-      attiseFlammes(0.6);
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
@@ -6536,184 +6533,6 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
-/* ------------------------------------------------------------------ *
- * Les flammes — voir `render/flammes.ts`
- *
- * Le calque ne coûte rien quand il ne brûle pas : il est masqué et la boucle
- * ne le touche plus dès que la grille est éteinte. Hors d'une partie solo,
- * l'ardeur tombe à zéro et le feu s'éteint de lui-même en une seconde — il ne
- * se coupe pas net, ce qui se lirait comme un bug.
- * ------------------------------------------------------------------ */
-const flammesCv = $<HTMLCanvasElement>("flammes");
-const flammesCtx = flammesCv.getContext("2d");
-const FLAMMES_COUPEES =
-  typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-/** La planche de sprites, une fois TEINTÉE. `null` tant qu'elle n'est pas prête. */
-let planche: HTMLCanvasElement | null = null;
-let flammesVisibles = false;
-let flammesGeoDans = 0;
-let braises: F.Braise[] = [];
-let champFeu: F.Rect = { x: 0, y: 0, w: 0, h: 0 };
-/** La ligne d'où monte le feu du bas : le haut du pied. */
-let socleFeu = 0;
-let zonesLisibles: F.Rect[] = [];
-/** L'éclat d'un piège déjoué : 1 → 0 en ~800 ms. */
-let feuRafale = 0;
-
-/**
- * Charge la planche et la TEINT aux couleurs du jeu.
- *
- * ⚠️ La planche d'origine est rose-magenta ; l'identité du jeu est violette
- * (`--signal`, `--signal-pale`). On ne repeint pas image par image : un filtre
- * de teinte, une seule fois, dans un canvas hors écran. Le dessin par image ne
- * coûte donc rien de plus qu'un `drawImage`.
- *
- * Si le navigateur ignore `filter` (le repli le plus probable), le voile
- * `source-atop` suffit à ramener la flamme dans la famille violette : elle
- * sera moins nuancée, jamais rose.
- */
-function chargePlanche(): void {
-  const img = new Image();
-  img.decoding = "async";
-  img.src = F.PLANCHE.fichier;
-  img.onload = () => {
-    const off = document.createElement("canvas");
-    off.width = img.naturalWidth;
-    off.height = img.naturalHeight;
-    const c = off.getContext("2d");
-    if (!c) return;
-    c.imageSmoothingEnabled = false;
-    /*
-     * ⚠️ MESURÉ, PAS ESTIMÉ. Les pixels opaques de la planche sont à ~325°
-     * (magenta) et `--signal` est à 249° : la rotation vaut donc −76°. Le
-     * premier essai à −96° donnait des flammes BLEUES — visible tout de suite
-     * à l'écran, et hors de l'identité du jeu.
-     */
-    c.filter = "hue-rotate(-76deg) saturate(0.86) brightness(1.08)";
-    c.drawImage(img, 0, 0);
-    c.filter = "none";
-    c.globalCompositeOperation = "source-atop";
-    c.fillStyle = "rgba(145, 132, 217, 0.28)";
-    c.fillRect(0, 0, off.width, off.height);
-    planche = off;
-  };
-}
-if (!FLAMMES_COUPEES) chargePlanche();
-
-/**
- * Mesure où est le terrain, et ce qu'il ne faut jamais couvrir.
- *
- * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change de
- * hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit APRÈS
- * le changement de manche — une mesure prise à cet instant lirait la consigne
- * précédente, et le feu mordrait sur la nouvelle.
- */
-function geometrieFeu(): void {
-  const a = appEl.getBoundingClientRect();
-  if (flammesCv.width !== Math.round(a.width) || flammesCv.height !== Math.round(a.height)) {
-    flammesCv.width = Math.max(1, Math.round(a.width));
-    flammesCv.height = Math.max(1, Math.round(a.height));
-  }
-  const rel = (el: Element): F.Rect => {
-    const r = el.getBoundingClientRect();
-    return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height };
-  };
-  const c = rel(cv);
-  const f = scene.fieldRect();
-  champFeu = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
-  zonesLisibles = [];
-  for (const id of ["instr", "sub", "bandRule", "bandVies", "foot"]) {
-    const el = document.getElementById(id);
-    if (el && el.getBoundingClientRect().width > 0) zonesLisibles.push(rel(el));
-  }
-  /*
-   * ⚠️ LE FEU DU BAS MONTE DU HAUT DU PIED, pas du bas du calque : sous le
-   * pied, il est découpé, donc invisible. Mesuré au premier rendu — toutes les
-   * flammes du bas étaient perdues, et il ne restait que les deux côtés.
-   */
-  const pied = document.getElementById("foot");
-  socleFeu = pied && pied.getBoundingClientRect().height > 0 ? rel(pied).y : a.height;
-}
-
-function majFlammes(now: number): void {
-  if (FLAMMES_COUPEES || !flammesCtx) return;
-  const ardeur =
-    session && screen === null && session.phase === "playing"
-      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.45)
-      : 0;
-  feuRafale = Math.max(0, feuRafale - 0.02);
-
-  if (ardeur <= 0) {
-    if (flammesVisibles) {
-      flammesVisibles = false;
-      flammesCv.classList.add("hidden");
-      flammesCtx.clearRect(0, 0, flammesCv.width, flammesCv.height);
-    }
-    return;
-  }
-  if (!flammesVisibles) {
-    flammesVisibles = true;
-    flammesCv.classList.remove("hidden");
-    flammesGeoDans = 0;
-  }
-  if (flammesGeoDans-- <= 0) {
-    geometrieFeu();
-    flammesGeoDans = 15;
-    braises = F.braisesPour(
-      { w: flammesCv.width, h: flammesCv.height },
-      champFeu,
-      ardeur,
-      socleFeu,
-    );
-  }
-  if (!planche) return;
-
-  const ctx = flammesCtx;
-  ctx.clearRect(0, 0, flammesCv.width, flammesCv.height);
-  ctx.save();
-  /*
-   * ⚠️ LE DÉCOUPAGE EST LA GARANTIE, pas le placement.
-   *
-   * Les flammes sont posées hors du terrain, mais elles ONDULENT et montent :
-   * une langue peut dépasser. Le découpage — tout le calque SAUF le terrain et
-   * ce qui se lit — la rogne au pixel. Aucune pièce ne peut donc être couverte,
-   * quelle que soit la hauteur du feu (n°5 et n°10).
-   */
-  ctx.beginPath();
-  ctx.rect(0, 0, flammesCv.width, flammesCv.height);
-  ctx.rect(champFeu.x, champFeu.y, champFeu.w, champFeu.h);
-  for (const z of zonesLisibles) ctx.rect(z.x, z.y, z.w, z.h);
-  ctx.clip("evenodd");
-
-  ctx.imageSmoothingEnabled = false;
-  // L'éclat d'un piège déjoué : le feu blanchit un instant.
-  ctx.globalAlpha = Math.min(1, 0.82 + feuRafale * 0.18);
-  for (const b of braises) {
-    const { sx, sy } = F.imageDe(b, now);
-    const h = b.h * (1 + feuRafale * 0.35);
-    // La largeur suit le DESSIN, pas l'image de la planche : voir `BOITE`.
-    const w = (h * F.BOITE.w) / F.BOITE.h;
-    ctx.drawImage(
-      planche,
-      sx + F.BOITE.x,
-      sy + F.BOITE.y,
-      F.BOITE.w,
-      F.BOITE.h,
-      b.x - w / 2,
-      b.y - h,
-      w,
-      h,
-    );
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/** Le feu s'embrase : un piège vient d'être déjoué. */
-function attiseFlammes(force: number): void {
-  feuRafale = Math.min(1, feuRafale + force);
-}
-
 /** Le record du joueur AVANT le run en cours — photographié au lancement. */
 let recordAvantRun = 0;
 /** La pastille de dépassement ne flash qu'une fois par run. */
@@ -6749,6 +6568,57 @@ function setHeat(value: number, critical: boolean): void {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * La montée — voir `render/tension.ts`
+ *
+ * Un cœur qui bat de plus en plus vite à mesure que la PARTIE avance, qu'on
+ * entend (`sfx.coeur`) et qu'on voit sur le pourtour du terrain, au même
+ * instant. Le battement est porté par CETTE boucle, pas par une minuterie :
+ * même doctrine que le battement de lecture — un onglet qui ne compose pas
+ * ne doit rien jouer, et un filet qui déroule des images doit tout voir.
+ * ------------------------------------------------------------------ */
+/** Le palier déjà montré ; `-1` = pas encore observé (rien à fêter). */
+let palierVu = -1;
+let coeurDebut = 0;
+
+function poseTension(
+  manche: number | null,
+  grace: number,
+  enManche: boolean,
+  critique: boolean,
+  now: number,
+): void {
+  if (manche === null) {
+    palierVu = -1;
+    scene.pression = { voile: 0, eclat: 0 };
+    return;
+  }
+  const p = palierTension(manche, grace);
+  if (p.n > palierVu) {
+    // Le premier palier observé ne se fête pas : c'est l'état de départ
+    // (une reconnexion en pleine partie, un salon qui démarre).
+    if (palierVu >= 0) {
+      scene.sursaut(now);
+      sfx.palier(p.n);
+      try {
+        navigator.vibrate?.(40);
+      } catch {
+        /* un appareil sans vibreur joue quand même */
+      }
+    }
+    palierVu = p.n;
+  }
+  const periode = enManche ? periodeCoeur(p, critique) : 0;
+  if (periode && now - coeurDebut >= periode) {
+    coeurDebut = now;
+    sfx.coeur(p.coeur * (critique ? 1.15 : 1));
+  }
+  scene.pression = {
+    voile: p.voile,
+    eclat: periode ? eclatBattement(now - coeurDebut, periode) : 0,
+  };
+}
+
 /**
  * Chaleur d'une manche en cours.
  *
@@ -6773,7 +6643,6 @@ function loop(now: number): void {
   // Seulement sur l'accueil NEUF : sur le parcours, la démo est masquée, et un
   // décor qu'on ne voit pas n'a pas à coûter une image.
   if (screen === "home" && accueilNeuf) imageAttract(now);
-  majFlammes(now);
 
   /*
    * TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE : les plaques
@@ -6814,6 +6683,9 @@ function loop(now: number): void {
   if (tuto) majTuto(now);
 
   let multiDraw: ReturnType<typeof multi.syncFrame> = null;
+  // La montée : qui joue, à quelle manche, dans quel état. Posée en fin de
+  // branche, une seule fois par image.
+  let tension: { manche: number; grace: number; enManche: boolean; critique: boolean } | null = null;
 
   if (session) {
     const combo = session.level;
@@ -6921,6 +6793,12 @@ function loop(now: number): void {
       }
       // L'œil apprend le même seuil que l'oreille, au même instant.
       setHeat(heatOf(ratio, session.level), ratio > CRITICAL_RATIO && aJouer);
+      tension = {
+        manche: session.level,
+        grace: session.manchesGrace,
+        enManche: true,
+        critique: ratio > CRITICAL_RATIO && aJouer,
+      };
       hud.updateRound(session.round, session.elapsed(now), session.ratio(now));
       musicApi.level(session.level, session.pace);
       if (challenge) updateGhost(session.runTime(now), session.level);
@@ -7048,9 +6926,22 @@ function loop(now: number): void {
     const r = multiDraw?.ratio;
     const enManche = r != null && !!multiDraw?.round;
     setHeat(enManche ? heatOf(r, multi.roundIndex()) : 0, enManche && r > CRITICAL_RATIO);
+    // Le multi n'a pas d'échauffement : une manche de mise en jambes, puis
+    // le cœur. Les salons durent moins longtemps que les runs solo.
+    tension = {
+      manche: multi.roundIndex(),
+      grace: 1,
+      enManche,
+      critique: enManche && r > CRITICAL_RATIO,
+    };
   } else {
     setHeat(0, false);
   }
+  // Une session hors manche (interlude, gel) garde son palier, sans battre.
+  if (!tension && session && screen === null) {
+    tension = { manche: session.level, grace: session.manchesGrace, enManche: false, critique: false };
+  }
+  poseTension(tension?.manche ?? null, tension?.grace ?? 0, !!tension?.enManche, !!tension?.critique, now);
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant
   // qu'elle se joue reviendrait à donner la réponse.

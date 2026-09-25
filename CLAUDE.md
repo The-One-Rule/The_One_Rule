@@ -925,6 +925,35 @@ la hauteur de scène dépendait donc de la décision des colonnes (n°2).
 - `window.__tor.champ()` (dev seulement) rend le champ en coordonnées de page :
   c'est avec lui qu'on mesure un recouvrement, pas à l'œil.
 
+### LA MONTÉE — la tension qui suit la PARTIE, pas la manche (25/09/2026)
+
+Demandé par Pierre avec le retrait des flammes : « trouve un moyen de ressentir
+vraiment la tension qui monte au fur et à mesure du jeu ». Deux constats :
+
+- ⚠️ **`.heat__vignette` était invisible depuis la refonte** : elle peignait en
+  `--ink`, et STICKER a fait de `--ink` le sable du fond. Elle peint maintenant
+  en `--dead` (défini par le thème, la nuit ET chaque plateau).
+- tout ce qui restait visible — le cadre de temps et son battement — suivait la
+  MANCHE en cours. La manche 3 et la manche 40 s'ouvraient pareil.
+
+`render/tension.ts` (pur, testé) : cinq paliers décidés sur la manche seule —
+0 pendant l'échauffement, puis à +0, +7, +15, +25 manches (calés sur la
+médiane 12 et le p75 20 du §8). Chaque palier a un CŒUR (période 1000 → 520 ms,
+×0,7 en zone critique) qu'on entend (`sfx.coeur`, deux sinus graves, l'octave
+au-dessus pour les haut-parleurs de téléphone) et qu'on voit : le canvas peint
+un voile garance sur le POURTOUR du terrain (`scene.pression`, découpé en
+`evenodd` autour de `fieldRect()` — le champ n'est jamais touché, n°5 et n°10),
+plus dense aux bords de l'écran, qui bat avec le cœur. Un palier franchi : un
+sursaut du voile, `sfx.palier`, 40 ms de vibration — pas de texte.
+
+- ⚠️ Le battement est porté par la BOUCLE (`poseTension`), jamais par une
+  minuterie : doctrine du battement de lecture.
+- Le multi a une manche de mise en jambes (`grace: 1`), puis le même cœur.
+- `prefers-reduced-motion` : le voile reste, il ne bat plus.
+- Les faux contextes canvas des tests (`smoke`, `rebours`, `arrivee`) rendent
+  désormais le contexte à chaque appel : `createRadialGradient` y rendait
+  `undefined`, et le smoke est tombé — il exécute donc bien la montée.
+
 ### Les plateaux habillent toute la partie (25/09/2026)
 
 Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas
@@ -2766,12 +2795,7 @@ Branche `claude/chasse-bugs-0912`, sept commits, **rien de déployé**.
   identique à la feuille : `max-width: 680px` et portrait, décidé sur la
   FENÊTRE (n°2). Debout, « le plus à gauche » se dit « le plus en haut » et
   LE GAUCHER interdit « la bande du haut » ; `text` reste le français couché.
-- **Flammes** (`render/flammes.ts`, feu de DOOM). Ardeur = avancée seulement,
-  nulle pendant l'échauffement, pleine à la manche 30. Terrain, consigne, nom
-  de règle, vies et pied sont des cases interdites. Trois réglages mesurés :
-  foyers intermittents (sinon un liseré blanc), vent vers le centre (sinon
-  3 cases de profondeur sur 16), force plafonnée sous le blanc (sinon des murs).
-  ⚠️ Jamais vues à haute manche en jeu réel : volet sans images.
+- ~~**Flammes**~~ — retirées depuis, sur directive de Pierre ; voir LA MONTÉE.
 - **Tutoriel en jouant**. Plus AUCUN écran d'explication : obéir, résister,
   déjouer, sur le vrai terrain, puis la partie démarre. L'écran `#onb` et sa
   route ont disparu. PASSER est dans l'angle bas-droit, et un test exige
@@ -2818,33 +2842,11 @@ mauvais type tuait JOUER en silence. Le reste a tenu :
 Les tests unitaires ont été lancés **trois fois de suite** (968 à chaque fois) :
 aucun n'est intermittent aujourd'hui.
 
-### Les flammes viennent d'un pack, et ce n'est pas un détail
+### ~~Les flammes~~ — RETIRÉES (25/09/2026, directive de Pierre)
 
-`public/fx/flamme.png` sort du **OVERBURN Asset Pack, par Overboy** (série
-violette), fourni par Pierre avec la consigne de s'en servir. Licence : usage
-commercial et modification permis, **redistribution du pack interdite** — on
-peut donc l'embarquer dans le jeu, jamais le republier tel quel. Le crédit
-n'est pas exigé ; il est écrit dans `render/flammes.ts` par correction.
-
-⚠️ **Deux mesures ont changé le dessin, et aucune ne se devinait :**
-
-- les pixels opaques de la planche sont à **~325°** (magenta) alors que
-  `--signal` est à **249°** : la rotation de teinte vaut −76°. Un premier essai
-  à −96° donnait des flammes bleues ;
-- dans chaque image de 48 × 48, le dessin ne tient que dans **x 17-29, y 6-27**
-  — 13 px sur 22, dans la moitié HAUTE. Dessiner l'image entière ancrée en bas
-  donnait des flammes deux fois trop petites, flottant au-dessus de leur pied.
-  On ne dessine que cette boîte (`BOITE`), et c'est elle qu'on met à l'échelle.
-
-⚠️ **Le feu du bas monte du HAUT DU PIED**, pas du bas du calque : sous le pied
-il est découpé, donc invisible — au premier rendu, toutes les flammes du bas
-étaient perdues et il ne restait que les deux côtés.
-
-Le feu de DOOM procédural qui a précédé est mort de ce qu'aucun réglage ne
-rattrape : il avait l'air d'un dégradé animé. Trois passes (foyers
-intermittents, vent vers le centre, force plafonnée) l'ont approché sans
-jamais y arriver. Une planche dessinée à la main a réglé la question en une
-fois — et coûte moins de calcul par image.
+Le calque, `render/flammes.ts`, son test et `public/fx/flamme.png` (OVERBURN
+Asset Pack, par Overboy) sont partis. La planche n'est plus embarquée : sa
+licence n'engage donc plus rien. Remplacées par LA MONTÉE (voir ci-dessous).
 
 ### Le paysage serré — le téléphone couché, et une bande qui bougeait
 

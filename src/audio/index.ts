@@ -452,6 +452,37 @@ export const sfx = {
     });
   },
 
+  /**
+   * LE CŒUR — un battement de la montée (`render/tension.ts`).
+   *
+   * Deux sinus graves, « poum-poum ». Le 55 Hz seul ne sort pas d'un haut-
+   * parleur de téléphone : l'octave au-dessus le rend audible partout, le
+   * grave le rend physique là où il passe.
+   */
+  coeur(force: number): void {
+    if (!ac || !sfxBus || force <= 0) return;
+    safely(() => {
+      const t = ac!.currentTime;
+      const v = Math.min(1, force);
+      voice(sfxBus!, t, 58, 0.16, "sine", 0.1 * v, 44);
+      voice(sfxBus!, t, 116, 0.09, "sine", 0.045 * v, 90);
+      voice(sfxBus!, t + 0.17, 54, 0.14, "sine", 0.06 * v, 42);
+      voice(sfxBus!, t + 0.17, 108, 0.07, "sine", 0.028 * v, 86);
+    });
+  },
+
+  /** Un palier de la montée est franchi : une marche, vers le haut. */
+  palier(n: number): void {
+    if (!ac || !sfxBus) return;
+    safely(() => {
+      const t = ac!.currentTime;
+      const base = 36 + n * 2;
+      voice(sfxBus!, t, midi(base), 0.18, "sawtooth", 0.035);
+      voice(sfxBus!, t + 0.09, midi(base + 5), 0.22, "sawtooth", 0.035);
+      noise(sfxBus!, t, 0.12, 0.03, 900, 0.8);
+    });
+  },
+
   /** Dernier quart de la fenêtre : l'urgence s'entend avant d'être lue. */
   urgent(): void {
     if (!ac || !sfxBus) return;

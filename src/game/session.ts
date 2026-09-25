@@ -221,6 +221,11 @@ export class Session {
     return this.level < this.grace;
   }
 
+  /** Le nombre de manches d'échauffement de CE run (le parcours le règle). */
+  get manchesGrace(): number {
+    return this.grace;
+  }
+
   /**
    * La manche où l'échauffement vient de s'arrêter.
    *
