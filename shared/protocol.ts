@@ -313,6 +313,17 @@ export interface PlayerPublic {
    * l'écran ; le serveur reste seul juge de la réserve.
    */
   team?: number;
+  /**
+   * LA CARTE DE VISITE — l'identifiant d'une règle gagnée, que le joueur a
+   * choisie pour le représenter (`shared/profil.ts`). Absente chez un client
+   * ancien ou chez qui n'en a pas choisi : on retombe sur le signe.
+   *
+   * La PHOTO ne voyage PAS ici : `PlayerPublic` repart vers tout le salon à
+   * chaque changement d'état, et dix photos de plusieurs kilo-octets à chaque
+   * manche pèseraient sur un téléphone. Elle a son message, `photos`, envoyé
+   * une fois.
+   */
+  carte?: string;
   stats: PlayerStats;
 }
 
@@ -436,6 +447,13 @@ export type ClientMsg =
   | { t: "kick"; playerId: string }
   | { t: "ping"; sent: number }
   /**
+   * Le profil du joueur — carte de visite et photo. FACULTATIF, envoyé après
+   * le `welcome` et à chaque changement. Un serveur ancien ignore le cas, et
+   * un champ invalide est ignoré sans erreur (`shared/profil.ts`).
+   * `PROTOCOL_VERSION` ne bouge pas : doctrine de `cursor` et de `tok`.
+   */
+  | { t: "profil"; carte?: string; photo?: string }
+  /**
    * Une voix, pendant l'observation. FACULTATIF.
    *
    * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un serveur
@@ -460,6 +478,12 @@ export type ClientMsg =
 
 export type ServerMsg =
   | { t: "welcome"; id: string }
+  /**
+   * Les photos du salon, par identifiant de joueur. À l'arrivée, la carte
+   * complète ; à un changement, la seule entrée qui bouge. Une chaîne VIDE
+   * retire la photo. Un client ancien ignore le message.
+   */
+  | { t: "photos"; photos: Record<string, string> }
   | { t: "pong"; sent: number; serverNow: number }
   | {
       t: "error";

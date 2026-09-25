@@ -11,7 +11,31 @@ import { LECTURE_NEUVE_MS } from "../src/game/lecture";
 
 const ctxStub = new Proxy({}, { get: () => () => undefined }) as CanvasRenderingContext2D;
 
+/**
+ * ⚠️ LE HASARD DE CE TEST EST FIGÉ, et il l'a payé.
+ *
+ * La graine d'un run d'entraînement vient de `Math.random`. Or ce test laisse
+ * le temps filer sans jouer et PARIE que le niveau 1-1 est perdu — alors
+ * qu'une manche piégée se survit en ne faisant rien. Mesuré sur 3000 graines :
+ * 156, soit 5,2 %, font gagner le 1-1 à un joueur qui ne touche à rien. Le
+ * test tombait donc une fois sur vingt environ, sans qu'aucun code n'ait
+ * changé, avec un message (« expected false to be true » sur `is-rate`) qui ne
+ * désignait rien. Un générateur fixé rend le run identique à chaque passage.
+ * Éprouvé : sur les valeurs 1 à 30, 18 et 20 font tomber exactement cette
+ * assertion.
+ */
+const HASARD = 20260925;
+
 beforeAll(() => {
+  let h = HASARD;
+  Math.random = () => {
+    // mulberry32 : le même générateur que le moteur, recopié pour ne pas
+    // lier le harnais à une signature interne.
+    h = (h + 0x6d2b79f5) | 0;
+    let t = Math.imul(h ^ (h >>> 15), 1 | h);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
   const html = readFileSync("index.html", "utf8");
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 

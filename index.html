@@ -597,7 +597,7 @@
             <h2 class="boutique__titre" data-i18n="boutique.titre">SHOP</h2>
             <span class="pstat pstat--pieces"><i aria-hidden="true">●</i><b id="boutiquePieces">0</b></span>
           </div>
-          <p class="boutique__chapo" data-i18n="boutique.chapo">Styles for your pieces. They change the look, never the rule.</p>
+          <p class="boutique__chapo" data-i18n="boutique.chapo">Boards: they dress your whole game. Never the rule.</p>
           <div class="skins" id="skins"></div>
           <button class="btn" id="btnBoutiqueRetour" data-i18n="boutique.retour">BACK</button>
         </div>
@@ -1312,6 +1312,21 @@
           </div>
           <p class="rgl__note" data-i18n="rgl.apparenceQuoi">AUTO follows your device. DARK is easier on the eyes at night.</p>
 
+          <!-- LES PHOTOS DES AUTRES. Une photo est un contenu que personne ne
+               modère : on doit pouvoir ne plus les voir sans quitter le salon.
+               Les signes et les cartes de visite restent. -->
+          <div class="rgl__bloc">
+            <div class="rgl__ligne">
+              <div class="rgl__txt">
+                <p class="rgl__nom" data-i18n="rgl.photos">OTHERS' PHOTOS</p>
+                <p class="rgl__quoi" data-i18n="rgl.photosQuoi">Profile photos of the players in your room.</p>
+              </div>
+              <button type="button" class="rgl__inter" id="btnPhotosAutres" role="switch" aria-checked="true">
+                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+              </button>
+            </div>
+          </div>
+
           <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
           <div class="opts" id="rglAllure"></div>
           <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
@@ -1383,6 +1398,32 @@
             <p class="eyebrow" data-i18n="podium.titre">TODAY'S BEST</p>
             <ol class="podium__liste" id="murPodiumListe"></ol>
             <p class="podium__moi" id="murPodiumMoi"></p>
+          </div>
+
+          <!-- LES AMIS. Un cercle qu'on se donne à l'oral, par un code — comme
+               un salon. On n'y compare que du REJOUÉ : le run du jour, le
+               même pour tout le monde (décision n°14). Le bloc se TAIT dans un
+               déploiement sans comptes, comme le podium. -->
+          <div class="amis hidden" id="murAmis">
+            <p class="eyebrow" data-i18n="amis.titre">YOUR FRIENDS</p>
+            <div class="amis__anon hidden" id="amisAnon">
+              <p class="fineprint" data-i18n="amis.anon">SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.</p>
+              <button type="button" class="btn" id="btnAmisCompte" data-i18n="amis.connecter">SIGN IN</button>
+            </div>
+            <div class="amis__connecte hidden" id="amisConnecte">
+              <p class="amis__code">
+                <span class="amis__codequoi" data-i18n="amis.tonCode">YOUR CODE</span>
+                <b class="amis__codeval" id="amisCode">······</b>
+                <button type="button" class="btn btn--ghost amis__copier" id="btnAmisCopier" data-i18n="amis.copier">COPY</button>
+              </p>
+              <form class="amis__ajout" id="amisForm" autocomplete="off">
+                <input class="field amis__saisie" id="amisSaisie" type="text" maxlength="9" spellcheck="false" autocapitalize="characters" placeholder="FRIEND'S CODE" data-i18n-ph="amis.ph" aria-label="FRIEND'S CODE" data-i18n-aria="amis.ph" />
+                <button type="submit" class="btn" id="btnAmisAjoute" data-i18n="amis.ajoute">ADD</button>
+              </form>
+              <p class="warn hidden" id="amisErr"></p>
+              <ol class="amis__liste" id="amisListe"></ol>
+              <p class="fineprint" id="amisNote"></p>
+            </div>
           </div>
 
           <div class="btnrow">
@@ -1503,6 +1544,27 @@
                avec l'appareil. C'est ce que la revendication a rendu vrai, et
                personne ne pouvait le deviner. -->
           <p class="fineprint" data-i18n="multi.signeVoyage">YOUR SIGN TRAVELS IN YOUR ACCOUNT TOKEN: IT SURVIVES A CHANGE OF DEVICE.</p>
+
+          <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
+               collection ne dévoile pas une règle jamais rencontrée (n°7), et
+               un choix qui se débloque en jouant est une raison de jouer.
+               Elle habille le siège, la plaque et la ligne du classement :
+               c'est ce qui fait reconnaître un joueur sans lire son nom. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.carte">YOUR CARD</p>
+          <div class="cartepick" id="idCartes" role="radiogroup" aria-label="YOUR CARD" data-i18n-aria="profil.carte"></div>
+          <p class="fineprint" data-i18n="profil.carteAide">WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.</p>
+
+          <!-- LA PHOTO. Réduite à 96 × 96 PAR LE CLIENT avant d'être gardée
+               ou envoyée (`render/photo.ts`) : la pleine résolution ne quitte
+               jamais l'appareil. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.photo">YOUR PHOTO</p>
+          <div class="photopick">
+            <span class="photopick__apercu" id="idPhotoApercu" aria-hidden="true"></span>
+            <label class="btn photopick__choisir" for="idPhotoFichier" data-i18n="profil.photoChoisir">CHOOSE A PHOTO</label>
+            <input class="photopick__fichier" id="idPhotoFichier" type="file" accept="image/*" />
+            <button type="button" class="btn btn--ghost hidden" id="btnPhotoRetirer" data-i18n="profil.photoRetirer">REMOVE</button>
+          </div>
+          <p class="fineprint" data-i18n="profil.photoAide">ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.</p>
           <p class="warn hidden" id="idErr"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnIdOk" data-i18n="multi.continuer">CONTINUE</button>

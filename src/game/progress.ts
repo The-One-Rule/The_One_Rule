@@ -75,6 +75,9 @@ export interface RuleRecord {
   etoiles?: number[];
 }
 
+import { litProfil } from "../../shared/profil";
+import type { Profil } from "../../shared/profil";
+
 export type Theme = "auto" | "clair" | "sombre";
 export const THEMES: readonly Theme[] = ["auto", "clair", "sombre"];
 
@@ -128,6 +131,18 @@ export interface Save {
    * et elle n'entre ni dans le compte ni dans `VERSION_CONTENU`.
    */
   theme: Theme;
+  /**
+   * LE PROFIL — carte de visite et photo (`shared/profil.ts`). Local, et
+   * relayé aux salons par le `NetClient` ; la photo est réduite à 96 × 96 par
+   * le client AVANT d'être stockée.
+   */
+  profil: Profil;
+  /**
+   * Voir les photos des AUTRES joueurs. Oui par défaut ; le réglage existe
+   * parce qu'une photo est un contenu que personne ne modère : un joueur doit
+   * pouvoir ne plus les voir sans quitter le salon.
+   */
+  photosAutres: boolean;
   /**
    * Langue de l'accueil. Le jeu (règles, consignes, canvas) ne suit pas.
    *
@@ -246,6 +261,8 @@ const fresh = (): Save => ({
   music: true,
   daltonien: false,
   theme: "auto",
+  profil: {},
+  photosAutres: true,
   /*
    * Suit le navigateur a la premiere visite. `navigator` peut manquer (test,
    * rendu serveur) : `langueDuNavigateur` retombe alors sur le francais.
@@ -398,6 +415,8 @@ export function normaliseSave(brut: unknown): Save {
     music: booleen(brut.music, d.music),
     daltonien: booleen(brut.daltonien, d.daltonien),
     theme: THEMES.includes(brut.theme as Theme) ? (brut.theme as Theme) : d.theme,
+    profil: litProfil(brut.profil),
+    photosAutres: booleen(brut.photosAutres, d.photosAutres),
     lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
     bestTraining: nombre(brut.bestTraining, d.bestTraining),
     trainingPace: nombre(brut.trainingPace, d.trainingPace),

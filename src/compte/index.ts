@@ -397,10 +397,15 @@ export async function supprimeCompte(): Promise<boolean> {
 }
 
 /** Renomme, ou change de signe. */
-export async function changeIdentite(pseudo: string, glyphe: number): Promise<Moi | null> {
+export async function changeIdentite(
+  pseudo: string,
+  glyphe: number,
+  /** La carte de visite : ce que les AMIS voient. `null` la retire. */
+  carte: string | null = null,
+): Promise<Moi | null> {
   const r = await appelMoi<{ moi?: Moi; jeton?: string }>("?a=identite", {
     method: "POST",
-    body: JSON.stringify({ pseudo, glyphe }),
+    body: JSON.stringify({ pseudo, glyphe, carte }),
   });
   if (!r?.moi) return null;
   if (r.jeton) poseJeton(r.jeton);

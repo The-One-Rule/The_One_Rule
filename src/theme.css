@@ -133,6 +133,158 @@
   }
 }
 
+/* ==================================================================
+   LES PLATEAUX — le style acheté habille TOUTE la page de jeu
+
+   Demandé par Pierre : « que les plateaux de la boutique s'appliquent
+   littéralement à toute la page de jeu ». Un plateau changeait le terrain et
+   les pièces, et s'arrêtait au bord du canvas : un néon brillant au milieu
+   d'une page sable, c'était une vignette collée, pas un monde.
+
+   Le mécanisme est celui de la nuit : on RETOURNE LES JETONS, on ne réécrit
+   aucun composant. `data-skin` est posé sur la racine par `appliqueSkin`, et
+   `.en-partie` par `show(null)` : les MENUS gardent l'identité du site (et
+   son jour ou sa nuit), la PARTIE prend celle du plateau.
+
+   ⚠️ SUR LA RACINE, PAS SUR `#app`. `--ombre` vaut `0 4px 0 var(--ombre-c)`
+   et se CALCULE là où elle est déclarée : redéfinir `--ombre-c` sur un
+   descendant laisserait toutes les ombres à la couleur du thème.
+
+   ⚠️ Le style maison (sticker) n'a PAS de bloc : il suit le jour et la nuit.
+   Chaque bloc redéfinit TOUS les jetons de couleur — un oublié garderait sa
+   valeur de thème, et `tests/theme.test.ts` le refuse.
+
+   Les teintes des PIÈCES ne sont pas des jetons de page : elles ne bougent
+   pas, quel que soit le plateau (calibrage daltonien).
+   ================================================================== */
+:root.en-partie[data-skin="neon"] {
+  color-scheme: dark;
+  --ink: #0b0818;
+  --ink-2: #120d26;
+  --line: #3a2466;
+  --paper: #f6e8ff;
+  --paper-dim: #a48fcf;
+  --signal: #ff46c8;
+  --signal-pale: #ff9be3;
+  --ambre: #ffd23f;
+  --rouge: #ff4d6d;
+  --ok: #3df5c4;
+  --dead: #ff4d6d;
+  --encre: #f6e8ff;
+  --ombre-c: #000000;
+  --or: #ffd23f;
+  --or-fond: #2b2111;
+  --surface: #140e2b;
+  --creme: #1a1236;
+  --rose: #3a1233;
+  --menthe: #0f3330;
+  --ciel: #102443;
+  --miel: #33290e;
+  --lilas: #2a1a52;
+}
+
+:root.en-partie[data-skin="bonbon"] {
+  color-scheme: light;
+  --ink: #ffe8f2;
+  --ink-2: #fff4f9;
+  --line: #f5c3da;
+  --paper: #5a2243;
+  --paper-dim: #a2718c;
+  --signal: #ff4f9a;
+  --signal-pale: #d93580;
+  --ambre: #f5b214;
+  --rouge: #e0243e;
+  --ok: #10a87a;
+  --dead: #e0243e;
+  --encre: #5a2243;
+  --ombre-c: #5a2243;
+  --or: #b5820c;
+  --or-fond: #fff1c2;
+  --surface: #fff7fb;
+  --creme: #ffeff6;
+  --rose: #ffd2e6;
+  --menthe: #d7f7ec;
+  --ciel: #dcebff;
+  --miel: #ffeec2;
+  --lilas: #f1ddff;
+  --r-s: 14px;
+  --r-m: 22px;
+  --r-l: 30px;
+}
+
+:root.en-partie[data-skin="pixel"] {
+  color-scheme: dark;
+  --ink: #11142b;
+  --ink-2: #1a1e3d;
+  --line: #333a70;
+  --paper: #e8ecff;
+  --paper-dim: #8e95c8;
+  --signal: #6c7bff;
+  --signal-pale: #a7b0ff;
+  --ambre: #f5b214;
+  --rouge: #ff4d63;
+  --ok: #4be3a6;
+  --dead: #ff4d63;
+  --encre: #e8ecff;
+  --ombre-c: #05060f;
+  --or: #f5c542;
+  --or-fond: #2e2a12;
+  --surface: #1d2240;
+  --creme: #232a4f;
+  --rose: #3b1f3a;
+  --menthe: #15383a;
+  --ciel: #1b2e55;
+  --miel: #3a3216;
+  --lilas: #2b2c63;
+  --r-s: 0px;
+  --r-m: 0px;
+  --r-l: 0px;
+}
+
+:root.en-partie[data-skin="craie"] {
+  color-scheme: dark;
+  --ink: #18291f;
+  --ink-2: #1f3328;
+  --line: #3b5446;
+  --paper: #eef2e8;
+  --paper-dim: #a3b3a5;
+  --signal: #e8c95a;
+  --signal-pale: #f7e3a0;
+  --ambre: #f5b214;
+  --rouge: #ff7a7a;
+  --ok: #8ef0c0;
+  --dead: #ff7a7a;
+  --encre: #eef2e8;
+  --ombre-c: #0b140f;
+  --or: #f2d675;
+  --or-fond: #2f3319;
+  --surface: #22392e;
+  --creme: #274233;
+  --rose: #3e2b2e;
+  --menthe: #1e4034;
+  --ciel: #1f3847;
+  --miel: #3b3a1c;
+  --lilas: #2f3446;
+}
+
+/* Ce que les jetons ne disent pas : la lumière du néon, la police du pixel,
+   le trait de la craie. Seulement en partie, seulement sur la consigne et
+   le nom de règle — ce qu'on regarde. */
+:root.en-partie[data-skin="neon"] #instr,
+:root.en-partie[data-skin="neon"] #bandRule {
+  text-shadow: 0 0 10px var(--signal), 0 0 22px color-mix(in srgb, var(--signal) 45%, transparent);
+}
+
+:root.en-partie[data-skin="pixel"] #instr,
+:root.en-partie[data-skin="pixel"] #bandRule {
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+:root.en-partie[data-skin="craie"] #instr {
+  text-shadow: 1px 1px 0 color-mix(in srgb, var(--encre) 30%, transparent);
+}
+
 body {
   background: var(--ink);
   color: var(--paper);
@@ -1293,6 +1445,9 @@ body {
 .band__rule {
   color: var(--signal);
   font-weight: 700;
+  /* Même défaut que les titres d'écran : l'espace de Fredoka disparaissait
+     (« THEVOWEL », vu en partie à 375 px). */
+  word-spacing: 0.14em;
 }
 
 #briefWarn,
@@ -1978,6 +2133,194 @@ body {
 }
 
 /* ==================================================================
+   LE JOUEUR — carte de visite et photo
+
+   Demandé par Pierre : que la carte d'un joueur soit « plus visible et
+   distinctive », avec une photo de profil. À dix dans un salon, un signe de
+   26 px ne suffisait pas à reconnaître quelqu'un sans lire son nom.
+
+   ⚠️ LA CARTE EST UN FOND, PAS UN ÉLÉMENT. Elle se pose sous le siège, la
+   plaque ou la ligne du classement, voilée par la surface à 80 % : les
+   dimensions ne bougent pas d'un pixel (`.plate` reste à 150 px, que lit
+   `render/layout.ts`), et le texte reste lisible. Le voile est un aplat
+   répété deux fois, pas un dégradé.
+
+   ⚠️ Aucun pseudo-élément : `.plate--rookie::before` est déjà pris.
+
+   ⚠️ LA CASCADE, mesurée : `.seat.is-me { background: … }` (0,2,0) écrasait
+   le raccourci et effaçait la carte sur SON PROPRE siège — le seul que le
+   joueur regarde pour vérifier son choix. Les états qui doivent porter la
+   carte sont donc nommés ici. Les VERDICTS (`.plate.plate--ok/trap/dead`),
+   eux, l'emportent exprès : un verdict se lit avant un décor.
+   ================================================================== */
+.a-carte,
+.seat.is-me.a-carte,
+.lobbyrow.is-winner.a-carte {
+  --voile: color-mix(in srgb, var(--fond-carte, var(--surface)) 62%, transparent);
+  background-image: linear-gradient(var(--voile), var(--voile)), var(--carte);
+  background-size: cover, cover;
+  background-position: center, center 30%;
+  image-rendering: pixelated;
+}
+
+.plate--me.a-carte,
+.seat.is-me.a-carte {
+  --fond-carte: var(--lilas);
+}
+
+.lobbyrow.is-winner.a-carte {
+  --fond-carte: var(--miel);
+}
+
+/*
+ * AU SALON ET AU CLASSEMENT, LA CARTE SE MONTRE ENTIÈRE.
+ *
+ * Premier essai mesuré : en fond voilé à 80 %, et agrandie par `cover` sur une
+ * boîte de 250 × 62, la carte devenait une tache floue — on n'y reconnaissait
+ * aucun dessin. Or c'est au salon qu'on se regarde, avant de jouer. Elle y est
+ * donc une VIGNETTE carrée pleine hauteur, sans voile, au bord droit ; la
+ * couleur d'état (moi en lilas, le vainqueur en miel) reste celle du composant
+ * puisqu'on ne touche qu'aux calques d'image, jamais au raccourci
+ * `background`. Le contenu se pousse d'autant : la BOÎTE ne bouge pas.
+ *
+ * Les plaques de match gardent le fond voilé : elles descendent à 76 px de
+ * large sur téléphone, une vignette y mangerait le nom.
+ */
+.seat.a-carte,
+.seat.is-me.a-carte,
+.lobbyrow.a-carte,
+.lobbyrow.is-winner.a-carte {
+  background-image: var(--carte);
+  background-size: auto 100%;
+  background-position: right center;
+  background-repeat: no-repeat;
+  padding-right: calc(var(--vignette) + 10px);
+}
+
+.seat.a-carte {
+  --vignette: 58px;
+}
+
+.lobbyrow.a-carte {
+  --vignette: 40px;
+}
+
+/* Les actions du siège (MUET, EXCLURE) sont en absolu au bord droit : sans ce
+   décalage elles se peignaient SUR la vignette. */
+.seat.a-carte .seat__acts {
+  right: calc(var(--vignette) + 4px);
+}
+
+/* L'avatar : la photo, ronde et cernée comme une pièce du jeu. */
+.a-photo {
+  display: grid;
+  place-items: center;
+}
+
+.avatar__photo {
+  display: block;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  object-fit: cover;
+  background: var(--surface);
+}
+
+/* Au siège, la photo prend la place qu'il faut pour être reconnue. */
+.seat__glyph.a-photo {
+  width: 36px;
+  height: 36px;
+}
+
+.seat__glyph.a-photo .avatar__photo {
+  width: 36px;
+  height: 36px;
+}
+
+/* ---- L'écran d'identité : choisir sa carte, choisir sa photo ---- */
+/* Mesuré : sans cet écart, « TA CARTE » se collait à la ligne d'aide du
+   signe et se lisait comme sa suite. */
+.profil__titre {
+  margin-top: 18px;
+}
+
+.cartepick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+
+.cartepick__opt {
+  width: 56px;
+  height: 76px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--paper-dim);
+  font-family: var(--display);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cartepick__opt img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.cartepick__opt[aria-checked="true"] {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal), 0 3px 0 var(--ombre-c);
+}
+
+.photopick {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 4px;
+}
+
+.photopick__apercu {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 3px solid var(--encre);
+  background: var(--surface);
+}
+
+.photopick__apercu img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Le vrai champ est masqué, pas retiré : le `<label>` le déclenche, et un
+   `display: none` l'empêcherait de recevoir le focus clavier. */
+.photopick__fichier {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photopick__choisir {
+  cursor: pointer;
+}
+
+/* ==================================================================
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {
@@ -1993,4 +2336,212 @@ body {
     transform: none;
     filter: none;
   }
+}
+
+/* ==================================================================
+   LES AMIS — sous le podium du jour, sur le mur des records.
+
+   Une ligne par ami : rang, visage (sa carte de visite, son signe dans un
+   coin), nom et meilleur du mois, la SEMAINE en sept barres, le score du
+   jour. Les barres partagent l'échelle du cercle : chacun se lit contre les
+   autres. Elles sont DÉCORATIVES — le même fait est dans l'`aria-label`, en
+   chiffres — et n'animent rien.
+   ================================================================== */
+.amis {
+  margin-top: 22px;
+}
+
+.amis.hidden,
+.amis__anon.hidden,
+.amis__connecte.hidden {
+  display: none;
+}
+
+.amis__anon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.amis__code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.amis__codequoi {
+  font-size: var(--t-micro);
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.amis__codeval {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  color: var(--encre);
+}
+
+.amis__ajout {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* ⚠️ `min-width: 0` : un champ flexible ne rétrécit pas sous son contenu
+   sans lui, et la rangée sortait de la colonne à 375 px. */
+/* 16 px : le champ de nom est bien plus grand, mais un code de six lettres
+   n'a rien à crier — et sous 16 px, iOS zoome sur le champ au toucher. */
+.amis__saisie {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.amis__liste {
+  list-style: none;
+  margin: 8px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ami {
+  display: grid;
+  /* La dernière piste est celle de RETIRER : elle existe aussi sur sa propre
+     ligne, vide, pour que les colonnes restent alignées d'un ami à l'autre. */
+  /*
+   * Des pistes FIXES hors du nom : la grille est propre à chaque ligne, donc
+   * une piste `auto` s'élargissait sous « PAS ENCORE JOUÉ » (35 → 64 px,
+   * mesuré) et décalait la semaine d'une ligne à l'autre.
+   */
+  grid-template-columns: 2.4ch 40px minmax(0, 1fr) 47px 3.2ch 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.ami.is-moi {
+  background: var(--lilas);
+}
+
+.ami__rang {
+  font-family: var(--display);
+  font-size: 13px;
+  text-align: center;
+}
+
+.ami__visage {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+
+.ami__carte {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  image-rendering: pixelated;
+  object-fit: cover;
+}
+
+.ami__signe {
+  display: grid;
+  place-items: center;
+}
+
+.ami__visage.a-vignette .ami__signe {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  padding: 2px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: 50%;
+}
+
+.ami__qui {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ami__nom {
+  font-family: var(--display);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Une ligne, jamais deux : pliée, elle portait la rangée de 52 à 105 px. */
+.ami__meilleur {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  color: var(--paper-dim);
+}
+
+.ami__semaine {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 26px;
+}
+
+.ami__jour {
+  width: 5px;
+  height: 100%;
+  background: var(--signal);
+  border-radius: 1px;
+  transform-origin: bottom;
+}
+
+.ami__jour.is-vide {
+  background: var(--line);
+}
+
+.ami__score {
+  min-width: 3ch;
+  font-family: var(--display);
+  font-size: 20px;
+  text-align: right;
+}
+
+.ami__score.is-absent {
+  color: var(--paper-dim);
+}
+
+/* 36 px et non les 44 de `--tap` : la ligne en fait 52, et le geste est rare
+   et réversible (un code se redonne). */
+.ami__retire {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 18px;
+  color: var(--paper-dim);
+  cursor: pointer;
+}
+
+.ami__retire:hover,
+.ami__retire:focus-visible {
+  color: var(--encre);
 }

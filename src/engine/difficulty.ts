@@ -103,6 +103,38 @@ export const windowForSteps = (level: number, steps: number): number =>
   windowMs(level) + Math.max(0, steps - 1) * STEP_MS;
 
 /**
+ * LE PLAFOND DE L'ALLURE — ce qu'une allure lente peut AJOUTER, pas plus.
+ *
+ * Une manche piégée dure toute sa fenêtre : c'est en la laissant passer qu'on
+ * survit. Or l'allure DÉBUT (×2) — défaut d'un joueur neuf, et allure des
+ * niveaux 1-1 et 1-2 du parcours — doublait une fenêtre de départ de 4 s :
+ * mesuré, 8,0 s à ne rien faire à la manche 0, 7,3 à la 2, 6,2 à la 5, au
+ * niveau même qui ENSEIGNE le piège. Tant que DÉJOUER existait, la touche F
+ * l'écourtait ; retiré, le temps mort devenait le premier contact.
+ *
+ * ⚠️ LE PLAFOND VAUT POUR TOUTES LES MANCHES, piégées ou non. Raccourcir les
+ * seules manches piégées les révélerait (la barre filerait plus vite, n°5), et
+ * les finir plus tôt que leur fenêtre apprendrait à ATTENDRE pour voir si la
+ * manche s'arrête. Borner la fenêtre elle-même ne dit rien à personne.
+ *
+ * ⚠️ IL NE BORNE QUE LE SUPPLÉMENT DE L'ALLURE, jamais la fenêtre nominale :
+ * `min(base × allure, max(base, PLAFOND))`. À l'allure 1 — run du jour, rejeu
+ * serveur, escalade — le résultat est EXACTEMENT `base`, y compris pour une
+ * manche à plusieurs gestes qui dépasse 4 s d'elle-même. Rien de ce qui se
+ * compare ne bouge, et `VERSION_CONTENU` non plus. Une allure rapide (×0,8)
+ * n'est jamais bornée : elle ne rallonge rien.
+ *
+ * Un débutant a besoin d'environ 1100 ms (§12 du CLAUDE.md) : 4 s lui en
+ * laissent plus de trois fois. Conséquence assumée : au début d'une partie,
+ * DÉBUT, DÉCOUVERTE et NORMAL ont la même fenêtre ; l'allure ne se distingue
+ * qu'une fois la courbe descendue sous le plafond (vers la manche 10 à ×2).
+ */
+export const PLAFOND_ALLURE_MS = 4000;
+
+export const fenetreAllure = (base: number, pace: number): number =>
+  Math.min(base * pace, Math.max(base, PLAFOND_ALLURE_MS));
+
+/**
  * LE PLANCHER PAR GESTE — le dernier filet, appliqué APRÈS les règles.
  *
  * `windowForSteps` donne une fenêtre juste, puis une règle la déforme, et c'est

@@ -53,10 +53,13 @@ import {
   sanitizeSettings,
 } from "../shared/protocol";
 import type { Glyph, PlayerPublic, RoundOutcome, ServerMsg } from "../shared/protocol";
+import { carteValide, PHOTO_MAX, photoValide } from "../shared/profil";
 import { windowMs } from "../src/engine/difficulty";
 import { glyphFor, glyphFromIndex, PATTERN_COUNT } from "../src/net/glyph";
 
 const PORT = Number(process.env.PORT) || 8787;
+/** Écart minimal entre deux changements de photo d'un même joueur. */
+const PROFIL_PHOTO_COOLDOWN_MS = 1500;
 const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
 const PRODUCTION = process.env.NODE_ENV === "production";
 /**
@@ -134,6 +137,11 @@ interface Client {
    * déclarer.
    */
   compte: string | null;
+  /** Carte de visite et photo (`shared/profil.ts`). Absent vaut non. */
+  carte?: string;
+  photo?: string;
+  /** Instant du dernier changement de photo accepté (limite de fréquence). */
+  photoAt: number;
 }
 
 interface Room {
@@ -220,6 +228,22 @@ function broadcast(room: Room, msg: ServerMsg): void {
   }
 }
 
+/**
+ * LES PHOTOS DU SALON, à qui vient d'y entrer — et la sienne aux autres.
+ *
+ * À part de `roomState`, qui repart à chaque changement d'état : une photo ne
+ * voyage qu'à l'arrivée et au changement, jamais à chaque manche.
+ */
+function envoiePhotos(room: Room, arrivant: Client): void {
+  const toutes: Record<string, string> = {};
+  for (const c of room.clients.values()) if (c.photo) toutes[c.id] = c.photo;
+  if (Object.keys(toutes).length) send(arrivant, { t: "photos", photos: toutes });
+  if (arrivant.photo) {
+    const msg: ServerMsg = { t: "photos", photos: { [arrivant.id]: arrivant.photo } };
+    for (const c of room.clients.values()) if (c !== arrivant) send(c, msg);
+  }
+}
+
 function parseGlyph(raw: unknown, fallbackId: string): Glyph {
   const g = raw as Glyph | undefined;
   if (
@@ -291,6 +315,7 @@ function publicPlayers(room: Room): PlayerPublic[] {
       // n'est encore apparié, et prétendre le contraire afficherait des paires
       // qui bougeraient au lancement.
       team: room.match?.duo && seat && "team" in seat ? seat.team : undefined,
+      carte: c.carte,
       // Un joueur au-delà de INPUT_TOLERANCE_MS de latence voit ses temps
       // gonflés : le serveur refuse d'horodater plus de 120 ms dans le passé
       // (anti-triche). La médiane limite le bruit sans corriger ce biais —
@@ -701,11 +726,16 @@ const wss = new WebSocketServer({
   // au plus étroit de ce qu'on lit.
   verifyClient: ({ origin }: { origin: string }) =>
     originAllowed(origin, ALLOWED_ORIGINS, PRODUCTION),
-  // Le plus gros message légitime est un chat de 140 caractères : quelques
-  // centaines d'octets. Le défaut de `ws` est de 100 Mo — de quoi bloquer la
-  // boucle d'événements dans JSON.parse, et donc figer tous les salons à la
-  // fois, depuis une seule connexion.
-  maxPayload: 4096,
+  // Le plus gros message légitime est le `profil` portant une photo : au plus
+  // `PHOTO_MAX` caractères, plus son enveloppe. Le défaut de `ws` est de
+  // 100 Mo — de quoi bloquer la boucle d'événements dans JSON.parse, et donc
+  // figer tous les salons à la fois, depuis une seule connexion.
+  //
+  // ⚠️ Il valait 4096, taillé sur un chat de 140 caractères. Une photo de
+  // téléphone réduite pèse 4 à 8 Ko : `ws` aurait FERMÉ la socket du joueur
+  // (code 1009) au moment où il choisit sa photo — une coupure sans message,
+  // pas un refus. L'e2e envoie une photo de 13 Ko pour le garder.
+  maxPayload: PHOTO_MAX + 1024,
 });
 
 wss.on("connection", (ws) => {
@@ -719,6 +749,7 @@ wss.on("connection", (ws) => {
     watching: null,
     lastEmoteAt: 0,
     lastChatAt: 0,
+    photoAt: 0,
     lastCursorAt: 0,
     key: "",
     graceTimer: null,
@@ -730,6 +761,20 @@ wss.on("connection", (ws) => {
 
   clients.add(client);
   ws.on("pong", () => (client.alive = true));
+  /*
+   * ⚠️ SANS CET ÉCOUTEUR, UN SEUL CLIENT FAIT TOMBER TOUS LES SALONS.
+   *
+   * `ws` émet `error` sur toute trame qu'il refuse — plus grosse que
+   * `maxPayload`, UTF-8 invalide, opcode inconnu. Un `EventEmitter` sans
+   * écouteur d'`error` LÈVE, et rien ne rattrape l'exception : le processus
+   * meurt, et avec lui chaque partie en mémoire. Découvert en portant une
+   * photo sur le fil ; l'e2e envoie désormais une trame trop grosse et exige
+   * que le serveur réponde encore. La socket fautive se ferme d'elle-même
+   * (`ws` s'en charge), et `close` fait le ménage habituel.
+   */
+  ws.on("error", (e) => {
+    console.warn(`socket ${client.id} : ${e.message}`);
+  });
 
   ws.on("message", guarded((raw: RawData) => {
     const msg = decodeClient(raw.toString());
@@ -784,6 +829,42 @@ wss.on("connection", (ws) => {
         send(client, { t: "pong", sent: msg.sent, serverNow: now() });
         return;
 
+      /*
+       * LE PROFIL — carte de visite et photo. Tout ce qui ne passe pas la
+       * validation PARTAGÉE (`shared/profil.ts`) est simplement oublié : aucun
+       * message d'erreur, un profil n'est pas un chemin d'entrée.
+       */
+      case "profil": {
+        const carte = carteValide(msg.carte);
+        const t = Date.now();
+        /*
+         * Une photo se relaie à tout le salon : 14 Ko fois neuf. Personne ne
+         * change de photo deux fois en une seconde et demie (il faut rouvrir le
+         * sélecteur de fichiers), donc un changement plus rapproché est un
+         * script — on garde l'ancienne. La CARTE, elle, reste libre : quelques
+         * octets, et on la choisit en cliquant de l'une à l'autre.
+         */
+        const photoDemandee = photoValide(msg.photo);
+        const photo =
+          photoDemandee !== client.photo && t - client.photoAt < PROFIL_PHOTO_COOLDOWN_MS
+            ? client.photo
+            : photoDemandee;
+        const photoAvant = client.photo;
+        // Rien n'a changé : rien à relayer.
+        if (carte === client.carte && photo === photoAvant) return;
+        if (photo !== photoAvant) client.photoAt = t;
+        client.carte = carte;
+        client.photo = photo;
+        const room = client.room;
+        if (room) {
+          broadcast(room, roomState(room));
+          if (photo !== photoAvant) {
+            broadcast(room, { t: "photos", photos: { [client.id]: photo ?? "" } });
+          }
+        }
+        return;
+      }
+
       case "create": {
         leaveRoom(client);
         const room: Room = {
@@ -803,6 +884,7 @@ wss.on("connection", (ws) => {
         rooms.set(room.code, room);
         client.room = room;
         broadcast(room, roomState(room));
+        envoiePhotos(room, client);
         return;
       }
 
@@ -869,6 +951,7 @@ wss.on("connection", (ws) => {
         // Arrivée en cours de match : spectateur jusqu'à la manche d'après —
         // c'est le modèle BombParty, on ne bloque jamais la porte.
         broadcast(room, roomState(room));
+        envoiePhotos(room, client);
 
         /*
          * Arrivée en cours de match : renvoyer de quoi se reconstruire.

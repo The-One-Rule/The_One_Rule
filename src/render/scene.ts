@@ -562,7 +562,12 @@ export class SceneRenderer {
     const inset = 2;
     const w = W - inset * 2;
     const h = H - inset * 2;
-    ctx.strokeStyle = this.sombre ? "rgba(241,232,216,0.16)" : "rgba(36,27,58,0.14)";
+    /*
+     * La page sous le cadre est sombre la nuit, mais AUSSI sous un plateau
+     * sombre : en partie, le plateau habille toute la page (`data-skin`).
+     */
+    const pageSombre = this.sombre || !terrainDe(this.skin, this.sombre).clair;
+    ctx.strokeStyle = pageSombre ? "rgba(241,232,216,0.16)" : "rgba(36,27,58,0.14)";
     ctx.lineWidth = 4;
     ctx.strokeRect(inset, inset, w, h);
 
@@ -570,7 +575,7 @@ export class SceneRenderer {
     const left = Math.max(0, 1 - ratio) * per;
     // Le temps restant s'écrit dans l'encre de la PAGE : prune sur le sable,
     // crème sur la nuit.
-    ctx.strokeStyle = this.sombre ? "#F1E8D8" : ENCRE;
+    ctx.strokeStyle = pageSombre ? "#F1E8D8" : ENCRE;
     ctx.lineWidth = 4;
     ctx.beginPath();
 

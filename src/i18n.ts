@@ -224,6 +224,21 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effetsQuoi": "Alerte au dernier quart de la fenêtre.",
     "rgl.lisibilite": "LISIBILITÉ",
     "rgl.apparence": "APPARENCE",
+    "profil.carte": "TA CARTE",
+    "profil.carteAide": "GAGNE D'AUTRES CARTES EN JOUANT : CHACUNE PEUT TE REPRÉSENTER.",
+    "profil.photo": "TA PHOTO",
+    "profil.photoChoisir": "CHOISIR UNE PHOTO",
+    "profil.photoRetirer": "RETIRER",
+    "profil.photoAide": "SEULS LES JOUEURS DE TES SALONS LA VOIENT. CHACUN PEUT MASQUER LES PHOTOS DES AUTRES DANS LES RÉGLAGES.",
+    "amis.titre": "TES AMIS",
+    "amis.anon": "CONNECTE-TOI POUR AJOUTER TES AMIS ET COMPARER VOS RUNS DU JOUR.",
+    "amis.connecter": "SE CONNECTER",
+    "amis.tonCode": "TON CODE",
+    "amis.copier": "COPIER",
+    "amis.ph": "CODE D'UN AMI",
+    "amis.ajoute": "AJOUTER",
+    "rgl.photos": "PHOTOS DES AUTRES",
+    "rgl.photosQuoi": "Les photos de profil des joueurs de ton salon.",
     "rgl.apparenceQuoi": "AUTO suit ton appareil. SOMBRE ménage les yeux le soir.",
     "rgl.motifs": "MOTIFS SUR LES PIÈCES",
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
@@ -404,6 +419,21 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effetsQuoi": "Alert on the last quarter of the window.",
     "rgl.lisibilite": "READABILITY",
     "rgl.apparence": "APPEARANCE",
+    "profil.carte": "YOUR CARD",
+    "profil.carteAide": "WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.",
+    "profil.photo": "YOUR PHOTO",
+    "profil.photoChoisir": "CHOOSE A PHOTO",
+    "profil.photoRetirer": "REMOVE",
+    "profil.photoAide": "ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.",
+    "amis.titre": "YOUR FRIENDS",
+    "amis.anon": "SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.",
+    "amis.connecter": "SIGN IN",
+    "amis.tonCode": "YOUR CODE",
+    "amis.copier": "COPY",
+    "amis.ph": "FRIEND'S CODE",
+    "amis.ajoute": "ADD",
+    "rgl.photos": "OTHERS' PHOTOS",
+    "rgl.photosQuoi": "Profile photos of the players in your room.",
     "rgl.apparenceQuoi": "AUTO follows your device. DARK is easier on the eyes at night.",
     "rgl.motifs": "PATTERNS ON PIECES",
     "rgl.motifsQuoi": "Every colour also carries a texture.",
@@ -852,6 +882,19 @@ type Dyn = {
   ariaImposteur: string;
   ariaCoop: string;
   ariaSigne: (n: number, total: number) => string;
+  /** Le choix « pas de carte de visite ». */
+  carteAucune: string;
+  /** La photo choisie n'a pas pu être lue ou réduite. */
+  photoIllisible: string;
+  /** Les amis : erreurs d'ajout, une par cause — chacune dit quoi faire. */
+  amisErr: Record<"code" | "soi" | "inconnu" | "plein" | "reseau", string>;
+  amisSeul: string;
+  amisNote: string;
+  amisPasJoue: string;
+  amisCopie: string;
+  amisMeilleur: (n: number) => string;
+  ariaRetirerAmi: (qui: string) => string;
+  ariaSemaine: (qui: string, scores: string) => string;
   ariaCouper: (qui: string) => string;
   ariaReactiver: (qui: string) => string;
   ariaExclure: (qui: string) => string;
@@ -1438,6 +1481,22 @@ const DYN: Record<Lang, Dyn> = {
     ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
     ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 12 vagues, 4 à 6 joueurs",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
+    carteAucune: "Aucune carte",
+    photoIllisible: "CETTE IMAGE NE SE LIT PAS. ESSAIE UNE AUTRE PHOTO.",
+    amisErr: {
+      code: "UN CODE FAIT SIX LETTRES OU CHIFFRES.",
+      soi: "C'EST TON PROPRE CODE.",
+      inconnu: "AUCUN JOUEUR N'A CE CODE. VÉRIFIE-LE AVEC LUI.",
+      plein: "LISTE PLEINE : 50 AMIS AU PLUS.",
+      reseau: "PAS DE RÉPONSE. RÉESSAIE DANS UN INSTANT.",
+    },
+    amisSeul: "DONNE TON CODE À UN AMI, OU TAPE LE SIEN.",
+    amisNote: "CLASSÉS SUR LE RUN DU JOUR — LE MÊME POUR TOUT LE MONDE. LES BARRES : LES 7 DERNIERS JOURS. « 30 J » : LE MEILLEUR DU MOIS.",
+    amisPasJoue: "PAS JOUÉ",
+    amisCopie: "COPIÉ",
+    amisMeilleur: (n) => `30 J · ${n}`,
+    ariaRetirerAmi: (qui) => `Retirer ${qui} de tes amis`,
+    ariaSemaine: (qui, scores) => `${qui}, 7 derniers jours : ${scores}`,
     ariaCouper: (qui) => `Couper ${qui}`,
     ariaReactiver: (qui) => `Réactiver ${qui}`,
     ariaExclure: (qui) => `Exclure ${qui}`,
@@ -1924,6 +1983,22 @@ const DYN: Record<Lang, Dyn> = {
     ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
     ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 12 waves, 4 to 6 players",
     ariaSigne: (n, total) => `Sign ${n} of ${total}`,
+    carteAucune: "No card",
+    photoIllisible: "THIS IMAGE CANNOT BE READ. TRY ANOTHER PHOTO.",
+    amisErr: {
+      code: "A CODE IS SIX LETTERS OR DIGITS.",
+      soi: "THAT'S YOUR OWN CODE.",
+      inconnu: "NO PLAYER HAS THIS CODE. CHECK IT WITH THEM.",
+      plein: "LIST FULL: 50 FRIENDS AT MOST.",
+      reseau: "NO ANSWER. TRY AGAIN IN A MOMENT.",
+    },
+    amisSeul: "GIVE YOUR CODE TO A FRIEND, OR TYPE THEIRS.",
+    amisNote: "RANKED ON THE DAILY RUN — THE SAME FOR EVERYONE. THE BARS: THE LAST 7 DAYS. “30 D”: THE BEST OF THE MONTH.",
+    amisPasJoue: "NOT YET",
+    amisCopie: "COPIED",
+    amisMeilleur: (n) => `30 D · ${n}`,
+    ariaRetirerAmi: (qui) => `Remove ${qui} from your friends`,
+    ariaSemaine: (qui, scores) => `${qui}, last 7 days: ${scores}`,
     ariaCouper: (qui) => `Mute ${qui}`,
     ariaReactiver: (qui) => `Unmute ${qui}`,
     ariaExclure: (qui) => `Kick ${qui}`,

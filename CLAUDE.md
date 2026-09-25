@@ -177,7 +177,7 @@ src/
     escalade     tirage de la pile de règles (ici, pas dans game/ : `verify`
                  en a besoin côté serveur)
     rng, scene (grille 5×3), instructions/ (19 dont 15 tactiles),
-    rules/ (12 règles + withoutHold), round, multiround, resolve,
+    rules/ (16 règles + withoutHold), round, multiround, resolve,
     verify, difficulty (windowMs, windowForSteps, STEP_MS)
   game/        daily (ruleOfDay, trainingRule), session, quests, progress, replay
   i18n.ts      FR/EN : chaînes statiques, dynamiques, et COMPOSITION des
@@ -232,7 +232,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | | |
 |---|---|
 | Champ | `FIELD_W 1000 × FIELD_H 420`, `FIELD_GUTTER 24` |
-| Fenêtre | `windowMs` : `<12 → 4000−180·lvl`, sinon `max(700, 1840−30·(lvl−12))` — redescendue sur directive de Pierre ; ×allure (×2 en DÉBUT et aux niveaux 1-1/1-2) |
+| Fenêtre | `windowMs` : `<12 → 4000−180·lvl`, sinon `max(700, 1840−30·(lvl−12))` — redescendue sur directive de Pierre ; puis `fenetreAllure(base, allure) = min(base·allure, max(base, 4000))` : une allure lente n'AJOUTE jamais au-delà de 4 s |
 | Étapes | `STEP_MS 280` — chaque action **supplémentaire** ajoute ce temps |
 | Multi | `MIN_ROUND_MS 700`, `MAX_ROUND_MS 2400`, `INPUT_TOLERANCE_MS 120` |
 | Interludes | normal 1100 · vie perdue 2400 · élimination 4200 · duel 500 · rotation 3400 |
@@ -669,12 +669,13 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
-| Aucun filet sur la mise en page | jsdom ne calcule pas de layout — décision Playwright en attente |
+| Aucun filet sur la mise en page | jsdom ne calcule pas de layout. Playwright a fait ses preuves À LA MAIN (salon, tutoriel, nuit : une dizaine de défauts trouvés) mais n'est pas dans le dépôt |
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 16 règles ; 120 combinaisons possibles à deux règles |
-| Pièces sans dépense | `st.coins` s'accumule et ne sert à rien |
+| ~~Pièces sans dépense~~ | **levée** — la boutique de styles de pièces (§12, refonte PARCOURS) |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
-| Couleur sans second canal | les pièces ne se distinguent que par la teinte, et garance/jade est la collision classique du daltonisme rouge-vert. Voir la note en §12 |
+| ~~Couleur sans second canal~~ | **levée** — mode MOTIFS (§12) |
+| **Aucune intégration continue** | pas de `.github/` : rien ne relance tsc, vitest ni l'e2e sur une PR. Tout repose sur un lancement à la main |
 
 ---
 
@@ -774,6 +775,92 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### ⚠️ Le serveur de salons tombait sur UN message (25/09/2026)
+
+Trouvé en portant la photo de profil sur le fil, et c'est antérieur à elle.
+`server/index.ts` n'écoutait pas `error` sur ses sockets. Or `ws` émet
+`error` sur toute trame qu'il refuse — plus grosse que `maxPayload`, UTF-8
+invalide, opcode inconnu — et un `EventEmitter` sans écouteur d'`error` LÈVE :
+**le processus mourait, et tous les salons en mémoire avec lui**, sur une seule
+trame d'un seul client. Mesuré : `RangeError: Max payload size exceeded` non
+rattrapée. Corrigé par un écouteur ; l'e2e envoie une trame de 40 Ko et exige
+que la fautive soit coupée (1009) ET que le serveur réponde encore aux autres.
+
+Même lot : `maxPayload` valait **4096**, taillé sur un chat de 140 caractères.
+Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket du
+joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
+**Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
+
+### Les amis — fait, jamais vus par un joueur (25/09/2026)
+
+Demandé par Pierre : amis, classement des amis, comparer scores et runs.
+`shared/amis.ts` (pur) · `api/amis.ts` · migration **0003** · `src/compte/amis.ts`
+· bloc `#murAmis` sous le podium du mur des records.
+
+- **Un CODE de six lettres**, pas une recherche par nom : il se dicte comme un
+  code de salon (le social de TOR est synchrone, playtest jour 2), et une
+  recherche ferait de chaque compte un annuaire. Ajouter un code lie les DEUX
+  comptes — donner son code vaut accord. 50 amis au plus, des deux côtés.
+- **On ne compare que du REJOUÉ** (n°14) : run du jour du cercle, semaine en
+  sept barres, meilleur du mois — tout vient de `performance`, filtré comme le
+  podium (`verdict_bot = humain`, même clé de comparabilité). Un test refuse
+  qu'un record des AGRÉGATS apparaisse.
+- **Jamais d'identifiant de compte publié** : le code sert de poignée. Un test
+  fixe la liste EXACTE des clés d'une ligne, éprouvé en laissant fuiter l'id.
+- Le compte est OBLIGATOIRE pour ça, et ça ne contredit pas n°12 : une liste
+  d'amis EST un compte. Aucun chemin de jeu n'y touche ; sans comptes au
+  déploiement, le bloc se tait comme le podium.
+- La carte de visite monte dans `apparence.carte` (la clé était réservée
+  depuis la migration 0001) ; `apparenceAutorisee` la valide, car elle finit
+  dans une `url()` CSS chez les amis. La PHOTO ne monte jamais.
+- ⚠️ La suppression d'un compte est LOGIQUE : `on delete cascade` ne joue pas.
+  `supprime()` efface donc les amitiés et le code à la main (testé).
+- Mesuré à l'écran avec le VRAI gestionnaire branché par Playwright : pistes
+  fixes (une piste `auto` s'élargissait sous « PAS ENCORE JOUÉ » et décalait la
+  semaine d'une ligne à l'autre), lignes à 56 px, rien ne déborde à 375.
+
+**À faire côté Pierre pour que ça vive** : appliquer `0003_amis.sql` après les
+deux premières. Rien d'autre — pas de variable neuve.
+
+### Le joueur a un visage : carte de visite et photo (25/09/2026)
+
+Demandé par Pierre (« l'essence du jeu c'est le multi »). `shared/profil.ts`
+valide des DEUX côtés avec la même fonction ; absent vaut non, le douteux est
+ignoré sans erreur. Message `profil` (client → serveur, renvoyé à chaque
+`welcome`), `PlayerPublic.carte`, et `photos` (serveur → clients) : la photo
+voyage À PART du `room`, une fois à l'arrivée, jamais à chaque état du salon.
+
+- **La carte** ne se choisit que parmi les cartes GAGNÉES (n°7). Au salon et au
+  classement : vignette carrée pleine opacité au bord droit. Premier essai
+  mesuré en fond voilé à 80 % : une tache floue, rien de reconnaissable. Les
+  plaques de match gardent le fond voilé (62 %) : elles descendent à 76 px.
+  ⚠️ `.seat.is-me { background }` (0,2,0) effaçait la carte sur SON PROPRE
+  siège — les états qui la portent sont nommés dans la règle ; les VERDICTS
+  de plaque l'emportent exprès.
+- **La photo** est réduite PAR LE CLIENT (`render/photo.ts`, 96 px, JPEG,
+  ≤ `PHOTO_MAX`) : la pleine résolution et ses métadonnées ne quittent jamais
+  l'appareil. SVG et URL refusés (script, sondage des clients). Un réglage
+  masque les photos des AUTRES. Un changement de photo à moins de 1,5 s du
+  précédent est ignoré par le serveur (relayer 14 Ko × 9 en rafale).
+- Mesuré à deux navigateurs : plaques identiques avec et sans profil
+  (210 × 102 bureau, 90/76 × 75 téléphone). La taille du champ ne bouge pas.
+
+### Les plateaux habillent toute la partie (25/09/2026)
+
+Demandé par Pierre : un plateau acheté s'applique à toute la page de jeu, pas
+qu'au canvas. `:root.en-partie[data-skin="…"]` redéfinit TOUS les jetons de
+couleur (`tests/theme.test.ts` refuse un oubli) ; `en-partie` est posée par
+`show(null)`. ⚠️ Sur la RACINE, jamais sur `#app` : `--ombre` se calcule là où
+elle est déclarée. Les menus gardent le thème : le plateau est un décor de jeu.
+
+### `smoke.test.ts` tombait une fois sur vingt — expliqué
+
+Il laisse filer le temps sans jouer et parie que le 1-1 est perdu. Or la graine
+vient de `Math.random`, et **5,2 % des graines** (156 sur 3000) font gagner le
+1-1 à un joueur qui ne touche à rien : les manches piégées se survivent en
+s'abstenant. Son hasard est désormais figé ; les valeurs 18 et 20 le font
+tomber sur exactement cette assertion.
+
 ### DÉJOUER retiré, et le temps mort qu'il cachait (25/09/2026)
 
 Retiré en entier : moteur (`resoudreDejoue`), `Session`, `game/dejoue.ts`,
@@ -802,6 +889,19 @@ jusqu'au bout, sous une consigne plus légitime (« CLIQUE LE CARRÉ ROUGE »).
 sa fenêtre. Mesuré (`windowForSteps × allure`) : **8,0 s** au niveau 1-1/1-2
 (allure 2, manche 0), 7,3 s à la manche 2, 6,2 s à la 5 — et c'est au 1-2
 que le jeu ENSEIGNE le piège. En allure 1 : 4,0 / 3,6 / 3,1 s.
+
+**RÉPONSE, sur directive de Pierre : `PLAFOND_ALLURE_MS = 4000`**
+(`fenetreAllure`, `engine/difficulty.ts`). L'allure ne peut plus pousser une
+fenêtre au-delà de 4 s, pour TOUTES les manches — donc rien ne distingue un
+piège. Mesuré en jeu : manche 0 à ×2, **8000 → 4000 ms**. ⚠️ Le plafond ne
+borne que le SUPPLÉMENT de l'allure (`max(base, 4000)`), jamais la fenêtre
+nominale : à l'allure 1 le résultat est exactement `base`, y compris pour une
+manche à trois gestes qui dépasse 4 s d'elle-même — run du jour, rejeu
+serveur, escalade et `VERSION_CONTENU` (`5m4fgw`) inchangés, testé sur 70
+manches × 5 nombres de gestes. Conséquences assumées : en début de partie,
+DÉBUT, DÉCOUVERTE et NORMAL ont la même fenêtre (l'allure ne se distingue que
+vers la manche 10 à ×2) ; les records d'entraînement aux allures lentes
+gardent leur clé, et deviennent plus durs à battre, jamais plus faciles.
 
 ⚠️ **Ce qu'il ne faut PAS faire** : finir une manche piégée plus tôt que sa
 fenêtre affichée. Le joueur apprendrait à ATTENDRE pour voir si la manche

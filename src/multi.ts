@@ -32,6 +32,8 @@ import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
 import { cleanEnv } from "./env";
 import { NetClient } from "./net/client";
+import { photoValide } from "../shared/profil";
+import { reduitPhoto } from "./render/photo";
 import { GLYPH_COUNT, glyphFor, glyphSvg, glyphVariant } from "./net/glyph";
 import type { Hud } from "./render/hud";
 import { livesDots } from "./render/hud";
@@ -383,6 +385,49 @@ function playerGlyph(p: PlayerPublic) {
 }
 
 /**
+ * LES PHOTOS DU SALON, par joueur. Elles arrivent à part (`t: "photos"`),
+ * jamais dans `PlayerPublic` — voir `shared/protocol.ts`. Vidé en quittant.
+ */
+const photosSalon = new Map<string, string>();
+
+/**
+ * L'AVATAR d'un joueur : sa photo si on la montre, sinon son signe.
+ *
+ * Les photos des AUTRES se coupent dans les réglages (`photosAutres`) : une
+ * photo est un contenu que personne ne modère, et un joueur doit pouvoir ne
+ * plus les voir sans quitter le salon. La sienne se voit toujours.
+ */
+function peintAvatar(el: HTMLElement, p: PlayerPublic, taille: number, moi: boolean, voirPhotos: boolean): void {
+  const photo = photosSalon.get(p.id);
+  el.classList.toggle("a-photo", !!photo && (moi || voirPhotos));
+  if (photo && (moi || voirPhotos)) {
+    const img = document.createElement("img");
+    img.className = "avatar__photo";
+    img.alt = "";
+    img.width = taille;
+    img.height = taille;
+    img.src = photo;
+    el.replaceChildren(img);
+  } else {
+    el.innerHTML = glyphSvg(playerGlyph(p), taille);
+  }
+}
+
+/**
+ * LA CARTE DE VISITE en fond : ce qui rend un joueur reconnaissable d'un
+ * coup d'œil, à dix dans un salon, sans lire son nom.
+ */
+function poseCarte(el: HTMLElement, p: PlayerPublic): void {
+  if (p.carte) {
+    el.style.setProperty("--carte", `url("/cartes/${p.carte}.png")`);
+    el.classList.add("a-carte");
+  } else {
+    el.style.removeProperty("--carte");
+    el.classList.remove("a-carte");
+  }
+}
+
+/**
  * Le code du salon, une case par caractère.
  *
  * `textContent` sur le conteneur détruirait les cases — c'est le piège déjà
@@ -479,6 +524,7 @@ function renderLobby(
     if (premier) montreToast(tr("toastEntre")(premier.name, players.length, MAX_PLAYERS));
   }
 
+  const voirPhotos = P.load().photosAutres;
   for (const p of players) {
     const etat = seatState(p, inMatch, myId);
     const seat = document.createElement("div");
@@ -489,7 +535,8 @@ function renderLobby(
       `<span class="seat__name"></span>` +
       `<span class="seat__status"></span>` +
       `</span>`;
-    seat.querySelector(".seat__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 18);
+    peintAvatar(seat.querySelector<HTMLElement>(".seat__glyph")!, p, 18, p.id === myId, voirPhotos);
+    poseCarte(seat, p);
     seat.querySelector<HTMLElement>(".seat__name")!.textContent = p.name;
     seat.querySelector<HTMLElement>(".seat__status")!.textContent = statutSiege(seatStatus(etat));
     if (p.id !== myId) {
@@ -1763,6 +1810,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     setPlatesVisible(true);
     const myId = net.myId;
+    const voirPhotos = P.load().photosAutres;
     // Compact aussi sur petit écran, quel que soit l'effectif : à deux plaques
     // par rangée sur un téléphone, six joueurs mangeaient déjà un tiers de la
     // hauteur. Le signe passe à 24 px, comme à effectif nombreux.
@@ -1831,10 +1879,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         (equipe === undefined ? "" : ` is-equipe-${equipe % 5}`) +
         (match!.phase === "observe" && voteCible === p.id ? " is-accuse" : "");
 
-      el.querySelector(".plate__glyph")!.innerHTML = glyphSvg(
-        playerGlyph(p),
-        compact ? 24 : 40,
-      );
+      peintAvatar(el.querySelector<HTMLElement>(".plate__glyph")!, p, compact ? 24 : 40, p.id === myId, voirPhotos);
+      poseCarte(el, p);
       el.querySelector<HTMLElement>(".plate__name")!.textContent = p.name;
       const ruleText = el.querySelector<HTMLElement>(".plate__rule-text")!;
       const liveTxt = acte === "acted" ? tr("plaqueAgi") : acte === "wait" ? tr("plaqueRien") : null;
@@ -2519,7 +2565,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__status"></span>` +
         `<span class="lobbyrow__meta"></span>`;
       row.querySelector<HTMLElement>(".lobbyrow__rank")!.textContent = `${rang + 1}`;
-      row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
+      peintAvatar(row.querySelector<HTMLElement>(".lobbyrow__glyph")!, p, 16, p.id === net?.myId, P.load().photosAutres);
+      poseCarte(row, p);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       /*
        * La règle qu'il portait en tombant.
@@ -2561,7 +2608,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__rule"></span>` +
         `<span class="lobbyrow__status">${tr("piedSpectateur")}</span>` +
         `<span class="lobbyrow__meta"><span class="lobbyrow__rounds">${tr("aRegarde")}</span></span>`;
-      row.querySelector(".lobbyrow__glyph")!.innerHTML = glyphSvg(playerGlyph(p), 16);
+      peintAvatar(row.querySelector<HTMLElement>(".lobbyrow__glyph")!, p, 16, p.id === net?.myId, P.load().photosAutres);
+      poseCarte(row, p);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
       list.appendChild(row);
     }
@@ -2743,6 +2791,17 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   const onMsg = (msg: ServerMsg): void => {
+    if (msg.t === "photos") {
+      // Revalidées ici aussi : ce qui entre dans un `src` ne se fie à personne.
+      for (const [id, brute] of Object.entries(msg.photos ?? {})) {
+        const photo = photoValide(brute);
+        if (photo) photosSalon.set(id, photo);
+        else photosSalon.delete(id);
+      }
+      paintLobby();
+      renderPlates();
+      return;
+    }
     if (msg.t === "room") {
       /*
        * L'ARRIVÉE dans un salon, comptée une fois et à l'endroit où elle est
@@ -3005,8 +3064,92 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     $<HTMLInputElement>("idName").value = savedName() ?? "";
     $("idErr").classList.add("hidden");
     renderGlyphPicker();
+    renderProfilPicker();
     show("multi-id");
   }
+
+  /**
+   * LA CARTE DE VISITE ET LA PHOTO — enregistrées DÈS le choix, et renvoyées
+   * au salon si l'on y est : contrairement au nom, elles ne demandent pas de
+   * reconnexion (message `profil`).
+   */
+  function renderProfilPicker(): void {
+    const s = P.load();
+    const hote = $("idCartes");
+    hote.replaceChildren();
+    const gagnees = Object.keys(s.encountered)
+      .map((id) => ruleById(id))
+      .filter((r): r is OneRule => !!r);
+    const choix: (OneRule | null)[] = [null, ...gagnees];
+    for (const r of choix) {
+      const opt = document.createElement("button");
+      opt.type = "button";
+      opt.className = "cartepick__opt" + (r ? "" : " cartepick__opt--aucune");
+      opt.setAttribute("role", "radio");
+      const pris = (s.profil.carte ?? null) === (r?.id ?? null);
+      opt.setAttribute("aria-checked", String(pris));
+      opt.setAttribute("aria-label", r ? nomDeRegle(r.id, r.name) : tr("carteAucune"));
+      if (r) {
+        const img = document.createElement("img");
+        img.src = `/cartes/${r.id}.png`;
+        img.alt = "";
+        img.loading = "lazy";
+        opt.appendChild(img);
+      } else {
+        opt.textContent = "—";
+      }
+      opt.addEventListener("click", () => {
+        sfx.ui();
+        P.mutate((st) => {
+          if (r) st.profil.carte = r.id;
+          else delete st.profil.carte;
+        });
+        net?.envoieProfil();
+        renderProfilPicker();
+      });
+      hote.appendChild(opt);
+    }
+    const photo = s.profil.photo;
+    const apercu = $("idPhotoApercu");
+    if (photo) {
+      const img = document.createElement("img");
+      img.src = photo;
+      img.alt = "";
+      apercu.replaceChildren(img);
+    } else {
+      apercu.innerHTML = glyphSvg(glyphVariant(s.anonId, glyphChoisi), 40);
+    }
+    $("btnPhotoRetirer").classList.toggle("hidden", !photo);
+  }
+
+  $<HTMLInputElement>("idPhotoFichier").addEventListener("change", async (ev) => {
+    const champ = ev.currentTarget as HTMLInputElement;
+    const fichier = champ.files?.[0];
+    champ.value = "";
+    if (!fichier) return;
+    const photo = await reduitPhoto(fichier);
+    if (!photo) {
+      $("idErr").textContent = tr("photoIllisible");
+      $("idErr").classList.remove("hidden");
+      return;
+    }
+    $("idErr").classList.add("hidden");
+    P.mutate((st) => {
+      st.profil.photo = photo;
+    });
+    sfx.ui();
+    net?.envoieProfil();
+    renderProfilPicker();
+  });
+
+  $("btnPhotoRetirer").addEventListener("click", () => {
+    P.mutate((st) => {
+      delete st.profil.photo;
+    });
+    sfx.ui();
+    net?.envoieProfil();
+    renderProfilPicker();
+  });
 
   /**
    * Exige une identité avant d'agir. Retourne vrai si l'écran a été ouvert —
@@ -3169,6 +3312,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       if (!net || !net.connected) {
         net?.close();
         net = new NetClient(url);
+        net.profil = () => P.load().profil;
         unsub?.();
         unsub = net.on(onMsg);
       }
@@ -3290,6 +3434,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     // Le salon suivant repart de zero : sans ca, entrer ailleurs marquerait
     // tout le monde comme « vient d'arriver ».
     connusDuSalon = null;
+    photosSalon.clear();
     muted.clear();
     clearEmoteTimers();
     clearChat();
