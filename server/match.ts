@@ -797,12 +797,27 @@ export class MatchLogic {
     };
   }
 
-  /** Le vainqueur : dernier en vie, sinon le plus de vies, sinon le score. */
+  /**
+   * Le vainqueur : dernier en vie, sinon le plus de vies, sinon le score.
+   *
+   * ⚠️ UNE ÉGALITÉ PARFAITE EN TÊTE N'A PAS DE VAINQUEUR. Les deux derniers
+   * qui tombent à la même manche avec le même score sont indiscernables : le
+   * tri rendait alors le PREMIER siège, c'est-à-dire l'hôte, qui lisait « TU
+   * AS GAGNÉ » au-dessus d'un classement qui le disait ÉLIMINÉ. `null` est
+   * l'égalité, et le client sait déjà l'afficher.
+   *
+   * Deux COÉQUIPIERS à égalité ne sont pas un match nul — ils partagent leur
+   * réserve, donc ils le sont toujours : seule une égalité entre deux équipes
+   * différentes annule la victoire.
+   */
   winner(): string | null {
-    const ranked = [...this.seats].sort(
-      (a, b) => Number(b.eliminated === false) - Number(a.eliminated === false) || b.lives - a.lives || b.score - a.score,
-    );
-    return ranked[0]?.id ?? null;
+    const ordre = (a: Seat, b: Seat): number =>
+      Number(b.eliminated === false) - Number(a.eliminated === false) || b.lives - a.lives || b.score - a.score;
+    const ranked = [...this.seats].sort(ordre);
+    const tete = ranked[0];
+    if (!tete) return null;
+    const exAequo = ranked.some((s) => s.team !== tete.team && ordre(s, tete) === 0);
+    return exAequo ? null : tete.id;
   }
 
   /**

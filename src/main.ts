@@ -1139,6 +1139,12 @@ const AVANCE_ECHELLE = false;
  * MAÎTRISÉE quand le boss est battu (`estMaitrisee`, la seule définition) ;
  * EN COURS dès une étoile ; DÉCOUVERTE sinon.
  */
+/** Les étoiles d'un chapitre, et son maximum — la seule jauge de maîtrise affichée. */
+const ETOILES_CHAPITRE = PC.NIVEAUX.length * PC.ETOILES_MAX;
+function etoilesDeRegle(rec: P.RuleRecord | undefined): number {
+  return rec?.etoiles ? rec.etoiles.reduce((a, b) => a + b, 0) : 0;
+}
+
 function etatDeRegle(r: OneRule, rec: P.RuleRecord | undefined): EtatCarte {
   if (!rec) return "verrouillee";
   const et = rec.etoiles ? rec.etoiles.reduce((a, b) => a + b, 0) : 0;
@@ -1606,8 +1612,11 @@ function renderSolo(): void {
     const b = $("btnResteTravailler");
     b.classList.toggle("hidden", !auCarnet);
     if (auCarnet) {
-      const cases = franchies(echelleMaitrise(rule, s.encountered[rule.id]));
-      b.textContent = t("resteTravailler")(nomDeRegle(rule.id, rule.name), cases);
+      b.textContent = t("resteTravailler")(
+        nomDeRegle(rule.id, rule.name),
+        etoilesDeRegle(s.encountered[rule.id]),
+        ETOILES_CHAPITRE,
+      );
     }
 
     // DEMAIN : le même geste que l'écran de fin, qui l'annonce déjà.
@@ -1653,6 +1662,7 @@ function renderReglages(): void {
   poseInter("btnSound", s.sound);
   poseInter("btnMusic", s.music);
   appliqueMotifs(s.daltonien);
+  renderTheme();
   refreshMetricsButton();
   renderAllureDefaut();
   renderDejoue();
@@ -1816,6 +1826,58 @@ function renderAllureDefaut(): void {
  * est une suite de carrés de couleur pure sans aucune autre marque. La classe
  * sur `#app` laisse la feuille de style traiter la seconde.
  */
+/*
+ * L'APPARENCE — AUTO, CLAIR ou SOMBRE.
+ *
+ * Le jeu se joue le soir, entre amis : c'est là qu'ont eu lieu tous les
+ * playtests. Une page sable plein écran dans une pièce éteinte éblouit, et la
+ * première identité du jeu était justement « Nocturne ». AUTO suit le système ;
+ * les deux autres le forcent.
+ *
+ * ⚠️ Le CSS décide seul en AUTO (`prefers-color-scheme`), mais le CANVAS ne lit
+ * pas de CSS : il faut lui dire si la page est sombre, et le lui redire quand
+ * le système bascule en cours de partie. D'où l'écoute du `matchMedia`, posée
+ * une fois.
+ */
+const nuitSysteme =
+  typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
+
+function appliqueTheme(theme: P.Theme): void {
+  const racine = document.documentElement;
+  if (theme === "auto") delete racine.dataset.theme;
+  else racine.dataset.theme = theme;
+  scene.sombre = theme === "sombre" || (theme === "auto" && !!nuitSysteme?.matches);
+}
+
+nuitSysteme?.addEventListener?.("change", () => appliqueTheme(P.load().theme));
+
+function renderTheme(): void {
+  const courant = P.load().theme;
+  const hote = $("rglTheme");
+  fillOptions(
+    hote,
+    P.THEMES.map((v) => ({
+      value: v,
+      label: t("themeNom")(v),
+      level: 0,
+      steps: 0,
+      icon: "dots" as const,
+      selected: v === courant,
+      compact: true,
+    })),
+  );
+  for (const btn of Array.from(hote.children)) {
+    btn.addEventListener("click", () => {
+      sfx.ui();
+      const st = P.mutate((x) => {
+        x.theme = (btn as HTMLElement).dataset.value as P.Theme;
+      });
+      appliqueTheme(st.theme);
+      renderTheme();
+    });
+  }
+}
+
 function appliqueMotifs(on: boolean): void {
   scene.daltonien = on;
   appEl.classList.toggle("is-motifs", on);
@@ -1973,8 +2035,9 @@ function renderCodex(): void {
   /*
    * CELLE QUI TE RÉSISTE : la plus retentée parmi celles qui manquent.
    *
-   * On départage sur le nombre de cases franchies — à runs égaux, celle dont
-   * on est le plus loin. C'est la seule ligne de l'écran qui DÉSIGNE un
+   * On départage sur les étoiles du chapitre — à runs égaux, celle dont on
+   * est le plus loin. (C'étaient les cases de l'échelle à six, que plus aucun
+   * écran ne montre : la note parlait d'une grandeur invisible.) C'est la seule ligne de l'écran qui DÉSIGNE un
    * exercice au lieu d'en proposer seize, et c'est ce qui évite au joueur
    * d'avoir à choisir avant de savoir quoi choisir.
    */
@@ -1982,10 +2045,7 @@ function renderCodex(): void {
     const rx = s.encountered[x.id]?.runs ?? 0;
     const ry = s.encountered[y.id]?.runs ?? 0;
     if (rx !== ry) return ry - rx;
-    return (
-      franchies(echelleMaitrise(x, s.encountered[x.id])) -
-      franchies(echelleMaitrise(y, s.encountered[y.id]))
-    );
+    return etoilesDeRegle(s.encountered[x.id]) - etoilesDeRegle(s.encountered[y.id]);
   })[0];
 
   // Elle ne paraît qu'au-delà d'un run : à zéro, « celle qui te résiste »
@@ -1998,7 +2058,8 @@ function renderCodex(): void {
     $("resisteNom").textContent = nomDeRegle(resiste.id, resiste.name);
     $("resisteNote").textContent = t("resisteNote")(
       recResiste?.runs ?? 0,
-      franchies(echelleMaitrise(resiste, recResiste)),
+      etoilesDeRegle(recResiste),
+      ETOILES_CHAPITRE,
     );
     $("btnResiste").textContent = t("resisteBouton");
     $("btnResiste").dataset.regle = resiste.id;
@@ -7433,6 +7494,9 @@ requestAnimationFrame(loop);
  * les captures d'écran de l'écran de NIVEAU RÉUSSI se fassent sans pilote
  * humain. Il ne touche pas au moteur : il passe par `send`, comme un clic.
  */
+// L'apparence se pose AVANT la première image, quel que soit l'écran d'arrivée.
+appliqueTheme(P.load().theme);
+
 if (import.meta.env.DEV) {
   (window as unknown as { __tor: unknown }).__tor = {
     joue(): string {

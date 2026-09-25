@@ -5,7 +5,7 @@ import { policeMono } from "./polices";
 import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
 import { FIELD_GUTTER, cadrePour, decalage, orientationPour, rectEcran, versChamp, versEcran } from "./orientation";
 import type { Cadre, Orientation } from "./orientation";
-import { dessinePiece, dessineTerrain, ENCRE, TEINTES, TERRAINS } from "./skins";
+import { dessinePiece, dessineTerrain, ENCRE, TEINTES, terrainDe } from "./skins";
 import type { SkinId } from "../game/boutique";
 
 /**
@@ -244,6 +244,13 @@ export class SceneRenderer {
    * lit `e.x`, `e.y`, `e.r` et ne sait rien du style (décision n°3).
    */
   skin: SkinId = "sticker";
+  /**
+   * LA PAGE EST-ELLE SOMBRE ? Posé par `appliqueTheme`. Décoratif comme
+   * `skin` : le terrain de nuit et l'encre du cadre de temps, rien d'autre.
+   * Le cadre de temps vit HORS du champ, sur la page : écrit à l'encre sur
+   * une page noire, il disparaissait.
+   */
+  sombre = false;
   /**
    * Trames prêtes à l'emploi, une par couleur.
    *
@@ -555,14 +562,15 @@ export class SceneRenderer {
     const inset = 2;
     const w = W - inset * 2;
     const h = H - inset * 2;
-    ctx.strokeStyle = "rgba(36,27,58,0.14)";
+    ctx.strokeStyle = this.sombre ? "rgba(241,232,216,0.16)" : "rgba(36,27,58,0.14)";
     ctx.lineWidth = 4;
     ctx.strokeRect(inset, inset, w, h);
 
     const per = (w + h) * 2;
     const left = Math.max(0, 1 - ratio) * per;
-    // La page est crème : le temps restant s'écrit à l'encre.
-    ctx.strokeStyle = ENCRE;
+    // Le temps restant s'écrit dans l'encre de la PAGE : prune sur le sable,
+    // crème sur la nuit.
+    ctx.strokeStyle = this.sombre ? "#F1E8D8" : ENCRE;
     ctx.lineWidth = 4;
     ctx.beginPath();
 
@@ -673,7 +681,7 @@ export class SceneRenderer {
    * et rien du jeu n'en dépend. Dessinée en premier, donc sous tout le reste.
    */
   private drawField(): void {
-    dessineTerrain(this.ctx, this.skin, FIELD_W, FIELD_H);
+    dessineTerrain(this.ctx, this.skin, FIELD_W, FIELD_H, this.sombre);
   }
 
   /** Zones interdites d'une règle spatiale : invisibles, elles seraient injustes. */
@@ -865,7 +873,7 @@ export class SceneRenderer {
       if (k >= 1) {
         this.pulse = null;
       } else {
-        ctx.strokeStyle = TERRAINS[this.skin].clair
+        ctx.strokeStyle = terrainDe(this.skin, this.sombre).clair
           ? `rgba(36,27,58,${0.5 * (1 - k)})`
           : `rgba(233,233,237,${0.55 * (1 - k)})`;
         ctx.lineWidth = 2.5;

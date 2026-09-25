@@ -44,14 +44,93 @@
   --miel: #ffeec2;
   --lilas: #e6ddff;
 
+  /* La couleur des OMBRES PORTÉES, séparée de `--encre` : le jour elles se
+     confondent, la nuit l'encre s'éclaircit (texte, contours) et l'ombre
+     doit rester une ombre. */
+  --ombre-c: #241b3a;
+  /* L'or : un texte sur fond miel, et le fond miel d'une réussite. */
+  --or: #b5820c;
+  --or-fond: #fff1b8;
+
   --r-s: 10px;
   --r-m: 16px;
   --r-l: 24px;
   --trait: 3px;
-  --ombre: 0 4px 0 var(--encre);
-  --ombre-haute: 0 7px 0 var(--encre);
-  --ombre-basse: 0 1px 0 var(--encre);
+  --ombre: 0 4px 0 var(--ombre-c);
+  --ombre-haute: 0 7px 0 var(--ombre-c);
+  --ombre-basse: 0 1px 0 var(--ombre-c);
   --grain: none;
+}
+
+/* ==================================================================
+   LA NUIT — le même autocollant, retourné
+
+   ⚠️ UN SEUL JEU DE VALEURS, DEUX PORTES. `[data-theme="sombre"]` quand le
+   joueur le force ; `prefers-color-scheme: dark` quand il laisse AUTO — c'est
+   `:not([data-theme="clair"])` qui laisse CLAIR gagner contre le système. Les
+   deux blocs doivent rester identiques : un test les compare.
+
+   `--encre` passe au crème : c'est le texte ET le contour, donc les pièces
+   d'interface deviennent des autocollants découpés à bord clair — le geste
+   d'un vrai sticker. L'ombre portée, elle, reste une ombre (`--ombre-c`).
+
+   Les quatre teintes des PIÈCES ne bougent pas d'un chiffre (calibrage
+   daltonien) ; le terrain de nuit est choisi par `render/skins.ts`.
+   ================================================================== */
+:root[data-theme="sombre"] {
+  color-scheme: dark;
+  --ink: #16111f;
+  --ink-2: #1f182c;
+  --line: #3a3050;
+  --paper: #f1e8d8;
+  --paper-dim: #a597b6;
+  --signal: #7c52ff;
+  --signal-pale: #b8a3ff;
+  --ambre: #f5b214;
+  --rouge: #ff4d63;
+  --ok: #2fd39f;
+  --dead: #ff4d63;
+
+  --encre: #f1e8d8;
+  --ombre-c: #07050c;
+  --surface: #251d38;
+  --creme: #2b2242;
+  --rose: #45233a;
+  --menthe: #173d33;
+  --ciel: #1b2c4a;
+  --miel: #3d3217;
+  --lilas: #342a5c;
+  --or: #f5c542;
+  --or-fond: #3d3217;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="clair"]) {
+    color-scheme: dark;
+    --ink: #16111f;
+    --ink-2: #1f182c;
+    --line: #3a3050;
+    --paper: #f1e8d8;
+    --paper-dim: #a597b6;
+    --signal: #7c52ff;
+    --signal-pale: #b8a3ff;
+    --ambre: #f5b214;
+    --rouge: #ff4d63;
+    --ok: #2fd39f;
+    --dead: #ff4d63;
+
+    --encre: #f1e8d8;
+    --ombre-c: #07050c;
+    --surface: #251d38;
+    --creme: #2b2242;
+    --rose: #45233a;
+    --menthe: #173d33;
+    --ciel: #1b2c4a;
+    --miel: #3d3217;
+    --lilas: #342a5c;
+    --or: #f5c542;
+    --or-fond: #3d3217;
+  }
 }
 
 body {
@@ -68,7 +147,7 @@ body {
   background-image:
     radial-gradient(ellipse 70% 46% at 12% -8%, rgba(107, 60, 255, 0.10), transparent),
     radial-gradient(ellipse 60% 40% at 92% 4%, rgba(247, 64, 88, 0.08), transparent),
-    radial-gradient(circle at center, rgba(36, 27, 58, 0.09) 1.3px, transparent 1.7px);
+    radial-gradient(circle at center, color-mix(in srgb, var(--encre) 9%, transparent) 1.3px, transparent 1.7px);
   background-size: auto, auto, 24px 24px;
   opacity: 1;
 }
@@ -167,20 +246,20 @@ body {
   border-radius: var(--r-l);
   background: var(--signal);
   color: #fff;
-  box-shadow: 0 6px 0 var(--encre);
+  box-shadow: 0 6px 0 var(--ombre-c);
 }
 
 .btn--gros:hover,
 .btn--gros:focus-visible {
   background: #7d55ff;
   color: #fff;
-  box-shadow: 0 9px 0 var(--encre);
+  box-shadow: 0 9px 0 var(--ombre-c);
 }
 
 .btn--gros:active {
   background: #5a2de6;
   color: #fff;
-  box-shadow: 0 2px 0 var(--encre);
+  box-shadow: 0 2px 0 var(--ombre-c);
   transform: translateY(4px);
 }
 
@@ -191,7 +270,7 @@ body {
   background: var(--signal);
   border: 4px solid var(--encre);
   border-radius: 28px;
-  box-shadow: 0 8px 0 var(--encre);
+  box-shadow: 0 8px 0 var(--ombre-c);
   color: #fff;
   font-family: var(--display);
   font-weight: 700;
@@ -204,12 +283,12 @@ body {
   background: #7d55ff;
   border-color: var(--encre);
   transform: translateY(-3px);
-  box-shadow: 0 11px 0 var(--encre);
+  box-shadow: 0 11px 0 var(--ombre-c);
 }
 
 .play:active {
   transform: translateY(6px);
-  box-shadow: 0 2px 0 var(--encre);
+  box-shadow: 0 2px 0 var(--ombre-c);
 }
 
 @keyframes tor-respire {
@@ -389,7 +468,7 @@ body {
   background: var(--surface);
   border: 2px solid var(--encre);
   border-radius: 999px;
-  box-shadow: 0 3px 0 var(--encre);
+  box-shadow: 0 3px 0 var(--ombre-c);
   font-family: var(--display);
   font-weight: 700;
   font-size: 16px;
@@ -415,7 +494,7 @@ body {
 
 .pstat--pieces i {
   background: #ffd23f;
-  color: #b5820c;
+  color: var(--or);
 }
 
 .pstat--serie i {
@@ -434,7 +513,7 @@ body {
   background: var(--surface);
   border: var(--trait) solid var(--encre);
   border-radius: var(--r-l);
-  box-shadow: 0 6px 0 var(--encre);
+  box-shadow: 0 6px 0 var(--ombre-c);
   scroll-margin-top: 70px;
 }
 
@@ -446,7 +525,7 @@ body {
   overflow: hidden;
   background: var(--lilas);
   transform: rotate(-3deg);
-  box-shadow: 0 4px 0 var(--encre);
+  box-shadow: 0 4px 0 var(--ombre-c);
 }
 
 .hero__carte img,
@@ -547,7 +626,7 @@ body {
   border-radius: 50%;
   background: var(--surface);
   border: var(--trait) solid var(--encre);
-  box-shadow: 0 3px 0 var(--encre);
+  box-shadow: 0 3px 0 var(--ombre-c);
   font-family: var(--display);
   font-weight: 700;
   font-size: 19px;
@@ -591,8 +670,8 @@ body {
 }
 
 @keyframes tor-pulse {
-  0%, 100% { box-shadow: 0 3px 0 var(--encre), 0 0 0 0 rgba(107, 60, 255, 0.45); }
-  50% { box-shadow: 0 3px 0 var(--encre), 0 0 0 9px rgba(107, 60, 255, 0); }
+  0%, 100% { box-shadow: 0 3px 0 var(--ombre-c), 0 0 0 0 rgba(107, 60, 255, 0.45); }
+  50% { box-shadow: 0 3px 0 var(--ombre-c), 0 0 0 9px rgba(107, 60, 255, 0); }
 }
 
 /* ------------------------------------------------------------------
@@ -792,7 +871,7 @@ body {
 
 .chap.is-fini .chap__num::after {
   content: " · ★ MAÎTRISÉE";
-  color: #b5820c;
+  color: var(--or);
 }
 
 :root[lang="en"] .chap.is-fini .chap__num::after {
@@ -942,11 +1021,11 @@ body {
 }
 
 .nchiffre--pieces {
-  background: #fff1b8;
+  background: var(--or-fond);
 }
 
 .nchiffre--pieces b {
-  color: #b5820c;
+  color: var(--or);
 }
 
 .nchiffre--pieces.is-vide {
@@ -970,11 +1049,11 @@ body {
   background: var(--lilas);
   border: var(--trait) solid var(--encre);
   border-radius: var(--r-l);
-  box-shadow: 0 5px 0 var(--encre);
+  box-shadow: 0 5px 0 var(--ombre-c);
 }
 
 .revele.is-maitrise {
-  background: #fff1b8;
+  background: var(--or-fond);
 }
 
 .revele__carte {
@@ -1016,7 +1095,7 @@ body {
 }
 
 .revele.is-maitrise .revele__titre {
-  color: #b5820c;
+  color: var(--or);
 }
 
 .revele__note {
@@ -1205,7 +1284,7 @@ body {
   background: var(--surface);
   border: var(--trait) solid var(--encre);
   border-radius: var(--r-l);
-  box-shadow: 0 6px 0 var(--encre);
+  box-shadow: 0 6px 0 var(--ombre-c);
   text-shadow: none;
   transform: rotate(-1.5deg);
   letter-spacing: -0.01em;
@@ -1276,6 +1355,10 @@ body {
   color: var(--encre);
   font-weight: 700;
   text-shadow: 0 3px 0 var(--lilas);
+  /* L'espace de Fredoka est étroite, et l'interlettrage négatif d'origine
+     (−0,03em) finissait de la manger : « YOU VS YOU » se lisait « YOUVS YOU »
+     devant le V, dont l'approche gauche est large. */
+  word-spacing: 0.14em;
 }
 
 .rulename::after {
@@ -1401,7 +1484,7 @@ body {
   background: var(--rouge);
   border: 2px solid var(--encre);
   border-radius: 999px;
-  box-shadow: 0 2px 0 var(--encre);
+  box-shadow: 0 2px 0 var(--ombre-c);
   text-decoration: none;
   animation: tor-piege 700ms ease-in-out infinite alternate;
 }
@@ -1425,6 +1508,492 @@ body {
 
 #instr {
   color: var(--encre);
+}
+
+/* ==================================================================
+   LE SALON — entrée, salle d'attente, partie, fin de match
+
+   La refonte STICKER n'avait touché AUCUN sélecteur du multijoueur : vu pour
+   la première fois avec un vrai serveur et deux navigateurs, le salon était à
+   moitié dans l'ancien monde — filets de 1 px, cases carrées, ombres pensées
+   pour le noir — et trois défauts ne se voyaient qu'en jouant :
+
+     · « COPIER LE LIEN » invisible quand on est seul : le bouton porte alors
+       `btn--primary` (texte blanc) ET `btn--ghost` (sans fond) ;
+     · les hachures de flanc de `.screen::before` tombaient SUR les réglages
+       et le classement, parce qu'un écran à dock commence à 24 px du bord ;
+     · « 1RE PARTIE » restait en français sur les plaques anglaises : le mot
+       vit dans un `content:` CSS, que l'i18n ne voit pas.
+
+   ⚠️ AUCUNE DIMENSION DES PLAQUES NE BOUGE. `.plate` garde `min-width` et ses
+   marges : `render/layout.ts` lit 150 px, et les bandes réservées au HUD
+   multi sont des constantes (n°16, n°17). On ne change ici que la matière.
+   ================================================================== */
+
+/* Le lien d'invitation qui devient l'action principale reste lisible. */
+.btn--primary.btn--ghost {
+  background: var(--signal);
+  border-color: var(--encre);
+  color: #fff;
+  box-shadow: var(--ombre);
+}
+
+/* Un écran n'est plus signé par des hachures de flanc : la trame suffit, et
+   elle ne rencontre jamais un contenu. */
+.screen::before {
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in srgb, var(--encre) 9%, transparent) 1.3px,
+    transparent 1.7px
+  );
+  background-repeat: repeat;
+  background-position: 0 0;
+  background-size: 24px 24px;
+}
+
+/* Les équerres et l'arête gauche des panneaux étaient le gabarit de découpe
+   de l'identité Nocturne. En autocollant, le contour suffit. */
+.panel::before,
+.panel::after,
+.card::before,
+.card::after {
+  display: none;
+}
+
+.panel {
+  padding: var(--sp-4);
+}
+
+.panel:hover,
+.panel:focus-within {
+  border-color: var(--encre);
+}
+
+.panel__title {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+/* ---- Les cases du code : celles qu'on tape, celles qu'on dicte ---- */
+.codein__cases i,
+.roomcode__char {
+  background: var(--surface);
+  background-image: none;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: var(--ombre);
+  color: var(--encre);
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.codein__cases i.is-plein {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.codein__cases i.is-actif {
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+/* ---- Les réglages de l'hôte : des pastilles, pas des cases ---- */
+.opt {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: none;
+  color: var(--encre);
+  font-family: var(--display);
+  font-weight: 600;
+}
+
+.opt:hover:not(:disabled) {
+  background: var(--lilas);
+}
+
+.opt.is-on,
+.opt.is-on:hover {
+  background: var(--encre);
+  border-color: var(--encre);
+  color: var(--surface);
+}
+
+.opt.is-on .opt__hint {
+  color: var(--surface);
+}
+
+.settings__label,
+.settings__who {
+  color: var(--paper-dim);
+  font-weight: 700;
+}
+
+/* L'intitulé du bloc se collait au premier libellé (« RÉGLAGES · HÔTE »
+   puis « VITESSE » sans respiration) : deux étages, deux lignes. */
+.settings__who {
+  margin-bottom: var(--sp-3);
+}
+
+/*
+ * La barre segmentée devient UNE pastille : le conteneur porte le contour, et
+ * ses gouttières de 2 px laissent voir l'encre entre les segments. Même
+ * mécanique que l'origine (voir le commentaire de `.settings--seg
+ * .settings__opts` dans `style.css`) — elle reste juste quand la barre se
+ * replie, là où des bordures partagées ne voudraient plus rien dire.
+ */
+.settings--seg .settings__opts {
+  gap: 2px;
+  background: var(--encre);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  overflow: hidden;
+}
+
+.settings--seg .opt {
+  border-radius: 0;
+}
+
+.settings--seg .opt.is-on,
+.settings--seg .opt.is-on:hover {
+  background: var(--signal);
+  color: #fff;
+}
+
+.settings--seg .opt.is-on .opt__hint {
+  color: #fff;
+}
+
+/* LA phrase du jeu — « si une consigne enfreint ta règle, ne fais rien » :
+   une étiquette collée, pas une note de bas de page. */
+.piege {
+  background: var(--lilas);
+  border: 2px solid var(--encre);
+  border-left-width: 6px;
+  border-radius: var(--r-s);
+  color: var(--encre);
+  font-weight: 700;
+}
+
+/* ---- Les sièges ---- */
+.seat {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.seat.is-me {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.seat--libre {
+  background: transparent;
+  border: 2px dashed var(--line);
+  box-shadow: none;
+}
+
+.seat__name {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+.seat.is-host .seat__status,
+.seat.is-rookie .seat__status {
+  color: var(--signal);
+  font-weight: 700;
+}
+
+/* ---- La bande de discussion : une pièce à côté, pas un renfoncement ---- */
+.chatdock {
+  background: var(--surface);
+  border-left: var(--trait) solid var(--encre);
+  box-shadow: none;
+}
+
+.chatdock::before {
+  color: var(--signal);
+  font-weight: 800;
+  border-bottom: 2px solid var(--encre);
+}
+
+.chat__input {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.chat__input:focus {
+  border-color: var(--signal);
+}
+
+/* ---- Les plaques, en partie ---- */
+.plate {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.plate--me {
+  background: var(--lilas);
+  border-color: var(--encre);
+  border-left-width: 6px;
+  color: var(--encre);
+}
+
+.plate--rookie {
+  border-color: var(--signal);
+}
+
+.plate--rookie::before {
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  border-radius: 0 var(--r-s) 0 var(--r-s);
+}
+
+/* Le mot vit dans le CSS : il se traduit ici, comme `.chap.is-fini`. */
+:root[lang="en"] .plate--rookie::before {
+  content: "1ST GAME";
+}
+
+:root[lang="en"] .plates--compact .plate--rookie::before,
+:root[lang="en"] #app:not(.has-gutters) .plates .plate--rookie::before {
+  content: "1ST";
+}
+
+/* La case META du bandeau est une structure à deux enfants : elle n'est donc
+   jamais `:empty`, et son cadre se peignait vide sous les vies du multi. */
+.band__meta:not(.is-on) {
+  border: none;
+  padding: 0;
+}
+
+/* ---- La fin de match ---- */
+.lobbyrow {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  margin-bottom: 6px;
+  color: var(--encre);
+}
+
+.lobbyrow.is-winner {
+  background: var(--miel);
+  border-color: var(--encre);
+  box-shadow: var(--ombre);
+}
+
+.lobbyrow.is-host {
+  border-color: var(--encre);
+}
+
+.lobbyrow.is-off {
+  border-style: dashed;
+}
+
+.lobbyrow__name {
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+/*
+ * ⚠️ SUR TÉLÉPHONE, UNE RANGÉE ÉLIMINÉE DÉBORDAIT DE SA BOÎTE. Mesuré à
+ * 375 px : 369 px de contenu pour 291 — « 1 MANCHE » coupé au bord de
+ * l'écran. Ses trois cœurs vides ne disent rien que « ÉLIMINÉ » ne dise déjà
+ * à côté : ils partent, et les gouttières se resserrent.
+ */
+@media (max-width: 560px) {
+  #multiPodium .lobbyrow {
+    gap: 10px;
+  }
+
+  #multiPodium .lobbyrow.is-off .lifedots {
+    display: none;
+  }
+}
+
+.titles__row {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.titles__who {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--encre);
+}
+
+/* ==================================================================
+   LES ÉCRANS DE SERVICE — réglages, classement, compte, identité
+
+   Même constat que le salon : aucun sélecteur de la refonte ne les
+   atteignait, et ils gardaient les filets de 1 px et les champs creusés
+   d'une ombre intérieure noire — pensés pour un fond sombre, lus comme des
+   trous sur le sable. Rien n'est déplacé ; seule la matière change.
+   ================================================================== */
+
+/* ---- Réglages ---- */
+.rgl__bloc {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  overflow: hidden;
+}
+
+.rgl__ligne {
+  background: transparent;
+}
+
+.rgl__ligne + .rgl__ligne {
+  border-top: 2px solid var(--line);
+}
+
+.rgl__bloc--vedette {
+  background: var(--lilas);
+  border-color: var(--encre);
+}
+
+.rgl__nom {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.rgl__inter {
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.rgl__inter i {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--paper-dim);
+}
+
+.rgl__inter.is-on i:first-child {
+  background: var(--signal);
+  color: #fff;
+}
+
+.rgl__inter:not(.is-on) i:last-child {
+  background: var(--encre);
+  color: var(--surface);
+}
+
+.rgl__inter:hover,
+.rgl__inter:focus-visible {
+  border-color: var(--signal);
+}
+
+/* ---- Identité : le nom et le signe ---- */
+.field {
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  font-family: var(--display);
+  font-weight: 700;
+}
+
+.field:focus {
+  border-color: var(--signal);
+  box-shadow: 0 4px 0 var(--signal);
+}
+
+.glyphpick__opt {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.glyphpick__opt:hover {
+  border-color: var(--encre);
+  background: var(--lilas);
+}
+
+.glyphpick__opt[aria-checked="true"] {
+  border-color: var(--encre);
+  background: var(--miel);
+  box-shadow: 0 3px 0 var(--signal);
+}
+
+/* ---- Le mur des records ---- */
+.mur__cible,
+.mur__moi {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.mur__cible {
+  background: var(--miel);
+}
+
+.mur__cible .mur__kicker {
+  color: var(--or);
+  font-weight: 800;
+}
+
+.mur__gros {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+.mur__jauge {
+  height: 10px;
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  background: var(--surface);
+}
+
+.mur__jauge i {
+  border-radius: 999px;
+}
+
+/* ---- Le compte ---- */
+.cpt__cel,
+.cpt__jour {
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+}
+
+.cpt__val {
+  color: var(--encre);
+  font-weight: 700;
+}
+
+/* ---- Les quêtes du jour ---- */
+.quest {
+  border-bottom: 2px dashed var(--line);
+}
+
+.quest__box {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--encre);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.quest.is-done .quest__box {
+  background: var(--ok);
+  border-color: var(--encre);
 }
 
 /* ==================================================================

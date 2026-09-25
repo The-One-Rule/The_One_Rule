@@ -77,6 +77,9 @@ export interface RuleRecord {
   etoiles?: number[];
 }
 
+export type Theme = "auto" | "clair" | "sombre";
+export const THEMES: readonly Theme[] = ["auto", "clair", "sombre"];
+
 export interface Save {
   v: 1;
   anonId: string;
@@ -121,6 +124,12 @@ export interface Save {
    * règle matériellement injouable sur l'appareil.
    */
   daltonien: boolean;
+  /**
+   * L'APPARENCE de la page. `auto` suit le système (`prefers-color-scheme`),
+   * les deux autres le forcent. Purement du rendu : rien du jeu n'en dépend,
+   * et elle n'entre ni dans le compte ni dans `VERSION_CONTENU`.
+   */
+  theme: Theme;
   /**
    * Langue de l'accueil. Le jeu (règles, consignes, canvas) ne suit pas.
    *
@@ -245,6 +254,7 @@ const fresh = (): Save => ({
   sound: true,
   music: true,
   daltonien: false,
+  theme: "auto",
   /*
    * Suit le navigateur a la premiere visite. `navigator` peut manquer (test,
    * rendu serveur) : `langueDuNavigateur` retombe alors sur le francais.
@@ -397,6 +407,7 @@ export function normaliseSave(brut: unknown): Save {
     sound: booleen(brut.sound, d.sound),
     music: booleen(brut.music, d.music),
     daltonien: booleen(brut.daltonien, d.daltonien),
+    theme: THEMES.includes(brut.theme as Theme) ? (brut.theme as Theme) : d.theme,
     lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
     bestTraining: nombre(brut.bestTraining, d.bestTraining),
     trainingPace: nombre(brut.trainingPace, d.trainingPace),

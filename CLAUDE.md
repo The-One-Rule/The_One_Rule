@@ -289,6 +289,8 @@ sur deux passages.
    violet `--signal` pour l'action évidente. Invariants qui, eux, ne bougent
    pas : les quatre teintes des pièces (calibrage daltonien, au chiffre près),
    la géométrie du champ, `prefers-reduced-motion`. Voir §7 et `src/theme.css`.
+   **Elle a une NUIT** (réglage APPARENCE : AUTO / CLAIR / SOMBRE, AUTO par
+   défaut) : mêmes formes, jetons retournés — voir §7.
 9. **Aucun `setTimeout` pour décider d'une reprise** : la reprise, c'est le
    message `round`. Corollaire : un état de manche s'efface au message suivant,
    pas sur minuterie.
@@ -355,6 +357,22 @@ sur deux passages.
 > documente restent vrais. Les tests qui lisent la feuille ne lisent que
 > `style.css`, sauf `hidden.test.ts` qui lit les deux — **un composant neuf
 > se style dans `theme.css`, et sa règle `.hidden` aussi.**
+>
+> **LA NUIT.** `theme.css` redéfinit ses jetons sous `:root[data-theme="sombre"]`
+> ET sous `prefers-color-scheme: dark` + `:root:not([data-theme="clair"])` — deux
+> portes, un seul jeu de valeurs, et `tests/theme.test.ts` exige qu'elles restent
+> identiques et que chaque jeton de couleur du jour ait sa valeur de nuit (un
+> jeton oublié garde sa valeur de jour : du prune sur du noir).
+> - `--encre` est à la fois TEXTE, CONTOUR et OMBRE le jour ; la nuit il passe
+>   au crème, donc **une ombre portée s'écrit `var(--ombre-c)`, jamais
+>   `var(--encre)`** — sinon elle devient une barre claire sous le bouton.
+> - Pas de couleur en dur dans `theme.css` hors du bloc `:root` : l'or est
+>   `--or` / `--or-fond`, pour la même raison.
+> - Le CANVAS ne lit pas de CSS : `appliqueTheme` pose `scene.sombre`, et
+>   écoute `matchMedia` pour suivre une bascule système en cours de partie. Il
+>   ne change QUE le terrain du style maison (`terrainDe`) et l'encre du cadre
+>   de temps, qui vit hors du champ, sur la page. Les teintes des pièces ne
+>   bougent pas d'un chiffre.
 
 ### Échelle typographique
 
@@ -824,8 +842,8 @@ dans le dépôt), `executablePath` = le Chrome du système. En dev,
 - LA VOYELLE au doigt reste inerte sur le RUN DU JOUR (le parcours l'exclut) :
   la corriger demande une capacité `clavier` dans la revendication de
   `verifyRun`, comme `maintien` ;
-- les salons (lobby, fin de match) n'ont été vus qu'à travers le basculement
-  des jetons, jamais à l'écran avec un serveur ;
+- ~~les salons jamais vus avec un serveur~~ **vus**, deux navigateurs et un
+  vrai serveur (voir « Le salon passe à l'autocollant » ci-dessous) ;
 - **rien de tout ça n'a été vu par un joueur.** Les chiffres à lire :
   `onb_done` → `niveau_fin` (enchaîne-t-on après le tutoriel ?), la
   distribution des étoiles par niveau (le 1-3 sans filet est-il un mur ?),
@@ -834,6 +852,53 @@ dans le dépôt), `executablePath` = le Chrome du système. En dev,
 **Environnement** : ce poste est désormais macOS / zsh / Node 26. Node ≥ 25
 expose un `localStorage` natif qui masquait jsdom (22 tests rouges) :
 `vite.config.ts` passe `--no-experimental-webstorage` aux workers.
+
+### Le salon passe à l'autocollant, et la nuit arrive (même branche)
+
+Vu pour la première fois avec un vrai serveur et deux navigateurs (Playwright,
+375 × 812 et 1280 × 800). **Aucun sélecteur du multijoueur n'avait été touché
+par la refonte** : entrée, salon, plaques, fin de match, chat — et aussi
+réglages, classement, compte, identité — étaient restés dans l'ancien monde.
+Convertis dans `theme.css` (sections SALON et ÉCRANS DE SERVICE), sans toucher
+à une seule dimension des plaques (`render/layout.ts` lit 150 px).
+
+**Six défauts trouvés en JOUANT, aucun en relisant :**
+- ⚠️ **le serveur déclarait l'HÔTE vainqueur d'une égalité.** Deux derniers
+  tombés à la même manche, même score : `winner()` triait une égalité parfaite
+  et rendait le premier siège. Son écran disait « TU AS GAGNÉ » au-dessus d'un
+  classement qui le disait ÉLIMINÉ. `winner()` rend désormais `null` (le
+  client savait déjà dire ÉGALITÉ) — sauf entre COÉQUIPIERS de DUO, qui sont
+  toujours à égalité. Et le classement lit `winnerId` au lieu de redéduire le
+  vainqueur : deux jugements sur un écran finissent par se contredire.
+  ⚠️ Le premier test écrit passait À CÔTÉ : la manche 0 de sa graine était un
+  « clique n'importe où », où cliquer dans le vide est une SURVIE. Il cherche
+  maintenant une graine où les deux meurent (`tombentEnsemble`).
+- « COPIER LE LIEN » invisible quand on est seul dans le salon : `btn--primary`
+  (texte blanc) ET `btn--ghost` (sans fond) en même temps ;
+- « 1RE PARTIE » en français sur les plaques anglaises : le mot vit dans un
+  `content:` CSS, que l'i18n ne voit pas (`:root[lang="en"]` le traduit) ;
+- les hachures de flanc de `.screen::before` peignaient SUR les réglages et le
+  classement : un écran à dock commence à 24 px du bord ;
+- la rangée d'un éliminé débordait à 375 px : 369 px pour 291 ;
+- la case META du bandeau n'est jamais `:empty` (deux enfants) : son cadre se
+  peignait vide sous les vies du multi.
+
+⚠️ **Un intermittent de l'e2e, de conception** : `[074] coop curseur : une
+graine avec GAUCHER…` cherchait au hasard, en DIX essais, un match où LE
+GAUCHER tombe sur l'un des quatre sièges avec la pièce 3 hors zone — une chance
+sur cinq par essai, donc un échec par pur hasard environ une fois sur dix. Vu
+tomber une fois, sans aucun changement de code coop. Passé à quarante essais.
+
+Hors salon, au passage : « YOU VS YOU » se lisait « YOUVS YOU » (espace de
+Fredoka mangée par l'interlettrage négatif), et « celle qui te résiste »
+parlait encore de « 2 cases sur 6 » — une échelle qu'aucun écran ne montre
+plus. Elle parle en étoiles du chapitre.
+
+**LA NUIT** — décision prise ici, avec la carte blanche de Pierre (« si tu le
+juges nécessaire ») : tous les playtests ont eu lieu le SOIR, entre amis, et
+un fond sable plein écran éblouit dans une pièce éteinte. AUTO par défaut, donc
+un joueur dont le téléphone est en sombre la reçoit sans rien chercher. Le
+mécanisme est en §7.
 
 ### Modes imposteur et coop — livrés sur master
 

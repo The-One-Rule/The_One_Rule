@@ -50,6 +50,28 @@ export const TERRAINS: Record<SkinId, Terrain> = {
   craie: { sol: "#22392E", trame: "rgba(255,255,255,0.05)", motif: "craie", clair: false },
 };
 
+/**
+ * LE TERRAIN DE NUIT — le style maison seulement.
+ *
+ * Le mode SOMBRE ne touche pas aux styles achetés : Néon, Pixel et Craie ont
+ * déjà leur nuit, Bonbon est un choix délibéré de rose. Seul le style maison
+ * est clair PAR DÉFAUT, et un rectangle crème de 1000 × 420 au milieu d'une
+ * page noire, c'est une lampe braquée sur le joueur. Les pièces gardent leurs
+ * teintes au chiffre près et leur contour d'encre : sur ce sol, c'est le
+ * contour qui disparaît dans le fond et la TEINTE qui porte, ce qui est
+ * exactement ce que la calibration daltonienne suppose.
+ */
+export const TERRAIN_NUIT: Terrain = {
+  sol: "#221A33",
+  trame: "rgba(241,232,216,0.09)",
+  motif: "points",
+  clair: false,
+};
+
+/** Le terrain à peindre, selon le style ET le thème de la page. */
+export const terrainDe = (skin: SkinId, sombre: boolean): Terrain =>
+  sombre && skin === "sticker" ? TERRAIN_NUIT : TERRAINS[skin];
+
 /** Le chemin d'une forme, centré en (x, y), de rayon r. Le triangle pointe vers le HAUT DE L'ÉCRAN. */
 export function cheminForme(
   ctx: CanvasRenderingContext2D,
@@ -296,8 +318,14 @@ export function dessinePiece(
 }
 
 /** Peint le terrain d'un style sur un rectangle (unités du champ). */
-export function dessineTerrain(ctx: CanvasRenderingContext2D, skin: SkinId, w: number, h: number): void {
-  const T = TERRAINS[skin];
+export function dessineTerrain(
+  ctx: CanvasRenderingContext2D,
+  skin: SkinId,
+  w: number,
+  h: number,
+  sombre = false,
+): void {
+  const T = terrainDe(skin, sombre);
   ctx.fillStyle = T.sol;
   ctx.fillRect(0, 0, w, h);
   ctx.fillStyle = T.trame;

@@ -223,6 +223,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effets": "EFFETS",
     "rgl.effetsQuoi": "Alerte au dernier quart de la fenêtre.",
     "rgl.lisibilite": "LISIBILITÉ",
+    "rgl.apparence": "APPARENCE",
+    "rgl.apparenceQuoi": "AUTO suit ton appareil. SOMBRE ménage les yeux le soir.",
     "rgl.motifs": "MOTIFS SUR LES PIÈCES",
     "rgl.motifsQuoi": "Chaque couleur porte aussi une trame.",
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
@@ -412,6 +414,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.effets": "EFFECTS",
     "rgl.effetsQuoi": "Alert on the last quarter of the window.",
     "rgl.lisibilite": "READABILITY",
+    "rgl.apparence": "APPEARANCE",
+    "rgl.apparenceQuoi": "AUTO follows your device. DARK is easier on the eyes at night.",
     "rgl.motifs": "PATTERNS ON PIECES",
     "rgl.motifsQuoi": "Every colour also carries a texture.",
     "rgl.allure": "DEFAULT PACE · TRAINING",
@@ -588,7 +592,7 @@ type Dyn = {
   filtreContraintes: (n: number) => string;
   filtreVerrouillees: (n: number) => string;
   salleJamaisVues: (n: number) => string;
-  resisteNote: (runs: number, cases: number) => string;
+  resisteNote: (runs: number, etoiles: number, max: number) => string;
   resisteBouton: string;
   etatCollReste: (n: number) => string;
   etatCollTout: string;
@@ -935,7 +939,7 @@ type Dyn = {
   murManque: (n: number) => string;
   resteFait: (score: number, sur: number) => string;
   resteEpuise: (score: number) => string;
-  resteTravailler: (regle: string, cases: number) => string;
+  resteTravailler: (regle: string, etoiles: number, max: number) => string;
   coupureEtat: (essai: number, sur: number, s: number) => string;
   sortieOuvrir: string;
   sortieRecharger: string;
@@ -1067,6 +1071,8 @@ type Dyn = {
    *     « × 2,0 » et « × 0,8 », jamais « × 2 ».
    */
   allureTxt: (a: number) => string;
+  /** Le nom d'un cran d'APPARENCE. */
+  themeNom: (t: "auto" | "clair" | "sombre") => string;
   /** L'annonce du piège EN JEU — premiers niveaux d'un chapitre, jamais ailleurs. */
   escAnnonce: string;
   defiGagne: (score: number, cible: number) => string;
@@ -1185,8 +1191,8 @@ const DYN: Record<Lang, Dyn> = {
       n === 0
         ? "Tu as rencontré les seize règles."
         : `Il te reste ${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
-    resisteNote: (runs, cases) =>
-      `${runs} run${runs > 1 ? "s" : ""} sous cette règle, et ${cases} case${cases > 1 ? "s" : ""} sur 6.`,
+    resisteNote: (runs, et, max) =>
+      `${runs} run${runs > 1 ? "s" : ""} sous cette règle · ★ ${et} / ${max} au chapitre.`,
     resisteBouton: "TRAVAILLER CELLE-LÀ",
     etatCollReste: (n) =>
       `${n} règle${n > 1 ? "s" : ""} que tu n'as jamais vue${n > 1 ? "s" : ""}. Elles n'arrivent qu'en jouant.`,
@@ -1540,7 +1546,7 @@ const DYN: Record<Lang, Dyn> = {
     murManque: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""}.`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
-    resteTravailler: (regle, cases) => `TRAVAILLER ${regle} · ${cases}/6`,
+    resteTravailler: (regle, et, max) => `TRAVAILLER ${regle} · ★ ${et}/${max}`,
     coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
     sortieOuvrir: "OUVRIR LE MIEN",
     sortieRecharger: "RECHARGER",
@@ -1635,6 +1641,7 @@ const DYN: Record<Lang, Dyn> = {
     slogan: "PARFOIS, OBÉIR EST LA FAUTE",
     modeClasse: "CLASSÉ",
     allureTxt: (a) => a.toFixed(1).replace(".", ","),
+    themeNom: (x) => (x === "auto" ? "AUTO" : x === "clair" ? "CLAIR" : "SOMBRE"),
     escAnnonce: "PIÈGE",
     defiGagne: (sc, cible) => `GAGNÉ · ${sc} CONTRE ${cible}`,
     defiEgalite: (cible) => `ÉGALITÉ · ${cible} PARTOUT`,
@@ -1689,8 +1696,8 @@ const DYN: Record<Lang, Dyn> = {
       n === 0
         ? "You have met all sixteen rules."
         : `${n} rule${n === 1 ? "" : "s"} you have never seen. They only come up by playing.`,
-    resisteNote: (runs, cases) =>
-      `${runs} run${runs === 1 ? "" : "s"} under this rule, and ${cases} of 6 boxes.`,
+    resisteNote: (runs, et, max) =>
+      `${runs} run${runs === 1 ? "" : "s"} under this rule · ★ ${et} / ${max} in the chapter.`,
     resisteBouton: "WORK ON THAT ONE",
     etatCollReste: (n) =>
       `${n} rule${n === 1 ? "" : "s"} you have never seen. They only turn up by playing.`,
@@ -2017,7 +2024,7 @@ const DYN: Record<Lang, Dyn> = {
     murManque: (n) => `You are ${n} round${n === 1 ? "" : "s"} short.`,
     resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
     resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
-    resteTravailler: (regle, cases) => `WORK ON ${regle} · ${cases}/6`,
+    resteTravailler: (regle, et, max) => `WORK ON ${regle} · ★ ${et}/${max}`,
     coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
     sortieOuvrir: "OPEN MY OWN",
     sortieRecharger: "RELOAD",
@@ -2101,6 +2108,7 @@ const DYN: Record<Lang, Dyn> = {
     slogan: "SOMETIMES, OBEYING IS THE MISTAKE",
     modeClasse: "RANKED",
     allureTxt: (a) => a.toFixed(1),
+    themeNom: (x) => (x === "auto" ? "AUTO" : x === "clair" ? "LIGHT" : "DARK"),
     escAnnonce: "TRAP",
     defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
     defiEgalite: (cible) => `DRAW · ${cible} EACH`,
