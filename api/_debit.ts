@@ -45,6 +45,10 @@ export const QUOTAS: Record<string, Quota> = {
   // Un run du jour par jour, plus les reprises de file hors ligne.
   perf: { max: 40, fenetreS: 3600 },
   suppression: { max: 5, fenetreS: 3600 },
+  // Ajouter ou retirer un ami. Large pour une soirée où l'on s'ajoute à dix ;
+  // assez bas pour qu'essayer des codes au hasard ne mène nulle part — un
+  // code sur 887 millions, soixante essais par heure.
+  amis: { max: 60, fenetreS: 3600 },
 };
 
 interface Config {

@@ -98,6 +98,9 @@ import {
   supprimeCompte,
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
+import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
+import type { Cercle } from "./compte/amis";
+import { carteValide } from "../shared/profil";
 import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
@@ -2694,7 +2697,155 @@ function renderClassement(): void {
         : t("murManque")(vue.cible.score - mien);
 
   peintPodium("murPodium", "classement");
+  peintAmis();
 }
+
+/**
+ * LES AMIS, sous le podium du jour.
+ *
+ * Trois états, et le premier est le silence : un déploiement SANS comptes ne
+ * montre rien du tout, comme le podium qui se tait plutôt que d'afficher un
+ * cadre vide. Anonyme, une invitation à se connecter — jamais un préalable à
+ * quoi que ce soit (décision n°12). Connecté, son code et son cercle.
+ */
+let cercleAmis: Cercle | null = null;
+
+function peintAmis(): void {
+  const boite = $("murAmis");
+  void chargeFournisseurs().then(() => {
+    if (screen !== "classement") return;
+    if (!comptesPossibles()) {
+      boite.classList.add("hidden");
+      return;
+    }
+    boite.classList.remove("hidden");
+    const connecte = estConnecte();
+    $("amisAnon").classList.toggle("hidden", connecte);
+    $("amisConnecte").classList.toggle("hidden", !connecte);
+    if (!connecte) return;
+    // On peint ce qu'on sait (le cercle précédent), et on repeint à l'arrivée.
+    if (cercleAmis) peintCercle(cercleAmis);
+    void cercle().then((c) => {
+      if (!c || screen !== "classement") return;
+      cercleAmis = c;
+      peintCercle(c);
+    });
+  });
+}
+
+function peintCercle(c: Cercle): void {
+  $("amisCode").textContent = c.code;
+  const liste = $("amisListe");
+  liste.replaceChildren();
+  // L'échelle de la semaine est COMMUNE au cercle : chacun se lit contre les
+  // autres, pas contre son propre meilleur jour.
+  const haut = Math.max(1, ...c.amis.flatMap((a) => a.semaine.map((v) => v ?? 0)));
+  for (const a of c.amis) {
+    const li = document.createElement("li");
+    li.className = "ami" + (a.moi ? " is-moi" : "");
+    li.innerHTML =
+      `<span class="ami__rang"></span>` +
+      `<span class="ami__visage"></span>` +
+      `<span class="ami__qui"><b class="ami__nom"></b><span class="ami__meilleur"></span></span>` +
+      `<span class="ami__semaine" role="img"></span>` +
+      `<span class="ami__score"></span>`;
+    li.querySelector<HTMLElement>(".ami__rang")!.textContent = a.rang ? t("rangEme")(a.rang) : "—";
+    const visage = li.querySelector<HTMLElement>(".ami__visage")!;
+    const carte = carteValide(a.carte);
+    if (carte) {
+      // La carte de visite en vignette ; le signe par-dessus, dans un coin,
+      // pour que deux amis à la même carte se distinguent encore.
+      visage.classList.add("a-vignette");
+      visage.innerHTML = `<img class="ami__carte" src="/cartes/${carte}.png" width="40" height="40" alt="" loading="lazy" />`;
+    }
+    visage.insertAdjacentHTML("beforeend", `<i class="ami__signe">${glyphSvg(glyphFromIndex(a.glyphe), carte ? 14 : 22)}</i>`);
+    // `textContent` et jamais `innerHTML` : un pseudo vient d'un joueur.
+    const nom = a.pseudo || t("cptSansNom");
+    li.querySelector<HTMLElement>(".ami__nom")!.textContent = nom;
+    // La ligne du dessous dit ce qui compte AUJOURD'HUI : qu'on n'a pas encore
+    // joué — c'est ce qui donne envie de relancer quelqu'un — sinon le mois.
+    li.querySelector<HTMLElement>(".ami__meilleur")!.textContent = !a.aujourdhui
+      ? t("amisPasJoue")
+      : a.meilleur !== null
+        ? t("amisMeilleur")(a.meilleur)
+        : "";
+    const semaine = li.querySelector<HTMLElement>(".ami__semaine")!;
+    semaine.setAttribute(
+      "aria-label",
+      t("ariaSemaine")(nom, a.semaine.map((v) => (v === null ? "—" : String(v))).join(", ")),
+    );
+    for (const v of a.semaine) {
+      const barre = document.createElement("i");
+      barre.className = "ami__jour" + (v === null ? " is-vide" : "");
+      barre.style.transform = `scaleY(${v === null ? 0.08 : Math.max(0.08, v / haut).toFixed(3)})`;
+      semaine.appendChild(barre);
+    }
+    const score = li.querySelector<HTMLElement>(".ami__score")!;
+    score.textContent = a.aujourdhui ? String(a.aujourdhui.valeur) : "—";
+    score.classList.toggle("is-absent", !a.aujourdhui);
+    if (!a.moi) {
+      const x = document.createElement("button");
+      x.type = "button";
+      x.className = "ami__retire";
+      x.textContent = "×";
+      x.setAttribute("aria-label", t("ariaRetirerAmi")(nom));
+      x.addEventListener("click", () => {
+        sfx.ui();
+        void retireAmi(a.code).then((n) => {
+          if (n && screen === "classement") {
+            cercleAmis = n;
+            peintCercle(n);
+          }
+        });
+      });
+      li.appendChild(x);
+    }
+    liste.appendChild(li);
+  }
+  $("amisNote").textContent = c.amis.length > 1 ? t("amisNote") : t("amisSeul");
+}
+
+$("amisForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const saisie = $<HTMLInputElement>("amisSaisie");
+  const err = $("amisErr");
+  err.classList.add("hidden");
+  void ajouteAmi(saisie.value).then((r) => {
+    if (screen !== "classement") return;
+    if (!r.ok) {
+      err.textContent = t("amisErr")[r.refus];
+      err.classList.remove("hidden");
+      sfx.ui();
+      return;
+    }
+    saisie.value = "";
+    cercleAmis = r.cercle;
+    peintCercle(r.cercle);
+    sfx.ui();
+  });
+});
+
+$("btnAmisCopier").addEventListener("click", () => {
+  const code = cercleAmis?.code;
+  if (!code) return;
+  void navigator.clipboard
+    ?.writeText(code)
+    .then(() => {
+      // Le libellé est mémorisé À CET INSTANT, où l'on sait ce qu'il vaut —
+      // la leçon du rebours qui gardait « 3 » pour toujours.
+      const b = $("btnAmisCopier");
+      const avant = b.textContent;
+      if (avant === t("amisCopie")) return;
+      b.textContent = t("amisCopie");
+      setTimeout(() => (b.textContent = avant), 1500);
+    })
+    .catch(() => undefined);
+});
+
+$("btnAmisCompte").addEventListener("click", () => {
+  sfx.ui();
+  void ouvreCompte();
+});
 
 /**
  * L'invitation de l'écran de fin.
@@ -7164,7 +7315,7 @@ multi.onLangue();
  */
 multi.onIdentite((nom, glyphe) => {
   if (!estConnecte()) return;
-  void changeIdentite(nom, glyphe).then((moi) => {
+  void changeIdentite(nom, glyphe, P.load().profil.carte ?? null).then((moi) => {
     if (!moi) {
       // On ne le dit QUE si le joueur regarde l'écran du compte : ailleurs, ce
       // serait une alerte sur un problème qui ne l'empêche de rien faire.

@@ -791,6 +791,37 @@ Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket
 joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
 **Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
 
+### Les amis — fait, jamais vus par un joueur (25/09/2026)
+
+Demandé par Pierre : amis, classement des amis, comparer scores et runs.
+`shared/amis.ts` (pur) · `api/amis.ts` · migration **0003** · `src/compte/amis.ts`
+· bloc `#murAmis` sous le podium du mur des records.
+
+- **Un CODE de six lettres**, pas une recherche par nom : il se dicte comme un
+  code de salon (le social de TOR est synchrone, playtest jour 2), et une
+  recherche ferait de chaque compte un annuaire. Ajouter un code lie les DEUX
+  comptes — donner son code vaut accord. 50 amis au plus, des deux côtés.
+- **On ne compare que du REJOUÉ** (n°14) : run du jour du cercle, semaine en
+  sept barres, meilleur du mois — tout vient de `performance`, filtré comme le
+  podium (`verdict_bot = humain`, même clé de comparabilité). Un test refuse
+  qu'un record des AGRÉGATS apparaisse.
+- **Jamais d'identifiant de compte publié** : le code sert de poignée. Un test
+  fixe la liste EXACTE des clés d'une ligne, éprouvé en laissant fuiter l'id.
+- Le compte est OBLIGATOIRE pour ça, et ça ne contredit pas n°12 : une liste
+  d'amis EST un compte. Aucun chemin de jeu n'y touche ; sans comptes au
+  déploiement, le bloc se tait comme le podium.
+- La carte de visite monte dans `apparence.carte` (la clé était réservée
+  depuis la migration 0001) ; `apparenceAutorisee` la valide, car elle finit
+  dans une `url()` CSS chez les amis. La PHOTO ne monte jamais.
+- ⚠️ La suppression d'un compte est LOGIQUE : `on delete cascade` ne joue pas.
+  `supprime()` efface donc les amitiés et le code à la main (testé).
+- Mesuré à l'écran avec le VRAI gestionnaire branché par Playwright : pistes
+  fixes (une piste `auto` s'élargissait sous « PAS ENCORE JOUÉ » et décalait la
+  semaine d'une ligne à l'autre), lignes à 56 px, rien ne déborde à 375.
+
+**À faire côté Pierre pour que ça vive** : appliquer `0003_amis.sql` après les
+deux premières. Rien d'autre — pas de variable neuve.
+
 ### Le joueur a un visage : carte de visite et photo (25/09/2026)
 
 Demandé par Pierre (« l'essence du jeu c'est le multi »). `shared/profil.ts`

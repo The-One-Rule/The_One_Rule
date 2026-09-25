@@ -286,9 +286,12 @@ describe("apparence", () => {
   });
 
   it("borne le glyphe et ne perd pas le reste", () => {
-    const a = apparenceAutorisee({ glyphe: 999, carte: "x" }, GLYPH_COUNT);
+    // `carte` n'est plus réservée : c'est la carte de visite, validée comme
+    // un identifiant de règle. Le « reste » est une clé que ce code ignore.
+    const a = apparenceAutorisee({ glyphe: 999, carte: "sang", cadre: "or" }, GLYPH_COUNT);
     expect(a.glyphe).toBe(0);
-    expect(a.carte).toBe("x");
+    expect(a.carte).toBe("sang");
+    expect(a.cadre).toBe("or");
   });
 
   it("lit une apparence absente sans se plaindre", () => {

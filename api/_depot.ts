@@ -20,6 +20,7 @@
 import { agregatsVides, litApparence } from "../shared/compte";
 import type { Agregats, Apparence } from "../shared/compte";
 import { cleanEnv } from "../src/env";
+import { MAX_AMIS, nouveauCodeAmi } from "../shared/amis";
 
 /* ------------------------------------------------------------------ *
  * Le modèle
@@ -144,6 +145,39 @@ export interface Depot {
    * des chiffres plutôt qu'au jugé.
    */
   leveDrapeau(id: string): Promise<number>;
+
+  /* --- les amis (migration 0003) --- */
+
+  /**
+   * Le code ami d'un compte, attribué au premier appel.
+   *
+   * `hasard` est injecté pour que les tests décident des collisions. Une
+   * collision avec un code existant se retente, bornée : l'index unique de
+   * la base tranche, pas une lecture suivie d'une écriture.
+   */
+  codeAmi(id: string, hasard: () => number): Promise<string>;
+  /** Le compte derrière un code, ou `null`. Jamais un compte supprimé. */
+  parCodeAmi(code: string): Promise<Utilisateur | null>;
+  /** Les amis d'un compte — les deux sens étant stockés, un seul côté suffit. */
+  amisDe(id: string): Promise<Ami[]>;
+  /** Lie deux comptes, dans les deux sens. Idempotent. */
+  lie(a: string, b: string): Promise<void>;
+  /** Délie deux comptes, dans les deux sens. Idempotent. */
+  delie(a: string, b: string): Promise<void>;
+  /**
+   * Les performances VÉRIFIÉES et jugées humaines de plusieurs comptes, depuis
+   * un jour donné. Même filtre que le classement : un ami ne se compare pas à
+   * un run que l'anti-triche a écarté.
+   */
+  perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]>;
+}
+
+/** Un ami, tel que le dépôt le rend. L'identifiant ne quitte jamais le serveur. */
+export interface Ami {
+  id: string;
+  code: string | null;
+  pseudo: string;
+  apparence: Apparence;
 }
 
 /** L'état neuf d'un compte fraîchement lié. */
@@ -233,6 +267,10 @@ export class DepotMemoire implements Depot {
     // Les performances sont des données personnelles rattachées au compte :
     // une demande de suppression les emporte.
     this.perfs = this.perfs.filter((p) => p.utilisateurId !== id);
+    // Les amitiés aussi : un compte supprimé ne doit plus paraître dans la
+    // liste de personne, et son code ne doit plus rien ouvrir.
+    for (const k of [...this.amities]) if (k.startsWith(`${id}→`) || k.endsWith(`→${id}`)) this.amities.delete(k);
+    this.codes.delete(id);
   }
 
   async touche(id: string): Promise<void> {
@@ -311,6 +349,73 @@ export class DepotMemoire implements Depot {
     if (!u) return 0;
     u.drapeaux += 1;
     return u.drapeaux;
+  }
+
+  private codes = new Map<string, string>(); // id → code
+  private amities = new Set<string>(); // "a→b"
+
+  async codeAmi(id: string, hasard: () => number): Promise<string> {
+    const deja = this.codes.get(id);
+    if (deja) return deja;
+    const pris = new Set(this.codes.values());
+    for (let i = 0; i < 20; i++) {
+      const c = nouveauCodeAmi(hasard);
+      if (pris.has(c)) continue;
+      this.codes.set(id, c);
+      return c;
+    }
+    throw new Error("code ami : trop de collisions");
+  }
+
+  async parCodeAmi(code: string): Promise<Utilisateur | null> {
+    for (const [id, c] of this.codes) {
+      if (c !== code) continue;
+      const u = await this.parId(id);
+      return u && !u.supprimeLe ? u : null;
+    }
+    return null;
+  }
+
+  async amisDe(id: string): Promise<Ami[]> {
+    const out: Ami[] = [];
+    for (const k of this.amities) {
+      const [a, b] = k.split("→") as [string, string];
+      if (a !== id) continue;
+      const u = this.users.get(b);
+      if (!u || u.supprimeLe) continue;
+      out.push({
+        id: b,
+        code: this.codes.get(b) ?? null,
+        pseudo: u.pseudo,
+        apparence: structuredClone(u.apparence),
+      });
+    }
+    return out;
+  }
+
+  async lie(a: string, b: string): Promise<void> {
+    if (a === b) return;
+    this.amities.add(`${a}→${b}`);
+    this.amities.add(`${b}→${a}`);
+  }
+
+  async delie(a: string, b: string): Promise<void> {
+    this.amities.delete(`${a}→${b}`);
+    this.amities.delete(`${b}→${a}`);
+  }
+
+  async perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]> {
+    const voulus = new Set(ids);
+    return this.perfs
+      .filter(
+        (p) =>
+          voulus.has(p.utilisateurId) &&
+          p.mode === "daily" &&
+          p.jour !== null &&
+          p.jour >= depuisJour &&
+          p.verdictBot === "humain",
+      )
+      .map((p) => ({ ...p }));
   }
 }
 
@@ -483,6 +588,12 @@ export class DepotSupabase implements Depot {
       }),
     });
     if (!res.ok) throw new Error(`supabase suppression ${res.status}`);
+    // L'effacement est logique : `on delete cascade` ne jouera donc pas. Les
+    // amitiés partent à la main, et le code cesse d'ouvrir quoi que ce soit.
+    const e = encodeURIComponent(id);
+    const amis = await this.req(`amitie?or=(utilisateur_id.eq.${e},ami_id.eq.${e})`, { method: "DELETE" });
+    if (!amis.ok) throw new Error(`supabase amities ${amis.status}`);
+    await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
     await this.revoque(id);
   }
 
@@ -621,6 +732,104 @@ export class DepotSupabase implements Depot {
       body: JSON.stringify({ drapeaux: suivant }),
     });
     return suivant;
+  }
+
+  async codeAmi(id: string, hasard: () => number): Promise<string> {
+    const lu = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}&select=code_ami&limit=1`);
+    if (!lu.ok) throw new Error(`supabase code ${lu.status}`);
+    const deja = ((await lu.json()) as { code_ami: string | null }[])[0]?.code_ami;
+    if (deja) return deja;
+    for (let i = 0; i < 8; i++) {
+      const c = nouveauCodeAmi(hasard);
+      // Le filtre `code_ami=is.null` rend l'attribution sûre entre deux
+      // onglets : le second PATCH ne touche aucune ligne, et on relit.
+      const res = await this.req(
+        `utilisateur?id=eq.${encodeURIComponent(id)}&code_ami=is.null`,
+        { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify({ code_ami: c }) },
+      );
+      if (res.status === 409) continue; // collision sur l'index unique
+      if (!res.ok) throw new Error(`supabase code ${res.status}`);
+      if (((await res.json()) as unknown[]).length > 0) return c;
+      return this.codeAmi(id, hasard); // un autre onglet l'a posé entre-temps
+    }
+    throw new Error("code ami : trop de collisions");
+  }
+
+  async parCodeAmi(code: string): Promise<Utilisateur | null> {
+    return this.une(`utilisateur?code_ami=eq.${encodeURIComponent(code)}&limit=1`);
+  }
+
+  /**
+   * Une jointure PostgREST : `amitie` a DEUX clés étrangères vers
+   * `utilisateur`, donc on nomme celle qu'on suit — sans ça la requête est
+   * ambiguë et PostgREST la refuse.
+   */
+  async amisDe(id: string): Promise<Ami[]> {
+    const res = await this.req(
+      `amitie?utilisateur_id=eq.${encodeURIComponent(id)}` +
+        `&select=ami:utilisateur!amitie_ami_id_fkey(id,pseudo,apparence,code_ami,supprime_le)` +
+        `&limit=${MAX_AMIS}`,
+    );
+    if (!res.ok) throw new Error(`supabase amis ${res.status}`);
+    const lignes = (await res.json()) as { ami: Record<string, unknown> | null }[];
+    return lignes
+      .map((l) => l.ami)
+      .filter((a): a is Record<string, unknown> => !!a && !a.supprime_le)
+      .map((a) => ({
+        id: String(a.id),
+        code: a.code_ami ? String(a.code_ami) : null,
+        pseudo: String(a.pseudo ?? ""),
+        apparence: litApparence(a.apparence),
+      }));
+  }
+
+  async lie(a: string, b: string): Promise<void> {
+    if (a === b) return;
+    const res = await this.req("amitie", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates" },
+      body: JSON.stringify([
+        { utilisateur_id: a, ami_id: b },
+        { utilisateur_id: b, ami_id: a },
+      ]),
+    });
+    if (!res.ok) throw new Error(`supabase lie ${res.status}`);
+  }
+
+  async delie(a: string, b: string): Promise<void> {
+    const ea = encodeURIComponent(a);
+    const eb = encodeURIComponent(b);
+    const res = await this.req(
+      `amitie?or=(and(utilisateur_id.eq.${ea},ami_id.eq.${eb}),and(utilisateur_id.eq.${eb},ami_id.eq.${ea}))`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error(`supabase delie ${res.status}`);
+  }
+
+  async perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]> {
+    if (ids.length === 0) return [];
+    const liste = ids.map((i) => `"${i.replace(/"/g, "")}"`).join(",");
+    const res = await this.req(
+      `performance?utilisateur_id=in.(${encodeURIComponent(liste)})&mode=eq.daily` +
+        `&jour=gte.${Math.trunc(depuisJour)}&verifiee=is.true&verdict_bot=eq.humain` +
+        `&select=utilisateur_id,mode,cle,version_contenu,jour,graine,regle,valeur,valeur2,verdict_bot,cree_le` +
+        `&limit=${(MAX_AMIS + 1) * 40}`,
+    );
+    if (!res.ok) throw new Error(`supabase perfs amis ${res.status}`);
+    const lignes = (await res.json()) as Record<string, unknown>[];
+    return lignes.map((l) => ({
+      utilisateurId: String(l.utilisateur_id),
+      mode: String(l.mode),
+      cle: String(l.cle),
+      versionContenu: String(l.version_contenu),
+      jour: l.jour === null ? null : Number(l.jour),
+      graine: Number(l.graine),
+      regle: String(l.regle),
+      valeur: Number(l.valeur),
+      valeur2: Number(l.valeur2),
+      verdictBot: String(l.verdict_bot ?? "humain"),
+      creeLe: Date.parse(String(l.cree_le)) || Date.now(),
+    }));
   }
 }
 

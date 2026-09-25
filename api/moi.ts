@@ -18,6 +18,7 @@
  * n'attend pas, y compris un carnet de dix mille entrées.
  */
 
+import { carteValide } from "../shared/profil";
 import {
   agregatsVides,
   apparenceAutorisee,
@@ -356,8 +357,15 @@ export async function traite(
   if (action === "identite") {
     const pseudo = normalisePseudo(corps.pseudo);
     if (!pseudo) return json({ error: "pseudo vide" }, 400);
+    /*
+     * La CARTE DE VISITE rejoint le compte, pour que les amis la voient.
+     * Absente du corps = inchangée (un client d'une version antérieure ne
+     * l'efface pas) ; `null` ou douteuse = retirée. La PHOTO, elle, ne monte
+     * jamais ici : elle ne voyage qu'entre les joueurs d'un salon.
+     */
+    const carte = "carte" in corps ? (carteValide(corps.carte) ?? null) : u.apparence.carte;
     const apparence = apparenceAutorisee(
-      litApparence({ ...u.apparence, glyphe: corps.glyphe ?? u.apparence.glyphe }),
+      litApparence({ ...u.apparence, glyphe: corps.glyphe ?? u.apparence.glyphe, carte }),
       GLYPH_COUNT,
     );
     await depot.majIdentite(u.id, pseudo, apparence);

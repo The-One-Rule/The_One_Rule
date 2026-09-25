@@ -85,3 +85,13 @@ describe("recadrageCarre", () => {
     expect(recadrageCarre(0, 50).cote).toBe(0);
   });
 });
+
+describe("la carte de visite dans le COMPTE", () => {
+  it("apparenceAutorisee ne laisse passer qu'un identifiant de règle", async () => {
+    const { apparenceAutorisee } = await import("../shared/compte");
+    expect(apparenceAutorisee({ glyphe: 1, carte: "gaucher" }, 144).carte).toBe("gaucher");
+    // elle finit dans une url() CSS chez les amis : rien d'autre ne doit passer
+    expect(apparenceAutorisee({ glyphe: 1, carte: 'x")' }, 144).carte).toBeNull();
+    expect(apparenceAutorisee({ glyphe: 1 }, 144).carte).toBeNull();
+  });
+});

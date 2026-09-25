@@ -22,6 +22,8 @@
  *      c'est elle qui empêchera l'historique de mentir en silence.
  */
 
+import { carteValide } from "./profil";
+
 /* ------------------------------------------------------------------ *
  * Identité
  * ------------------------------------------------------------------ */
@@ -39,6 +41,7 @@
  * client d'une version antérieure ne doit pas effacer un habillage qu'il ne
  * sait pas afficher.
  */
+
 export interface Apparence {
   /** Index de glyphe. Une VALEUR portée, jamais une dérivation de l'identifiant. */
   glyphe: number;
@@ -95,7 +98,10 @@ export function apparenceAutorisee(
     Number.isInteger(demandee.glyphe) && demandee.glyphe >= 0 && demandee.glyphe < nbGlyphes
       ? demandee.glyphe
       : 0;
-  return { ...demandee, glyphe };
+  // La carte est l'identifiant d'une règle : tout le reste tombe, pour qu'elle
+  // ne puisse jamais sortir de l'`url()` CSS où les clients la posent.
+  const carte = carteValide(demandee.carte) ?? null;
+  return { ...demandee, glyphe, carte };
 }
 
 /** Lit une apparence venue du stockage sans perdre ce qu'on ne connaît pas. */

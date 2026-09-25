@@ -2337,3 +2337,211 @@ body {
     filter: none;
   }
 }
+
+/* ==================================================================
+   LES AMIS — sous le podium du jour, sur le mur des records.
+
+   Une ligne par ami : rang, visage (sa carte de visite, son signe dans un
+   coin), nom et meilleur du mois, la SEMAINE en sept barres, le score du
+   jour. Les barres partagent l'échelle du cercle : chacun se lit contre les
+   autres. Elles sont DÉCORATIVES — le même fait est dans l'`aria-label`, en
+   chiffres — et n'animent rien.
+   ================================================================== */
+.amis {
+  margin-top: 22px;
+}
+
+.amis.hidden,
+.amis__anon.hidden,
+.amis__connecte.hidden {
+  display: none;
+}
+
+.amis__anon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.amis__code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+
+.amis__codequoi {
+  font-size: var(--t-micro);
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.amis__codeval {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 0.16em;
+  color: var(--encre);
+}
+
+.amis__ajout {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* ⚠️ `min-width: 0` : un champ flexible ne rétrécit pas sous son contenu
+   sans lui, et la rangée sortait de la colonne à 375 px. */
+/* 16 px : le champ de nom est bien plus grand, mais un code de six lettres
+   n'a rien à crier — et sous 16 px, iOS zoome sur le champ au toucher. */
+.amis__saisie {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.amis__liste {
+  list-style: none;
+  margin: 8px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ami {
+  display: grid;
+  /* La dernière piste est celle de RETIRER : elle existe aussi sur sa propre
+     ligne, vide, pour que les colonnes restent alignées d'un ami à l'autre. */
+  /*
+   * Des pistes FIXES hors du nom : la grille est propre à chaque ligne, donc
+   * une piste `auto` s'élargissait sous « PAS ENCORE JOUÉ » (35 → 64 px,
+   * mesuré) et décalait la semaine d'une ligne à l'autre.
+   */
+  grid-template-columns: 2.4ch 40px minmax(0, 1fr) 47px 3.2ch 36px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  color: var(--encre);
+}
+
+.ami.is-moi {
+  background: var(--lilas);
+}
+
+.ami__rang {
+  font-family: var(--display);
+  font-size: 13px;
+  text-align: center;
+}
+
+.ami__visage {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+}
+
+.ami__carte {
+  width: 40px;
+  height: 40px;
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  image-rendering: pixelated;
+  object-fit: cover;
+}
+
+.ami__signe {
+  display: grid;
+  place-items: center;
+}
+
+.ami__visage.a-vignette .ami__signe {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  padding: 2px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: 50%;
+}
+
+.ami__qui {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ami__nom {
+  font-family: var(--display);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Une ligne, jamais deux : pliée, elle portait la rangée de 52 à 105 px. */
+.ami__meilleur {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-micro);
+  letter-spacing: 0.06em;
+  color: var(--paper-dim);
+}
+
+.ami__semaine {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 26px;
+}
+
+.ami__jour {
+  width: 5px;
+  height: 100%;
+  background: var(--signal);
+  border-radius: 1px;
+  transform-origin: bottom;
+}
+
+.ami__jour.is-vide {
+  background: var(--line);
+}
+
+.ami__score {
+  min-width: 3ch;
+  font-family: var(--display);
+  font-size: 20px;
+  text-align: right;
+}
+
+.ami__score.is-absent {
+  color: var(--paper-dim);
+}
+
+/* 36 px et non les 44 de `--tap` : la ligne en fait 52, et le geste est rare
+   et réversible (un code se redonne). */
+.ami__retire {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: 0;
+  font-size: 18px;
+  color: var(--paper-dim);
+  cursor: pointer;
+}
+
+.ami__retire:hover,
+.ami__retire:focus-visible {
+  color: var(--encre);
+}
