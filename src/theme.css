@@ -2691,6 +2691,15 @@ body {
   line-height: 1.2;
 }
 
+/* COPIER LE LIEN était un mot sans cadre à côté d'un bouton cadré : les deux
+   font la même chose (partager le salon), ils portent le même habit. */
+#multi-lobby #btnMultiInvite {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--encre);
+}
+
 /* Le panneau des temps forts devient un autocollant : les équerres de viseur
    et le liseré translucide étaient l'habillage de l'identité nocturne. */
 .drama__panel,
@@ -2722,6 +2731,19 @@ body {
 
   #band {
     padding-left: 16px;
+  }
+
+  /* ⚠️ LANCER était à y = 1208 pour un écran de 812 (mesuré, salon à deux) :
+     l'hôte devait défiler 400 px au-delà des réglages pour démarrer. La
+     rangée d'actions colle au bas du panneau, juste au-dessus de la barre de
+     discussion (741-812), et reste atteignable où qu'on soit dans le salon. */
+  #multi-lobby .room__acts {
+    position: sticky;
+    bottom: 71px;
+    z-index: 5;
+    padding: 10px 0 14px;
+    background: var(--ink);
+    box-shadow: 0 -10px 12px -8px var(--ink);
   }
 
   /* L'annonce (régime, vie perdue, exercice validé) se peignait AU CENTRE du
