@@ -94,9 +94,10 @@ export function drawNeedBadge(
   y: number,
   need: 1 | 2 | 3,
   n = 0,
+  /** Taille en unités de terrain — la scène la grossit quand l'échelle est petite. */
+  s = 20,
 ): void {
   if (need < 2) return;
-  const s = 20;
   const bx = Math.round(x - s / 2);
   const by = Math.round(y - s / 2);
   ctx.save();
@@ -115,7 +116,7 @@ export function drawNeedBadge(
     cx += cranW + gap;
   }
   ctx.fillStyle = NEED_BADGE.signal;
-  ctx.font = policeMono(700, 10);
+  ctx.font = policeMono(700, Math.round(s / 2));
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(n > 0 ? `${n}/${need}` : String(need), bx + s / 2, by + s / 2 + 1);
@@ -163,6 +164,13 @@ export function poseCadre(
   else offY = (cssH - fieldH) / 2;
   return { scale, offX, offY };
 }
+
+/** Le geste en cours, tel que la scène le dessine. Voir `drawGeste`. */
+export type GesteAffiche =
+  | { kind: "hold"; idx: number; progres: number }
+  | { kind: "drag"; idx: number; x: number | null; y: number | null };
+
+const OK_VERT = "#2FD39F";
 
 export class SceneRenderer {
   private ctx: CanvasRenderingContext2D;
@@ -465,6 +473,49 @@ export class SceneRenderer {
   }
 
   /** Voile signal court en repère CSS (sans secousse). */
+  /**
+   * LA PRESSION — voir `render/tension.ts`. Le voile du palier et l'éclat du
+   * battement, posés par la boucle à chaque image. Ils ne touchent QUE le
+   * pourtour du terrain : le champ est découpé, au pixel.
+   */
+  pression = { voile: 0, eclat: 0 };
+  private sursautJusque = 0;
+
+  /** Un palier vient d'être franchi : le pourtour s'embrase un instant. */
+  sursaut(now: number): void {
+    this.sursautJusque = now + 700;
+  }
+
+  private drawPression(now: number): void {
+    const { ctx, cssW: W, cssH: H } = this;
+    const sursaut = now < this.sursautJusque ? (this.sursautJusque - now) / 700 : 0;
+    const eclat = this.reduced ? 0 : this.pression.eclat;
+    const a = Math.min(0.6, this.pression.voile * (1 + eclat * 0.9) + sursaut * 0.35);
+    if (a <= 0.004) return;
+    const f = rectEcran(this.cadreCourant);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.rect(f.x, f.y, f.w, f.h);
+    ctx.clip("evenodd");
+    /*
+     * Plus dense aux BORDS de l'écran qu'au bord du terrain : la pression
+     * vient de l'extérieur et se referme sur le jeu. Un aplat uniforme se
+     * lisait comme un changement de couleur de page, pas comme une menace.
+     */
+    const cx = f.x + f.w / 2;
+    const cy = f.y + f.h / 2;
+    const r0 = Math.min(f.w, f.h) / 2;
+    const r1 = Math.hypot(W, H) / 2 + 1;
+    const g = ctx.createRadialGradient(cx, cy, r0, cx, cy, r1);
+    const teinte = this.sombre ? "196,34,64" : "142,18,38";
+    g.addColorStop(0, `rgba(${teinte},${a * 0.45})`);
+    g.addColorStop(1, `rgba(${teinte},${a})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
   flashViolet(now: number): void {
     // Célébration pure : la gerbe et le son portent déjà l'information, le
     // voile ne fait que la rendre spectaculaire. Il peut donc s'effacer.
@@ -506,81 +557,59 @@ export class SceneRenderer {
   }
 
   /**
-   * Cadre de temps — repère CSS (cssW × cssH).
+   * Cadre de temps — repère CSS, AUTOUR DU TERRAIN.
    *
-   * Quatre couches : liseré de sang par paliers, hachures d'urgence,
-   * rail fixe, segment de temps restant. Le cadre ne subit pas la secousse
-   * et son épaisseur est en pixels d'écran, pas en unités de champ.
+   * ⚠️ Il épousait les bords du CANVAS, donc de l'écran : au téléphone, le
+   * canvas couvre aussi la bande de la consigne, et le cadre passait derrière
+   * elle — deux barres parasites sous le bandeau, des équerres aux coins de
+   * l'écran, un cadre hachuré rouge de 16 px sur toute la page au dernier
+   * quart. Rapporté par Pierre : « l'écran de jeu est juste atroce ». Le temps
+   * qui reste se lit maintenant sur le bord du TERRAIN, là où l'œil est déjà.
+   *
+   * Trois couches : un rail discret, le temps restant (il se referme vers le
+   * bas, symétrique), et dans le dernier quart un liseré garance qui bat. Pas de
+   * hachures. Le cadre ne subit pas la secousse.
    */
   private drawTimeFrame(ratio: number, now: number): void {
     const { ctx, cssW: W, cssH: H } = this;
-    const stage = ratio < 0.5 ? 0 : ratio < 0.78 ? 1 : 2;
-    let band = [0, 9, 16][stage]!;
-    // Battement à deux temps. La période tombe de 1100 ms à 400 ms :
-    // le cœur s'emballe, l'information reste la même.
-    if (stage > 0 && !this.reduced) {
-      const period = 1100 - ratio * 700;
-      const p = ((((now % period) + period) % period) / period);
-      const hit = (at: number): number => {
-        const d = p - at;
-        return d >= 0 && d < 0.12 ? 1 - d / 0.12 : 0;
-      };
-      band += Math.max(hit(0), hit(0.18)) * (stage === 2 ? 5 : 2);
-    }
-
-    ctx.save();
-    ctx.lineCap = "butt";
-
-    if (band > 0) {
-      ctx.fillStyle = stage === 1 ? "#5E1526" : "#8E1226";
-      ctx.fillRect(0, 0, W, band);
-      ctx.fillRect(0, H - band, W, band);
-      ctx.fillRect(0, band, band, H - band * 2);
-      ctx.fillRect(W - band, band, band, H - band * 2);
-
-      if (stage === 2) {
-        ctx.beginPath();
-        ctx.rect(0, 0, W, H);
-        ctx.rect(band, band, W - band * 2, H - band * 2);
-        ctx.clip("evenodd");
-        ctx.strokeStyle = "#B01732";
-        ctx.lineWidth = 3;
-        const span = W + H;
-        for (let i = -H; i < span; i += 14) {
-          ctx.beginPath();
-          ctx.moveTo(i, H);
-          ctx.lineTo(i + H, 0);
-          ctx.stroke();
-        }
-      }
-    }
-
-    ctx.restore();
-    ctx.save();
-    ctx.lineCap = "butt";
-
-    const inset = 2;
-    const w = W - inset * 2;
-    const h = H - inset * 2;
-    /*
-     * La page sous le cadre est sombre la nuit, mais AUSSI sous un plateau
-     * sombre : en partie, le plateau habille toute la page (`data-skin`).
-     */
+    const f = rectEcran(this.cadreCourant);
+    const pad = 7;
+    const x0 = Math.max(2, f.x - pad);
+    const y0 = Math.max(2, f.y - pad);
+    const x1 = Math.min(W - 2, f.x + f.w + pad);
+    const y1 = Math.min(H - 2, f.y + f.h + pad);
+    const w = x1 - x0;
+    const h = y1 - y0;
+    const critique = ratio >= 0.76;
     const pageSombre = this.sombre || !terrainDe(this.skin, this.sombre).clair;
-    ctx.strokeStyle = pageSombre ? "rgba(241,232,216,0.16)" : "rgba(36,27,58,0.14)";
-    ctx.lineWidth = 4;
-    ctx.strokeRect(inset, inset, w, h);
 
+    ctx.save();
+    ctx.lineCap = "round";
+
+    // Le dernier quart : un liseré garance, qui bat (sauf mouvement réduit).
+    if (critique) {
+      let epais = 5;
+      if (!this.reduced) {
+        const period = 1100 - ratio * 700;
+        const p = (((now % period) + period) % period) / period;
+        epais += p < 0.14 ? (1 - p / 0.14) * 4 : 0;
+      }
+      ctx.strokeStyle = "rgba(224,36,62,0.85)";
+      ctx.lineWidth = epais;
+      ctx.strokeRect(x0 - epais / 2 - 2, y0 - epais / 2 - 2, w + epais + 4, h + epais + 4);
+    }
+
+    // Le rail.
+    ctx.strokeStyle = pageSombre ? "rgba(241,232,216,0.18)" : "rgba(36,27,58,0.14)";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x0, y0, w, h);
+
+    // Le temps restant, dans l'encre de la page.
     const per = (w + h) * 2;
     const left = Math.max(0, 1 - ratio) * per;
-    // Le temps restant s'écrit dans l'encre de la PAGE : prune sur le sable,
-    // crème sur la nuit.
-    ctx.strokeStyle = pageSombre ? "#F1E8D8" : ENCRE;
+    ctx.strokeStyle = critique ? "#E0243E" : pageSombre ? "#F1E8D8" : ENCRE;
     ctx.lineWidth = 4;
     ctx.beginPath();
-
-    // parcours depuis le haut-centre, symétrique : les deux extrémités
-    // se rejoignent en bas, le rétrécissement est donc lisible des deux côtés
     let rest = left / 2;
     const seg = (fromX: number, fromY: number, toX: number, toY: number): void => {
       if (rest <= 0) return;
@@ -590,16 +619,14 @@ export class SceneRenderer {
       ctx.lineTo(fromX + (toX - fromX) * k, fromY + (toY - fromY) * k);
       rest -= len;
     };
-    const midX = inset + w / 2;
-    // moitié droite
-    seg(midX, inset, inset + w, inset);
-    seg(inset + w, inset, inset + w, inset + h);
-    seg(inset + w, inset + h, midX, inset + h);
+    const midX = x0 + w / 2;
+    seg(midX, y0, x1, y0);
+    seg(x1, y0, x1, y1);
+    seg(x1, y1, midX, y1);
     rest = left / 2;
-    // moitié gauche
-    seg(midX, inset, inset, inset);
-    seg(inset, inset, inset, inset + h);
-    seg(inset, inset + h, midX, inset + h);
+    seg(midX, y0, x0, y0);
+    seg(x0, y0, x0, y1);
+    seg(x0, y1, midX, y1);
     ctx.stroke();
     ctx.restore();
   }
@@ -640,6 +667,54 @@ export class SceneRenderer {
   }
 
   /**
+   * LE GESTE EN COURS — MAINTENIR ou GLISSER.
+   *
+   * Maintenir : une jauge qui fait le tour de la pièce en `HOLD_MS`, et qui
+   * passe au vert quand le lever sera accepté. Sans elle, le joueur ne sait
+   * pas QUAND lâcher — et « lâché trop tôt » serait une mort sans indice.
+   * Glisser : un trait de la pièce prise jusqu'au doigt.
+   *
+   * Aucune donnée de jeu ici : la jauge LIT l'état que le moteur a produit
+   * (`holdAt`), elle ne le décide pas.
+   */
+  private drawGeste(round: Round, g: GesteAffiche): void {
+    const { ctx } = this;
+    const e = round.ents[g.idx];
+    if (!e) return;
+    ctx.save();
+    if (g.kind === "hold") {
+      const p = Math.max(0, Math.min(1, g.progres));
+      const r = e.r + 14;
+      ctx.lineWidth = 8;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "rgba(36,27,58,0.18)";
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = p >= 1 ? OK_VERT : ACCENT;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r, -Math.PI / 2, -Math.PI / 2 + p * Math.PI * 2);
+      ctx.stroke();
+    } else if (g.x !== null && g.y !== null) {
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.setLineDash([14, 12]);
+      ctx.beginPath();
+      ctx.moveTo(e.x, e.y);
+      ctx.lineTo(g.x, g.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ACCENT;
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.arc(g.x, g.y, e.r * 0.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /**
    * Révélation post-mortem d'un piège.
    *
    * L'identité prévoyait un état PIÈGE — anneau accent, halo pulsant — parmi
@@ -650,7 +725,14 @@ export class SceneRenderer {
   private drawReveal(round: Round, now: number): void {
     const want = round.originalWant;
     if (!want) return;
-    const idxs = want.kind === "click" ? [want.idx] : want.kind === "sequence" ? want.idxs : [];
+    const idxs =
+      want.kind === "click" || want.kind === "hold"
+        ? [want.idx]
+        : want.kind === "sequence"
+          ? want.idxs
+          : want.kind === "drag"
+            ? [want.from, want.to]
+            : [];
     const k = 0.5 + 0.5 * Math.sin(now / 140);
     const { ctx } = this;
     for (const i of idxs) {
@@ -749,6 +831,7 @@ export class SceneRenderer {
     ratio?: number;
     needs?: ReadonlyMap<number, 1 | 2 | 3>;
     charges?: ReadonlyMap<number, { n: number }>;
+    geste?: GesteAffiche | null;
   }): void {
     const { round, rule, now, reveal = false, ratio, needs, charges } = state;
     const { ctx } = this;
@@ -834,6 +917,12 @@ export class SceneRenderer {
        * Rien ici ne touche à `e.x`, `e.y` ni `e.r` : la géométrie du hit-test
        * est exactement celle d'avant, au pixel près.
        */
+      /*
+       * La pastille du coop tient au moins 22 px À L'ÉCRAN. À 20 unités de
+       * terrain, elle tombait à 9 px au téléphone (échelle 0,46) : le nombre
+       * d'appuis qu'une pièce demande ne se lisait plus.
+       */
+      const tailleBadge = Math.max(20, 22 / Math.max(0.01, this.scale));
       for (const e of round.ents) {
         let scale = birth;
         if (breathes) {
@@ -860,14 +949,15 @@ export class SceneRenderer {
             ctx.save();
             ctx.translate(e.x + bdx, e.y + bdy);
             ctx.transform(0, 1, 1, 0, 0, 0);
-            drawNeedBadge(ctx, 0, 0, need, charges?.get(e.idx)?.n ?? 0);
+            drawNeedBadge(ctx, 0, 0, need, charges?.get(e.idx)?.n ?? 0, tailleBadge);
             ctx.restore();
           } else {
-            drawNeedBadge(ctx, e.x + bdx, e.y + bdy, need, charges?.get(e.idx)?.n ?? 0);
+            drawNeedBadge(ctx, e.x + bdx, e.y + bdy, need, charges?.get(e.idx)?.n ?? 0, tailleBadge);
           }
         }
       }
       if (reveal) this.drawReveal(round, now);
+      if (state.geste) this.drawGeste(round, state.geste);
     }
 
     this.stepParticles(dt);
@@ -893,6 +983,9 @@ export class SceneRenderer {
         ctx.stroke();
       }
     }
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.drawPression(now);
 
     if (ratio !== undefined) {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

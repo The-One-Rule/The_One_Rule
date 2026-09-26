@@ -67,8 +67,6 @@ type Textes = {
   fineprintReglagesHtml: string;
   menu: string;
   reglages: string;
-  compte: string;
-  monCompte: string;
   brandAria: string;
   langAria: string;
   runFait: (score: number) => string;
@@ -103,8 +101,6 @@ export const TEXTES: Record<Lang, Textes> = {
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
     reglages: "RÉGLAGES",
-    compte: "COMPTE",
-    monCompte: "MON COMPTE",
     brandAria: "THE ONE RULE, retour à l'accueil",
     langAria: "Langue",
     runFait: (score) => `RUN DU JOUR FAIT · ${score}`,
@@ -124,8 +120,6 @@ export const TEXTES: Record<Lang, Textes> = {
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
     reglages: "SETTINGS",
-    compte: "ACCOUNT",
-    monCompte: "MY ACCOUNT",
     brandAria: "THE ONE RULE, back to home",
     langAria: "Language",
     runFait: (score) => `DAILY RUN DONE · ${score}`,
@@ -191,9 +185,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carte.ranked.desc": "Quelqu'un de ton niveau. La même partie que lui.",
     "carnet.titre": "CARNET DES RÈGLES",
     "brief.meme": "MÊME PARTIE POUR TOUT LE MONDE",
-    "fin.labQuetes": "QUÊTES",
-    "fin.labSerie": "SÉRIE",
-    "fin.labCarnet": "CARNET",
     "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
@@ -209,8 +200,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.quitter": "QUITTER",
     "mur.eyebrow": "CLASSEMENT",
     "mur.titre": "LE MUR DES RECORDS",
-    "mur.tonMieux": "TON MIEUX",
-    "mur.tenter": "TENTER LE RECORD",
+    "mur.tenter": "JOUER LE RUN DU JOUR",
+    "mur.records": "TES RECORDS",
+    "mur.recordsVide": "Ta première partie inscrit ton chiffre ici.",
     "solo.reste": "CE QUI RESTE À FAIRE AUJOURD'HUI",
     "solo.demain": "DEMAIN",
     "reglages.titre": "RÉGLAGES",
@@ -288,7 +280,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carnet.collection": "COLLECTION",
     "salle.resiste": "CELLE QUI TE RÉSISTE",
     "fiche.retour": "‹ LA COLLECTION",
-    "compte.nom": "CHANGER DE NOM",
+    "compte.nom": "NOM ET SIGNE",
+    "profil.eyebrow": "PROFIL",
     "compte.deconnexion": "SE DÉCONNECTER",
     "compte.supprimer": "SUPPRIMER LE COMPTE",
     "multi.eyebrow": "MULTIJOUEUR",
@@ -386,9 +379,6 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carte.ranked.desc": "Someone at your level. The very same run.",
     "carnet.titre": "RULE BOOK",
     "brief.meme": "SAME RUN FOR EVERYONE",
-    "fin.labQuetes": "QUESTS",
-    "fin.labSerie": "STREAK",
-    "fin.labCarnet": "CODEX",
     "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
@@ -404,8 +394,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "fin.quitter": "LEAVE",
     "mur.eyebrow": "LEADERBOARD",
     "mur.titre": "THE WALL OF RECORDS",
-    "mur.tonMieux": "YOUR BEST",
-    "mur.tenter": "GO FOR IT",
+    "mur.tenter": "PLAY THE DAILY RUN",
+    "mur.records": "YOUR RECORDS",
+    "mur.recordsVide": "Your first run puts your number here.",
     "solo.reste": "WHAT IS LEFT TODAY",
     "solo.demain": "TOMORROW",
     "reglages.titre": "SETTINGS",
@@ -483,7 +474,8 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "carnet.collection": "COLLECTION",
     "salle.resiste": "THE ONE THAT KEEPS GETTING YOU",
     "fiche.retour": "‹ COLLECTION",
-    "compte.nom": "CHANGE NAME",
+    "compte.nom": "NAME AND SIGN",
+    "profil.eyebrow": "PROFILE",
     "compte.deconnexion": "SIGN OUT",
     "compte.supprimer": "DELETE ACCOUNT",
     "multi.eyebrow": "MULTIPLAYER",
@@ -635,6 +627,7 @@ type Dyn = {
   ficheEntraine: (allure: string) => string;
   /* --- l'écran de jeu --- */
   hudGeste: string;
+  hudTiens: string;
   hudGestes: (n: number) => string;
   hudDerniereVie: string;
   /* --- l'objectif de l'accueil --- */
@@ -687,7 +680,6 @@ type Dyn = {
   tutoRalenti: string;
   tutoPasCelleLa: string;
   tutoInterdit: string;
-  cptNomEnvoi: string;
   cptNomRate: string;
   compteConfirmer: string;
   compteTitreConnecte: string;
@@ -773,8 +765,9 @@ type Dyn = {
   tenu: string;
   faitMaj: string;
   /* --- ecran de compte --- */
-  cptNom: string;
   cptSansNom: string;
+  profilLocal: string;
+  profilTop: string;
   cptCarnet: string;
   cptRegles: (n: number, total: number) => string;
   cptSerie: string;
@@ -888,6 +881,14 @@ type Dyn = {
   photoIllisible: string;
   /** Les amis : erreurs d'ajout, une par cause — chacune dit quoi faire. */
   amisErr: Record<"code" | "soi" | "inconnu" | "plein" | "reseau", string>;
+  /** Le mur des records. */
+  murJourTitre: string;
+  murJourMien: (score: number | null, essais: number) => string;
+  recordJour: string;
+  recordAllure: (allure: string) => string;
+  recordPile: string;
+  recordUnite: string;
+  recordUnitePile: string;
   amisSeul: string;
   amisNote: string;
   amisPasJoue: string;
@@ -939,19 +940,13 @@ type Dyn = {
   piedDepasse: string;
   objectifReste: (n: number) => string;
   exerciceValide: string;
+  /** Les cinq régimes du run (`TIER_NAMES`), annoncés toutes les 10 manches. */
+  nomsPaliers: readonly string[];
   briefLongueur: string;
   briefEssais: string;
   briefEchauffement: string;
   avanceMaitrisee: (regle: string) => string;
   avanceParfaite: (regle: string) => string;
-  murDuJour: string;
-  murDuJourNote: string;
-  murEntrainement: string;
-  murEntrainementNote: string;
-  murRien: string;
-  murPremier: string;
-  murDevant: string;
-  murManque: (n: number) => string;
   resteFait: (score: number, sur: number) => string;
   resteEpuise: (score: number) => string;
   resteTravailler: (regle: string, etoiles: number, max: number) => string;
@@ -1005,6 +1000,8 @@ type Dyn = {
   hudPieges: (n: number) => string;
   /** « TU FINIS 2ᵉ SUR 6 · MANCHE 22 » — l'écran de fin d'un match. */
   finTonRang: (place: number, total: number, manches: number) => string;
+  /** Même ligne, pour un rang PARTAGÉ : jamais « 1er sur 3 » sous « ÉGALITÉ ». */
+  finExAequo: (place: number, total: number, manches: number) => string;
   /** Les trois repères sous le score de fin de run. */
   finReperRecord: (n: number) => string;
   finReperMediane: (n: number) => string;
@@ -1243,6 +1240,7 @@ const DYN: Record<Lang, Dyn> = {
     ficheRienNeManque: "Rien ne manque. Cette règle est parfaite.",
     ficheEntraine: (allure) => `S'ENTRAÎNER · ${allure}`,
     hudGeste: "1 GESTE",
+    hudTiens: "LÂCHE QUAND LE CERCLE EST PLEIN",
     hudGestes: (n) => `${n} GESTES`,
     hudDerniereVie: "DERNIÈRE VIE",
     butManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
@@ -1293,7 +1291,6 @@ const DYN: Record<Lang, Dyn> = {
     tutoRalenti: "CHRONO RALENTI POUR CETTE MANCHE",
     tutoPasCelleLa: "PAS CELLE-LÀ — REGARDE LA COULEUR DEMANDÉE",
     tutoInterdit: "TA RÈGLE INTERDIT LE ROUGE",
-    cptNomEnvoi: "ENVOI…",
     cptNomRate: "LE NOM N'A PAS PU ÊTRE ENREGISTRÉ — IL RESTE VALABLE SUR CET APPAREIL",
     compteConfirmer: "CONFIRMER LA SUPPRESSION",
     compteTitreConnecte: "TON COMPTE",
@@ -1372,8 +1369,9 @@ const DYN: Record<Lang, Dyn> = {
     piegeDejoue: "PIÈGE DÉJOUÉ",
     tenu: "TENU",
     faitMaj: "FAIT",
-    cptNom: "NOM",
     cptSansNom: "SANS NOM",
+    profilLocal: "SUR CET APPAREIL",
+    profilTop: "PROFIL",
     cptCarnet: "CARNET",
     cptRegles: (n, tot) => `${n} / ${tot} RÈGLES`,
     cptSerie: "SÉRIE",
@@ -1491,6 +1489,18 @@ const DYN: Record<Lang, Dyn> = {
       reseau: "PAS DE RÉPONSE. RÉESSAIE DANS UN INSTANT.",
     },
     amisSeul: "DONNE TON CODE À UN AMI, OU TAPE LE SIEN.",
+    murJourTitre: "RUN DU JOUR · LE MÊME POUR TOUS",
+    murJourMien: (score, essais) =>
+      score !== null && score > 0
+        ? `TON MEILLEUR AUJOURD'HUI · ${score} / 40${essais > 0 ? ` · ${essais} ESSAI${essais > 1 ? "S" : ""} RESTANT${essais > 1 ? "S" : ""}` : ""}`
+        : essais > 0
+          ? `PAS ENCORE JOUÉ · ${essais} ESSAI${essais > 1 ? "S" : ""}`
+          : "PLUS D'ESSAI AUJOURD'HUI · RENDEZ-VOUS DEMAIN",
+    recordJour: "RUN DU JOUR · AUJOURD'HUI",
+    recordAllure: (allure) => `ENTRAÎNEMENT · ${allure}`,
+    recordPile: "LA PILE",
+    recordUnite: "MANCHES",
+    recordUnitePile: "RÈGLES TENUES",
     amisNote: "CLASSÉS SUR LE RUN DU JOUR — LE MÊME POUR TOUT LE MONDE. LES BARRES : LES 7 DERNIERS JOURS. « 30 J » : LE MEILLEUR DU MOIS.",
     amisPasJoue: "PAS JOUÉ",
     amisCopie: "COPIÉ",
@@ -1553,19 +1563,12 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "SUR TON MIEUX",
     objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
     exerciceValide: "EXERCICE VALIDÉ",
+    nomsPaliers: ["ÉCHAUFFEMENT", "PRESSION", "ÉTAU", "ASPHYXIE", "AU-DELÀ"],
     briefLongueur: "MANCHES",
     briefEssais: "ESSAIS",
     briefEchauffement: "SANS RISQUE",
     avanceMaitrisee: (regle) => `${regle} · MAÎTRISÉE`,
     avanceParfaite: (regle) => `${regle} · PARFAITE · 6 / 6`,
-    murDuJour: "LE MEILLEUR DU JOUR",
-    murDuJourNote: "Vérifié par rejeu. Il change chaque jour.",
-    murEntrainement: "LE MEILLEUR CONNU · ENTRAÎNEMENT",
-    murEntrainementNote: "Relevé à la main, à une allure d'entraînement. Ce n'est pas un run du jour.",
-    murRien: "—",
-    murPremier: "Ton premier run posera ton chiffre ici.",
-    murDevant: "Tu fais mieux que ça.",
-    murManque: (n) => `Il te manque ${n} manche${n > 1 ? "s" : ""}.`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
     resteTravailler: (regle, et, max) => `TRAVAILLER ${regle} · ★ ${et}/${max}`,
@@ -1629,6 +1632,8 @@ const DYN: Record<Lang, Dyn> = {
      */
     finTonRang: (place, total, manches) =>
       `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
+    finExAequo: (place, total, manches) =>
+      `EX ÆQUO ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
     finReperRecord: (n) => `TON RECORD · ${n}`,
     finReperMediane: (n) => `MÉDIANE · ${n}`,
     finReperMeilleur: (n) => `RECORD · ${n}`,
@@ -1755,6 +1760,7 @@ const DYN: Record<Lang, Dyn> = {
     ficheRienNeManque: "Nothing left. This rule is perfect.",
     ficheEntraine: (allure) => `TRAIN · ${allure}`,
     hudGeste: "1 MOVE",
+    hudTiens: "LET GO WHEN THE RING IS FULL",
     hudGestes: (n) => `${n} MOVES`,
     hudDerniereVie: "LAST LIFE",
     butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
@@ -1805,7 +1811,6 @@ const DYN: Record<Lang, Dyn> = {
     tutoRalenti: "CLOCK SLOWED FOR THIS ROUND",
     tutoPasCelleLa: "NOT THAT ONE — LOOK AT THE COLOUR ASKED FOR",
     tutoInterdit: "YOUR RULE FORBIDS RED",
-    cptNomEnvoi: "SAVING…",
     cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
     compteConfirmer: "CONFIRM DELETION",
     compteTitreConnecte: "YOUR ACCOUNT",
@@ -1884,8 +1889,9 @@ const DYN: Record<Lang, Dyn> = {
     piegeDejoue: "TRAP AVOIDED",
     tenu: "HELD",
     faitMaj: "DONE",
-    cptNom: "NAME",
     cptSansNom: "NO NAME",
+    profilLocal: "ON THIS DEVICE",
+    profilTop: "PROFILE",
     cptCarnet: "RULE BOOK",
     cptRegles: (n, tot) => `${n} / ${tot} RULES`,
     cptSerie: "STREAK",
@@ -1993,6 +1999,18 @@ const DYN: Record<Lang, Dyn> = {
       reseau: "NO ANSWER. TRY AGAIN IN A MOMENT.",
     },
     amisSeul: "GIVE YOUR CODE TO A FRIEND, OR TYPE THEIRS.",
+    murJourTitre: "DAILY RUN · THE SAME FOR EVERYONE",
+    murJourMien: (score, essais) =>
+      score !== null && score > 0
+        ? `YOUR BEST TODAY · ${score} / 40${essais > 0 ? ` · ${essais} ${essais === 1 ? "TRY" : "TRIES"} LEFT` : ""}`
+        : essais > 0
+          ? `NOT PLAYED YET · ${essais} ${essais === 1 ? "TRY" : "TRIES"}`
+          : "NO TRIES LEFT TODAY · SEE YOU TOMORROW",
+    recordJour: "DAILY RUN · TODAY",
+    recordAllure: (allure) => `TRAINING · ${allure}`,
+    recordPile: "THE STACK",
+    recordUnite: "ROUNDS",
+    recordUnitePile: "RULES HELD",
     amisNote: "RANKED ON THE DAILY RUN — THE SAME FOR EVERYONE. THE BARS: THE LAST 7 DAYS. “30 D”: THE BEST OF THE MONTH.",
     amisPasJoue: "NOT YET",
     amisCopie: "COPIED",
@@ -2038,19 +2056,12 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "OVER YOUR BEST",
     objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
     exerciceValide: "EXERCISE CLEARED",
+    nomsPaliers: ["WARM-UP", "PRESSURE", "VICE", "SUFFOCATION", "BEYOND"],
     briefLongueur: "ROUNDS",
     briefEssais: "TRIES",
     briefEchauffement: "RISK-FREE",
     avanceMaitrisee: (regle) => `${regle} · MASTERED`,
     avanceParfaite: (regle) => `${regle} · PERFECT · 6 / 6`,
-    murDuJour: "TODAY'S BEST",
-    murDuJourNote: "Replayed and checked by the server. It changes every day.",
-    murEntrainement: "BEST KNOWN · TRAINING",
-    murEntrainementNote: "Read by hand, at a training pace. It is not a daily run.",
-    murRien: "—",
-    murPremier: "Your first run puts your number here.",
-    murDevant: "You do better than that.",
-    murManque: (n) => `You are ${n} round${n === 1 ? "" : "s"} short.`,
     resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
     resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
     resteTravailler: (regle, et, max) => `WORK ON ${regle} · ★ ${et}/${max}`,
@@ -2103,6 +2114,7 @@ const DYN: Record<Lang, Dyn> = {
         d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
       return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
     },
+    finExAequo: (place, total, manches) => `TIED ${place}${rangSuffixe(place)} OF ${total} · ROUND ${manches}`,
     finReperRecord: (n) => `YOUR BEST · ${n}`,
     finReperMediane: (n) => `MEDIAN · ${n}`,
     finReperMeilleur: (n) => `RECORD · ${n}`,
@@ -2265,11 +2277,7 @@ const poseTexte = (el: HTMLElement | null, texte: string): void => {
  * N'écrit JAMAIS dans `#btnSolo` ni `#btnMulti` : ce sont des boutons à
  * trois `<span>`, et un `textContent` les détruit (voir `tests/cartes.test.ts`).
  */
-export function appliqueLangue(
-  doc: Document,
-  lang: Lang,
-  extra?: { compte?: string },
-): void {
+export function appliqueLangue(doc: Document, lang: Lang): void {
   const t = TEXTES[lang];
   poseLangue(lang);
   doc.documentElement.lang = lang;
@@ -2336,7 +2344,8 @@ export function appliqueLangue(
 
   poseTexte(doc.getElementById("btnTopMenu"), t.menu);
   poseTexte(doc.getElementById("btnTopReglages"), t.reglages);
-  poseTexte(doc.getElementById("btnTopCompte"), extra?.compte ?? t.compte);
+  // PROFIL n'est pas posé ici : le bouton porte un visage et un nom
+  // (`peintBoutonProfil`), et un `textContent` les détruirait.
 
   const brand = doc.getElementById("btnTopBrand");
   if (brand) brand.setAttribute("aria-label", t.brandAria);
@@ -2365,11 +2374,6 @@ export function etatSolo(
   return morceaux.join(" · ");
 }
 
-export function libelleCompte(lang: Lang, pseudo: string | null): string {
-  const t = TEXTES[lang];
-  if (pseudo === null) return t.compte;
-  return pseudo || t.monCompte;
-}
 
 /* ------------------------------------------------------------------ *
  * LA CONSIGNE, COMPOSÉE
@@ -2441,6 +2445,9 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     couleurPuis: (m) => `${m.couleur} PUIS ${m.couleur2}`,
     deuxFoisCouleur: (m) => `CLIQUE DEUX FOIS LE ${m.couleur}`,
     deuxFoisForme: (m) => `CLIQUE DEUX FOIS LE ${m.forme}`,
+    tiensCouleur: (m) => `MAINTIENS LE ${m.couleur}`,
+    tiensForme: (m) => `MAINTIENS LE ${m.forme}`,
+    glisseCouleur: (m) => `GLISSE LE ${m.couleur} SUR LE ${m.couleur2}`,
     clicSauf: (m) => `CLIQUE PARTOUT SAUF SUR DU ${m.couleur}`,
     "coop.nettoyez": () => "NETTOIEZ LE TERRAIN",
   },
@@ -2477,6 +2484,9 @@ const PHRASES: Record<Lang, Record<string, Compo>> = {
     couleurPuis: (m) => `${m.couleur} THEN ${m.couleur2}`,
     deuxFoisCouleur: (m) => `CLICK THE ${m.couleur} TWICE`,
     deuxFoisForme: (m) => `CLICK THE ${m.forme} TWICE`,
+    tiensCouleur: (m) => `HOLD THE ${m.couleur}`,
+    tiensForme: (m) => `HOLD THE ${m.forme}`,
+    glisseCouleur: (m) => `DRAG THE ${m.couleur} ONTO THE ${m.couleur2}`,
     clicSauf: (m) => `CLICK ANYWHERE BUT ON ${m.couleur}`,
     "coop.nettoyez": () => "CLEAR THE FIELD",
   },
@@ -2911,6 +2921,9 @@ const MOTIFS_EN: Record<MotifId, string> = {
   mauvaiseTouche: "WRONG KEY",
   couleurInterdite: "YOU CLICKED THE FORBIDDEN COLOUR",
   leVide: "YOU CLICKED EMPTY SPACE",
+  lacheTot: "YOU LET GO TOO SOON",
+  lacheAilleurs: "YOU DROPPED IT IN THE WRONG PLACE",
+  fallaitGlisser: "YOU HAD TO DRAG, NOT CLICK",
   mauvaiseForme: "WRONG SHAPE",
   mauvaiseCible: "WRONG TARGET",
   rouge: "YOU CLICKED ON RED",

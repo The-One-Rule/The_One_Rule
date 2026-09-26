@@ -187,6 +187,13 @@ export default async function handler(req: Request): Promise<Response> {
       ruleId: clean(body.ruleId, 20),
       mode: "ranked",
       inputs: (body.inputs ?? []) as RunClaim["inputs"],
+      // Mêmes lectures que `api/perf.ts` : seul `false` compte, seul 2 est connu.
+      capacites: {
+        clavier: (body.capacites as Record<string, unknown> | undefined)?.clavier !== false,
+        maintien: (body.capacites as Record<string, unknown> | undefined)?.maintien !== false,
+        encre: (body.capacites as Record<string, unknown> | undefined)?.encre !== false,
+      },
+      catalogue: body.catalogue === 2 ? 2 : undefined,
     };
 
     const v = verifyRun(claim);

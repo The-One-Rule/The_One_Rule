@@ -210,11 +210,25 @@ export async function traite(
   const graine = dailySeed(jour);
   const regle = ruleOfDay(jour);
 
+  /*
+   * Ce que l'appareil savait jouer. Chaque drapeau n'est lu que s'il vaut
+   * exactement `false` : absent ou douteux vaut « clavier, maintien, encre »,
+   * c'est-à-dire le rejeu d'avant. Le déclarer ne donne aucun avantage — il
+   * change les manches rejouées, pas leur difficulté.
+   */
+  const cap = (corps.capacites ?? {}) as Record<string, unknown>;
   const claim: RunClaim = {
     seed: graine,
     ruleId: regle.id,
     mode: "daily",
     inputs: (corps.inputs ?? []) as LoggedInput[],
+    capacites: {
+      clavier: cap.clavier !== false,
+      maintien: cap.maintien !== false,
+      encre: cap.encre !== false,
+    },
+    // Seule valeur connue ; tout le reste vaut l'ancien catalogue.
+    catalogue: corps.catalogue === 2 ? 2 : undefined,
   };
 
   const v = verifyRun(claim);

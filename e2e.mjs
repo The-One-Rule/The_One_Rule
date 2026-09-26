@@ -25,7 +25,8 @@ process.on("uncaughtException", (e) => {
 await import("./server/index.ts");
 const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("./src/engine/multiround.ts");
 const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
-const { INSTRUCTIONS } = await import("./src/engine/instructions/index.ts");
+const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("./src/engine/instructions/index.ts");
+const { HOLD_MS } = await import("./src/engine/difficulty.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 const { MOTIFS } = await import("./src/engine/motifs.ts");
 const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
@@ -164,7 +165,8 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
       setTimeout(() => {
         if (name === "BOB") { ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: 0 } })); return; }
         if (round.steps.length === 0) return; // piège : silence
-        round.steps.forEach((st, k) => {
+        let quand = 0;
+        round.steps.forEach((st) => {
           /*
            * ⚠️ « N'IMPORTE OÙ » NE VEUT PAS DIRE « LA PREMIÈRE PIÈCE ».
            *
@@ -191,10 +193,27 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
            * (`i: null`, comme `vueServeur`) : 0 échec sur 234 003 manches.
            */
           const permiseIdx = round.ents.findIndex(permise);
+          const envoie = (a, dans) =>
+            setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: a })), dans);
+          /*
+           * MAINTENIR : l'appui, puis le lever APRÈS `HOLD_MS` (plus une marge
+           * pour le temps de vol). GLISSER : le lever tombe sur la pièce
+           * d'arrivée. Le temps avance d'autant pour les étapes suivantes —
+           * LE JUMEAU double un maintien, et le second doit attendre le
+           * premier.
+           */
+          if (st.kind === "hold") {
+            envoie({ k: "c", i: st.idx }, quand);
+            envoie({ k: "l", i: st.idx }, quand + HOLD_MS + 80);
+            quand += HOLD_MS + 80 + 55;
+            return;
+          }
           const a = st.kind === "click" ? { k: "c", i: st.idx }
+            : st.kind === "drop" ? { k: "l", i: st.idx }
             : st.kind === "key" ? { k: "k", key: st.key }
             : { k: "c", i: permiseIdx < 0 ? null : permiseIdx };
-          setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: a })), k * 55);
+          envoie(a, quand);
+          quand += 55;
         });
       }, DELAI_PILOTE);
     }
@@ -535,7 +554,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
  */
 {
   const recents = [];
-  for (const n of ["V1", "V2", "V3"]) recents.push(await client(n, "cle-" + n, false, false, 2));
+  for (const n of ["V1", "V2", "V3"]) recents.push(await client(n, "cle-" + n, false, false, CONSIGNES_VERSION));
   recents[0].ws.send(JSON.stringify({ t: "create" }));
   await sleep(250);
   const code = recents[0].room.code;
@@ -555,14 +574,17 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   while (recents[0].roundIdx < 10 && Date.now() - debut < APRES_DEPART + 75000) await sleep(250);
   // Le verdict de la manche courante doit être tombé avant qu'on le lise.
   await sleep(2600);
-  ok(recents.every((c) => c.consignesMatch === 2), "une table récente ouvre le jeu de consignes 2");
+  ok(
+    recents.every((c) => c.consignesMatch === CONSIGNES_VERSION),
+    `une table récente ouvre le jeu de consignes ${CONSIGNES_VERSION}`,
+  );
   ok(recents[0].roundIdx >= 10, `assez de manches jouées pour qu'un désaccord se voie (jusqu'à la ${recents[0].roundIdx})`);
 
   // Les manches jouées qui étaient un double appui, reconstruites du côté client.
   const doubles = [];
   for (let idx = 0; idx <= Math.max(0, recents[0].roundIdx); idx++) {
-    const id = draftShared(recents[0].seed, idx, poolMulti(false, 2)).instructionId;
-    if (id === "doubleTap") doubles.push(idx);
+    const id = draftShared(recents[0].seed, idx, poolMulti(false, CONSIGNES_VERSION)).instructionId;
+    if (id === "doubleTap" || id === "tiens" || id === "glisse") doubles.push(`${idx}:${id}`);
   }
   /*
    * La mesure porte sur TOUTES les manches, pas seulement les doubles appuis :
@@ -582,11 +604,11 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   const joues = recents.reduce((n, c) => n + c.verdicts.length, 0);
   ok(
     joues > 0 && fautes.length === 0,
-    `jeu de consignes 2 : serveur et clients reconstruisent la même manche (${joues} verdicts, ${fautes.length} faute(s)` +
+    `jeu de consignes ${CONSIGNES_VERSION} : serveur et clients reconstruisent la même manche (${joues} verdicts, ${fautes.length} faute(s)` +
       (fautes.length ? ` : ${fautes.map((o) => o.reason).join(" | ")})` : ")"),
   );
-  if (doubles.length) info(`double appui tiré et joué aux manches ${doubles.join(",")}`);
-  else info("aucun double appui tiré sur ces manches — son jugement est couvert par tests/double-appui");
+  if (doubles.length) info(`consignes du multi tirées et jouées : ${doubles.join(", ")}`);
+  else info("aucune consigne du multi tirée sur ces manches — leur jugement est couvert par les unitaires");
 
   // Un seul siège ancien (sans le champ) referme le jeu pour toute la table.
   const mixte = [await client("W1", "cle-W1", false, false, 2), await client("W2", "cle-W2")];
@@ -610,7 +632,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   futur[0].ws.send(JSON.stringify({ t: "start" }));
   await sleep(APRES_DEPART);
   ok(
-    futur.every((c) => c.consignesMatch === 2),
+    futur.every((c) => c.consignesMatch === CONSIGNES_VERSION),
     `une version inconnue est ramenée à celle du serveur (${futur.map((c) => c.consignesMatch).join(",")})`,
   );
 

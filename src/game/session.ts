@@ -1,5 +1,6 @@
 import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, pardonnable, tierOf } from "../engine/difficulty";
-import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
+import { leverAttendu } from "../engine/resolve";
+import { INSTRUCTIONS_SOLO, TOUCH_INSTRUCTIONS_SOLO } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
 import { pileA } from "../engine/escalade";
@@ -186,7 +187,7 @@ export class Session {
     this.grace = opts.grace ?? GRACE_ROUNDS;
     this.vies = opts.vies ?? 0;
     this.viesMax = this.vies;
-    this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
+    this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS_SOLO : INSTRUCTIONS_SOLO;
     this.longueur = opts.longueur;
     this.forcePiege = opts.forcePiege;
     this.majRegle();
@@ -221,6 +222,11 @@ export class Session {
     return this.level < this.grace;
   }
 
+  /** Le nombre de manches d'échauffement de CE run (le parcours le règle). */
+  get manchesGrace(): number {
+    return this.grace;
+  }
+
   /**
    * La manche où l'échauffement vient de s'arrêter.
    *
@@ -250,6 +256,20 @@ export class Session {
 
   elapsed(now: number): number {
     return now - this.roundStart;
+  }
+
+  /** Le geste en cours (MAINTENIR, GLISSER), pour que la scène le dessine. */
+  geste(now: number): { kind: "hold"; idx: number; progres: number } | { kind: "drag"; idx: number } | null {
+    if (this.phase !== "playing") return null;
+    const st = this.round.steps[this.progress.step];
+    if (st?.kind === "hold" && this.progress.holdAt !== undefined) {
+      return { kind: "hold", idx: st.idx, progres: (this.elapsed(now) - this.progress.holdAt) / st.ms };
+    }
+    if (st?.kind === "drop") {
+      const avant = this.round.steps[this.progress.step - 1];
+      if (avant?.kind === "click") return { kind: "drag", idx: avant.idx };
+    }
+    return null;
   }
 
   /** 0 → 1 sur la fenêtre de la manche courante. */
@@ -352,7 +372,9 @@ export class Session {
   input(action: Action, now: number): Outcome {
     if (this.phase !== "playing") return { kind: "pending" };
     if (action.kind === "key") this.usedKeyboard = true;
-    this.record(action, now);
+    // Un lever ne se journalise que s'il RÉPOND à quelque chose : chaque clic
+    // se lève aussi, et journaliser tous les levers doublerait le journal.
+    if (action.kind !== "lift" || leverAttendu(this.round, this.progress)) this.record(action, now);
 
     const { outcome, progress } = resolveAction(
       this.round,
@@ -383,8 +405,11 @@ export class Session {
       else this.log.push({ t, k: "x", x: Math.round(action.x), y: Math.round(action.y) });
     } else if (action.kind === "key") {
       this.log.push({ t, k: "k", key: action.key });
-    } else {
+    } else if (action.kind === "release") {
       this.log.push({ t, k: "r", key: action.key });
+    } else if (action.kind === "lift") {
+      // MAINTENIR et GLISSER : le lever conclut, `verifyRun` le rejoue.
+      this.log.push({ t, k: "l", i: action.ent ? action.ent.idx : null });
     }
   }
 

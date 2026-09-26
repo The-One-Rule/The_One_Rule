@@ -10,7 +10,7 @@
 import { hashStr, mulberry32 } from "./rng";
 import { pickInstruction, TOUCH_INSTRUCTIONS } from "./instructions";
 import { place } from "./scene";
-import { windowForSteps } from "./difficulty";
+import { poidsGestes, windowForSteps } from "./difficulty";
 import { compile } from "./round";
 import { MAX_ROUND_MS, SPEED_CHOICES } from "../../shared/protocol";
 import type { RoundOutcome } from "../../shared/protocol";
@@ -145,7 +145,7 @@ export function draftImposteur(
       colorWord: draft.colorWord,
       ents,
       want,
-      durationMs: windowForSteps(idx, compile(want).length),
+      durationMs: windowForSteps(idx, poidsGestes(compile(want))),
     };
     if (rule.forbids(want, ents) || !wantsTrap) break;
   }

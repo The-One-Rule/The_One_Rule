@@ -213,7 +213,14 @@ export class Hud {
       return;
     }
     const n = Math.max(0, lives);
-    this.vies.innerHTML = livesDots(n, max);
+    /*
+     * Au-delà de six, des cœurs ne se COMPTENT plus d'un coup d'œil, et ils
+     * mangent le bandeau : vu en COOP à quatre (douze vies communes), douze
+     * cœurs ne laissaient que « THE … » au nom de la règle. Un cœur et un
+     * chiffre disent la même chose en 40 px.
+     */
+    this.vies.innerHTML =
+      max > 6 ? `${livesDots(n > 0 ? 1 : 0, 1)}<b class="vies__n">×${n}</b>` : livesDots(n, max);
     this.viesLabel.textContent = n === 1 ? t("hudDerniereVie") : t("piedVies");
     this.droite.classList.toggle("is-last", n === 1);
   }
@@ -354,14 +361,28 @@ export class Hud {
      */
     const subText = hidden ? "" : round.glyph ? text : composeSous(round.sousPhrase, round.sub ?? "");
     const n = round.steps.length;
-    const compte = n > 1 ? t("hudGestes")(n) : t("hudGeste");
+    // MAINTENIR ne se compte pas, il se TIENT : la ligne dit quand lâcher —
+    // la jauge autour de la pièce passe au vert (`scene.drawGeste`).
+    const compte = round.steps.some((s) => s.kind === "hold")
+      ? t("hudTiens")
+      : n > 1
+        ? t("hudGestes")(n)
+        : t("hudGeste");
     const critique = document.getElementById("app")?.classList.contains("is-critical");
     const vite = !hidden && !!critique && n > 0 ? t("hudVite") : "";
     const puces = !hidden && this.puces.length > 1 ? this.puces : [];
-    const ligne = hidden ? "" : [subText, compte, puces.join("|"), vite].join("\0");
+    /*
+     * ⚠️ LA CLÉ PORTE CE QUI EST PEINT, pas ce qui est calculé. Elle contenait
+     * `compte` même quand la manche n'a aucun geste — le texte n'était retiré
+     * qu'au moment de peindre. Après une manche à un geste, « NE FAIS RIEN »
+     * gardait donc « 1 GESTE » (vu en jouant le niveau 1-1 au téléphone) : une
+     * consigne d'agir sur la seule manche où il faut s'abstenir.
+     */
+    const comptePeint = n > 0 ? compte : "";
+    const ligne = hidden ? "" : [subText, comptePeint, puces.join("|"), vite].join("\0");
     if (ligne !== this.lastLigne) {
       this.lastLigne = ligne;
-      this.peintSub(hidden, subText, n > 0 ? compte : "", vite, puces);
+      this.peintSub(hidden, subText, comptePeint, vite, puces);
     }
 
     /*

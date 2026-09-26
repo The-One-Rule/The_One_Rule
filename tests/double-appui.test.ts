@@ -18,6 +18,7 @@ import {
   CONSIGNES_MULTI,
   CONSIGNES_VERSION,
   INSTRUCTIONS,
+  INSTRUCTIONS_SOLO,
   TOUCH_INSTRUCTIONS,
 } from "../src/engine/instructions";
 import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
@@ -158,14 +159,24 @@ describe("⚠️ la négociation du multijoueur", () => {
   });
 });
 
-describe("le solo n'a pas bougé", () => {
-  it("le double appui n'est PAS au catalogue solo", () => {
+describe("le catalogue d'origine n'a pas bougé, le solo s'est ouvert", () => {
+  it("le double appui n'est PAS dans le catalogue d'origine (base du multi v1)", () => {
+    // `INSTRUCTIONS` est ce que négocie un salon en version 1 et où LE MENTEUR
+    // emprunte ses phrases : l'élargir changerait les manches d'hier.
     expect(INSTRUCTIONS.some((i) => i.id === "doubleTap")).toBe(false);
   });
 
-  it("VERSION_CONTENU est celle d'avant l'ajout", () => {
-    // Relevée avant et après : si elle bouge, les records d'entraînement
-    // affichés repartent de zéro pour tout le monde au déploiement.
-    expect(VERSION_CONTENU).toBe("5m4fgw");
+  it("le double appui, MAINTENIR et GLISSER sont au catalogue SOLO", () => {
+    for (const id of ["doubleTap", "tiens", "glisse"]) {
+      expect(INSTRUCTIONS_SOLO.some((i) => i.id === id), id).toBe(true);
+    }
+  });
+
+  it("VERSION_CONTENU est figée", () => {
+    // Si elle bouge, les records d'entraînement affichés repartent de zéro
+    // pour tout le monde au déploiement.
+    // `1h63n7k` depuis l'ouverture au solo du double appui, de MAINTENIR et GLISSER
+    // (directive de Pierre) : les records d'entraînement repartent d'une clé neuve.
+    expect(VERSION_CONTENU).toBe("1h63n7k");
   });
 });

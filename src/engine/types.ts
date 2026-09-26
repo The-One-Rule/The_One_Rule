@@ -86,10 +86,24 @@ export type Want =
       keyAlt?: string;
     }
   | { kind: "sequence"; idxs: number[] }
+  /** MAINTENIR : appuyer sur la pièce et ne lever qu'après `HOLD_MS`. */
+  | { kind: "hold"; idx: number }
+  /** GLISSER : appuyer sur `from`, lever sur `to`. */
+  | { kind: "drag"; from: number; to: number }
   | { kind: "none" };
 
 export type Step =
   | { kind: "click"; idx: number }
+  /**
+   * Un appui TENU sur `idx`, validé au lever après `ms`.
+   *
+   * L'appui est un `click` comme un autre — il arrive sur le fil et devant
+   * les règles exactement comme aujourd'hui — et c'est le LEVER (`lift`) qui
+   * conclut. Deux actions, jugées chacune à son instant, des deux côtés.
+   */
+  | { kind: "hold"; idx: number; ms: number }
+  /** Le lever d'un glisser : il doit tomber sur `idx`. */
+  | { kind: "drop"; idx: number }
   | { kind: "clickAny" }
   | { kind: "clickAnyExcept"; color: ColorId }
   | {
@@ -147,7 +161,12 @@ export type Action =
        */
       keyAlt?: string;
     }
-  | { kind: "release"; key: string };
+  | { kind: "release"; key: string }
+  /**
+   * Le doigt (ou le bouton) se LÈVE. N'est une réponse que pour MAINTENIR et
+   * GLISSER ; partout ailleurs il est ignoré, comme un relâchement de touche.
+   */
+  | { kind: "lift"; ent: Entity | null; x: number; y: number };
 
 /**
  * La consigne, sous forme STRUCTUREE.
@@ -292,4 +311,6 @@ export type Outcome =
 /** Avancement dans les steps de la manche courante. */
 export interface RoundProgress {
   step: number;
+  /** MAINTENIR : l'instant de l'appui sur l'étape en cours, s'il a eu lieu. */
+  holdAt?: number;
 }

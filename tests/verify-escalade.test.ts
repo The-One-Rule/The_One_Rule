@@ -90,7 +90,7 @@ function joueEscalade(
           (e, i) => permis(i, quand) && (step.kind === "clickAny" || e.color !== step.color),
         );
         inputs.push({ t: quand, k: "c", i: ok >= 0 ? ok : 0 });
-      } else inputs.push({ t: quand, k: "k", key: step.key });
+      } else inputs.push({ t: quand, k: "k", key: (step as { key: string }).key });
       k++;
     }
     t = at + (round.steps.length - 1) * 40 + 1;

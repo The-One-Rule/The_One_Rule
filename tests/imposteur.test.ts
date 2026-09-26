@@ -59,7 +59,9 @@ function refuseFuite(rules: Record<string, string>): void {
 describe("invariants du lot", () => {
   it("VERSION_CONTENU suit la courbe du playtest 247", () => {
     // Origin a redescendu windowMs (1500 → 4000). Ce n'est plus hdblrb.
-    expect(VERSION_CONTENU).toBe("5m4fgw");
+    // `1h63n7k` depuis l'ouverture au solo du double appui, de MAINTENIR et GLISSER
+    // (directive de Pierre) : les records d'entraînement repartent d'une clé neuve.
+    expect(VERSION_CONTENU).toBe("1h63n7k");
   });
 
   it("PROTOCOL_VERSION reste à 1", () => {

@@ -166,8 +166,22 @@ export function chapitreOuvert(
   i: number,
   jouable: (ruleId: string) => boolean,
   chapitres: readonly string[] = CHAPITRES,
+  /**
+   * Les règles déjà au carnet.
+   *
+   * ⚠️ Un chapitre dont la règle est DÉJÀ CONNUE est ouvert, quel que soit le
+   * boss d'avant. Rapporté par Pierre : un ancien joueur — seize règles
+   * rencontrées avant que le parcours existe, six maîtrisées — voyait les
+   * quinze chapitres suivants verrouillés, comme un joueur du premier jour.
+   * Même cas pour une règle rencontrée en multijoueur. Le verrou existe pour
+   * ne pas brûler la surprise d'une règle (décision n°7) ; il n'a plus rien à
+   * protéger quand la règle est connue. Les ÉTOILES, elles, restent à
+   * gagner : ce qui s'ouvre n'est pas ce qui est acquis.
+   */
+  connues?: ReadonlySet<string>,
 ): boolean {
   if (i <= 0) return true;
+  if (connues?.has(chapitres[i] ?? "")) return true;
   for (let k = i - 1; k >= 0; k--) {
     const id = chapitres[k]!;
     if (!jouable(id)) continue;
@@ -183,10 +197,11 @@ export function niveauOuvert(
   n: number,
   jouable: (ruleId: string) => boolean,
   chapitres: readonly string[] = CHAPITRES,
+  connues?: ReadonlySet<string>,
 ): boolean {
   const id = chapitres[i];
   if (!id || !jouable(id)) return false;
-  if (!chapitreOuvert(e, i, jouable, chapitres)) return false;
+  if (!chapitreOuvert(e, i, jouable, chapitres, connues)) return false;
   return n <= 1 || etoilesDe(e, id, n - 1) > 0;
 }
 
@@ -207,13 +222,14 @@ export function prochainNiveau(
   e: Etoiles,
   jouable: (ruleId: string) => boolean,
   chapitres: readonly string[] = CHAPITRES,
+  connues?: ReadonlySet<string>,
 ): Position | null {
   let aParfaire: Position | null = null;
   for (let i = 0; i < chapitres.length; i++) {
     const id = chapitres[i]!;
-    if (!jouable(id) || !chapitreOuvert(e, i, jouable, chapitres)) continue;
+    if (!jouable(id) || !chapitreOuvert(e, i, jouable, chapitres, connues)) continue;
     for (const d of NIVEAUX) {
-      if (!niveauOuvert(e, i, d.n, jouable, chapitres)) break;
+      if (!niveauOuvert(e, i, d.n, jouable, chapitres, connues)) break;
       const et = etoilesDe(e, id, d.n);
       if (et === 0) return { chapitre: i, ruleId: id, niveau: d.n };
       if (et < ETOILES_MAX && !aParfaire) aParfaire = { chapitre: i, ruleId: id, niveau: d.n };
@@ -227,10 +243,11 @@ export function chapitresOuverts(
   e: Etoiles,
   jouable: (ruleId: string) => boolean,
   chapitres: readonly string[] = CHAPITRES,
+  connues?: ReadonlySet<string>,
 ): number {
   let n = 0;
   for (let i = 0; i < chapitres.length; i++) {
-    if (jouable(chapitres[i]!) && chapitreOuvert(e, i, jouable, chapitres)) n++;
+    if (jouable(chapitres[i]!) && chapitreOuvert(e, i, jouable, chapitres, connues)) n++;
   }
   return n;
 }

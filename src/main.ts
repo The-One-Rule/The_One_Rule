@@ -32,7 +32,6 @@ import { classementDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
-import * as F from "./render/flammes";
 import { doitDemanderAvis, nettoieAvis } from "./game/avis";
 import type { NoteAvis } from "./game/avis";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
@@ -55,6 +54,7 @@ import type { Opponent } from "./ranked/client";
 import { Hud } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
+import type { GesteAffiche } from "./render/scene";
 import { dessineApercu } from "./render/skins";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { scoreDuJour, vueDuJour } from "./render/jour";
@@ -99,6 +99,9 @@ import {
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
 import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
+import { lignesRecords } from "./game/murRecords";
+import { eclatBattement, palierTension, periodeCoeur } from "./render/tension";
+import { brancheProfil, rendProfil } from "./profil";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
 import type { Resultat } from "./compte/file";
@@ -123,7 +126,6 @@ import {
   estLang,
   jetons,
   langue,
-  libelleCompte,
   accrocheDuJour,
   briefDeRegle,
   libelleQuete,
@@ -967,10 +969,7 @@ function renderHome(): void {
    * chaque bascule, qui ne se rattrapait qu'au repeint suivant.
    */
   const lang: Lang = estLang(s.lang) ? s.lang : "fr";
-  const c = compte();
-  appliqueLangue(document, lang, {
-    compte: libelleCompte(lang, c ? c.pseudo : null),
-  });
+  appliqueLangue(document, lang);
 
   hud.setRule(null);
   hud.clearRound();
@@ -1041,7 +1040,7 @@ function renderHome(): void {
    * ce déploiement. Un bouton qui mène à « indisponible » est pire que pas de
    * bouton : il annonce une fonctionnalité que le jeu ne tient pas.
    */
-  $("btnTopCompte").classList.toggle("hidden", !comptesPossibles());
+  peintBoutonProfil();
 
   /*
    * DEUX ACCUEILS, UN SEUL ÉCRAN.
@@ -1081,6 +1080,14 @@ function chapitreJouable(id: string): boolean {
   return !(TOUCH_ONLY && id === "voyelle");
 }
 
+/**
+ * Les règles déjà au carnet : leur chapitre est ouvert d'office (voir
+ * `chapitreOuvert`). C'est ce qui rattrape un ancien joueur.
+ */
+function reglesConnues(): ReadonlySet<string> {
+  return new Set(Object.keys(P.load().encountered));
+}
+
 /** Les étoiles du carnet, sous la forme qu'attend `game/parcours.ts`. */
 function etoilesDuCarnet(s: P.Save): PC.Etoiles {
   const e: PC.Etoiles = {};
@@ -1116,7 +1123,20 @@ function chapitresBoucles(s: P.Save): number {
 const VERROU_MODES = { jour: 1, libre: 1, escalade: 3 } as const;
 
 function modeOuvert(quoi: keyof typeof VERROU_MODES, s: P.Save = P.load()): boolean {
-  return !!s.veteran || chapitresBoucles(s) >= VERROU_MODES[quoi];
+  if (s.veteran || chapitresBoucles(s) >= VERROU_MODES[quoi]) return true;
+  /*
+   * ⚠️ « Après le chapitre N » = le chapitre N+1 est OUVERT — et un chapitre
+   * s'ouvre aussi quand sa règle est déjà au carnet (`chapitreOuvert`).
+   * Sans ça, un ancien joueur aux seize règles rencontrées voyait RUN DU
+   * JOUR et LIBRE verrouillés « après le chapitre 1 » (relevé à l'écran).
+   */
+  const ouverts = PC.chapitresOuverts(
+    etoilesDuCarnet(s),
+    chapitreJouable,
+    PC.CHAPITRES,
+    new Set(Object.keys(s.encountered)),
+  );
+  return ouverts > VERROU_MODES[quoi];
 }
 
 /** L'ancien bloc « ce que ce run a fait avancer » sur l'échelle à six cases. Éteint. */
@@ -1157,9 +1177,9 @@ function renderParcours(): void {
   $("pstatPieces").textContent = String(s.coins);
   $("pstatSerie").textContent = String(s.streak.count);
 
-  const prochain = PC.prochainNiveau(e, chapitreJouable);
+  const prochain = PC.prochainNiveau(e, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const ch =
-    chapitreVu !== null && PC.chapitreOuvert(e, chapitreVu, chapitreJouable) && chapitreJouable(PC.CHAPITRES[chapitreVu]!)
+    chapitreVu !== null && PC.chapitreOuvert(e, chapitreVu, chapitreJouable, PC.CHAPITRES, reglesConnues()) && chapitreJouable(PC.CHAPITRES[chapitreVu]!)
       ? chapitreVu
       : (prochain?.chapitre ?? 0);
   const id = PC.CHAPITRES[ch]!;
@@ -1184,7 +1204,7 @@ function renderParcours(): void {
   piste.innerHTML = "";
   for (const def of PC.NIVEAUX) {
     const et = PC.etoilesDe(e, id, def.n);
-    const ouvert = PC.niveauOuvert(e, ch, def.n, chapitreJouable);
+    const ouvert = PC.niveauOuvert(e, ch, def.n, chapitreJouable, PC.CHAPITRES, reglesConnues());
     const li = document.createElement("li");
     const b = document.createElement("button");
     b.type = "button";
@@ -1233,7 +1253,7 @@ function renderParcours(): void {
   chemin.innerHTML = "";
   PC.CHAPITRES.forEach((cid, i) => {
     const jouable = chapitreJouable(cid);
-    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable);
+    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues());
     const fini = PC.chapitreFini(e, cid);
     const et = PC.etoilesChapitre(e, cid);
     const li = document.createElement("li");
@@ -1287,7 +1307,7 @@ function lanceNiveau(pos: Position): void {
     ouvreOnboarding();
     return;
   }
-  if (!PC.niveauOuvert(etoilesDuCarnet(P.load()), pos.chapitre, pos.niveau, chapitreJouable)) return;
+  if (!PC.niveauOuvert(etoilesDuCarnet(P.load()), pos.chapitre, pos.niveau, chapitreJouable, PC.CHAPITRES, reglesConnues())) return;
   niveauDemande = pos;
   openBrief("training");
 }
@@ -1295,7 +1315,7 @@ function lanceNiveau(pos: Position): void {
 /** Le niveau qui suit `pos` quand il vient d'être réussi, ou `null`. */
 function niveauSuivant(pos: Position): Position | null {
   if (pos.niveau < PC.NIVEAU_BOSS) return { ...pos, niveau: pos.niveau + 1 };
-  return PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable);
+  return PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable, PC.CHAPITRES, reglesConnues());
 }
 
 /** Les sons de l'écran de fin, annulés si l'on quitte avant qu'ils sonnent. */
@@ -2263,10 +2283,19 @@ function renderCompte(): void {
   const maitriseesN = combien("maitrisee") + combien("parfaite");
   const monRecord = P.recordDeSonAllure(s);
 
+  /*
+   * LE PROFIL D'ABORD — il existe sans compte (décision n°12). Le nom vient
+   * de l'appareil, qui est aussi ce que le salon reçoit ; celui du jeton ne
+   * sert que si l'appareil n'en a pas encore.
+   */
+  rendProfil();
+  $("profilNom").textContent = s.ranked.name || c?.pseudo || t("cptSansNom");
+  $("profilVia").textContent = connecte ? t("cptConnecte") : t("profilLocal");
+  // La section COMPTE se tait entière quand ce déploiement n'en a pas.
+  $("profilCompte").classList.toggle("hidden", !connecte && !comptesPossibles());
+
   if (connecte) {
     $("compteLede").textContent = t("cptEnregistre");
-    $("cptSigne").innerHTML = glyphSvg(signeAffiche(s), 34);
-    $("cptNom").textContent = c.pseudo || t("cptSansNom");
     /*
      * ⚠️ Le FOURNISSEUR n'est pas affiché, et c'est un manque assumé.
      *
@@ -2276,7 +2305,6 @@ function renderCompte(): void {
      * donc de toucher aussi le serveur de salons, qui le vérifie. Deviner
      * serait pire que se taire.
      */
-    $("cptVia").textContent = t("cptConnecte");
     grille($("cptGrille"), [
       [String(monRecord), t("cptMeilleur")],
       [`${vues} / ${ONE_RULES.length}`, t("cptRegleCarnet")],
@@ -2438,6 +2466,37 @@ function renderCompte(): void {
       : "";
   err.classList.toggle("hidden", !vide && !refus);
   err.textContent = refus || (vide ? t("compteIndispo") : "");
+}
+
+/**
+ * Le bouton PROFIL de la barre haute : ton visage et ton nom.
+ *
+ * Il était masqué tant que ce déploiement n'avait pas de comptes. Or l'écran
+ * est devenu un PROFIL — photo, carte, nom et signe — qui se tient sans
+ * compte : le masquer cachait la photo à tout le monde, ce qui est exactement
+ * le défaut rapporté. Le bouton est donc toujours là ; c'est la section
+ * COMPTE, dans l'écran, qui se tait sans fournisseur.
+ */
+function peintBoutonProfil(): void {
+  const s = P.load();
+  const b = $("btnTopCompte");
+  b.classList.remove("hidden");
+  const visage = document.createElement("span");
+  visage.className = "topprofil__visage";
+  visage.setAttribute("aria-hidden", "true");
+  if (s.profil.photo) {
+    const img = document.createElement("img");
+    img.src = s.profil.photo;
+    img.alt = "";
+    visage.appendChild(img);
+  } else {
+    visage.innerHTML = glyphSvg(signeAffiche(s), 22);
+  }
+  const nom = document.createElement("span");
+  nom.className = "topprofil__nom";
+  nom.textContent = s.ranked.name || t("profilTop");
+  b.replaceChildren(visage, nom);
+  b.setAttribute("aria-label", t("profilTop"));
 }
 
 async function ouvreCompte(): Promise<void> {
@@ -2653,48 +2712,57 @@ function peintPodium(quoi: string, ecran: ScreenId): void {
 function renderClassement(): void {
   rafraichitJour();
   const s = P.load();
-  /*
-   * ⚠️ LES DEUX CHIFFRES, ET C'EST LE MODULE QUI CHOISIT.
-   *
-   * Le mur passait ici `recordDeSonAllure` — le record d'ENTRAINEMENT — alors
-   * que sa cible vient du classement du JOUR des que celui-ci repond. Il
-   * comparait donc un record fait a une allure choisie sur une regle choisie
-   * au meilleur du jour, ou tout le monde joue la meme graine et la meme
-   * regle : « il te manque 170 manches » ne voulait rien dire.
-   */
-  // Il DEMANDE, au lieu de lire un cache que lui-meme ne remplissait jamais.
-  // On peint tout de suite avec ce qu'on a, on repeint quand la reponse arrive.
+  // On peint tout de suite avec ce qu'on a, on repeint quand le podium répond.
   void rafraichitClassement();
-  const siennes = { jour: monScoreDuJour(s), entrainement: P.recordDeSonAllure(s) };
-  const vue = vueBut(siennes, recordDuJour);
-  const mien = vue.sien ?? 0;
 
-  $("murCibleQuoi").textContent =
-    vue.cible.source === "jour" ? t("murDuJour") : t("murEntrainement");
-  $("murCibleVal").textContent = String(vue.cible.score);
-  $("murCibleNote").textContent =
-    vue.cible.source === "jour" ? t("murDuJourNote") : t("murEntrainementNote");
+  /* --- LE RUN DU JOUR : la même épreuve pour tout le monde --- */
+  const regle = ruleOfDay(day);
+  $("murJourTitre").textContent = t("murJourTitre");
+  $("murJourRegle").textContent = nomDeRegle(regle.id, regle.name);
+  const vj = vueDuJour(s, day);
+  const mien = monScoreDuJour(s);
+  $("murJourMien").textContent = t("murJourMien")(mien, vj.restants);
+  $<HTMLButtonElement>("btnMurJouer").disabled = vj.restants <= 0;
 
-  $("murMien").textContent = mien > 0 ? String(mien) : t("murRien");
-  /*
-   * La JAUGE est décorative, et la phrase dit le même fait en chiffres : rien
-   * ne se perd si le mouvement est coupé. Elle est bornée à 1 — un joueur qui
-   * dépasse la cible ne doit pas voir une barre qui sort de son cadre.
-   */
-  const part = vue.cible.score > 0 ? Math.min(1, mien / vue.cible.score) : 0;
-  $("murJauge").style.transform = `scaleX(${part.toFixed(3)})`;
-  /*
-   * ⚠️ LE JEU NE DIT JAMAIS À QUELQU'UN QU'IL EST MOINS BON QUE CE QU'IL FAIT.
-   * Au-dessus de la cible, la phrase le constate ; en dessous, elle chiffre ce
-   * qui manque, ce qui est une consigne et pas un jugement ; et sans record du
-   * tout, elle n'oppose rien — comparer un joueur neuf à 201 est un mur.
-   */
-  $("murEcart").textContent =
-    mien <= 0
-      ? t("murPremier")
-      : vue.depasse
-        ? t("murDevant")
-        : t("murManque")(vue.cible.score - mien);
+  /* --- TES RECORDS : chaque ligne dit son épreuve --- */
+  const parAllure = new Map<number, number>();
+  for (const v of PACE_CHOICES) {
+    const r = Math.max(s.records[cleEntrainement(v)] ?? 0, v === PACE_DEFAULT ? s.bestTraining : 0);
+    parAllure.set(v, r);
+  }
+  const parRegle = new Map<string, number>();
+  for (const [id, rec] of Object.entries(s.encountered)) parRegle.set(id, rec.best);
+  const lignes = lignesRecords({
+    jour: mien,
+    parAllure,
+    pile: s.records[cleEscalade()] ?? 0,
+    parRegle,
+  });
+  const liste = $("murRecords");
+  liste.replaceChildren();
+  for (const l of lignes) {
+    const li = document.createElement("li");
+    li.className = "records__ligne records__ligne--" + l.quoi;
+    const quoi = document.createElement("span");
+    quoi.className = "records__quoi";
+    quoi.textContent =
+      l.quoi === "jour"
+        ? t("recordJour")
+        : l.quoi === "allure"
+          ? t("recordAllure")(nomAllure(l.cle as number, PACE_LABELS[l.cle as number] ?? String(l.cle)))
+          : l.quoi === "pile"
+            ? t("recordPile")
+            : nomDeRegleId(l.cle as string);
+    const val = document.createElement("b");
+    val.className = "records__val";
+    val.textContent = String(l.valeur);
+    const unite = document.createElement("span");
+    unite.className = "records__unite";
+    unite.textContent = l.quoi === "pile" ? t("recordUnitePile") : t("recordUnite");
+    li.append(quoi, val, unite);
+    liste.appendChild(li);
+  }
+  $("murRecordsVide").classList.toggle("hidden", lignes.length > 0);
 
   peintPodium("murPodium", "classement");
   peintAmis();
@@ -4157,7 +4225,7 @@ function ouvreFiche(r: OneRule): void {
     li.querySelector<HTMLElement>(".cas__reste")!.textContent = "★".repeat(n) + "☆".repeat(PC.ETOILES_MAX - n);
     liste.appendChild(li);
   }
-  const ouvert = ch >= 0 && chapitreJouable(r.id) && PC.chapitreOuvert(e, ch, chapitreJouable);
+  const ouvert = ch >= 0 && chapitreJouable(r.id) && PC.chapitreOuvert(e, ch, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const suivant = PC.NIVEAUX.find((d) => PC.etoilesDe(e, r.id, d.n) === 0);
   const aParfaire = PC.NIVEAUX.find((d) => PC.etoilesDe(e, r.id, d.n) < PC.ETOILES_MAX);
   $("ficheManque").textContent = !ouvert
@@ -4356,7 +4424,6 @@ function majTuto(now: number): void {
   if (now - tuto.debut < CHRONO_PIEGE_MS) return;
   // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
   sfx.trapAvoided();
-  attiseFlammes(0.6);
   if (tuto.temps === 2) {
     reussitTemps(t("tutoRienFaitBravo"), t("tutoRienFaitNote"), apresPiege);
   } else {
@@ -4504,6 +4571,8 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     seed,
     ruleId,
     inputs: log,
+    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+    catalogue: 2,
     opponentScore: ranked?.opponent?.score,
     opponentRating: ranked?.opponent?.rating,
   });
@@ -4749,6 +4818,9 @@ function finishRun(): void {
       pose: Date.now(),
       valeur: end.score,
       valeur2: duree,
+      // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
+      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+      catalogue: 2,
     });
     /*
      * Le run qui vient de finir a pu prendre la tête du classement : la valeur
@@ -5521,8 +5593,6 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(t);
       scene.kick(t, 0.45);
-      // Tenu jusqu'au bout : le feu s'attise.
-      attiseFlammes(0.6);
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
@@ -5573,6 +5643,14 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
   );
 }
 
+/** Le geste en cours, complété de la position du doigt pour un glisser. */
+function gesteAffiche(): GesteAffiche | null {
+  const g = session ? session.geste(performance.now()) : multi.geste();
+  if (!g) return null;
+  if (g.kind === "hold") return g;
+  return { kind: "drag", idx: g.idx, x: doigt?.x ?? null, y: doigt?.y ?? null };
+}
+
 function send(action: Action): void {
   if (!session || session.phase !== "playing") return;
   const combo = session.level;
@@ -5581,6 +5659,15 @@ function send(action: Action): void {
   const manche = session.round;
   react(session.input(action, performance.now()), combo, manche);
 }
+
+/** Les manches multi déjà vues par `__tor.joueMulti`, et quand (−1 = jouée). */
+const mancheVue = new WeakMap<object, number>();
+
+/** Le dernier rendu multi — lu par le crochet de dev `__tor.joueMulti`. */
+let dernierMultiDraw: ReturnType<typeof multi.syncFrame> = null;
+
+/** Où est le doigt pendant un appui, en coordonnées de champ — pour GLISSER. */
+let doigt: { x: number; y: number } | null = null;
 
 /** Route une action vers le multi si un match est actif (et pas de run solo). */
 function sendOrMulti(action: Action): void {
@@ -5628,6 +5715,8 @@ $("cv").addEventListener("pointerdown", (ev) => {
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    captureDoigt(e);
+    doigt = { x, y };
     send({ kind: "click", ent, x, y });
     return;
   }
@@ -5639,14 +5728,49 @@ $("cv").addEventListener("pointerdown", (ev) => {
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    captureDoigt(e);
+    doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
   }
 });
 
+/**
+ * LE LEVER — MAINTENIR et GLISSER se concluent là. `multi.trySendMultiAction`
+ * ne l'envoie que s'il répond à quelque chose ; ailleurs, il ne coûte rien.
+ */
+function leve(ev: Event): void {
+  doigt = null;
+  const round =
+    session?.phase === "playing" ? session.round : multi.isPlayingMulti() ? multi.peekRound() : null;
+  if (!round) return;
+  const e = ev as PointerEvent;
+  const { x, y } = scene.toField(e.clientX, e.clientY);
+  const ent = scene.hit(round.ents, x, y);
+  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+  sendOrMulti({ kind: "lift", ent, x, y });
+}
+
+/**
+ * ⚠️ LA CAPTURE : un glisser qui sort du canvas doit encore LEVER sur lui.
+ * Sans elle, le `pointerup` tombe sur un autre élément, le lever n'est jamais
+ * envoyé, et la manche expire sur « séquence inachevée ».
+ */
+function captureDoigt(e: PointerEvent): void {
+  try {
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  } catch {
+    /* un navigateur sans capture joue quand même */
+  }
+}
+$("cv").addEventListener("pointerup", leve);
+$("cv").addEventListener("pointercancel", leve);
+
 $("cv").addEventListener("pointermove", (ev) => {
-  if (!multi.isPlayingMulti()) return;
+  const solo = session?.phase === "playing";
+  if (!solo && !multi.isPlayingMulti()) return;
   const { x, y } = scene.toField((ev as PointerEvent).clientX, (ev as PointerEvent).clientY);
-  multi.sendCursor(x, y);
+  if (doigt) doigt = { x, y };
+  if (!solo) multi.sendCursor(x, y);
 });
 
 window.addEventListener("keydown", (e) => {
@@ -6010,7 +6134,7 @@ function joueLaSuite(): void {
     ouvreOnboarding();
     return;
   }
-  const pos = PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable);
+  const pos = PC.prochainNiveau(etoilesDuCarnet(P.load()), chapitreJouable, PC.CHAPITRES, reglesConnues());
   if (pos) {
     chapitreVu = null;
     lanceNiveau(pos);
@@ -6469,184 +6593,6 @@ $("btnShare").addEventListener("click", async () => {
  * ------------------------------------------------------------------ */
 let lastRoundKey = "";
 let runId = 0;
-/* ------------------------------------------------------------------ *
- * Les flammes — voir `render/flammes.ts`
- *
- * Le calque ne coûte rien quand il ne brûle pas : il est masqué et la boucle
- * ne le touche plus dès que la grille est éteinte. Hors d'une partie solo,
- * l'ardeur tombe à zéro et le feu s'éteint de lui-même en une seconde — il ne
- * se coupe pas net, ce qui se lirait comme un bug.
- * ------------------------------------------------------------------ */
-const flammesCv = $<HTMLCanvasElement>("flammes");
-const flammesCtx = flammesCv.getContext("2d");
-const FLAMMES_COUPEES =
-  typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-/** La planche de sprites, une fois TEINTÉE. `null` tant qu'elle n'est pas prête. */
-let planche: HTMLCanvasElement | null = null;
-let flammesVisibles = false;
-let flammesGeoDans = 0;
-let braises: F.Braise[] = [];
-let champFeu: F.Rect = { x: 0, y: 0, w: 0, h: 0 };
-/** La ligne d'où monte le feu du bas : le haut du pied. */
-let socleFeu = 0;
-let zonesLisibles: F.Rect[] = [];
-/** L'éclat d'un piège déjoué : 1 → 0 en ~800 ms. */
-let feuRafale = 0;
-
-/**
- * Charge la planche et la TEINT aux couleurs du jeu.
- *
- * ⚠️ La planche d'origine est rose-magenta ; l'identité du jeu est violette
- * (`--signal`, `--signal-pale`). On ne repeint pas image par image : un filtre
- * de teinte, une seule fois, dans un canvas hors écran. Le dessin par image ne
- * coûte donc rien de plus qu'un `drawImage`.
- *
- * Si le navigateur ignore `filter` (le repli le plus probable), le voile
- * `source-atop` suffit à ramener la flamme dans la famille violette : elle
- * sera moins nuancée, jamais rose.
- */
-function chargePlanche(): void {
-  const img = new Image();
-  img.decoding = "async";
-  img.src = F.PLANCHE.fichier;
-  img.onload = () => {
-    const off = document.createElement("canvas");
-    off.width = img.naturalWidth;
-    off.height = img.naturalHeight;
-    const c = off.getContext("2d");
-    if (!c) return;
-    c.imageSmoothingEnabled = false;
-    /*
-     * ⚠️ MESURÉ, PAS ESTIMÉ. Les pixels opaques de la planche sont à ~325°
-     * (magenta) et `--signal` est à 249° : la rotation vaut donc −76°. Le
-     * premier essai à −96° donnait des flammes BLEUES — visible tout de suite
-     * à l'écran, et hors de l'identité du jeu.
-     */
-    c.filter = "hue-rotate(-76deg) saturate(0.86) brightness(1.08)";
-    c.drawImage(img, 0, 0);
-    c.filter = "none";
-    c.globalCompositeOperation = "source-atop";
-    c.fillStyle = "rgba(145, 132, 217, 0.28)";
-    c.fillRect(0, 0, off.width, off.height);
-    planche = off;
-  };
-}
-if (!FLAMMES_COUPEES) chargePlanche();
-
-/**
- * Mesure où est le terrain, et ce qu'il ne faut jamais couvrir.
- *
- * ⚠️ Relue quatre fois par seconde, pas à chaque manche : la consigne change de
- * hauteur d'une manche à l'autre (une ou deux lignes) et le HUD l'écrit APRÈS
- * le changement de manche — une mesure prise à cet instant lirait la consigne
- * précédente, et le feu mordrait sur la nouvelle.
- */
-function geometrieFeu(): void {
-  const a = appEl.getBoundingClientRect();
-  if (flammesCv.width !== Math.round(a.width) || flammesCv.height !== Math.round(a.height)) {
-    flammesCv.width = Math.max(1, Math.round(a.width));
-    flammesCv.height = Math.max(1, Math.round(a.height));
-  }
-  const rel = (el: Element): F.Rect => {
-    const r = el.getBoundingClientRect();
-    return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height };
-  };
-  const c = rel(cv);
-  const f = scene.fieldRect();
-  champFeu = { x: c.x + f.x, y: c.y + f.y, w: f.w, h: f.h };
-  zonesLisibles = [];
-  for (const id of ["instr", "sub", "bandRule", "bandVies", "foot"]) {
-    const el = document.getElementById(id);
-    if (el && el.getBoundingClientRect().width > 0) zonesLisibles.push(rel(el));
-  }
-  /*
-   * ⚠️ LE FEU DU BAS MONTE DU HAUT DU PIED, pas du bas du calque : sous le
-   * pied, il est découpé, donc invisible. Mesuré au premier rendu — toutes les
-   * flammes du bas étaient perdues, et il ne restait que les deux côtés.
-   */
-  const pied = document.getElementById("foot");
-  socleFeu = pied && pied.getBoundingClientRect().height > 0 ? rel(pied).y : a.height;
-}
-
-function majFlammes(now: number): void {
-  if (FLAMMES_COUPEES || !flammesCtx) return;
-  const ardeur =
-    session && screen === null && session.phase === "playing"
-      ? Math.min(1, F.ardeurDe(session.level, GRACE_ROUNDS) + feuRafale * 0.45)
-      : 0;
-  feuRafale = Math.max(0, feuRafale - 0.02);
-
-  if (ardeur <= 0) {
-    if (flammesVisibles) {
-      flammesVisibles = false;
-      flammesCv.classList.add("hidden");
-      flammesCtx.clearRect(0, 0, flammesCv.width, flammesCv.height);
-    }
-    return;
-  }
-  if (!flammesVisibles) {
-    flammesVisibles = true;
-    flammesCv.classList.remove("hidden");
-    flammesGeoDans = 0;
-  }
-  if (flammesGeoDans-- <= 0) {
-    geometrieFeu();
-    flammesGeoDans = 15;
-    braises = F.braisesPour(
-      { w: flammesCv.width, h: flammesCv.height },
-      champFeu,
-      ardeur,
-      socleFeu,
-    );
-  }
-  if (!planche) return;
-
-  const ctx = flammesCtx;
-  ctx.clearRect(0, 0, flammesCv.width, flammesCv.height);
-  ctx.save();
-  /*
-   * ⚠️ LE DÉCOUPAGE EST LA GARANTIE, pas le placement.
-   *
-   * Les flammes sont posées hors du terrain, mais elles ONDULENT et montent :
-   * une langue peut dépasser. Le découpage — tout le calque SAUF le terrain et
-   * ce qui se lit — la rogne au pixel. Aucune pièce ne peut donc être couverte,
-   * quelle que soit la hauteur du feu (n°5 et n°10).
-   */
-  ctx.beginPath();
-  ctx.rect(0, 0, flammesCv.width, flammesCv.height);
-  ctx.rect(champFeu.x, champFeu.y, champFeu.w, champFeu.h);
-  for (const z of zonesLisibles) ctx.rect(z.x, z.y, z.w, z.h);
-  ctx.clip("evenodd");
-
-  ctx.imageSmoothingEnabled = false;
-  // L'éclat d'un piège déjoué : le feu blanchit un instant.
-  ctx.globalAlpha = Math.min(1, 0.82 + feuRafale * 0.18);
-  for (const b of braises) {
-    const { sx, sy } = F.imageDe(b, now);
-    const h = b.h * (1 + feuRafale * 0.35);
-    // La largeur suit le DESSIN, pas l'image de la planche : voir `BOITE`.
-    const w = (h * F.BOITE.w) / F.BOITE.h;
-    ctx.drawImage(
-      planche,
-      sx + F.BOITE.x,
-      sy + F.BOITE.y,
-      F.BOITE.w,
-      F.BOITE.h,
-      b.x - w / 2,
-      b.y - h,
-      w,
-      h,
-    );
-  }
-  ctx.globalAlpha = 1;
-  ctx.restore();
-}
-
-/** Le feu s'embrase : un piège vient d'être déjoué. */
-function attiseFlammes(force: number): void {
-  feuRafale = Math.min(1, feuRafale + force);
-}
-
 /** Le record du joueur AVANT le run en cours — photographié au lancement. */
 let recordAvantRun = 0;
 /** La pastille de dépassement ne flash qu'une fois par run. */
@@ -6682,6 +6628,57 @@ function setHeat(value: number, critical: boolean): void {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * La montée — voir `render/tension.ts`
+ *
+ * Un cœur qui bat de plus en plus vite à mesure que la PARTIE avance, qu'on
+ * entend (`sfx.coeur`) et qu'on voit sur le pourtour du terrain, au même
+ * instant. Le battement est porté par CETTE boucle, pas par une minuterie :
+ * même doctrine que le battement de lecture — un onglet qui ne compose pas
+ * ne doit rien jouer, et un filet qui déroule des images doit tout voir.
+ * ------------------------------------------------------------------ */
+/** Le palier déjà montré ; `-1` = pas encore observé (rien à fêter). */
+let palierVu = -1;
+let coeurDebut = 0;
+
+function poseTension(
+  manche: number | null,
+  grace: number,
+  enManche: boolean,
+  critique: boolean,
+  now: number,
+): void {
+  if (manche === null) {
+    palierVu = -1;
+    scene.pression = { voile: 0, eclat: 0 };
+    return;
+  }
+  const p = palierTension(manche, grace);
+  if (p.n > palierVu) {
+    // Le premier palier observé ne se fête pas : c'est l'état de départ
+    // (une reconnexion en pleine partie, un salon qui démarre).
+    if (palierVu >= 0) {
+      scene.sursaut(now);
+      sfx.palier(p.n);
+      try {
+        navigator.vibrate?.(40);
+      } catch {
+        /* un appareil sans vibreur joue quand même */
+      }
+    }
+    palierVu = p.n;
+  }
+  const periode = enManche ? periodeCoeur(p, critique) : 0;
+  if (periode && now - coeurDebut >= periode) {
+    coeurDebut = now;
+    sfx.coeur(p.coeur * (critique ? 1.15 : 1));
+  }
+  scene.pression = {
+    voile: p.voile,
+    eclat: periode ? eclatBattement(now - coeurDebut, periode) : 0,
+  };
+}
+
 /**
  * Chaleur d'une manche en cours.
  *
@@ -6706,7 +6703,6 @@ function loop(now: number): void {
   // Seulement sur l'accueil NEUF : sur le parcours, la démo est masquée, et un
   // décor qu'on ne voit pas n'a pas à coûter une image.
   if (screen === "home" && accueilNeuf) imageAttract(now);
-  majFlammes(now);
 
   /*
    * TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE : les plaques
@@ -6747,6 +6743,9 @@ function loop(now: number): void {
   if (tuto) majTuto(now);
 
   let multiDraw: ReturnType<typeof multi.syncFrame> = null;
+  // La montée : qui joue, à quelle manche, dans quel état. Posée en fin de
+  // branche, une seule fois par image.
+  let tension: { manche: number; grace: number; enManche: boolean; critique: boolean } | null = null;
 
   if (session) {
     const combo = session.level;
@@ -6821,7 +6820,9 @@ function loop(now: number): void {
         session.tierJustCrossed = false;
       } else if (session.tierJustCrossed) {
         session.tierJustCrossed = false;
-        hud.announce(TIER_NAMES[session.tier] ?? "");
+        // Le nom du régime, dans la langue du joueur : `TIER_NAMES` est le
+        // français du moteur, jamais affiché tel quel.
+        hud.announce(t("nomsPaliers")[session.tier] ?? TIER_NAMES[session.tier] ?? "");
       } else if (session.graceJustEnded && !finEchauffementDite) {
         // Une seule fois par run : la boucle passe ici soixante fois par
         // seconde, et relancer l'annonce à chaque image la figerait.
@@ -6854,6 +6855,12 @@ function loop(now: number): void {
       }
       // L'œil apprend le même seuil que l'oreille, au même instant.
       setHeat(heatOf(ratio, session.level), ratio > CRITICAL_RATIO && aJouer);
+      tension = {
+        manche: session.level,
+        grace: session.manchesGrace,
+        enManche: true,
+        critique: ratio > CRITICAL_RATIO && aJouer,
+      };
       hud.updateRound(session.round, session.elapsed(now), session.ratio(now));
       musicApi.level(session.level, session.pace);
       if (challenge) updateGhost(session.runTime(now), session.level);
@@ -6970,6 +6977,7 @@ function loop(now: number): void {
     }
   } else if (multi.isPlayingMulti()) {
     multiDraw = multi.syncFrame();
+    dernierMultiDraw = multiDraw;
     const fx = multi.takeFx();
     if (fx) {
       if (fx.burstScreen) scene.burstScreen("#CFC9F2");
@@ -6981,9 +6989,22 @@ function loop(now: number): void {
     const r = multiDraw?.ratio;
     const enManche = r != null && !!multiDraw?.round;
     setHeat(enManche ? heatOf(r, multi.roundIndex()) : 0, enManche && r > CRITICAL_RATIO);
+    // Le multi n'a pas d'échauffement : une manche de mise en jambes, puis
+    // le cœur. Les salons durent moins longtemps que les runs solo.
+    tension = {
+      manche: multi.roundIndex(),
+      grace: 1,
+      enManche,
+      critique: enManche && r > CRITICAL_RATIO,
+    };
   } else {
     setHeat(0, false);
   }
+  // Une session hors manche (interlude, gel) garde son palier, sans battre.
+  if (!tension && session && screen === null) {
+    tension = { manche: session.level, grace: session.manchesGrace, enManche: false, critique: false };
+  }
+  poseTension(tension?.manche ?? null, tension?.grace ?? 0, !!tension?.enManche, !!tension?.critique, now);
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant
   // qu'elle se joue reviendrait à donner la réponse.
@@ -7015,6 +7036,7 @@ function loop(now: number): void {
       now,
       reveal: session.phase === "freeze" && !!session.round.trap,
       ratio: session.phase === "playing" ? session.ratio(now) : undefined,
+      geste: gesteAffiche(),
     });
   } else if (multiDraw) {
     scene.draw({
@@ -7025,6 +7047,7 @@ function loop(now: number): void {
       ratio: multiDraw.ratio,
       needs: multiDraw.needs,
       charges: multiDraw.charges,
+      geste: gesteAffiche(),
     });
     multi.paintCursors(now, scene.fieldRect());
   } else {
@@ -7313,7 +7336,13 @@ multi.onLangue();
  * quand on arrive ici — le multijoueur marchera. Le serveur, lui, rattrapera au
  * prochain rafraîchissement de jeton.
  */
+brancheProfil(() => {
+  multi.envoieProfil();
+  peintBoutonProfil();
+});
+
 multi.onIdentite((nom, glyphe) => {
+  peintBoutonProfil();
   if (!estConnecte()) return;
   void changeIdentite(nom, glyphe, P.load().profil.carte ?? null).then((moi) => {
     if (!moi) {
@@ -7389,7 +7418,16 @@ if (import.meta.env.DEV) {
         session!.rule.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round: r } as never) === null;
       for (const step of r.steps) {
         if (step.kind === "key") send({ kind: "key", key: step.key });
-        else {
+        else if (step.kind === "hold") {
+          // MAINTENIR : l'appui maintenant, le lever une fois le temps tenu.
+          const e = r.ents[step.idx]!;
+          send({ kind: "click", ent: e, x: e.x, y: e.y });
+          setTimeout(() => send({ kind: "lift", ent: e, x: e.x, y: e.y }), step.ms + 40);
+          return "hold";
+        } else if (step.kind === "drop") {
+          const e = r.ents[step.idx]!;
+          send({ kind: "lift", ent: e, x: e.x, y: e.y });
+        } else {
           const e =
             step.kind === "click"
               ? r.ents[step.idx]
@@ -7401,6 +7439,52 @@ if (import.meta.env.DEV) {
     },
     get phase(): string {
       return session?.phase ?? "none";
+    },
+    /** Joue la bonne réponse de la manche MULTI en cours (dev seulement). */
+    joueMulti(): string {
+      const d = dernierMultiDraw;
+      if (!d?.round || !d.rule || !multi.isPlayingMulti()) return "idle";
+      const r = d.round;
+      if (r.steps.length === 0) return "wait";
+      // Une fois par manche, et pas avant 460 ms (LA SECONDE interdit 400).
+      const vu = mancheVue.get(r);
+      const maintenant = performance.now();
+      if (vu === undefined) {
+        mancheVue.set(r, maintenant);
+        return "vu";
+      }
+      if (vu < 0) return "joue";
+      if (maintenant - vu < 460) return "attend";
+      mancheVue.set(r, -1);
+      const regle = d.rule;
+      const permis = (e: Round["ents"][number]): boolean =>
+        regle.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round: r, elapsedMs: 9999 } as never) === null;
+      for (const step of r.steps) {
+        if (step.kind === "key") continue;
+        if (step.kind === "hold") {
+          const e = r.ents[step.idx]!;
+          sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+          setTimeout(() => sendOrMulti({ kind: "lift", ent: e, x: e.x, y: e.y }), step.ms + 60);
+          return "hold";
+        }
+        if (step.kind === "drop") {
+          const e = r.ents[step.idx]!;
+          sendOrMulti({ kind: "lift", ent: e, x: e.x, y: e.y });
+          continue;
+        }
+        const e =
+          step.kind === "click"
+            ? r.ents[step.idx]
+            : r.ents.find((x) => permis(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
+        if (e) sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+      }
+      return "played";
+    },
+    /** Le champ en coordonnées de PAGE — pour mesurer un recouvrement. */
+    champ(): { x: number; y: number; w: number; h: number } {
+      const f = scene.fieldRect();
+      const r = cv.getBoundingClientRect();
+      return { x: r.x + f.x, y: r.y + f.y, w: f.w, h: f.h };
     },
   };
 }

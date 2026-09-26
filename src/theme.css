@@ -555,6 +555,21 @@ body {
   padding: 12px 16px 110px;
 }
 
+/*
+ * ⚠️ LA HAUTEUR SUIT LE PARCOURS. Mesuré à 375 × 812, seize chapitres : `.home`
+ * restait figée à 722 px (grille de l'accueil neuf) et le parcours débordait
+ * jusqu'à 2416. La marge réservée à la barre du bas se posait donc AU MILIEU de
+ * la page, et le dernier chapitre finissait sous la barre, défilé au maximum.
+ * Il faut battre `#app.has-topbar #home .home` (2,2,0).
+ */
+#app.has-topbar #home:not(.is-neuf) .screen__scroll.home {
+  /* `#home` est une colonne flex : `flex: 1 1 0` la calait sur l'écran. */
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  padding-bottom: 110px;
+}
+
 .bienvenue.hidden,
 .parcours.hidden {
   display: none;
@@ -1478,7 +1493,14 @@ body {
   height: 15px;
   border: none;
   background: var(--line);
-  clip-path: path("M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z");
+  /*
+   * ⚠️ UN MASQUE, PAS UN `clip-path: path()`. Le tracé d'un `path()` est en
+   * pixels absolus, calé pour une case de 16 × 15 : sur les plaques du
+   * téléphone, la case descend à 7 px et il ne restait qu'un DEMI-DISQUE du
+   * cœur (vu en match à 375 px). Un masque SVG suit la taille de sa case.
+   */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 15'%3E%3Cpath d='M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 15'%3E%3Cpath d='M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .plate__lives i.is-on,
@@ -1560,9 +1582,11 @@ body {
   background: var(--miel);
 }
 
+/* Les étoiles qui RESTENT à gagner. Mesuré : l'ambre sur le crème de la case
+   donnait 1,55:1 — trois étoiles vides qu'on ne voyait pas. Le contour vide
+   se dit en encre discrète, l'étoile gagnée garde l'or. */
 .fiche__cases .cas__reste {
-  color: var(--ambre);
-  -webkit-text-stroke: 0.5px var(--encre);
+  color: var(--paper-dim);
   letter-spacing: 2px;
 }
 
@@ -1838,10 +1862,19 @@ body {
   color: var(--encre);
 }
 
+/* `--signal-pale` et non `--signal` : la nuit, le violet vif sur la surface
+   sombre du siège tombait à 2,76:1 (mesuré) ; le pâle y est lisible, et le
+   jour il vaut un violet profond. */
 .seat.is-host .seat__status,
 .seat.is-rookie .seat__status {
-  color: var(--signal);
+  color: var(--signal-pale);
   font-weight: 700;
+}
+
+/* L'explication du piège dans « COMMENT ÇA MARCHE » portait un corail en dur
+   de l'identité nocturne : 2,30:1 sur le crème (mesuré). */
+.demo__verdict--piege {
+  color: var(--rouge);
 }
 
 /* ---- La bande de discussion : une pièce à côté, pas un renfoncement ---- */
@@ -1952,6 +1985,22 @@ body {
 
   #multiPodium .lobbyrow.is-off .lifedots {
     display: none;
+  }
+
+  /* Un joueur ENCORE EN VIE débordait à son tour : quatre cœurs de 16 px et
+     « 60 MANCHES » sur une ligne finissaient à 422 px pour un écran de 375
+     (mesuré, match à trois joué jusqu'au bout). Vies au-dessus, manches
+     dessous, en cœurs de 10 px. */
+  #multiPodium .lobbyrow__meta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex: none;
+  }
+
+  #multiPodium .lifedots i {
+    width: 10px;
+    height: 9px;
   }
 }
 
@@ -2289,22 +2338,7 @@ body {
   margin: 8px 0 4px;
 }
 
-.photopick__apercu {
-  width: 64px;
-  height: 64px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 50%;
-  border: 3px solid var(--encre);
-  background: var(--surface);
-}
 
-.photopick__apercu img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 /* Le vrai champ est masqué, pas retiré : le `<label>` le déclenche, et un
    `display: none` l'empêcherait de recevoir le focus clavier. */
@@ -2318,6 +2352,491 @@ body {
 
 .photopick__choisir {
   cursor: pointer;
+}
+
+/* ==================================================================
+   LE PROFIL — qui tu es, ce que les autres voient de toi
+   ------------------------------------------------------------------
+   Une carte d'identité en tête (visage, nom, signe, NOM ET SIGNE), la
+   carte de visite et la photo à découvert, le compte en dessous. Même
+   matière que le mur des records : un bloc est un autocollant.
+   ================================================================== */
+#compte .profil {
+  text-align: left;
+}
+
+.profil__tete {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  margin: 10px 0 4px;
+  padding: 14px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.profil__avatar {
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: var(--trait) solid var(--encre);
+  background: var(--lilas);
+}
+
+.profil__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profil__qui {
+  min-width: 0;
+}
+
+.profil__nom {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--encre);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profil__via {
+  margin: 6px 0 0;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+/* À 375, le bouton passe SOUS le nom : trois colonnes y laissaient au nom
+   moins de largeur qu'un prénom. */
+@media (max-width: 520px) {
+  .profil__tete {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .profil__modifier {
+    grid-column: 1 / -1;
+  }
+}
+
+#compte .profil .fineprint,
+#compte .profil .eyebrow {
+  text-align: left;
+}
+
+#compte .cartepick,
+#compte .photopick {
+  justify-content: flex-start;
+}
+
+.profil__compte {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: var(--trait) dashed var(--line);
+}
+
+.profil__compte.hidden {
+  display: none;
+}
+
+/* Le compte est une section du profil, pas un second écran : son titre
+   descend d'un cran, et le filet décoratif (centré ailleurs) s'aligne. */
+.profil__compte .rulename {
+  text-align: left;
+  margin: 0;
+  font-size: clamp(24px, 6vw, 32px);
+}
+
+.profil__compte .rulename::after {
+  margin-left: 0;
+}
+
+.profil__compte .lede {
+  margin: 0;
+  max-width: none;
+  text-align: left;
+}
+
+/* Le bouton PROFIL de la barre haute : un visage et un nom. */
+#btnTopCompte {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 180px;
+  padding-left: 6px;
+}
+
+#btnTopCompte.hidden {
+  display: none;
+}
+
+.topprofil__visage {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 2px solid var(--encre);
+  background: var(--lilas);
+}
+
+.topprofil__visage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topprofil__nom {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================================================================
+   LES ÉMOTES À CÔTÉ DES PLAQUES, JAMAIS SOUS ELLES
+   ------------------------------------------------------------------
+   Rapporté par Pierre : « les émojis en multijoueur apparaissent sous
+   l'écran de jeu ». Mesuré à 1280 × 800, match lancé : plaques 567-686,
+   émotes 686-746, pied 746 — une rangée entière de 60 px, seule sous tout
+   le reste, et payée en terrain (`RESERVE_HUD_MULTI` réservait 180 px).
+
+   Le salon couché avait déjà trouvé la forme : les émotes À CÔTÉ des
+   plaques. Elle vaut partout hors colonnes. Deux rangées de trois : c'est
+   la hauteur d'une plaque, donc la bande ne grandit pas d'un pixel.
+   ================================================================== */
+#app:not(.has-gutters) #liveHud {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+#app:not(.has-gutters) #liveHud .plates {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+#app:not(.has-gutters) #liveHud .watchbar {
+  flex: 1 1 100%;
+  order: 2;
+}
+
+#app:not(.has-gutters) #liveHud .emotes {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-auto-rows: 40px;
+  gap: 6px;
+  align-self: stretch;
+  align-content: center;
+  padding: 8px 10px;
+  overflow: visible;
+  background: var(--surface);
+  border-left: var(--trait) solid var(--encre);
+}
+
+#app:not(.has-gutters) #liveHud .emotes.hidden {
+  display: none;
+}
+
+#app:not(.has-gutters) #liveHud .emotes .chip {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  min-height: 0;
+  font-size: 20px;
+}
+
+/* EN COLONNES, elles descendent au bas de la gouttière DROITE, hors flux.
+   Mesuré à 1600 × 700 : elles étaient une rangée DANS le flux sous la scène
+   (585-646), donc sous le terrain ET prises sur sa hauteur — et seulement
+   dans ce mode-là, ce qui faisait dépendre la hauteur de scène de la
+   décision des colonnes (n°2). Hors flux, elle est la même dans les deux. */
+#app.has-gutters .emotes {
+  position: absolute;
+  right: 0;
+  width: var(--gutter-w);
+  top: calc(var(--field-top) + var(--field-h) - 100px);
+  height: 100px;
+  display: grid;
+  grid-template-columns: repeat(3, 40px);
+  grid-auto-rows: 40px;
+  gap: 8px;
+  justify-content: center;
+  align-content: center;
+  padding: 0;
+  border-top: 0;
+  background: none;
+  z-index: 8;
+}
+
+#app.has-gutters .emotes.hidden {
+  display: none;
+}
+
+#app.has-gutters .emotes .chip {
+  width: 40px;
+  height: 40px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  font-size: 20px;
+}
+
+/* La colonne de droite s'arrête au-dessus d'elles. */
+#app.has-gutters #platesR {
+  bottom: 100px;
+}
+
+/* Couché, la bande entière vaut `RESERVE_HUD_MULTI_COUCHE` : les deux rangées
+   descendent à 36 px pour tenir dans la hauteur d'une plaque compacte (94). */
+@media (orientation: landscape) and (max-height: 500px) {
+  #app:not(.has-gutters) #liveHud .emotes {
+    grid-template-columns: repeat(3, 36px);
+    grid-auto-rows: 36px;
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes .chip {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  /* La plaque compacte du téléphone, que la règle `max-width: 720px` ne
+     donne pas à un grand téléphone couché (812 px) : 4 px de plus par plaque
+     suffisaient à mordre sur le terrain. */
+  #app:not(.has-gutters) .plates .plate {
+    padding: 5px 7px;
+    gap: 2px;
+  }
+
+  #app:not(.has-gutters) #liveHud .plates {
+    padding-bottom: 3px;
+  }
+}
+
+/* ==================================================================
+   LE HALO DE CHALEUR, rendu visible
+
+   `.heat__vignette` peignait ses bords en `--ink` — le NOIR de l'identité
+   d'origine. Depuis STICKER, `--ink` est le sable du fond : le halo était du
+   sable sur du sable, invisible sur chaque partie depuis la refonte. Il
+   reprend la couleur de l'alerte, plus bas en opacité : la chaleur monte
+   vers le rouge, la zone critique l'atteint.
+   ================================================================== */
+.heat__vignette {
+  background:
+    linear-gradient(to right, var(--dead), transparent min(6%, 60px)),
+    linear-gradient(to left, var(--dead), transparent min(6%, 60px)),
+    linear-gradient(to bottom, var(--dead), transparent min(9%, 70px)),
+    linear-gradient(to top, var(--dead), transparent min(9%, 70px));
+  opacity: calc(var(--heat) * var(--heat) * 0.3);
+}
+
+/* ==================================================================
+   LE FILET SOUS LE TITRE suit l'alignement du titre
+
+   Mesuré (Playwright, 375 et 1280) : trois titres alignés à GAUCHE gardaient
+   leur filet violet CENTRÉ — RÉGLAGES et LE MUR DES RECORDS aux deux
+   largeurs, la collection au-delà de 900 px. Un trait posé au milieu de la
+   colonne, sous rien : c'est exactement un « mot flottant ».
+   ================================================================== */
+#reglages .rulename::after,
+#classement .rulename::after {
+  margin-left: 0;
+}
+
+@media (min-width: 900px) {
+  #codex .rulename::after {
+    margin-left: 0;
+  }
+}
+
+/* ==================================================================
+   L'ÉCRAN DE JEU, ÉPURÉ — surtout au téléphone
+
+   Rapporté par Pierre : « sur téléphone l'écran de jeu est juste atroce et
+   les icônes sont mal placées ». Mesuré en match à 375 × 812 : cinq couches
+   disaient toutes « le temps presse » — les équerres aux coins de l'ÉCRAN,
+   un cadre hachuré rouge de 16 px sur toute la page, la bordure critique de
+   `#app`, le halo, le voile — et plusieurs pièces tombaient mal. Le cadre de
+   temps épouse désormais le TERRAIN (`scene.drawTimeFrame`) ; ce qui le
+   doublait part.
+   ================================================================== */
+.equerres {
+  display: none;
+}
+
+#app.is-critical::after {
+  display: none;
+}
+
+/* Les plaques compactes (téléphone) : cœurs lisibles, badge en onglet. */
+#app:not(.has-gutters) .plates .plate__lives i {
+  width: 11px;
+  height: 10px;
+}
+
+/* ⚠️ Le badge « 1RE » était posé DANS le coin haut-droit de la plaque, donc
+   sur le nom dès que la plaque est compacte (« ALICE » caché sous « 1ST »).
+   Il devient un ONGLET à cheval sur le bord supérieur : la plaque garde
+   toute sa hauteur pour le nom. */
+.plates--compact .plate--rookie::before,
+#app:not(.has-gutters) .plates .plate--rookie::before {
+  top: 0;
+  right: 8px;
+  transform: translateY(-60%);
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  line-height: 1.2;
+}
+
+/* Les vies en chiffre, quand elles sont trop nombreuses pour des cœurs. */
+.vies__n {
+  margin-left: 4px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
+/* COPIER LE LIEN était un mot sans cadre à côté d'un bouton cadré : les deux
+   font la même chose (partager le salon), ils portent le même habit. */
+#multi-lobby #btnMultiInvite {
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--encre);
+}
+
+/* Le panneau des temps forts devient un autocollant : les équerres de viseur
+   et le liseré translucide étaient l'habillage de l'identité nocturne. */
+.drama__panel,
+.drama.drama--me .drama__panel,
+.drama.drama--dead-me .drama__panel {
+  background: var(--surface);
+  background-image: none;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-haute);
+}
+
+.drama.drama--dead-me .drama__panel {
+  border-color: var(--rouge);
+}
+
+@media (max-width: 680px) and (orientation: portrait) {
+  /* Le fil des chutes se peignait SUR le haut du terrain, en gris, et disait
+     ce que le panneau et les plaques disent déjà au même instant. */
+  .feed {
+    display: none;
+  }
+
+  /* Les hachures du bandeau : un pictogramme coupé contre le bord gauche, rien
+     qu'un reste de l'ancienne identité à cette taille. */
+  .band__mark {
+    display: none;
+  }
+
+  #band {
+    padding-left: 16px;
+  }
+
+  /* ⚠️ LANCER était à y = 1208 pour un écran de 812 (mesuré, salon à deux) :
+     l'hôte devait défiler 400 px au-delà des réglages pour démarrer. La
+     rangée d'actions colle au bas du panneau, juste au-dessus de la barre de
+     discussion (741-812), et reste atteignable où qu'on soit dans le salon. */
+  #multi-lobby .room__acts {
+    position: sticky;
+    bottom: 71px;
+    z-index: 5;
+    padding: 10px 0 14px;
+    background: var(--ink);
+    box-shadow: 0 -10px 12px -8px var(--ink);
+  }
+
+  /* Le compteur du COOP (« VIES 12 · SCORE 0 ») se peignait PAR-DESSUS la
+     consigne, et répétait mot pour mot le pied de l'écran. */
+  .coophud {
+    display: none;
+  }
+
+  /* L'annonce (régime, vie perdue, exercice validé) se peignait AU CENTRE du
+     terrain, sur les pièces, pendant 1,4 s de manche. Elle se pose dans
+     l'espace libre entre la barre de temps (fin à 138) et le terrain (176) :
+     deux bandes CONSTANTES, `RESERVE_CONSIGNE`, donc la place est garantie. */
+  .tier {
+    top: 140px;
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  /* Les émotes en DEUX colonnes : à trois (155 px), elles coupaient la
+     troisième plaque. Trois rangées de 36 px tiennent dans la bande (124). */
+  #app:not(.has-gutters) #liveHud .emotes {
+    grid-template-columns: repeat(2, 36px);
+    grid-auto-rows: 36px;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes .chip {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  /* Les plaques se PARTAGENT la largeur jusqu'à trois ; au-delà elles
+     défilent à 80 px. À largeur fixe, la troisième était rognée (mesuré :
+     293 px demandés pour 287). */
+  #app:not(.has-gutters) .plates .plate {
+    flex: 1 1 0;
+    min-width: 80px;
+  }
+
+  /* À quatre plaques de 80 px, l'avatar de 24 px ne laissait que trois
+     lettres au nom (« AL… », vu en DUO). Il descend à 16 px, et les gouttières
+     se resserrent : « ALICE » tient. */
+  #app:not(.has-gutters) .plates .plate__glyph svg,
+  #app:not(.has-gutters) .plates .plate__glyph img {
+    width: 16px;
+    height: 16px;
+  }
+
+  #app:not(.has-gutters) .plates .plate__head {
+    gap: 4px;
+  }
+
+  #app:not(.has-gutters) .plates .plate {
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+
+  /* Un nom long s'ellipse dans sa plaque plutôt que d'en sortir. */
+  #app:not(.has-gutters) .plates .plate__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 /* ==================================================================
@@ -2544,4 +3063,272 @@ body {
 .ami__retire:hover,
 .ami__retire:focus-visible {
   color: var(--encre);
+}
+
+/* ==================================================================
+   LA COLLECTION — la barre latérale et les cartes acquises
+
+   Rapporté par Pierre, capture à l'appui, et mesuré : la barre latérale
+   gardait son fond d'avant la refonte (`#0b0f18`, écrit en dur dans
+   style.css) pendant que ses textes suivaient le thème — prune sur noir,
+   **1,18:1**. Le nom d'une carte MAÎTRISÉE tombait à **1,01:1** pour la même
+   raison (`#1a1d3a` en dur). Les deux passent sur les jetons : ils suivent le
+   jour, la nuit et les plateaux.
+   ================================================================== */
+@media (min-width: 900px) {
+  .codexbar {
+    background: var(--surface);
+    border: var(--trait) solid var(--encre);
+    border-radius: var(--r-m);
+    box-shadow: var(--ombre);
+  }
+
+  .codexbar__total {
+    color: var(--encre);
+  }
+
+  #codex .filtre {
+    color: var(--paper-dim);
+    border-radius: var(--r-s);
+  }
+
+  #codex .filtre:hover,
+  #codex .filtre:focus-visible {
+    color: var(--encre);
+    background: color-mix(in srgb, var(--lilas) 60%, transparent);
+  }
+
+  #codex .filtre.is-on {
+    color: var(--encre);
+    background: var(--lilas);
+    border-left-color: var(--signal);
+  }
+}
+
+.codexbar__jauge i {
+  background: var(--line);
+  border-radius: 2px;
+}
+
+.codexbar__jauge i.est-decouverte {
+  background: var(--paper-dim);
+}
+
+.carte.is-maitrisee {
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__pied {
+  background: var(--lilas);
+  border-color: var(--signal);
+}
+
+.carte.is-maitrisee .carte__nom {
+  color: var(--encre);
+}
+
+.carte.is-maitrisee .carte__tete,
+.carte.is-maitrisee .carte__etat {
+  color: var(--signal-pale);
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__pied {
+  background: var(--or-fond);
+  border-color: var(--or);
+}
+
+.carte.is-parfaite .carte__nom {
+  color: var(--encre);
+}
+
+.carte.is-parfaite .carte__tete,
+.carte.is-parfaite .carte__etat {
+  color: var(--or);
+}
+
+.piste__etoiles {
+  color: var(--paper-dim);
+}
+
+/*
+ * UN RETRAIT HAUT SOUS LA BARRE, pour tous les écrans de menu sauf l'accueil.
+ *
+ * `.screen__scroll` se centre par `margin: auto` (décision n°6). Tant que le
+ * contenu tient, la marge le décolle de la barre ; dès qu'il DÉBORDE — l'écran
+ * de fin, la collection — elle tombe à zéro et le titre se colle au bord :
+ * mesuré, « ROMPU » à y=75 sous une barre qui finit à 74. `#home` est exclu :
+ * sa hauteur est calée au pixel près pour tenir sans défiler.
+ */
+#app.has-topbar .screen:not(#home) > .screen__scroll {
+  padding-top: 28px;
+}
+
+/* Au téléphone, MENU était un mot seul sous la grille des boutons — un lien
+   flottant, pas une action. Il prend la rangée, comme ENCORE au-dessus. */
+@media (max-width: 680px) and (orientation: portrait) {
+  #over #btnHome {
+    grid-column: 1 / -1;
+  }
+
+  /* PARTAGER et CARTE vont par paire (même condition) ; DÉFIER vient seul
+     selon le mode, et tombait sur une demi-rangée orpheline. */
+  #over #btnDuel {
+    grid-column: 1 / -1;
+  }
+}
+
+/* L'en-tête d'une carte tient sur UNE ligne : « DÉFORMATION ★ 0/15 » se
+   cassait en deux dans 150 px (interlettrage 0,16em), et les cartes d'une même
+   rangée n'avaient plus la même tête. Raccourcir l'écartement, pas le mot. */
+.carte__tete {
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: 6px;
+}
+
+.carte__famille,
+.carte__cases {
+  letter-spacing: 0.06em;
+}
+
+@media (max-width: 680px) and (orientation: portrait) {
+  #over #btnHome {
+    background: var(--surface);
+    border: var(--trait) solid var(--encre);
+    box-shadow: 0 3px 0 var(--ombre-c);
+  }
+}
+
+/* ==================================================================
+   LE MUR DES RECORDS — trois blocs, chacun son épreuve
+   ================================================================== */
+.mur__tete,
+.mur__pied {
+  text-align: center;
+}
+
+@media (min-width: 900px) {
+  .mur__tete,
+  .mur__pied {
+    grid-column: 1 / -1;
+  }
+}
+
+.mur__col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.mur__bloc,
+#classement .amis {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px 18px 20px;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  text-align: left;
+}
+
+#classement .amis {
+  margin-top: 0;
+}
+
+.mur__bloc .eyebrow,
+#classement .amis > .eyebrow {
+  margin: 0;
+}
+
+.mur__regle {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--encre);
+}
+
+#classement .mur__mien {
+  margin: 0;
+  font-size: var(--t-petit);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+#classement .podium {
+  margin: 4px 0 0;
+}
+
+#btnMurJouer {
+  align-self: stretch;
+}
+
+#btnMurJouer:disabled {
+  opacity: 0.5;
+}
+
+.mur__vide.hidden {
+  display: none;
+}
+
+.mur__vide {
+  margin: 0;
+  color: var(--paper-dim);
+}
+
+.records {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.records__ligne {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 2px;
+  border-bottom: 1px dashed var(--line);
+}
+
+.records__ligne:last-child {
+  border-bottom: 0;
+}
+
+.records__quoi {
+  font-size: var(--t-petit);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records__val {
+  font-family: var(--display);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--encre);
+}
+
+.records__unite {
+  min-width: 8ch;
+  font-size: var(--t-micro);
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+/* La première ligne est le run du jour quand il existe : l'épreuve commune. */
+.records__ligne--jour .records__quoi {
+  color: var(--signal-pale);
+}
+
+#classement .mur__tete {
+  text-align: center;
 }

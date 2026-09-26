@@ -24,7 +24,7 @@ import type { Agregats } from "../shared/compte";
 import { GLYPH_COUNT, glyphFor, glyphFromIndex, glyphIndex } from "../src/net/glyph";
 import { VERSION_CONTENU, calculeVersion } from "../src/engine/version";
 import { ONE_RULES } from "../src/engine/rules";
-import { INSTRUCTIONS } from "../src/engine/instructions";
+import { INSTRUCTIONS_SOLO as INSTRUCTIONS } from "../src/engine/instructions";
 
 /* ------------------------------------------------------------------ *
  * Un générateur d'agrégats — pour éprouver les propriétés

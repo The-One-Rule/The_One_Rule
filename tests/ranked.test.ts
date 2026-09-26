@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../src/engine/rng";
 import { buildRound } from "../src/engine/round";
 import { ONE_RULES } from "../src/engine/rules";
+import { INSTRUCTIONS_SOLO } from "../src/engine/instructions";
 import { verifyRun } from "../src/engine/verify";
 import type { LoggedInput, RunClaim } from "../src/engine/verify";
 import { DAILY_LENGTH } from "../src/engine/difficulty";
@@ -22,7 +23,7 @@ import {
 function playPerfectly(
   seed: number,
   ruleId: string,
-  opts: { reaction: () => number; stopAt?: number; mode?: RunClaim["mode"] } = {
+  opts: { reaction: () => number; stopAt?: number; mode?: RunClaim["mode"]; catalogue?: number } = {
     reaction: () => 260,
   },
 ): RunClaim {
@@ -33,7 +34,7 @@ function playPerfectly(
   let t = 0;
 
   for (let level = 0; level < stop; level++) {
-    const round = buildRound(rng, level, rule);
+    const round = buildRound(rng, level, rule, opts.catalogue === 2 ? INSTRUCTIONS_SOLO : undefined);
     // LA SECONDE interdit d'agir avant 400 ms : un joueur correct attend
     const wait = Math.max(opts.reaction(), rule.id === "seconde" ? 430 : 0);
     const at = t + Math.min(wait, round.durationMs - 40);
@@ -63,14 +64,21 @@ function playPerfectly(
           (e, i) => allowed(i, when) && (step.kind === "clickAny" || e.color !== step.color),
         );
         inputs.push({ t: when, k: "c", i: ok >= 0 ? ok : 0 });
+      } else if (step.kind === "hold") {
+        // MAINTENIR : l'appui, puis le lever une fois le temps tenu.
+        inputs.push({ t: when, k: "c", i: step.idx });
+        inputs.push({ t: when + step.ms + 20, k: "l", i: step.idx });
+        k += Math.ceil((step.ms + 20) / 40);
+      } else if (step.kind === "drop") {
+        inputs.push({ t: when, k: "l", i: step.idx });
       } else {
-        inputs.push({ t: when, k: "k", key: step.key });
+        inputs.push({ t: when, k: "k", key: (step as { key: string }).key });
       }
       k++;
     }
-    t = at + (round.steps.length - 1) * 40 + 1;
+    t = at + (k - 1) * 40 + 1;
   }
-  return { seed, ruleId, mode: opts.mode ?? "ranked", inputs };
+  return { seed, ruleId, mode: opts.mode ?? "ranked", inputs, catalogue: opts.catalogue };
 }
 
 describe("vérification serveur", () => {
@@ -97,7 +105,7 @@ describe("vérification serveur", () => {
     const { Session } = await import("../src/game/session");
     const rule = ONE_RULES.find((r) => r.id === "colosse")!;
     const seed = 4242;
-    const claim = playPerfectly(seed, "colosse", { reaction: () => 240, mode: "ranked" });
+    const claim = playPerfectly(seed, "colosse", { reaction: () => 240, mode: "ranked", catalogue: 2 });
 
     const s = new Session({ mode: "ranked", rule, rng: mulberry32(seed), now: 0, seed });
     let cursor = 0;
@@ -120,6 +128,10 @@ describe("vérification serveur", () => {
       const ent = next.k === "c" && next.i !== null ? (s.round.ents[next.i] ?? null) : null;
       if (next.k === "c") s.input({ kind: "click", ent, x: ent?.x ?? 0, y: ent?.y ?? 0 }, clock);
       else if (next.k === "k") s.input({ kind: "key", key: next.key }, clock);
+      else if (next.k === "l") {
+        const e = next.i !== null ? (s.round.ents[next.i] ?? null) : null;
+        s.input({ kind: "lift", ent: e, x: e?.x ?? 0, y: e?.y ?? 0 }, clock);
+      }
     }
     const server = verifyRun(claim);
     expect(server.score).toBe(s.level);
@@ -336,14 +348,14 @@ describe("navigateur → serveur", () => {
           const ent = s.round.ents[step.idx]!;
           s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
         } else if (step.kind === "key") {
-          s.input({ kind: "key", key: step.key }, clock);
+          s.input({ kind: "key", key: (step as { key: string }).key }, clock);
         } else {
           const ent = s.round.ents[0]!;
           s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
         }
       }
 
-      const server = verifyRun({ seed, ruleId: rule.id, mode: "ranked", inputs: s.log });
+      const server = verifyRun({ seed, ruleId: rule.id, mode: "ranked", inputs: s.log, catalogue: 2 });
       expect(server.ok, `${rule.name} : run honnête rejeté`).toBe(true);
       expect(server.score, `${rule.name} : score divergent`).toBe(s.level);
       // un délai mesuré correspond forcément à une manche franchie
@@ -374,7 +386,7 @@ describe("navigateur → serveur", () => {
       if (step.kind === "click") {
         const ent = s.round.ents[step.idx]!;
         s.input({ kind: "click", ent, x: ent.x, y: ent.y }, clock);
-      } else if (step.kind === "key") s.input({ kind: "key", key: step.key }, clock);
+      } else if (step.kind === "key") s.input({ kind: "key", key: (step as { key: string }).key }, clock);
       else s.input({ kind: "click", ent: s.round.ents[0]!, x: 0, y: 0 }, clock);
     }
 

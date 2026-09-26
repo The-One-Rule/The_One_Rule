@@ -10501,46 +10501,10 @@ button.chip:active:not(:disabled) {
   margin: 8px 0 0;
 }
 
-.cpt__tete {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
 
-.cpt__signe {
-  flex: none;
-  width: 62px;
-  height: 62px;
-  display: grid;
-  place-items: center;
-  background: var(--ink-2);
-  border: 2px solid var(--signal);
-}
 
-.cpt__qui {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
-.cpt__nom {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-}
 
-.cpt__via {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--paper-dim);
-}
 
 /* Quatre chiffres, et aucun n'est un jugement. */
 .cpt__grille {
@@ -12618,27 +12582,9 @@ button.chip:active:not(:disabled) {
   padding: 20px 16px;
 }
 
-.cpt__tete {
-  gap: 14px;
-}
 
-.cpt__signe {
-  width: 72px;
-  height: 72px;
-  font-size: 34px;
-}
 
-.cpt__nom {
-  font-size: 28px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
 
-.cpt__via {
-  margin: 7px 0 0;
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.14em;
-}
 
 /* La grille de chiffres : gouttiere de UN pixel — les cases se touchent, et
    c'est ce qui en fait un tableau plutot que quatre vignettes. */
@@ -14279,27 +14225,6 @@ button.chip:active:not(:disabled) {
 
 #app:not(.has-gutters):not(.has-topbar) #liveHud .plates > * {
   flex: 0 0 auto;
-}
-
-/* Les flammes : un buffer d'une case pour 4 px, agrandi SANS lissage — une
-   flamme floue jurerait avec les angles droits. */
-.heat__flammes {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  pointer-events: none;
-}
-
-.heat__flammes.hidden {
-  display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .heat__flammes {
-    display: none;
-  }
 }
 
 /* PASSER : le seul élément cliquable du calque du tutoriel.

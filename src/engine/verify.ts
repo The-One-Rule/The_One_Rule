@@ -17,6 +17,12 @@ import { ONE_RULES, withoutHold, withoutInk } from "./rules";
 import { combineRules } from "./rules/combine";
 import { pileA, pileEscalade } from "./escalade";
 import { buildRound } from "./round";
+import {
+  INSTRUCTIONS,
+  INSTRUCTIONS_SOLO,
+  TOUCH_INSTRUCTIONS,
+  TOUCH_INSTRUCTIONS_SOLO,
+} from "./instructions";
 import { resolveAction, resolveTimeout } from "./resolve";
 import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty";
 import type { Action, Entity, OneRule, Round, RoundProgress } from "./types";
@@ -26,7 +32,8 @@ export type LoggedInput =
   | { t: number; k: "c"; i: number | null } // clic : index de la pièce, ou null pour le vide
   | { t: number; k: "x"; x: number; y: number } // clic hors pièce, position conservée
   | { t: number; k: "k"; key: string } // touche
-  | { t: number; k: "r"; key: string }; // relâchement
+  | { t: number; k: "r"; key: string } // relâchement
+  | { t: number; k: "l"; i: number | null }; // lever (MAINTENIR, GLISSER)
 
 export interface RunClaim {
   seed: number;
@@ -47,7 +54,13 @@ export interface RunClaim {
    * compare qu'a ses semblables. Les declarer ne donne aucun avantage — cela
    * change la pile, pas sa difficulte — mais cela change a QUI on se compare.
    */
-  capacites?: { maintien: boolean; encre: boolean };
+  capacites?: { maintien: boolean; encre: boolean; clavier?: boolean };
+  /**
+   * Le catalogue de consignes du run. 2 = le catalogue du solo élargi
+   * (double appui, MAINTENIR, GLISSER). ABSENT VAUT 1 : un run d'un client
+   * d'avant l'ouverture se rejoue sur l'ancien catalogue.
+   */
+  catalogue?: number;
 }
 
 export interface Verdict {
@@ -99,6 +112,12 @@ function toAction(input: LoggedInput, ents: Entity[]): Action | null {
       return { kind: "key", key: input.key };
     case "r":
       return { kind: "release", key: input.key };
+    case "l": {
+      if (input.i === null) return { kind: "lift", ent: null, x: Number.NaN, y: Number.NaN };
+      const ent = ents[input.i];
+      if (!ent) return null;
+      return { kind: "lift", ent, x: ent.x, y: ent.y };
+    }
   }
 }
 
@@ -151,15 +170,39 @@ export function verifyRun(claim: RunClaim): Verdict {
   let traps = 0;
   const reactions: number[] = [];
   let roundStart = 0;
-  /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
-  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : rule);
+  /*
+   * ⚠️ LE TÉLÉPHONE NE JOUE PAS LES MÊMES MANCHES, et le rejeu doit le savoir.
+   *
+   * Le client tire au doigt dans `TOUCH_INSTRUCTIONS` et remplace une règle à
+   * maintien (`withoutHold`) ou d'encre (`withoutInk`). Le rejeu tirait
+   * toujours dans le catalogue complet, sous la règle brute : mesuré sur 200
+   * graines, les manches divergeaient dès la manche 3 (au plus tard la 7) —
+   * chaque run du jour joué au téléphone était rejoué sur d'AUTRES manches,
+   * et son score vérifié était faux. ABSENT VAUT CLAVIER : un client d'avant
+   * ce correctif est rejoué comme avant, rien ne change pour lui.
+   */
+  const solo = claim.catalogue === 2;
+  const pool =
+    claim.capacites?.clavier === false
+      ? solo
+        ? TOUCH_INSTRUCTIONS_SOLO
+        : TOUCH_INSTRUCTIONS
+      : solo
+        ? INSTRUCTIONS_SOLO
+        : INSTRUCTIONS;
+  let regleSeule: OneRule = rule;
+  if (claim.capacites?.maintien === false) regleSeule = withoutHold(regleSeule);
+  if (claim.capacites?.encre === false) regleSeule = withoutInk(regleSeule);
 
-  let round: Round = buildRound(rng, level, regleA(level));
+  /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
+  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : regleSeule);
+
+  let round: Round = buildRound(rng, level, regleA(level), pool);
   let progress: RoundProgress = { step: 0 };
   let cursor = 0;
 
   const nextRound = (at: number): void => {
-    round = buildRound(rng, level, regleA(level));
+    round = buildRound(rng, level, regleA(level), pool);
     progress = { step: 0 };
     roundStart = at;
   };

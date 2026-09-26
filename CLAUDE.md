@@ -791,6 +791,110 @@ Une photo de téléphone réduite pèse 4 à 8 Ko : `ws` aurait fermé la socket
 joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
 **Tout nouveau message plus gros qu'un chat doit relever ce plafond.**
 
+### MAINTENIR et GLISSER — deux gestes qui ne sont pas un clic (25/09/2026)
+
+Demandé par Pierre (« glisser, maintenir etc. »). « MAINTIENS LE ROUGE »
+(`tiens`, niveau 4, par la COULEUR seulement) et « GLISSE LE ROUGE SUR LE
+BLEU » (`glisse`, niveau 6), tactiles.
+
+⚠️ **OUVERTES AU SOLO le 26/09, sur directive de Pierre** (« met les nouvelles
+consignes en déploiement »), avec le double appui. `INSTRUCTIONS` NE BOUGE
+PAS — c'est la base du multi v1 et le réservoir de LE MENTEUR — : le solo a son
+catalogue, `INSTRUCTIONS_SOLO`, et `VERSION_CONTENU` se calcule sur lui :
+**`5m4fgw` → `1h63n7k`**, les records d'entraînement affichés repartent d'une
+clé neuve (coût annoncé). La revendication porte `catalogue: 2` (absent = 1,
+l'ancien catalogue : une file écrite avant se rejoue comme avant), le lever est
+journalisé (`{k:"l"}`) seulement quand `leverAttendu` dit qu'il répond à
+quelque chose.
+
+⚠️ **La calibration a fait trois coupes, toutes mesurées** (120 runs × 45
+manches, plafond 28 %) : aux poids d'origine, LE SOLITAIRE montait à **31,0 %**
+— le chiffre que ce dépôt tient pour mortel — parce qu'une consigne qui vise
+une FORME unique est un piège garanti sous lui. D'où : MAINTIENS par la couleur
+seulement ; le double appui du SOLO par la couleur seulement (celui des salons
+garde ses deux variantes, il est négocié en v2) ; poids 1 au solo, et 0,5 pour
+GLISSER, qui touche deux pièces (LA ROUE à 28,4 % au poids 1). Après : plus
+haute règle à 27,4 %. `TAUX_PIEGE` (fiche) remesurée sur le catalogue solo.
+Joué en vrai (Playwright, 375 × 812) : 5 runs sur 5 jusqu'à la manche 61, 10
+maintiens, 6 glisser, 6 doubles appuis.
+
+**Une seule action neuve : le LEVER** (`Action.lift`, `{k:"l", i}` sur le fil).
+L'appui reste un `click` — il arrive devant les règles et sur le fil comme
+aujourd'hui — et c'est le lever qui conclut :
+- `hold` : l'appui sur la pièce pose `progress.holdAt` ; un lever avant
+  `HOLD_MS` (600) tue (« TU AS LÂCHÉ TROP TÔT »), après il fait survivre ;
+- `drag` compile en `[click from, drop to]` ; le lever doit tomber sur `to`.
+- ⚠️ **Partout ailleurs, un lever est IGNORÉ** — un clic ordinaire se lève
+  aussi. C'est l'assertion qui a le plus de dents (éprouvée en retirant la
+  garde : deux tests tombent). Et le client ne l'ENVOIE que s'il répond à
+  quelque chose : sinon chaque clic doublerait le trafic, et un serveur
+  ancien recevrait un message qu'il ne sait pas lire.
+- Client et serveur jugent la même durée : l'appui et le lever portent
+  chacun leur `at`, projeté sur l'horloge serveur (décision n°3).
+
+**Le temps** : `poidsGestes` remplace `steps.length` dans les fenêtres. Un
+maintien pèse 1 + 3 gestes (840 ms ≥ 600 tenus), un lever de glisser 2.
+⚠️ Pour toute étape d'avant, le poids EST le nombre d'étapes (testé) : aucune
+fenêtre existante ne bouge.
+
+**Les règles** : `targets` voit la pièce tenue et LES DEUX pièces d'un glisser
+— poser sur du rouge, c'est toucher du rouge. LE SANG piège donc un glisser
+qui prend OU pose du rouge, et aucun autre (testé sur 400 tirages).
+
+**Négocié** : `CONSIGNES_VERSION` = 3, `VERSION_DE_CONSIGNE` dit à partir de
+quelle version chacune sort ; à la version 2 le pool est EXACTEMENT celui
+d'avant (testé). À l'écran : une jauge autour de la pièce, qui passe au VERT
+quand le lever sera accepté (`drawGeste`), et « TIENS JUSQU'AU VERT » sur la
+ligne des gestes ; un trait pointillé de la pièce prise au doigt. Le canvas
+capture le pointeur à l'appui : un glisser qui sort du terrain lève encore
+sur lui.
+
+### L'écran de jeu au téléphone, et les modes multi joués pour de vrai (26/09/2026)
+
+Rapporté par Pierre : « beaucoup de bugs sur les modes multi, sur téléphone
+l'écran de jeu est juste atroce et les icônes sont mal placées ». Tout a été
+JOUÉ (Playwright, hôte au téléphone, joueurs pilotés par `__tor.joueMulti`,
+dev seulement : il retient chaque manche et n'agit qu'à 460 ms, LA SECONDE).
+
+- ⚠️ **« NE FAIS RIEN » affichait « 1 GESTE »** après une manche à un geste :
+  la clé de repeinture de la ligne portait le compte CALCULÉ, pas le compte
+  PEINT. `tests/hud-gestes.test.ts`, éprouvé.
+- **Une seule horloge** : le cadre de temps épouse le TERRAIN (plus les bords
+  de l'écran, donc plus de barres parasites derrière la consigne), sans
+  hachures ; équerres et bordure critique de `#app` retirées.
+- Cœurs en MASQUE SVG (un `clip-path: path()` est en pixels : réduit à 7 px il
+  restait un demi-disque) ; badge « 1RE » en onglet (il couvrait le nom) ;
+  émotes 2 × 3 ; plaques qui se partagent la largeur, avatar 16 px, noms en
+  ellipse ; annonce de régime traduite (`nomsPaliers`) et posée hors du
+  terrain ; fil des chutes tu au téléphone ; panneau de perte de vie en
+  autocollant ; au-delà de six vies, un cœur et « ×12 ».
+- **Salon** : LANCER était à y = 1208 pour un écran de 812 — la rangée
+  d'actions colle au bas du panneau, au-dessus de la discussion.
+- **Fin de match** : « ÉGALITÉ » au-dessus de 1er, 2e, 3e pour trois ex æquo,
+  et « TU FINIS 1er SUR 3 ». Le rang se COMPTE (`render/rangs.ts`, pur,
+  testé : 1 + le nombre strictement devant) et la ligne de rang et le podium
+  lisent la MÊME fonction — ils triaient chacun de leur côté, l'un avec
+  `winnerId`, l'autre sans. « MANCHE 59 » sous 60 manches tenues (`idx` part de
+  0). Un titre à égalité au sommet se TAIT (SÉRIE allait au premier arrivé) ;
+  SURVIVANT lit `winnerId` (il se décernait sur une égalité). La rangée d'un
+  joueur en vie débordait de 47 px.
+- **Coop au téléphone** : le compteur « VIES 12 · SCORE 0 » se peignait sur la
+  consigne et doublait le pied (tu) ; les pastilles d'appuis faisaient 9 px
+  (taille plancher de 22 px à l'écran).
+- Imposteur : sa porte est fermée depuis le playtest (voir le commentaire dans
+  `index.html`), non rejoué.
+
+### Le rejeu serveur jugeait les runs de téléphone sur d'AUTRES manches (26/09/2026)
+
+Trouvé en ouvrant les consignes au solo, antérieur à elles. Le téléphone tire
+dans le catalogue TACTILE et remplace une règle à maintien ; `verifyRun`
+rejouait dans le catalogue complet sous la règle brute. Mesuré sur 200 graines :
+divergence dès la manche 3 (au plus tard la 7), 200 sur 200 — **tout run du
+jour mobile avait un score vérifié faux**, donc podium et amis faux. La
+revendication porte `capacites: { clavier, maintien, encre }` (absent = clavier,
+comme avant). Reste une direction : la clé de comparabilité ne sépare pas
+téléphone et clavier, qui ne jouent pas les mêmes manches.
+
 ### Le double appui — première consigne neuve, multijoueur seulement (25/09/2026)
 
 « CLIQUE DEUX FOIS LE ROUGE / LE ROND » (`doubleTap`, niveau 4, poids 2,
@@ -881,6 +985,101 @@ voyage À PART du `room`, une fois à l'arrivée, jamais à chaque état du salo
   précédent est ignoré par le serveur (relayer 14 Ko × 9 en rafale).
 - Mesuré à deux navigateurs : plaques identiques avec et sans profil
   (210 × 102 bureau, 90/76 × 75 téléphone). La taille du champ ne bouge pas.
+
+### Le PROFIL est un écran, pas un détour (25/09/2026)
+
+Rapporté par Pierre : « c'est quand on clique sur changer de nom qu'on peut
+changer sa photo de profil ». La carte de visite et la photo vivaient DERRIÈRE
+l'écran NOM ET SIGNE du multi — et dans `multi.ts`, qui rend un objet INERTE
+sans `VITE_WS_URL` : sans serveur de salons, elles n'existaient pas.
+
+- `#compte` devient PROFIL : une carte d'identité (visage, nom, `SUR CET
+  APPAREIL` / `CONNECTÉ`, bouton NOM ET SIGNE), la carte et la photo à
+  découvert, puis la section COMPTE (`#profilCompte`) en dessous.
+- ⚠️ **Le bouton de la barre haute est TOUJOURS visible** — il portait
+  l'invariant « masqué sans fournisseur ». Il ouvre maintenant un profil qui se
+  tient sans compte ; c'est `#profilCompte` qui se tait sans fournisseur, et
+  `tests/invariants-compte` le vérifie là. Il porte un visage et un nom, donc
+  **jamais de `textContent`** dessus (`peintBoutonProfil`) : `appliqueLangue`
+  ne le touche plus, et `libelleCompte` est parti avec.
+- `src/profil.ts` porte les deux sélecteurs, sans réseau ; `multi.envoieProfil()`
+  prévient le salon. L'avatar du profil EST l'aperçu de la photo (un seul
+  visage par écran) et lit `signeAffiche` comme la barre et les salons.
+- ⚠️ Reste vrai : NOM ET SIGNE passe par `multi.ouvreIdentite`, donc il est
+  inerte sans serveur de salons. Sans conséquence en production.
+
+### Les émotes à côté des plaques, et le terrain qui grandit (25/09/2026)
+
+Rapporté par Pierre : « les émojis en multijoueur apparaissent sous l'écran de
+jeu ». Mesuré : une rangée de 60 px SOUS les plaques, seule en bas — et payée en
+terrain, puisque `RESERVE_HUD_MULTI` réservait 180 px pour elle. En colonnes
+(1600 × 700), une rangée DANS le flux sous la scène, et seulement dans ce mode :
+la hauteur de scène dépendait donc de la décision des colonnes (n°2).
+
+- Hors colonnes : grille 3 × 2 À CÔTÉ des plaques (la forme du salon couché,
+  généralisée). La bande tombe à 119 px, `RESERVE_HUD_MULTI` 180 → **126**.
+  Terrain en match : **863×362 → 994×417** à 1280 × 800, **169×402 → 192×456**
+  à 375 × 812. Recouvrement terrain / bande : 0 sur neuf formats.
+- En colonnes : bas de la gouttière droite, hors flux ; `#platesR` s'arrête
+  100 px au-dessus. 851×357 → 996×418 à 1600 × 700.
+- ⚠️ Trouvé en mesurant : à 812 × 375 la bande MORDAIT déjà 25 px sur le
+  terrain — les plaques ne passaient en compact que sous 720 px de LARGE, alors
+  que le paysage serré se décide sur les deux dimensions. `renderPlates` lit
+  maintenant `paysageSerre`.
+- `window.__tor.champ()` (dev seulement) rend le champ en coordonnées de page :
+  c'est avec lui qu'on mesure un recouvrement, pas à l'œil.
+
+### LA MONTÉE — la tension qui suit la PARTIE, pas la manche (25/09/2026)
+
+Demandé par Pierre avec le retrait des flammes : « trouve un moyen de ressentir
+vraiment la tension qui monte au fur et à mesure du jeu ». Deux constats :
+
+- ⚠️ **`.heat__vignette` était invisible depuis la refonte** : elle peignait en
+  `--ink`, et STICKER a fait de `--ink` le sable du fond. Elle peint maintenant
+  en `--dead` (défini par le thème, la nuit ET chaque plateau).
+- tout ce qui restait visible — le cadre de temps et son battement — suivait la
+  MANCHE en cours. La manche 3 et la manche 40 s'ouvraient pareil.
+
+`render/tension.ts` (pur, testé) : cinq paliers décidés sur la manche seule —
+0 pendant l'échauffement, puis à +0, +7, +15, +25 manches (calés sur la
+médiane 12 et le p75 20 du §8). Chaque palier a un CŒUR (période 1000 → 520 ms,
+×0,7 en zone critique) qu'on entend (`sfx.coeur`, deux sinus graves, l'octave
+au-dessus pour les haut-parleurs de téléphone) et qu'on voit : le canvas peint
+un voile garance sur le POURTOUR du terrain (`scene.pression`, découpé en
+`evenodd` autour de `fieldRect()` — le champ n'est jamais touché, n°5 et n°10),
+plus dense aux bords de l'écran, qui bat avec le cœur. Un palier franchi : un
+sursaut du voile, `sfx.palier`, 40 ms de vibration — pas de texte.
+
+- ⚠️ Le battement est porté par la BOUCLE (`poseTension`), jamais par une
+  minuterie : doctrine du battement de lecture.
+- Le multi a une manche de mise en jambes (`grace: 1`), puis le même cœur.
+- `prefers-reduced-motion` : le voile reste, il ne bat plus.
+- Les faux contextes canvas des tests (`smoke`, `rebours`, `arrivee`) rendent
+  désormais le contexte à chaque appel : `createRadialGradient` y rendait
+  `undefined`, et le smoke est tombé — il exécute donc bien la montée.
+
+### L'audit des écrans — ce que la mesure a trouvé (25/09/2026)
+
+Suite de « certains mots sont juste flottants et ne suivent pas la DA ».
+Contraste de chaque texte contre son fond effectif (seuil 3:1), débordement du
+TEXTE hors de sa boîte (`Range`), dernier texte d'un écran défilé au maximum
+contre le haut de la barre du bas — 8 routes plus brief, fin, fiche, niveau et
+salon, jour et nuit, 375 et 1280.
+
+- ⚠️ **Le dernier chapitre du parcours était INATTEIGNABLE** : `.home` restait
+  calée à 722 px par le `flex: 1 1 0` de `#home`, le parcours débordait jusqu'à
+  2416, et la marge réservée à la barre se posait au milieu de la page. Défilé au
+  maximum, le chapitre 16 finissait sous la barre (790 pour 739). Après : 656.
+- Trois titres alignés à gauche gardaient leur filet CENTRÉ (réglages, mur des
+  records, collection en large) : un trait sous rien.
+- Étoiles vides de la fiche 1,55:1, « HÔTE » la nuit 2,76:1, explication du
+  piège dans le brief 2,30:1 (un corail en dur de l'identité nocturne).
+- DÉFIER seul sur une demi-rangée de l'écran de fin au téléphone.
+- ⚠️ **Piège de mesure** : un fond en `color-mix()` se lit `color(srgb 1 0.98
+  0.95 / 0.7)` — composantes entre 0 et 1. Les lire comme du 0-255 fait voir
+  du texte prune sur du NOIR, et invente des défauts (le bilan de fin, 1,29:1,
+  était lisible). Les « — — — » à 1:1 de la grille d'entraînement sont les
+  barres de censure, voulues.
 
 ### Les plateaux habillent toute la partie (25/09/2026)
 
@@ -2723,12 +2922,7 @@ Branche `claude/chasse-bugs-0912`, sept commits, **rien de déployé**.
   identique à la feuille : `max-width: 680px` et portrait, décidé sur la
   FENÊTRE (n°2). Debout, « le plus à gauche » se dit « le plus en haut » et
   LE GAUCHER interdit « la bande du haut » ; `text` reste le français couché.
-- **Flammes** (`render/flammes.ts`, feu de DOOM). Ardeur = avancée seulement,
-  nulle pendant l'échauffement, pleine à la manche 30. Terrain, consigne, nom
-  de règle, vies et pied sont des cases interdites. Trois réglages mesurés :
-  foyers intermittents (sinon un liseré blanc), vent vers le centre (sinon
-  3 cases de profondeur sur 16), force plafonnée sous le blanc (sinon des murs).
-  ⚠️ Jamais vues à haute manche en jeu réel : volet sans images.
+- ~~**Flammes**~~ — retirées depuis, sur directive de Pierre ; voir LA MONTÉE.
 - **Tutoriel en jouant**. Plus AUCUN écran d'explication : obéir, résister,
   déjouer, sur le vrai terrain, puis la partie démarre. L'écran `#onb` et sa
   route ont disparu. PASSER est dans l'angle bas-droit, et un test exige
@@ -2775,33 +2969,11 @@ mauvais type tuait JOUER en silence. Le reste a tenu :
 Les tests unitaires ont été lancés **trois fois de suite** (968 à chaque fois) :
 aucun n'est intermittent aujourd'hui.
 
-### Les flammes viennent d'un pack, et ce n'est pas un détail
+### ~~Les flammes~~ — RETIRÉES (25/09/2026, directive de Pierre)
 
-`public/fx/flamme.png` sort du **OVERBURN Asset Pack, par Overboy** (série
-violette), fourni par Pierre avec la consigne de s'en servir. Licence : usage
-commercial et modification permis, **redistribution du pack interdite** — on
-peut donc l'embarquer dans le jeu, jamais le republier tel quel. Le crédit
-n'est pas exigé ; il est écrit dans `render/flammes.ts` par correction.
-
-⚠️ **Deux mesures ont changé le dessin, et aucune ne se devinait :**
-
-- les pixels opaques de la planche sont à **~325°** (magenta) alors que
-  `--signal` est à **249°** : la rotation de teinte vaut −76°. Un premier essai
-  à −96° donnait des flammes bleues ;
-- dans chaque image de 48 × 48, le dessin ne tient que dans **x 17-29, y 6-27**
-  — 13 px sur 22, dans la moitié HAUTE. Dessiner l'image entière ancrée en bas
-  donnait des flammes deux fois trop petites, flottant au-dessus de leur pied.
-  On ne dessine que cette boîte (`BOITE`), et c'est elle qu'on met à l'échelle.
-
-⚠️ **Le feu du bas monte du HAUT DU PIED**, pas du bas du calque : sous le pied
-il est découpé, donc invisible — au premier rendu, toutes les flammes du bas
-étaient perdues et il ne restait que les deux côtés.
-
-Le feu de DOOM procédural qui a précédé est mort de ce qu'aucun réglage ne
-rattrape : il avait l'air d'un dégradé animé. Trois passes (foyers
-intermittents, vent vers le centre, force plafonnée) l'ont approché sans
-jamais y arriver. Une planche dessinée à la main a réglé la question en une
-fois — et coûte moins de calcul par image.
+Le calque, `render/flammes.ts`, son test et `public/fx/flamme.png` (OVERBURN
+Asset Pack, par Overboy) sont partis. La planche n'est plus embarquée : sa
+licence n'engage donc plus rien. Remplacées par LA MONTÉE (voir ci-dessous).
 
 ### Le paysage serré — le téléphone couché, et une bande qui bougeait
 
@@ -2911,11 +3083,10 @@ désormais au-dessus du pied.
 
 ### Backlog
 
-1. **Nouvelles consignes** — glisser, balayer, maintien. Le double-appui est
-   fait (multi, voir plus haut) parce qu'il tient dans `sequence` ; les trois
-   autres sont de nouveaux types d'entrée, donc de nouvelles actions sur le
-   fil et une nouvelle résolution : un chantier, pas un ajout de contenu.
-   Toute consigne neuve passe par `CONSIGNES_MULTI` et `CONSIGNES_VERSION`.
+1. **Nouvelles consignes** — double appui, MAINTENIR et GLISSER sont faits
+   (multi). Reste BALAYER, qui demanderait une direction sur le fil. Toute
+   consigne neuve passe par `CONSIGNES_MULTI`, `VERSION_DE_CONSIGNE` et
+   `CONSIGNES_VERSION`.
 2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
    côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
    liste vide dit « personne ne joue ».

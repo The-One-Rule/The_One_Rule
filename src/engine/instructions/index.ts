@@ -559,6 +559,93 @@ const doubleTap: Instruction = {
   },
 };
 
+/**
+ * MAINTENIR — « MAINTIENS LE ROUGE ».
+ *
+ * Un appui qui doit TENIR `HOLD_MS` avant de se lever. C'est le premier geste
+ * du jeu qui se juge sur une DURÉE : l'inverse exact du réflexe, et un cousin
+ * du piège — le doigt veut partir, il faut le retenir.
+ *
+ * Cible unique, par la même construction que `doubleTap`.
+ */
+const tiens: Instruction = {
+  id: "tiens",
+  minLevel: 4,
+  weight: 2,
+  touch: true,
+  /*
+   * ⚠️ PAR LA COULEUR SEULEMENT. Une variante « MAINTIENS LE CARRÉ » désignait
+   * une FORME unique à l'écran — exactement ce que LE SOLITAIRE interdit, donc
+   * un piège garanti sous cette règle. Mesuré à l'ouverture au solo : LE
+   * SOLITAIRE passait de 27,6 % à 31,0 % de manches piégées, le chiffre que ce
+   * dépôt tient pour mortel (le jeu devient « ne rien faire »).
+   */
+  gen(rng, level) {
+    const n = fillCount(rng, level, 3);
+    const idx = rInt(rng, n);
+    const target = rPick(rng, COLOR_IDS);
+    const pool = others(COLOR_IDS, target);
+    const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+    specs[idx]!.color = target;
+    return {
+      text: `MAINTIENS LE ${COLOR_LABEL[target]}`,
+      phrase: { cle: "tiensCouleur", couleur: target },
+      colorWord: target,
+      specs,
+      want: { kind: "hold", idx },
+    };
+  },
+};
+
+/**
+ * GLISSER — « GLISSE LE ROUGE SUR LE BLEU ».
+ *
+ * Appuyer sur une pièce, lever sur une autre. Les deux couleurs nommées
+ * n'existent qu'une fois chacune : les autres pièces prennent les deux
+ * couleurs restantes, donc ni la prise ni la pose ne sont ambiguës.
+ */
+const glisse: Instruction = {
+  id: "glisse",
+  minLevel: 6,
+  weight: 2,
+  touch: true,
+  gen(rng, level) {
+    const n = Math.max(2, fillCount(rng, level, 3));
+    const from = rInt(rng, n);
+    const to = (from + 1 + rInt(rng, n - 1)) % n;
+    const a = rPick(rng, COLOR_IDS);
+    const b = rPick(rng, others(COLOR_IDS, a));
+    const pool = COLOR_IDS.filter((c) => c !== a && c !== b);
+    const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+    specs[from]!.color = a;
+    specs[to]!.color = b;
+    return {
+      text: `GLISSE LE ${COLOR_LABEL[a]} SUR LE ${COLOR_LABEL[b]}`,
+      phrase: { cle: "glisseCouleur", couleur: a, couleur2: b },
+      colorWord: a,
+      specs,
+      want: { kind: "drag", from, to },
+    };
+  },
+};
+
+/** Le double appui du solo, par la couleur seulement — voir `INSTRUCTIONS_SOLO`. */
+function doubleTapCouleur(rng: Rng, level: number) {
+  const n = fillCount(rng, level, 3);
+  const idx = rInt(rng, n);
+  const target = rPick(rng, COLOR_IDS);
+  const pool = others(COLOR_IDS, target);
+  const specs = fill(rng, n, () => spec(rPick(rng, SHAPE_IDS), rPick(rng, pool), rollSize(rng)));
+  specs[idx]!.color = target;
+  return {
+    text: `CLIQUE DEUX FOIS LE ${COLOR_LABEL[target]}`,
+    phrase: { cle: "deuxFoisCouleur", couleur: target },
+    colorWord: target,
+    specs,
+    want: { kind: "sequence" as const, idxs: [idx, idx] },
+  };
+}
+
 export const INSTRUCTIONS: Instruction[] = [
   clickColor,
   clickShape,
@@ -601,16 +688,69 @@ export const TOUCH_INSTRUCTIONS: Instruction[] = INSTRUCTIONS.filter((i) => i.to
  * front et salons se déploient séparément, et un serveur qui ne les connaît
  * pas jugerait une autre manche que celle affichée.
  */
-export const CONSIGNES_MULTI: Instruction[] = [doubleTap];
+export const CONSIGNES_MULTI: Instruction[] = [doubleTap, tiens, glisse];
+
+/**
+ * La version de consignes à partir de laquelle chacune sort.
+ *
+ * ⚠️ Un salon en version 2 doit tirer EXACTEMENT ce qu'il tirait avant
+ * MAINTENIR et GLISSER : `poolMulti` filtre sur cette table, et
+ * `tests/double-appui.test.ts` compare graine par graine.
+ */
+export const VERSION_DE_CONSIGNE: Readonly<Record<string, number>> = {
+  doubleTap: 2,
+  tiens: 3,
+  glisse: 3,
+};
 
 /**
  * La version du jeu de consignes que CE code sait reconstruire.
  *
- * 1 = le catalogue d'origine ; 2 = plus `CONSIGNES_MULTI`. Un client l'annonce
+ * 1 = le catalogue d'origine ; 2 = plus le double appui ; 3 = plus MAINTENIR
+ * et GLISSER (`VERSION_DE_CONSIGNE`). Un client l'annonce
  * dans son `hello`, le serveur retient le minimum de la table et du sien. On
  * ne la DÉCRÉMENTE jamais, et chaque ajout à `CONSIGNES_MULTI` la fait monter.
  */
-export const CONSIGNES_VERSION = 2;
+export const CONSIGNES_VERSION = 3;
+
+/**
+ * LE CATALOGUE DU SOLO — le catalogue d'origine plus les consignes du multi.
+ *
+ * ⚠️ Le double appui du solo ne désigne que des COULEURS : sa variante
+ * « CLIQUE DEUX FOIS LE ROND » vise une forme unique, donc un piège garanti
+ * sous LE SOLITAIRE (28,2 % mesuré, au-delà du plafond). Celui des salons
+ * garde les deux variantes — il est déjà négocié en version 2, et changer son
+ * tirage ferait diverger un client d'hier.
+ *
+ * Ouvert au solo sur directive de Pierre (« met les nouvelles consignes en
+ * déploiement »). ⚠️ `INSTRUCTIONS` NE BOUGE PAS : c'est la base que le multi
+ * négocie (`poolMulti`, version 1) et celle où LE MENTEUR emprunte ses phrases
+ * — la toucher changerait les manches de tous les salons, y compris ceux d'un
+ * client d'hier. Le solo a donc son propre catalogue, et `VERSION_CONTENU` se
+ * calcule sur lui : les records d'entraînement repartent d'une clé neuve, coût
+ * annoncé et accepté.
+ */
+export const INSTRUCTIONS_SOLO: Instruction[] = [
+  ...INSTRUCTIONS,
+  /*
+   * ⚠️ AU POIDS 1, pas 2. Ces trois consignes désignent une pièce UNIQUE —
+   * donc elles piègent plus souvent qu'une consigne moyenne sous LA POINTE,
+   * LA ROUE et LE SOLITAIRE. Mesuré (120 runs × 45 manches) : au poids 2, LE
+   * SOLITAIRE montait à 29,1 %, LA POINTE à 28,6 %, au-delà du plafond de
+   * 28 % que `tests/engine.test.ts` garde. Le multi garde ses poids : il
+   * négocie ses tirages, les changer casserait les salons mixtes.
+   */
+  ...CONSIGNES_MULTI.map((i) => ({
+    ...i,
+    // GLISSER touche DEUX pièces : il piège deux fois plus souvent (LA ROUE
+    // montait à 28,4 % au poids 1).
+    weight: i.id === "glisse" ? 0.5 : 1,
+    ...(i.id === "doubleTap" ? { gen: doubleTapCouleur } : {}),
+  })),
+];
+
+/** Le catalogue du solo au doigt. */
+export const TOUCH_INSTRUCTIONS_SOLO: Instruction[] = INSTRUCTIONS_SOLO.filter((i) => i.touch);
 
 /** Toutes les consignes écrites — pour les tests qui doivent les couvrir toutes. */
 export const TOUTES_LES_CONSIGNES: Instruction[] = [...INSTRUCTIONS, ...CONSIGNES_MULTI];

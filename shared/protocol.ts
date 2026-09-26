@@ -476,7 +476,14 @@ export type ClientMsg =
       action:
         | { k: "c"; i: number | null }
         | { k: "k"; key: string }
-        | { k: "r"; key: string };
+        | { k: "r"; key: string }
+        /**
+         * Le LEVER du doigt, sur la pièce `i` (ou dans le vide). N'a de sens
+         * que pour MAINTENIR et GLISSER, que seuls les salons en version de
+         * consignes ≥ 3 tirent : un serveur ancien ne le recevra donc jamais
+         * d'une manche qu'il ne sait pas juger. `PROTOCOL_VERSION` ne bouge pas.
+         */
+        | { k: "l"; i: number | null };
     };
 
 /* ------------------------------------------------------------------ *

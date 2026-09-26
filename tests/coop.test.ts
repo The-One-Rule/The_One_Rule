@@ -123,7 +123,9 @@ function matchAvecCible(
 
 describe("invariants du lot", () => {
   it("VERSION_CONTENU ne bouge pas", () => {
-    expect(VERSION_CONTENU).toBe("5m4fgw");
+    // `1h63n7k` depuis l'ouverture au solo du double appui, de MAINTENIR et GLISSER
+    // (directive de Pierre) : les records d'entraînement repartent d'une clé neuve.
+    expect(VERSION_CONTENU).toBe("1h63n7k");
   });
 
   it("PROTOCOL_VERSION reste à 1", () => {

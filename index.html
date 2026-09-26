@@ -111,10 +111,6 @@
       <div id="heat" aria-hidden="true">
         <div class="heat__vignette"></div>
         <div class="heat__frame"></div>
-        <!-- LES FLAMMES. Un feu pixel autour du terrain, qui monte avec la
-             partie (`render/flammes.ts`). Le terrain, la consigne, le nom de
-             la règle et le pied sont des zones où il ne brûle JAMAIS. -->
-        <canvas class="heat__flammes hidden" id="flammes"></canvas>
       </div>
 
       <!-- LA RÈGLE UNIQUE.
@@ -996,20 +992,6 @@
             <!-- « QUÊTES VALIDÉES · +30 PIÈCES » ne disait pas LESQUELLES : la
                  seule page qui les montrait était l'accueil, qu'on ne revoit
                  qu'en quittant. La liste vit ici, au moment où elle bouge. -->
-            <div class="over__chiffres" id="overChiffres">
-              <div class="over__cel">
-                <b id="overChQuetes"></b>
-                <span data-i18n="fin.labQuetes">QUESTS</span>
-              </div>
-              <div class="over__cel">
-                <b id="overChSerie"></b>
-                <span data-i18n="fin.labSerie">STREAK</span>
-              </div>
-              <div class="over__cel">
-                <b id="overChCarnet"></b>
-                <span data-i18n="fin.labCarnet">CODEX</span>
-              </div>
-            </div>
             <p class="eyebrow" data-i18n="fin.quetes">TODAY'S QUESTS</p>
             <div class="quests" id="overQuests"></div>
             <!-- TROIS CHIFFRES, D'UN COUP D'OEIL — quetes, serie, carnet.
@@ -1370,64 +1352,68 @@
            l'ecran de fin. Rien d'autre n'est affiche, parce que rien d'autre
            n'est vrai. -->
       <section class="screen hidden" id="classement">
-        <div class="screen__scroll">
-          <p class="eyebrow" data-i18n="mur.eyebrow">LEADERBOARD</p>
-          <h2 class="rulename" data-i18n="mur.titre">THE WALL OF RECORDS</h2>
-
-          <!-- LE RECORD A BATTRE, et son epreuve. Un score sans son mode est
-               un chiffre faux : `render/but.ts` porte cette priorite. -->
-          <div class="mur__cible">
-            <p class="mur__kicker" id="murCibleQuoi"></p>
-            <p class="mur__gros" id="murCibleVal">—</p>
-            <p class="mur__note" id="murCibleNote"></p>
+        <!-- LE MUR DES RECORDS.
+             Rapporté par Pierre : « pas de réel classement, il est mal
+             présenté ». Il posait en grand un 201 figé à la main au-dessus d'un
+             « TON MIEUX · — » vide. Trois blocs désormais, et chacun dit son
+             épreuve : le RUN DU JOUR (le même pour tous, rejoué par le
+             serveur), tes AMIS, et TES RECORDS. -->
+        <div class="screen__scroll screen__scroll--wide mur">
+          <div class="mur__tete">
+            <p class="eyebrow" data-i18n="mur.eyebrow">LEADERBOARD</p>
+            <h2 class="rulename" data-i18n="mur.titre">THE WALL OF RECORDS</h2>
           </div>
 
-          <!-- TON MIEUX, et la distance. La jauge est DECORATIVE : la phrase
-               dit le meme fait en chiffres, donc rien ne se perd si le
-               mouvement est coupe. -->
-          <div class="mur__moi">
-            <p class="mur__kicker" data-i18n="mur.tonMieux">YOUR BEST</p>
-            <p class="mur__mien" id="murMien">—</p>
-            <div class="mur__jauge" aria-hidden="true"><i id="murJauge"></i></div>
-            <p class="mur__ecart" id="murEcart"></p>
-          </div>
-
-          <!-- LE PODIUM DU JOUR — meme rendu que l'ecran de fin, meme route.
-               Il SE TAIT plutot que de montrer un cadre vide. -->
-          <div class="podium hidden" id="murPodium">
-            <p class="eyebrow" data-i18n="podium.titre">TODAY'S BEST</p>
-            <ol class="podium__liste" id="murPodiumListe"></ol>
-            <p class="podium__moi" id="murPodiumMoi"></p>
-          </div>
-
-          <!-- LES AMIS. Un cercle qu'on se donne à l'oral, par un code — comme
-               un salon. On n'y compare que du REJOUÉ : le run du jour, le
-               même pour tout le monde (décision n°14). Le bloc se TAIT dans un
-               déploiement sans comptes, comme le podium. -->
-          <div class="amis hidden" id="murAmis">
-            <p class="eyebrow" data-i18n="amis.titre">YOUR FRIENDS</p>
-            <div class="amis__anon hidden" id="amisAnon">
-              <p class="fineprint" data-i18n="amis.anon">SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.</p>
-              <button type="button" class="btn" id="btnAmisCompte" data-i18n="amis.connecter">SIGN IN</button>
+          <div class="col mur__col">
+            <div class="mur__bloc" id="murJour">
+              <p class="eyebrow" id="murJourTitre"></p>
+              <p class="mur__regle" id="murJourRegle"></p>
+              <!-- Le podium se TAIT plutôt que de montrer un cadre vide. -->
+              <div class="podium hidden" id="murPodium">
+                <ol class="podium__liste" id="murPodiumListe"></ol>
+                <p class="podium__moi" id="murPodiumMoi"></p>
+              </div>
+              <p class="mur__mien" id="murJourMien"></p>
+              <button class="btn btn--primary" id="btnMurJouer" data-i18n="mur.tenter">PLAY THE DAILY RUN</button>
             </div>
-            <div class="amis__connecte hidden" id="amisConnecte">
-              <p class="amis__code">
-                <span class="amis__codequoi" data-i18n="amis.tonCode">YOUR CODE</span>
-                <b class="amis__codeval" id="amisCode">······</b>
-                <button type="button" class="btn btn--ghost amis__copier" id="btnAmisCopier" data-i18n="amis.copier">COPY</button>
-              </p>
-              <form class="amis__ajout" id="amisForm" autocomplete="off">
-                <input class="field amis__saisie" id="amisSaisie" type="text" maxlength="9" spellcheck="false" autocapitalize="characters" placeholder="FRIEND'S CODE" data-i18n-ph="amis.ph" aria-label="FRIEND'S CODE" data-i18n-aria="amis.ph" />
-                <button type="submit" class="btn" id="btnAmisAjoute" data-i18n="amis.ajoute">ADD</button>
-              </form>
-              <p class="warn hidden" id="amisErr"></p>
-              <ol class="amis__liste" id="amisListe"></ol>
-              <p class="fineprint" id="amisNote"></p>
+
+            <!-- LES AMIS. Un cercle qu'on se donne à l'oral, par un code — comme
+                 un salon. On n'y compare que du REJOUÉ : le run du jour, le
+                 même pour tout le monde (décision n°14). Le bloc se TAIT dans un
+                 déploiement sans comptes, comme le podium. -->
+            <div class="amis hidden" id="murAmis">
+              <p class="eyebrow" data-i18n="amis.titre">YOUR FRIENDS</p>
+              <div class="amis__anon hidden" id="amisAnon">
+                <p class="fineprint" data-i18n="amis.anon">SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.</p>
+                <button type="button" class="btn" id="btnAmisCompte" data-i18n="amis.connecter">SIGN IN</button>
+              </div>
+              <div class="amis__connecte hidden" id="amisConnecte">
+                <p class="amis__code">
+                  <span class="amis__codequoi" data-i18n="amis.tonCode">YOUR CODE</span>
+                  <b class="amis__codeval" id="amisCode">······</b>
+                  <button type="button" class="btn btn--ghost amis__copier" id="btnAmisCopier" data-i18n="amis.copier">COPY</button>
+                </p>
+                <form class="amis__ajout" id="amisForm" autocomplete="off">
+                  <input class="field amis__saisie" id="amisSaisie" type="text" maxlength="9" spellcheck="false" autocapitalize="characters" placeholder="FRIEND'S CODE" data-i18n-ph="amis.ph" aria-label="FRIEND'S CODE" data-i18n-aria="amis.ph" />
+                  <button type="submit" class="btn" id="btnAmisAjoute" data-i18n="amis.ajoute">ADD</button>
+                </form>
+                <p class="warn hidden" id="amisErr"></p>
+                <ol class="amis__liste" id="amisListe"></ol>
+                <p class="fineprint" id="amisNote"></p>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="col mur__col">
+            <div class="mur__bloc">
+              <p class="eyebrow" data-i18n="mur.records">YOUR RECORDS</p>
+              <ol class="records" id="murRecords"></ol>
+              <p class="mur__vide hidden" id="murRecordsVide" data-i18n="mur.recordsVide">Your first run puts your number here.</p>
             </div>
           </div>
 
-          <div class="btnrow">
-            <button class="btn btn--primary" id="btnMurJouer" data-i18n="mur.tenter">GO FOR IT</button>
+          <div class="mur__pied">
             <button class="btn btn--ghost" id="btnMurBack" data-i18n="commun.retour">BACK</button>
           </div>
         </div>
@@ -1439,8 +1425,50 @@
            salon n'en dépend : c'est une couche au-dessus de l'identité, pas un
            préalable. -->
       <section class="screen hidden" id="compte">
-        <div class="screen__scroll">
-          <p class="eyebrow" data-i18n="compte.eyebrow">ACCOUNT</p>
+        <div class="screen__scroll profil">
+          <p class="eyebrow" data-i18n="profil.eyebrow">PROFILE</p>
+
+          <!-- QUI TU ES — ce que les autres voient de toi, sur UNE carte.
+               Rapporté par Pierre : « c'est quand on clique sur changer de nom
+               qu'on peut changer sa photo de profil ». La photo et la carte de
+               visite vivaient cachées derrière l'écran NOM ET SIGNE du multi.
+               Elles sont ici, à découvert, et l'écran se tient SANS compte :
+               un profil n'est pas un compte (décision n°12). -->
+          <div class="profil__tete">
+            <!-- L'avatar EST l'aperçu de la photo : un seul visage par écran. -->
+            <span class="profil__avatar" id="idPhotoApercu" aria-hidden="true"></span>
+            <div class="profil__qui">
+              <p class="profil__nom" id="profilNom"></p>
+              <p class="profil__via" id="profilVia"></p>
+            </div>
+            <button class="btn profil__modifier" id="btnCompteNom" data-i18n="compte.nom">NAME AND SIGN</button>
+          </div>
+
+          <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
+               collection ne dévoile pas une règle jamais rencontrée (n°7), et
+               un choix qui se débloque en jouant est une raison de jouer.
+               Elle habille le siège, la plaque et la ligne du classement :
+               c'est ce qui fait reconnaître un joueur sans lire son nom. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.carte">YOUR CARD</p>
+          <div class="cartepick" id="idCartes" role="radiogroup" aria-label="YOUR CARD" data-i18n-aria="profil.carte"></div>
+          <p class="fineprint" data-i18n="profil.carteAide">WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.</p>
+
+          <!-- LA PHOTO. Réduite à 96 × 96 PAR LE CLIENT avant d'être gardée
+               ou envoyée (`render/photo.ts`) : la pleine résolution ne quitte
+               jamais l'appareil. -->
+          <p class="eyebrow profil__titre" data-i18n="profil.photo">YOUR PHOTO</p>
+          <div class="photopick">
+            <label class="btn photopick__choisir" for="idPhotoFichier" data-i18n="profil.photoChoisir">CHOOSE A PHOTO</label>
+            <input class="photopick__fichier" id="idPhotoFichier" type="file" accept="image/*" />
+            <button type="button" class="btn btn--ghost hidden" id="btnPhotoRetirer" data-i18n="profil.photoRetirer">REMOVE</button>
+          </div>
+          <p class="fineprint" data-i18n="profil.photoAide">ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.</p>
+          <p class="warn hidden" id="profilErr"></p>
+
+          <!-- LE COMPTE — sous le profil, et seulement s'il existe sur ce
+               déploiement : sans fournisseur, la section se tait entière. -->
+          <div class="profil__compte" id="profilCompte">
+          <p class="eyebrow profil__titre" data-i18n="compte.eyebrow">ACCOUNT</p>
           <h2 class="rulename" id="compteTitre">SAVE YOUR RUNS</h2>
           <p class="lede" id="compteLede"></p>
 
@@ -1457,17 +1485,6 @@
 
           <!-- Connecté : qui l'on est, et ce que le compte porte. -->
           <div class="account__on hidden" id="compteConnecte">
-            <!-- L'IDENTITE : le signe, le nom, le fournisseur. Le signe est ce
-                 a quoi les autres reconnaissent le joueur en salon — il vient
-                 avant le nom. -->
-            <div class="cpt__tete">
-              <div class="cpt__signe" id="cptSigne" aria-hidden="true"></div>
-              <div class="cpt__qui">
-                <p class="cpt__nom" id="cptNom"></p>
-                <p class="cpt__via" id="cptVia"></p>
-              </div>
-            </div>
-
             <!-- Quatre chiffres, et aucun n'est un jugement. -->
             <div class="cpt__grille" id="cptGrille"></div>
 
@@ -1492,13 +1509,6 @@
 
             <div class="account" id="compteIdentite"></div>
             <div class="btnrow btnrow--tight">
-              <!-- CHANGER DE NOM.
-                   Rapporte par un joueur : « impossible de changer nom apres
-                   connexion ». Le nom n'etait saisissable que sur le chemin du
-                   multijoueur, donc un joueur solo n'en avait aucun et personne
-                   ne pouvait revenir sur le sien. Ce bouton rouvre l'ecran NOM
-                   ET SIGNE deja existant plutot que d'en dupliquer un ici. -->
-              <button class="btn" id="btnCompteNom" data-i18n="compte.nom">CHANGE NAME</button>
               <button class="btn btn--ghost" id="btnCompteQuitter" data-i18n="compte.deconnexion">SIGN OUT</button>
               <!-- Deux temps, jamais un seul : le premier clic dit ce qui va
                    disparaître, le second le fait. Un bouton de suppression qui
@@ -1506,6 +1516,7 @@
               <button class="btn btn--ghost" id="btnCompteSupprimer" data-i18n="compte.supprimer">DELETE ACCOUNT</button>
             </div>
             <p class="warn hidden" id="compteDanger"></p>
+          </div>
           </div>
 
           <div class="btnrow">
@@ -1545,26 +1556,6 @@
                personne ne pouvait le deviner. -->
           <p class="fineprint" data-i18n="multi.signeVoyage">YOUR SIGN TRAVELS IN YOUR ACCOUNT TOKEN: IT SURVIVES A CHANGE OF DEVICE.</p>
 
-          <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
-               collection ne dévoile pas une règle jamais rencontrée (n°7), et
-               un choix qui se débloque en jouant est une raison de jouer.
-               Elle habille le siège, la plaque et la ligne du classement :
-               c'est ce qui fait reconnaître un joueur sans lire son nom. -->
-          <p class="eyebrow profil__titre" data-i18n="profil.carte">YOUR CARD</p>
-          <div class="cartepick" id="idCartes" role="radiogroup" aria-label="YOUR CARD" data-i18n-aria="profil.carte"></div>
-          <p class="fineprint" data-i18n="profil.carteAide">WIN MORE CARDS BY PLAYING: EACH ONE CAN REPRESENT YOU.</p>
-
-          <!-- LA PHOTO. Réduite à 96 × 96 PAR LE CLIENT avant d'être gardée
-               ou envoyée (`render/photo.ts`) : la pleine résolution ne quitte
-               jamais l'appareil. -->
-          <p class="eyebrow profil__titre" data-i18n="profil.photo">YOUR PHOTO</p>
-          <div class="photopick">
-            <span class="photopick__apercu" id="idPhotoApercu" aria-hidden="true"></span>
-            <label class="btn photopick__choisir" for="idPhotoFichier" data-i18n="profil.photoChoisir">CHOOSE A PHOTO</label>
-            <input class="photopick__fichier" id="idPhotoFichier" type="file" accept="image/*" />
-            <button type="button" class="btn btn--ghost hidden" id="btnPhotoRetirer" data-i18n="profil.photoRetirer">REMOVE</button>
-          </div>
-          <p class="fineprint" data-i18n="profil.photoAide">ONLY THE PLAYERS OF YOUR ROOMS SEE IT. EVERYONE CAN HIDE OTHERS' PHOTOS IN SETTINGS.</p>
           <p class="warn hidden" id="idErr"></p>
           <div class="btnrow">
             <button class="btn btn--primary" id="btnIdOk" data-i18n="multi.continuer">CONTINUE</button>

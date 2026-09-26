@@ -13,7 +13,6 @@ import {
   appliqueLangue,
   estLang,
   etatSolo,
-  libelleCompte,
   TEXTES,
   CHAINES,
   DYNAMIQUES,
@@ -144,12 +143,6 @@ describe("libellés dérivés", () => {
     expect(en).toBe("DAILY RUN DONE · 12");
   });
 
-  it("le compte anonyme et le compte sans pseudo ont chacun leur mot", () => {
-    expect(libelleCompte("fr", null)).toBe("COMPTE");
-    expect(libelleCompte("en", null)).toBe("ACCOUNT");
-    expect(libelleCompte("fr", "")).toBe("MON COMPTE");
-    expect(libelleCompte("en", "PIERRE")).toBe("PIERRE");
-  });
 });
 
 /* ------------------------------------------------------------------ *

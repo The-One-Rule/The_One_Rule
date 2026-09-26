@@ -54,16 +54,19 @@ export function familleDe(r: OneRule): Famille {
  * LE GAUCHER). Ce sont celles d'un catalogue antérieur : les quatre règles
  * ajoutées depuis ont changé la distribution des consignes. Ce sont ces
  * chiffres-ci qui sont vrais aujourd'hui.
+ *
+ * Remesurés à l'ouverture au solo du double appui, de MAINTIENS et de GLISSE :
+ * la table suit le catalogue SOLO (`INSTRUCTIONS_SOLO`), celui qu'on joue.
  */
 export const TAUX_PIEGE: Record<string, number> = {
-  sang: 21.8,
-  azur: 21.9,
-  pointe: 26.4,
-  roue: 26.8,
-  solitaire: 27.6,
-  angles: 24.4,
-  voyelle: 10.7,
-  colosse: 13.0,
+  sang: 22.7,
+  azur: 22.4,
+  pointe: 27.2,
+  roue: 27.4,
+  solitaire: 27.4,
+  angles: 24.8,
+  voyelle: 9.6,
+  colosse: 13.6,
   gaucher: 19.6,
   seconde: 0,
   eclair: 0,

@@ -1155,7 +1155,7 @@ wss.on("connection", (ws) => {
         // Rien de ce qui suit n'est garanti par `decodeClient` : il ne vérifie
         // que la présence d'un `t`. Un `action` absent levait ici même.
         const a = msg.action as Partial<{ k: string; i: unknown; key: unknown }> | undefined;
-        if (!a || (a.k !== "c" && a.k !== "k" && a.k !== "r")) return;
+        if (!a || (a.k !== "c" && a.k !== "k" && a.k !== "r" && a.k !== "l")) return;
 
         // `ents[i]` avec un i non entier peut remonter une propriété héritée
         // (« __proto__ » renvoie un objet, que `?? null` ne rattrape pas).
@@ -1190,11 +1190,13 @@ wss.on("connection", (ws) => {
          * aucune règle de zone ne se déclenche et le verdict honnête —
          * « TU AS CLIQUÉ DANS LE VIDE » — reprend la main.
          */
-        const ent = a.k === "c" ? match.entityOf(client.id, i) : null;
+        const ent = a.k === "c" || a.k === "l" ? match.entityOf(client.id, i) : null;
+        // Le LEVER (MAINTENIR, GLISSER) se reconstruit comme le clic : depuis
+        // l'entité, jamais depuis un point que le client annoncerait.
         const action =
-          a.k === "c"
+          a.k === "c" || a.k === "l"
             ? {
-                kind: "click" as const,
+                kind: a.k === "c" ? ("click" as const) : ("lift" as const),
                 ent,
                 x: ent ? ent.x : Number.NaN,
                 y: ent ? ent.y : Number.NaN,

@@ -1,6 +1,6 @@
 import { pickInstruction } from "./instructions";
 import { place } from "./scene";
-import { FORCED_TRAP_ROUNDS, fenetreAllure, plancherParGeste, windowForSteps } from "./difficulty";
+import { FORCED_TRAP_ROUNDS, HOLD_MS, fenetreAllure, plancherParGeste, poidsGestes, windowForSteps } from "./difficulty";
 import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
@@ -18,6 +18,13 @@ export function compile(want: Want): Step[] {
       return [{ kind: "key", key: want.key }];
     case "sequence":
       return want.idxs.map((idx) => ({ kind: "click", idx }) as Step);
+    case "hold":
+      return [{ kind: "hold", idx: want.idx, ms: HOLD_MS }];
+    case "drag":
+      return [
+        { kind: "click", idx: want.from },
+        { kind: "drop", idx: want.to },
+      ];
   }
 }
 
@@ -107,7 +114,7 @@ export function buildRound(
     originalWant: trap ? want : undefined,
     // Le temps suit le travail demandé : une séquence de trois clics n'est pas
     // une manche à un clic. Un piège n'en demande aucun, donc rien à ajouter.
-    durationMs: Math.round(fenetreAllure(windowForSteps(level, steps.length), pace)),
+    durationMs: Math.round(fenetreAllure(windowForSteps(level, poidsGestes(steps)), pace)),
   };
 
   if (rule.transform) round = rule.transform(round, rng, level);
@@ -116,5 +123,5 @@ export function buildRound(
    * compte intenable, et une regle ne connait pas les autres. Voir
    * `plancherParGeste`.
    */
-  return { ...round, durationMs: plancherParGeste(round.durationMs, round.steps.length) };
+  return { ...round, durationMs: plancherParGeste(round.durationMs, poidsGestes(round.steps)) };
 }
