@@ -4571,6 +4571,8 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     seed,
     ruleId,
     inputs: log,
+    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+    catalogue: 2,
     opponentScore: ranked?.opponent?.score,
     opponentRating: ranked?.opponent?.rating,
   });
@@ -4818,6 +4820,7 @@ function finishRun(): void {
       valeur2: duree,
       // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
       capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+      catalogue: 2,
     });
     /*
      * Le run qui vient de finir a pu prendre la tête du classement : la valeur
@@ -5642,7 +5645,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
 
 /** Le geste en cours, complété de la position du doigt pour un glisser. */
 function gesteAffiche(): GesteAffiche | null {
-  const g = multi.geste();
+  const g = session ? session.geste(performance.now()) : multi.geste();
   if (!g) return null;
   if (g.kind === "hold") return g;
   return { kind: "drag", idx: g.idx, x: doigt?.x ?? null, y: doigt?.y ?? null };
@@ -5663,8 +5666,7 @@ let doigt: { x: number; y: number } | null = null;
 /** Route une action vers le multi si un match est actif (et pas de run solo). */
 function sendOrMulti(action: Action): void {
   if (session) {
-    // Le solo ne demande ni maintien ni glisser : un lever n'y dit rien.
-    if (action.kind !== "lift") send(action);
+    send(action);
     return;
   }
   if (!multi.isPlayingMulti()) return;
@@ -5707,6 +5709,8 @@ $("cv").addEventListener("pointerdown", (ev) => {
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    captureDoigt(e);
+    doigt = { x, y };
     send({ kind: "click", ent, x, y });
     return;
   }
@@ -5718,16 +5722,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
-    /*
-     * ⚠️ LA CAPTURE : un glisser qui sort du canvas doit encore LEVER sur lui.
-     * Sans elle, le `pointerup` tombe sur un autre élément, le lever n'est
-     * jamais envoyé, et la manche expire sur « séquence inachevée ».
-     */
-    try {
-      (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    } catch {
-      /* un navigateur sans capture joue quand même */
-    }
+    captureDoigt(e);
     doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
   }
@@ -5739,8 +5734,8 @@ $("cv").addEventListener("pointerdown", (ev) => {
  */
 function leve(ev: Event): void {
   doigt = null;
-  if (!multi.isPlayingMulti()) return;
-  const round = multi.peekRound();
+  const round =
+    session?.phase === "playing" ? session.round : multi.isPlayingMulti() ? multi.peekRound() : null;
   if (!round) return;
   const e = ev as PointerEvent;
   const { x, y } = scene.toField(e.clientX, e.clientY);
@@ -5748,14 +5743,28 @@ function leve(ev: Event): void {
   lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
   sendOrMulti({ kind: "lift", ent, x, y });
 }
+
+/**
+ * ⚠️ LA CAPTURE : un glisser qui sort du canvas doit encore LEVER sur lui.
+ * Sans elle, le `pointerup` tombe sur un autre élément, le lever n'est jamais
+ * envoyé, et la manche expire sur « séquence inachevée ».
+ */
+function captureDoigt(e: PointerEvent): void {
+  try {
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+  } catch {
+    /* un navigateur sans capture joue quand même */
+  }
+}
 $("cv").addEventListener("pointerup", leve);
 $("cv").addEventListener("pointercancel", leve);
 
 $("cv").addEventListener("pointermove", (ev) => {
-  if (!multi.isPlayingMulti()) return;
+  const solo = session?.phase === "playing";
+  if (!solo && !multi.isPlayingMulti()) return;
   const { x, y } = scene.toField((ev as PointerEvent).clientX, (ev as PointerEvent).clientY);
   if (doigt) doigt = { x, y };
-  multi.sendCursor(x, y);
+  if (!solo) multi.sendCursor(x, y);
 });
 
 window.addEventListener("keydown", (e) => {
@@ -7018,6 +7027,7 @@ function loop(now: number): void {
       now,
       reveal: session.phase === "freeze" && !!session.round.trap,
       ratio: session.phase === "playing" ? session.ratio(now) : undefined,
+      geste: gesteAffiche(),
     });
   } else if (multiDraw) {
     scene.draw({
@@ -7399,7 +7409,16 @@ if (import.meta.env.DEV) {
         session!.rule.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round: r } as never) === null;
       for (const step of r.steps) {
         if (step.kind === "key") send({ kind: "key", key: step.key });
-        else {
+        else if (step.kind === "hold") {
+          // MAINTENIR : l'appui maintenant, le lever une fois le temps tenu.
+          const e = r.ents[step.idx]!;
+          send({ kind: "click", ent: e, x: e.x, y: e.y });
+          setTimeout(() => send({ kind: "lift", ent: e, x: e.x, y: e.y }), step.ms + 40);
+          return "hold";
+        } else if (step.kind === "drop") {
+          const e = r.ents[step.idx]!;
+          send({ kind: "lift", ent: e, x: e.x, y: e.y });
+        } else {
           const e =
             step.kind === "click"
               ? r.ents[step.idx]

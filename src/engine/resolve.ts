@@ -128,6 +128,18 @@ function avance(round: Round, step: number): { outcome: Outcome; progress: Round
   return { outcome: { kind: "pending" }, progress: next };
 }
 
+/**
+ * Un lever répondrait-il à quelque chose à cet instant ?
+ *
+ * Vrai pour conclure un maintien commencé ou poser un glisser. Partout
+ * ailleurs `resolveAction` l'ignore — c'est ce qui permet au client de ne pas
+ * l'envoyer, et au solo de ne pas le journaliser.
+ */
+export function leverAttendu(round: Round, progress: RoundProgress): boolean {
+  const st = round.steps[progress.step];
+  return (st?.kind === "hold" && progress.holdAt !== undefined) || st?.kind === "drop";
+}
+
 /** Verdict quand la fenêtre expire sans que la manche soit résolue. */
 export function resolveTimeout(round: Round, progress: RoundProgress): Outcome {
   if (round.steps.length === 0) return { kind: "survive", trap: round.trap };

@@ -52,6 +52,8 @@ export interface Envoi {
    * elles sont rejouées comme avant.
    */
   capacites?: { clavier: boolean; maintien: boolean; encre: boolean };
+  /** Le catalogue de consignes du run (voir `RunClaim.catalogue`). */
+  catalogue?: number;
 }
 
 function lit(): Envoi[] {
@@ -205,7 +207,7 @@ async function videUne(): Promise<Resultat[]> {
       const res = await fetch(POINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
-        body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs, capacites: e.capacites }),
+        body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs, capacites: e.capacites, catalogue: e.catalogue }),
       });
       if (res.ok) {
         const r = (await res.json()) as Resultat;

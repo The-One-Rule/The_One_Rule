@@ -794,11 +794,29 @@ joueur au moment où il la choisit. Il vaut désormais `PHOTO_MAX + 1024`.
 ### MAINTENIR et GLISSER — deux gestes qui ne sont pas un clic (25/09/2026)
 
 Demandé par Pierre (« glisser, maintenir etc. »). « MAINTIENS LE ROUGE »
-(`tiens`, niveau 4) et « GLISSE LE ROUGE SUR LE BLEU » (`glisse`, niveau 6),
-tactiles, dans `CONSIGNES_MULTI` comme le double appui — **pour la même
-raison** : `VERSION_CONTENU` (`5m4fgw`) ne bouge pas. Les ouvrir au solo est
-une décision de Pierre, et demande en plus de journaliser le lever dans
-`Session.log` et `verifyRun` (voir le commentaire là-bas).
+(`tiens`, niveau 4, par la COULEUR seulement) et « GLISSE LE ROUGE SUR LE
+BLEU » (`glisse`, niveau 6), tactiles.
+
+⚠️ **OUVERTES AU SOLO le 26/09, sur directive de Pierre** (« met les nouvelles
+consignes en déploiement »), avec le double appui. `INSTRUCTIONS` NE BOUGE
+PAS — c'est la base du multi v1 et le réservoir de LE MENTEUR — : le solo a son
+catalogue, `INSTRUCTIONS_SOLO`, et `VERSION_CONTENU` se calcule sur lui :
+**`5m4fgw` → `1h63n7k`**, les records d'entraînement affichés repartent d'une
+clé neuve (coût annoncé). La revendication porte `catalogue: 2` (absent = 1,
+l'ancien catalogue : une file écrite avant se rejoue comme avant), le lever est
+journalisé (`{k:"l"}`) seulement quand `leverAttendu` dit qu'il répond à
+quelque chose.
+
+⚠️ **La calibration a fait trois coupes, toutes mesurées** (120 runs × 45
+manches, plafond 28 %) : aux poids d'origine, LE SOLITAIRE montait à **31,0 %**
+— le chiffre que ce dépôt tient pour mortel — parce qu'une consigne qui vise
+une FORME unique est un piège garanti sous lui. D'où : MAINTIENS par la couleur
+seulement ; le double appui du SOLO par la couleur seulement (celui des salons
+garde ses deux variantes, il est négocié en v2) ; poids 1 au solo, et 0,5 pour
+GLISSER, qui touche deux pièces (LA ROUE à 28,4 % au poids 1). Après : plus
+haute règle à 27,4 %. `TAUX_PIEGE` (fiche) remesurée sur le catalogue solo.
+Joué en vrai (Playwright, 375 × 812) : 5 runs sur 5 jusqu'à la manche 61, 10
+maintiens, 6 glisser, 6 doubles appuis.
 
 **Une seule action neuve : le LEVER** (`Action.lift`, `{k:"l", i}` sur le fil).
 L'appui reste un `click` — il arrive devant les règles et sur le fil comme
@@ -830,6 +848,17 @@ quand le lever sera accepté (`drawGeste`), et « TIENS JUSQU'AU VERT » sur la
 ligne des gestes ; un trait pointillé de la pièce prise au doigt. Le canvas
 capture le pointeur à l'appui : un glisser qui sort du terrain lève encore
 sur lui.
+
+### Le rejeu serveur jugeait les runs de téléphone sur d'AUTRES manches (26/09/2026)
+
+Trouvé en ouvrant les consignes au solo, antérieur à elles. Le téléphone tire
+dans le catalogue TACTILE et remplace une règle à maintien ; `verifyRun`
+rejouait dans le catalogue complet sous la règle brute. Mesuré sur 200 graines :
+divergence dès la manche 3 (au plus tard la 7), 200 sur 200 — **tout run du
+jour mobile avait un score vérifié faux**, donc podium et amis faux. La
+revendication porte `capacites: { clavier, maintien, encre }` (absent = clavier,
+comme avant). Reste une direction : la clé de comparabilité ne sépare pas
+téléphone et clavier, qui ne jouent pas les mêmes manches.
 
 ### Le double appui — première consigne neuve, multijoueur seulement (25/09/2026)
 

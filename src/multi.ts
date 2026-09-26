@@ -24,7 +24,7 @@ import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, IMPOSTEUR_MAX_ASIS, IMPOSTEU
 import { COOP_MAX_ASIS, COOP_MIN_JOUEURS, peutLancerCoop, needsDeVague, roundCoop, viesInitialesCoop } from "./engine/coop";
 import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
-import { resolveAction } from "./engine/resolve";
+import { leverAttendu, resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
 import { jetonPourSalon } from "./compte";
@@ -3490,12 +3490,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * doublerait le trafic pour rien — et un serveur d'une version antérieure
      * recevrait un message qu'il ne sait pas lire.
      */
-    if (action.kind === "lift") {
-      const st = match.round.steps[match.progress.step];
-      const attendu =
-        !match.localDone &&
-        ((st?.kind === "hold" && match.progress.holdAt !== undefined) || st?.kind === "drop");
-      if (!attendu) return { consumed: false };
+    if (action.kind === "lift" && (match.localDone || !leverAttendu(match.round, match.progress))) {
+      return { consumed: false };
     }
 
     if (match.modeCoop) {

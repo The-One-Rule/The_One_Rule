@@ -20,7 +20,7 @@
  * la même clé.
  */
 
-import { INSTRUCTIONS } from "./instructions";
+import { INSTRUCTIONS_SOLO } from "./instructions";
 import { ONE_RULES } from "./rules";
 import { DAILY_LENGTH, GRACE_ROUNDS, STEP_MS, windowMs } from "./difficulty";
 
@@ -85,4 +85,6 @@ export function calculeVersion(
  * Courte à dessein : elle voyage dans chaque clé de comparabilité, donc dans
  * chaque ligne de performance stockée. Sept caractères au plus.
  */
-export const VERSION_CONTENU: string = calculeVersion(ONE_RULES, INSTRUCTIONS);
+// Sur le catalogue du SOLO : c'est lui que jouent les runs dont on garde les
+// records. Voir `INSTRUCTIONS_SOLO`.
+export const VERSION_CONTENU: string = calculeVersion(ONE_RULES, INSTRUCTIONS_SOLO);

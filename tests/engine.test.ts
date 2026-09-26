@@ -3,6 +3,7 @@ import { mulberry32 } from "../src/engine/rng";
 import { MAX_ENTITIES, place } from "../src/engine/scene";
 import { INSTRUCTIONS, pickInstruction } from "../src/engine/instructions";
 import { ONE_RULES, uniqueBiggest } from "../src/engine/rules";
+import { INSTRUCTIONS_SOLO } from "../src/engine/instructions";
 import { buildRound, compile } from "../src/engine/round";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import { FIELD_H, FIELD_W } from "../src/engine/types";
@@ -132,7 +133,9 @@ describe("règles uniques", () => {
       for (let run = 0; run < 120; run++) {
         const rng = mulberry32(run * 7919 + 13);
         for (let level = 0; level < 45; level++) {
-          const round = buildRound(rng, level, rule);
+          // Le catalogue réellement joué en solo (double appui, MAINTENIR,
+          // GLISSER compris) : mesurer l'ancien donnerait un chiffre faux.
+          const round = buildRound(rng, level, rule, INSTRUCTIONS_SOLO);
           stats[rule.id]!.rounds++;
           if (round.trap) stats[rule.id]!.traps++;
         }
@@ -162,7 +165,7 @@ describe("règles uniques", () => {
     for (const rule of ONE_RULES) {
       const rng = mulberry32(rule.id.length * 99991 + 7);
       for (let level = 0; level < 45; level++) {
-        const round = buildRound(rng, level, rule);
+        const round = buildRound(rng, level, rule, INSTRUCTIONS_SOLO);
         if (round.trap) expect(round.steps.length, rule.name).toBe(0);
         expect(round.durationMs).toBeGreaterThan(400);
       }

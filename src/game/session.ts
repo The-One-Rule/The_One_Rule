@@ -1,5 +1,6 @@
 import { DAILY_LENGTH, GRACE_ROUNDS, isTierBoundary, pardonnable, tierOf } from "../engine/difficulty";
-import { INSTRUCTIONS, TOUCH_INSTRUCTIONS } from "../engine/instructions";
+import { leverAttendu } from "../engine/resolve";
+import { INSTRUCTIONS_SOLO, TOUCH_INSTRUCTIONS_SOLO } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
 import { pileA } from "../engine/escalade";
@@ -186,7 +187,7 @@ export class Session {
     this.grace = opts.grace ?? GRACE_ROUNDS;
     this.vies = opts.vies ?? 0;
     this.viesMax = this.vies;
-    this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS : INSTRUCTIONS;
+    this.pool = opts.touchOnly ? TOUCH_INSTRUCTIONS_SOLO : INSTRUCTIONS_SOLO;
     this.longueur = opts.longueur;
     this.forcePiege = opts.forcePiege;
     this.majRegle();
@@ -255,6 +256,20 @@ export class Session {
 
   elapsed(now: number): number {
     return now - this.roundStart;
+  }
+
+  /** Le geste en cours (MAINTENIR, GLISSER), pour que la scène le dessine. */
+  geste(now: number): { kind: "hold"; idx: number; progres: number } | { kind: "drag"; idx: number } | null {
+    if (this.phase !== "playing") return null;
+    const st = this.round.steps[this.progress.step];
+    if (st?.kind === "hold" && this.progress.holdAt !== undefined) {
+      return { kind: "hold", idx: st.idx, progres: (this.elapsed(now) - this.progress.holdAt) / st.ms };
+    }
+    if (st?.kind === "drop") {
+      const avant = this.round.steps[this.progress.step - 1];
+      if (avant?.kind === "click") return { kind: "drag", idx: avant.idx };
+    }
+    return null;
   }
 
   /** 0 → 1 sur la fenêtre de la manche courante. */
@@ -357,7 +372,9 @@ export class Session {
   input(action: Action, now: number): Outcome {
     if (this.phase !== "playing") return { kind: "pending" };
     if (action.kind === "key") this.usedKeyboard = true;
-    this.record(action, now);
+    // Un lever ne se journalise que s'il RÉPOND à quelque chose : chaque clic
+    // se lève aussi, et journaliser tous les levers doublerait le journal.
+    if (action.kind !== "lift" || leverAttendu(this.round, this.progress)) this.record(action, now);
 
     const { outcome, progress } = resolveAction(
       this.round,
@@ -390,14 +407,10 @@ export class Session {
       this.log.push({ t, k: "k", key: action.key });
     } else if (action.kind === "release") {
       this.log.push({ t, k: "r", key: action.key });
+    } else if (action.kind === "lift") {
+      // MAINTENIR et GLISSER : le lever conclut, `verifyRun` le rejoue.
+      this.log.push({ t, k: "l", i: action.ent ? action.ent.idx : null });
     }
-    /*
-     * ⚠️ Le LEVER n'est pas journalisé : aucune consigne du solo ne demande de
-     * maintenir ni de glisser (elles vivent dans `CONSIGNES_MULTI`), donc un
-     * lever y est toujours ignoré par `resolveAction` et le rejeu donne le
-     * même verdict sans lui. Ouvrir MAINTENIR ou GLISSER au solo demandera
-     * une ligne ici ET son pendant dans `verifyRun`.
-     */
   }
 
   /** Avance le temps. Retourne le verdict si la manche s'est conclue seule. */

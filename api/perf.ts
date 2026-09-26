@@ -227,6 +227,8 @@ export async function traite(
       maintien: cap.maintien !== false,
       encre: cap.encre !== false,
     },
+    // Seule valeur connue ; tout le reste vaut l'ancien catalogue.
+    catalogue: corps.catalogue === 2 ? 2 : undefined,
   };
 
   const v = verifyRun(claim);

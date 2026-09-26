@@ -72,6 +72,8 @@ export const submitRun = (payload: {
   seed: number;
   ruleId: string;
   inputs: LoggedInput[];
+  capacites?: { clavier: boolean; maintien: boolean; encre: boolean };
+  catalogue?: number;
   opponentScore?: number;
   opponentRating?: number;
 }): Promise<SubmitResult | null> => post<SubmitResult>("submit", payload);

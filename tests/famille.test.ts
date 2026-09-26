@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { TAUX_PIEGE, familleDe, parFamille, tauxPiege } from "../src/game/famille";
 import { ONE_RULES } from "../src/engine/rules";
+import { INSTRUCTIONS_SOLO } from "../src/engine/instructions";
 import { buildRound } from "../src/engine/round";
 import { mulberry32 } from "../src/engine/rng";
 
@@ -66,7 +67,7 @@ describe("le taux de piège affiché", () => {
         const rng = mulberry32(run * 7919 + 13);
         for (let level = 0; level < 45; level++) {
           rounds++;
-          if (buildRound(rng, level, rule).trap) traps++;
+          if (buildRound(rng, level, rule, INSTRUCTIONS_SOLO).trap) traps++;
         }
       }
       const mesure = Number(((traps / rounds) * 100).toFixed(1));
