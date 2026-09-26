@@ -775,6 +775,55 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### Le lot « téléphone vivant » (26/09/2026) — jamais vu par un joueur
+
+Directive de Pierre après une soirée entre amis : groupe 1 et 2 du téléphone,
+les amis, et surtout « le gameplay est encore trop statique … le potentiel de
+TOR c'est "MERDE ÇA VA TROP VITE" … l'intensité doit être GAGNÉE ».
+
+**L'intensité** (`render/intensite.ts`, pur, testé) = 40 % palier de la partie
++ 60 % SÉRIE (manches tenues d'affilée ; une faute la fait retomber). Mesuré
+au téléphone : 0,33 à la série 10, 0,78 à 20, 1 à 30. Tout ce qui en découle
+est du DESSIN : gerbe, onde, coup de poing du terrain (≤ 1,2 %, sous la marge
+du hit-test), « ×N », cadre épaissi dont les deux têtes brûlent, traînées dans
+les bandes vides, pièces qui battent avec le cœur, cascade à l'ouverture,
+consigne qui claque (transform seul, n°17). Débutant = rien de tout ça (testé).
+⚠️ **La mort est une RUPTURE** : éclair, terrain éteint, fissures déterministes
+(épaisseur plancher À L'ÉCRAN : l'échelle tombe à 0,46 au téléphone).
+`FREEZE_MS` 520 → 820 : hors jeu, le rejeu ne le voit pas. Le multi la reçoit
+sur le verdict SERVEUR (`MultiFx.mort` / `reussi`). **Jamais vu en salon
+réel** — seulement en solo, 50 manches jouées.
+
+- **Une seule horloge** au téléphone : `#timer` masqué (visibility). L'annonce
+  de palier vit DEBOUT dans la bande gauche (elle chevauchait la ligne des
+  gestes sur une consigne à deux lignes).
+- **Toucher la consigne ne tue plus** (debout) : ses enfants absorbent.
+- **Écran allumé** en partie et au salon (`eveil.ts`, Wake Lock).
+- **LA VOYELLE au doigt** remplacée (`withoutLetters`) ; `capacites.lettres`
+  dans la revendication, ABSENT = non remplacée. Le tirage d'entraînement
+  libre ne filtrait que le maintien : il reçoit `estJouableIci`.
+- **Le manifeste forçait le PAYSAGE** : `any`. Balises iOS, couleurs sable.
+  Invitation à installer (`game/installer.ts`) : une fois, après 3 parties,
+  jamais sur un écran déjà sollicité ; iOS seulement dans Safari.
+- Couché : COMMENCER et REJOUER collés en bas (au-dessus de la barre, 57 px).
+- **Style pixel** : pas r/7 — le rond différait du carré de 6 %, il diffère de 21 %.
+
+**Les amis** : AJOUTER envoie une DEMANDE (migration **0004**, à appliquer par
+Pierre) ; l'amitié naît de l'acceptation ; deux demandes croisées valent
+accord ; on n'accepte que ce qu'on a reçu ; un refus ne prévient personne ;
+une demande ne montre qu'un visage, aucun score (clés exactes testées).
+Écran `/amis` (demandes reçues d'abord, son code en grand, partage natif avec
+`/amis?code=…` qui PRÉ-REMPLIT sans demander) ; le mur et le profil n'en
+gardent qu'une porte ; pastille sur PROFIL. Les amitiés d'avant restent.
+
+**L'accueil se découvre** : un mode fermé ne s'affiche PAS (il paraît marqué
+NOUVEAU, `Save.modesVus`, ABSENT = déjà vus) ; une pastille à zéro se tait ;
+le chemin s'arrête au prochain chapitre fermé (2 550 → 914 px après une
+partie). Typographie : UN élément fort par bloc, le reste un palier en dessous
+(taille ET graisse ET couleur). Le chiffre du jour est un CHIFFRE, pas une
+phrase. ⚠️ Ce qui contredit l'ancien §12 « les règles verrouillées restent
+VISIBLES » vaut pour la grille d'entraînement, pas pour les modes de l'accueil.
+
 ### ⚠️ Le serveur de salons tombait sur UN message (25/09/2026)
 
 Trouvé en portant la photo de profil sur le fil, et c'est antérieur à elle.
