@@ -29,6 +29,24 @@ export const CODE_AMI_LONGUEUR = 6;
 /** Au-delà, la liste ne se lit plus d'un coup d'œil, et la requête grossit. */
 export const MAX_AMIS = 50;
 
+/**
+ * Demandes en attente, envoyées ou reçues. Au-delà, on ne demande plus — une
+ * boîte de 30 demandes sans réponse n'est plus une liste d'amis, c'est du
+ * démarchage, et ce plafond borne ce qu'un seul compte peut infliger.
+ */
+export const MAX_DEMANDES = 30;
+
+/**
+ * Ce qu'une DEMANDE montre de son auteur : son visage, rien de plus. Pas de
+ * score — on ne voit les runs de quelqu'un qu'après l'avoir accepté.
+ */
+export interface Demandeur {
+  code: string;
+  pseudo: string;
+  glyphe: number;
+  carte: string | null;
+}
+
 /** Jours affichés dans la comparaison des runs. */
 export const JOURS_COMPARES = 7;
 

@@ -1397,31 +1397,14 @@
               <button class="btn btn--primary" id="btnMurJouer" data-i18n="mur.tenter">PLAY THE DAILY RUN</button>
             </div>
 
-            <!-- LES AMIS. Un cercle qu'on se donne à l'oral, par un code — comme
-                 un salon. On n'y compare que du REJOUÉ : le run du jour, le
-                 même pour tout le monde (décision n°14). Le bloc se TAIT dans un
-                 déploiement sans comptes, comme le podium. -->
-            <div class="amis hidden" id="murAmis">
-              <p class="eyebrow" data-i18n="amis.titre">YOUR FRIENDS</p>
-              <div class="amis__anon hidden" id="amisAnon">
-                <p class="fineprint" data-i18n="amis.anon">SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.</p>
-                <button type="button" class="btn" id="btnAmisCompte" data-i18n="amis.connecter">SIGN IN</button>
-              </div>
-              <div class="amis__connecte hidden" id="amisConnecte">
-                <p class="amis__code">
-                  <span class="amis__codequoi" data-i18n="amis.tonCode">YOUR CODE</span>
-                  <b class="amis__codeval" id="amisCode">······</b>
-                  <button type="button" class="btn btn--ghost amis__copier" id="btnAmisCopier" data-i18n="amis.copier">COPY</button>
-                </p>
-                <form class="amis__ajout" id="amisForm" autocomplete="off">
-                  <input class="field amis__saisie" id="amisSaisie" type="text" maxlength="9" spellcheck="false" autocapitalize="characters" placeholder="FRIEND'S CODE" data-i18n-ph="amis.ph" aria-label="FRIEND'S CODE" data-i18n-aria="amis.ph" />
-                  <button type="submit" class="btn" id="btnAmisAjoute" data-i18n="amis.ajoute">ADD</button>
-                </form>
-                <p class="warn hidden" id="amisErr"></p>
-                <ol class="amis__liste" id="amisListe"></ol>
-                <p class="fineprint" id="amisNote"></p>
-              </div>
-            </div>
+            <!-- LES AMIS ont leur écran (/amis) : rapporté par Pierre, « c'est dans
+                 classement donc mal pensé niveau UX, pas de page dédiée ». Le
+                 mur n'en garde qu'une porte. -->
+            <button type="button" class="murlien hidden" id="btnMurAmis">
+              <span class="murlien__quoi" data-i18n="amis.titre">YOUR FRIENDS</span>
+              <span class="murlien__dit" id="murAmisDit" data-i18n="amis.voir">Compare your daily runs</span>
+              <span class="murlien__fleche" aria-hidden="true">›</span>
+            </button>
 
           </div>
 
@@ -1436,6 +1419,68 @@
           <div class="mur__pied">
             <button class="btn btn--ghost" id="btnMurBack" data-i18n="commun.retour">BACK</button>
           </div>
+        </div>
+      </section>
+
+      <!-- LES AMIS — un écran à eux, et une DEMANDE avant l'amitié.
+           Rapporté par Pierre : « si on veut ajouter quelqu'un en ami on ne
+           lui demande même pas l'autorisation, et c'est dans classement donc
+           mal pensé ». L'ordre de l'écran suit ce qu'on vient y faire, du plus
+           pressant au plus lent : répondre à qui t'a demandé, donner son code,
+           en taper un, puis comparer. Tout se tait sans comptes au déploiement
+           (n°12) ; anonyme, une invitation, jamais un préalable au jeu. -->
+      <section class="screen hidden" id="amis">
+        <div class="screen__scroll amisecran">
+          <div class="amisecran__tete">
+            <h2 class="amisecran__titre" data-i18n="amis.titre">YOUR FRIENDS</h2>
+            <p class="amisecran__chapo" data-i18n="amis.chapo">Give your code, they accept, and you compare your daily runs.</p>
+          </div>
+
+          <div class="amis hidden" id="murAmis">
+            <div class="amis__anon hidden" id="amisAnon">
+              <p class="amis__anontxt" data-i18n="amis.anon">SIGN IN TO ADD FRIENDS AND COMPARE YOUR DAILY RUNS.</p>
+              <button type="button" class="btn btn--primary" id="btnAmisCompte" data-i18n="amis.connecter">SIGN IN</button>
+            </div>
+            <div class="amis__connecte hidden" id="amisConnecte">
+              <!-- Les demandes REÇUES d'abord : c'est la seule chose de l'écran
+                   qui attend quelqu'un. -->
+              <div class="amisbloc amisbloc--recues hidden" id="amisRecuesBloc">
+                <p class="amisbloc__titre"><span data-i18n="amis.recues">WANT TO BE YOUR FRIEND</span> <b class="amisbloc__n" id="amisRecuesN"></b></p>
+                <ul class="demandes" id="amisRecues"></ul>
+              </div>
+
+              <div class="moncode">
+                <p class="moncode__quoi" data-i18n="amis.tonCode">YOUR CODE</p>
+                <b class="moncode__val" id="amisCode">······</b>
+                <div class="moncode__actions">
+                  <button type="button" class="btn btn--primary" id="btnAmisPartager" data-i18n="amis.partager">SEND MY CODE</button>
+                  <button type="button" class="btn" id="btnAmisCopier" data-i18n="amis.copier">COPY</button>
+                </div>
+              </div>
+
+              <form class="amis__ajout" id="amisForm" autocomplete="off">
+                <label class="amisbloc__titre" for="amisSaisie" data-i18n="amis.ajouterTitre">ADD A FRIEND</label>
+                <div class="amis__ajoutrang">
+                  <input class="field amis__saisie" id="amisSaisie" type="text" maxlength="9" spellcheck="false" autocapitalize="characters" placeholder="FRIEND'S CODE" data-i18n-ph="amis.ph" aria-label="FRIEND'S CODE" data-i18n-aria="amis.ph" />
+                  <button type="submit" class="btn btn--primary" id="btnAmisAjoute" data-i18n="amis.ajoute">ASK</button>
+                </div>
+              </form>
+              <p class="warn hidden" id="amisErr"></p>
+              <p class="amis__ok hidden" id="amisOk" aria-live="polite"></p>
+
+              <div class="amisbloc hidden" id="amisEnvoyeesBloc">
+                <p class="amisbloc__titre" data-i18n="amis.envoyees">WAITING FOR THEIR ANSWER</p>
+                <ul class="demandes" id="amisEnvoyees"></ul>
+              </div>
+
+              <div class="amisbloc">
+                <p class="amisbloc__titre" data-i18n="amis.cercle">TODAY'S RUN, BETWEEN YOU</p>
+                <ol class="amis__liste" id="amisListe"></ol>
+                <p class="fineprint" id="amisNote"></p>
+              </div>
+            </div>
+          </div>
+          <p class="amis__indispo hidden" id="amisIndispo" data-i18n="amis.indispo">Friends aren't open yet.</p>
         </div>
       </section>
 
@@ -1463,6 +1508,14 @@
             </div>
             <button class="btn profil__modifier" id="btnCompteNom" data-i18n="compte.nom">NAME AND SIGN</button>
           </div>
+
+          <!-- La porte des AMIS, avec les demandes en attente : c'est ici qu'on
+               vient quand la pastille du profil s'allume. -->
+          <button type="button" class="murlien hidden" id="btnProfilAmis">
+            <span class="murlien__quoi" data-i18n="amis.titre">YOUR FRIENDS</span>
+            <span class="murlien__dit" id="profilAmisDit" data-i18n="amis.voir">Compare your daily runs</span>
+            <span class="murlien__fleche" aria-hidden="true">›</span>
+          </button>
 
           <!-- LA CARTE DE VISITE. Parmi les cartes GAGNÉES seulement : la
                collection ne dévoile pas une règle jamais rencontrée (n°7), et

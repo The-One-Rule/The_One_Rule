@@ -1,9 +1,22 @@
 /**
  * Les amis — fonction edge Vercel.
  *
- *   GET                 → son code, et le classement de son cercle (soi compris)
- *   POST ?a=ajoute      → { code } : lie les deux comptes, dans les deux sens
- *   POST ?a=retire      → { code } : les délie
+ *   GET                 → son code, le classement de son cercle (soi compris),
+ *                         les demandes reçues et envoyées
+ *   POST ?a=ajoute      → { code } : DEMANDE — ou lie, si l'autre avait déjà
+ *                         demandé (deux demandes croisées valent accord)
+ *   POST ?a=accepte     → { code } : accepte une demande reçue
+ *   POST ?a=refuse      → { code } : refuse une demande reçue, sans le dire
+ *   POST ?a=annule      → { code } : retire sa propre demande
+ *   POST ?a=retire      → { code } : délie deux amis
+ *
+ * ⚠️ AJOUTER NE LIE PLUS. Rapporté par Pierre : « si on veut ajouter
+ * quelqu'un en ami on ne lui demande même pas l'autorisation ». Un code se
+ * recopie, se montre, se devine sur un écran ; être ajouté par un inconnu,
+ * c'est lui ouvrir ses scores de la semaine. L'amitié naît de l'ACCEPTATION.
+ * Un refus ne se dit pas à celui qui a demandé : sa demande disparaît
+ * simplement, comme partout ailleurs — dire « refusé » ferait du refus un
+ * geste social qui coûte, et on accepterait par gêne.
  *
  * ⚠️ LE JETON EST OBLIGATOIRE ICI, et ça ne contredit pas la décision n°12 :
  * une liste d'amis EST un compte — elle doit survivre à un changement
@@ -24,9 +37,10 @@ import {
   codeAmiValide,
   JOURS_COMPARES,
   MAX_AMIS,
+  MAX_DEMANDES,
   semaineDe,
 } from "../shared/amis";
-import type { LigneAmi, Participant } from "../shared/amis";
+import type { Demandeur, LigneAmi, Participant } from "../shared/amis";
 import { carteValide } from "../shared/profil";
 import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
@@ -74,6 +88,31 @@ function participant(
   };
 }
 
+/** Ce qu'une demande publie de son auteur — la liste des clés est gardée par un test. */
+const demandeur = (a: Ami): Demandeur => ({
+  code: a.code ?? "",
+  pseudo: a.pseudo,
+  glyphe: Number(a.apparence.glyphe ?? 0),
+  carte: carteValide(a.apparence.carte) ?? null,
+});
+
+/** L'état complet de l'écran des amis. */
+async function etat(depot: Depot, u: Utilisateur, code: string, jour: number, issue?: "demande" | "lie") {
+  const [amis, recues, envoyees] = await Promise.all([
+    cercle(depot, u, code, jour),
+    depot.demandesVers(u.id),
+    depot.demandesDe(u.id),
+  ]);
+  return {
+    code,
+    jour,
+    amis,
+    recues: recues.map(demandeur),
+    envoyees: envoyees.map(demandeur),
+    ...(issue ? { issue } : {}),
+  };
+}
+
 async function cercle(depot: Depot, u: Utilisateur, code: string, jour: number): Promise<LigneAmi[]> {
   const amis: Ami[] = await depot.amisDe(u.id);
   const perfs = await depot.perfsDepuis([u.id, ...amis.map((a) => a.id)], jour - FENETRE_JOURS + 1);
@@ -105,7 +144,7 @@ export async function traite(
   const monCode = await depot.codeAmi(u.id, hasard);
 
   if (req.method === "GET") {
-    return json({ code: monCode, jour, amis: await cercle(depot, u, monCode, jour) });
+    return json(await etat(depot, u, monCode, jour));
   }
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
@@ -124,27 +163,66 @@ export async function traite(
   if (!code) return json({ error: "code" }, 400);
 
   const action = new URL(req.url).searchParams.get("a");
+  const autre = await depot.parCodeAmi(code);
+
+  /** Lie deux comptes, plafond vérifié DES DEUX CÔTÉS, et range les demandes. */
+  const lieSiPlace = async (x: Utilisateur): Promise<Response | null> => {
+    // Le plafond vaut aussi pour L'AUTRE : sinon n'importe qui pourrait
+    // gonfler la liste d'un inconnu au-delà de ce qu'elle sait afficher.
+    if ((await depot.amisDe(u.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
+    if ((await depot.amisDe(x.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
+    await depot.lie(u.id, x.id);
+    await depot.retireDemande(u.id, x.id);
+    await depot.retireDemande(x.id, u.id);
+    return null;
+  };
+
   if (action === "ajoute") {
     if (code === monCode) return json({ error: "soi" }, 400);
-    const autre = await depot.parCodeAmi(code);
     // Un code inconnu et un compte banni répondent PAREIL : sinon la route
     // dirait à qui essaie des codes lesquels appartiennent à un banni.
     if (!autre || autre.banniLe) return json({ error: "inconnu" }, 404);
-    const deja = await depot.amisDe(u.id);
-    if (!deja.some((a) => a.id === autre.id)) {
-      if (deja.length >= MAX_AMIS) return json({ error: "plein" }, 400);
-      // Le plafond vaut aussi pour L'AUTRE : sinon n'importe qui pourrait
-      // gonfler la liste d'un inconnu au-delà de ce qu'elle sait afficher.
-      if ((await depot.amisDe(autre.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
-      await depot.lie(u.id, autre.id);
+    if ((await depot.amisDe(u.id)).some((a) => a.id === autre.id)) {
+      return json(await etat(depot, u, monCode, jour, "lie"));
     }
-    return json({ code: monCode, jour, amis: await cercle(depot, u, monCode, jour) });
+    // DEUX DEMANDES CROISÉES VALENT ACCORD : l'autre m'a déjà demandé, je
+    // tape son code — nous voulons la même chose, inutile d'attendre.
+    if ((await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
+      const refus = await lieSiPlace(autre);
+      return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
+    }
+    const envoyees = await depot.demandesDe(u.id);
+    if (!envoyees.some((a) => a.id === autre.id)) {
+      if (envoyees.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
+      if ((await depot.demandesVers(autre.id)).length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
+      await depot.demande(u.id, autre.id);
+    }
+    return json(await etat(depot, u, monCode, jour, "demande"));
+  }
+
+  if (action === "accepte") {
+    // On n'accepte que ce qu'on a REÇU : sinon « accepter » un code serait
+    // exactement l'ajout sans consentement qu'on vient de retirer.
+    if (!autre || !(await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
+      return json({ error: "inconnu" }, 404);
+    }
+    const refus = await lieSiPlace(autre);
+    return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
+  }
+
+  if (action === "refuse") {
+    if (autre) await depot.retireDemande(autre.id, u.id);
+    return json(await etat(depot, u, monCode, jour));
+  }
+
+  if (action === "annule") {
+    if (autre) await depot.retireDemande(u.id, autre.id);
+    return json(await etat(depot, u, monCode, jour));
   }
 
   if (action === "retire") {
-    const autre = await depot.parCodeAmi(code);
     if (autre) await depot.delie(u.id, autre.id);
-    return json({ code: monCode, jour, amis: await cercle(depot, u, monCode, jour) });
+    return json(await etat(depot, u, monCode, jour));
   }
 
   return json({ error: "action inconnue" }, 404);

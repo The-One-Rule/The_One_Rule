@@ -101,12 +101,14 @@ import {
   supprimeCompte,
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
-import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
+import { ajouteAmi, annuleDemande, cercle, reponds, retireAmi } from "./compte/amis";
 import { lignesRecords } from "./game/murRecords";
 import { eclatBattement, palierTension, periodeCoeur } from "./render/tension";
 import { brancheProfil, rendProfil } from "./profil";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
+import { codeAmiValide } from "../shared/amis";
+import type { Demandeur } from "../shared/amis";
 import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
@@ -326,6 +328,7 @@ const SCREENS = [
   "codex",
   "compte",
   "classement",
+  "amis",
   "reglages",
   "multi-id",
   "multi-join",
@@ -427,6 +430,7 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "codex",
   "compte",
   "classement",
+  "amis",
   "reglages",
 ]);
 
@@ -2240,6 +2244,12 @@ function renderCompte(): void {
 
   $("compteAnon").classList.toggle("hidden", connecte);
   $("compteConnecte").classList.toggle("hidden", !connecte);
+  // La porte des amis : là où les comptes existent. Anonyme, l'écran des
+  // amis dit lui-même comment se connecter.
+  void chargeFournisseurs().then(() => {
+    $("btnProfilAmis").classList.toggle("hidden", !comptesPossibles());
+    majPastilleAmis(cercleAmis);
+  });
   // Rouvrir l'écran DÉSARME la suppression : une confirmation qui survit à une
   // sortie et un retour n'est plus une confirmation.
   suppressionArmee = false;
@@ -2847,6 +2857,25 @@ function renderClassement(): void {
   $("murRecordsVide").classList.toggle("hidden", lignes.length > 0);
 
   peintPodium("murPodium", "classement");
+  // Les amis ont leur écran : le mur n'en garde qu'une porte, qui se tait
+  // sans comptes au déploiement comme le podium.
+  void chargeFournisseurs().then(() => {
+    $("btnMurAmis").classList.toggle("hidden", !comptesPossibles());
+  });
+}
+
+/** Ouvre l'écran des amis — depuis le mur, le profil, ou son adresse. */
+function ouvreAmis(): void {
+  $("amisOk").classList.add("hidden");
+  $("amisErr").classList.add("hidden");
+  /*
+   * UN LIEN D'AMI PRÉ-REMPLIT LA SAISIE : « ENVOYER MON CODE » partage
+   * `/amis?code=XXXXXX`. On ne DEMANDE pas à l'arrivée — ouvrir un lien ne
+   * vaut pas geste ; le joueur voit le code, et appuie sur DEMANDER.
+   */
+  const lien = codeAmiValide(new URLSearchParams(location.search).get("code") ?? "");
+  if (lien) $<HTMLInputElement>("amisSaisie").value = lien;
+  show("amis");
   peintAmis();
 }
 
@@ -2863,8 +2892,10 @@ let cercleAmis: Cercle | null = null;
 function peintAmis(): void {
   const boite = $("murAmis");
   void chargeFournisseurs().then(() => {
-    if (screen !== "classement") return;
-    if (!comptesPossibles()) {
+    if (screen !== "amis") return;
+    const possible = comptesPossibles();
+    $("amisIndispo").classList.toggle("hidden", possible);
+    if (!possible) {
       boite.classList.add("hidden");
       return;
     }
@@ -2876,15 +2907,119 @@ function peintAmis(): void {
     // On peint ce qu'on sait (le cercle précédent), et on repeint à l'arrivée.
     if (cercleAmis) peintCercle(cercleAmis);
     void cercle().then((c) => {
-      if (!c || screen !== "classement") return;
+      if (!c) return;
       cercleAmis = c;
-      peintCercle(c);
+      majPastilleAmis(c);
+      if (screen === "amis") peintCercle(c);
     });
   });
 }
 
+/**
+ * LA PASTILLE DES DEMANDES — sur le bouton PROFIL de la barre haute, et une
+ * ligne sur l'écran profil. Une demande qu'on ne voit pas est une demande qui
+ * pourrit : c'est tout ce qui la rend visible sans ouvrir l'écran des amis.
+ */
+function majPastilleAmis(c: Cercle | null): void {
+  const n = c?.recues.length ?? 0;
+  $("btnTopCompte").classList.toggle("a-demandes", n > 0);
+  $("btnTopCompte").dataset.demandes = n > 0 ? String(n) : "";
+  $("profilAmisDit").textContent = n > 0 ? t("amisDemandes")(n) : tr1("amis.voir");
+  $("btnProfilAmis").classList.toggle("a-demandes", n > 0);
+}
+
+/** Une chaîne statique, lue dans la langue courante. */
+const tr1 = (cle: string): string => CHAINES[langue()][cle] ?? "";
+
+/** Une ligne de demande : le visage, le nom, et ses boutons. */
+function ligneDemande(d: Demandeur, boutons: HTMLButtonElement[]): HTMLLIElement {
+  const li = document.createElement("li");
+  li.className = "demande";
+  const visage = document.createElement("span");
+  visage.className = "ami__visage";
+  const carte = carteValide(d.carte);
+  if (carte) {
+    visage.classList.add("a-vignette");
+    visage.innerHTML = `<img class="ami__carte" src="/cartes/${carte}.png" width="40" height="40" alt="" loading="lazy" />`;
+  }
+  visage.insertAdjacentHTML("beforeend", `<i class="ami__signe">${glyphSvg(glyphFromIndex(d.glyphe), carte ? 14 : 22)}</i>`);
+  const nom = document.createElement("b");
+  nom.className = "demande__nom";
+  // `textContent` : un pseudo vient d'un joueur.
+  nom.textContent = d.pseudo || t("cptSansNom");
+  const actes = document.createElement("span");
+  actes.className = "demande__actes";
+  actes.append(...boutons);
+  li.append(visage, nom, actes);
+  return li;
+}
+
+function bouton(txt: string, cls: string, aria: string, fait: () => void): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cls;
+  b.textContent = txt;
+  b.setAttribute("aria-label", aria);
+  b.addEventListener("click", () => {
+    sfx.ui();
+    b.disabled = true;
+    fait();
+  });
+  return b;
+}
+
+/** Repeint après une action réseau, si l'on regarde encore l'écran. */
+function apres(n: Cercle | null): void {
+  if (!n) return;
+  cercleAmis = n;
+  majPastilleAmis(n);
+  if (screen === "amis") peintCercle(n);
+}
+
 function peintCercle(c: Cercle): void {
   $("amisCode").textContent = c.code;
+
+  // LES DEMANDES REÇUES : accepter est l'action évidente, refuser se dit NON
+  // et ne prévient personne (voir api/amis.ts).
+  const recues = $("amisRecues");
+  recues.replaceChildren();
+  for (const d of c.recues) {
+    const nom = d.pseudo || t("cptSansNom");
+    recues.appendChild(
+      ligneDemande(d, [
+        bouton(t("amisAccepter"), "btn btn--primary btn--mini", t("ariaAccepterAmi")(nom), () => {
+          void reponds(d.code, true).then((r) => {
+            if (!r.ok) return;
+            apres(r.cercle);
+            montreOkAmis(t("amisLie")(nom));
+          });
+        }),
+        bouton(t("amisRefuser"), "btn btn--ghost btn--mini", t("ariaRefuserAmi")(nom), () => {
+          void reponds(d.code, false).then((r) => apres(r.ok ? r.cercle : null));
+        }),
+      ]),
+    );
+  }
+  $("amisRecuesBloc").classList.toggle("hidden", c.recues.length === 0);
+  $("amisRecuesN").textContent = c.recues.length > 1 ? String(c.recues.length) : "";
+
+  const envoyees = $("amisEnvoyees");
+  envoyees.replaceChildren();
+  for (const d of c.envoyees) {
+    const nom = d.pseudo || t("cptSansNom");
+    const li = ligneDemande(d, [
+      bouton(t("amisAnnuler"), "btn btn--ghost btn--mini", `${t("amisAnnuler")} ${nom}`, () => {
+        void annuleDemande(d.code).then(apres);
+      }),
+    ]);
+    const attente = document.createElement("span");
+    attente.className = "demande__attente";
+    attente.textContent = t("amisEnAttente");
+    li.querySelector(".demande__nom")!.after(attente);
+    envoyees.appendChild(li);
+  }
+  $("amisEnvoyeesBloc").classList.toggle("hidden", c.envoyees.length === 0);
+
   const liste = $("amisListe");
   liste.replaceChildren();
   // L'échelle de la semaine est COMMUNE au cercle : chacun se lit contre les
@@ -2941,12 +3076,7 @@ function peintCercle(c: Cercle): void {
       x.setAttribute("aria-label", t("ariaRetirerAmi")(nom));
       x.addEventListener("click", () => {
         sfx.ui();
-        void retireAmi(a.code).then((n) => {
-          if (n && screen === "classement") {
-            cercleAmis = n;
-            peintCercle(n);
-          }
-        });
+        void retireAmi(a.code).then(apres);
       });
       li.appendChild(x);
     }
@@ -2960,8 +3090,10 @@ $("amisForm").addEventListener("submit", (e) => {
   const saisie = $<HTMLInputElement>("amisSaisie");
   const err = $("amisErr");
   err.classList.add("hidden");
+  $("amisOk").classList.add("hidden");
+  const tape = codeAmiValide(saisie.value);
   void ajouteAmi(saisie.value).then((r) => {
-    if (screen !== "classement") return;
+    if (screen !== "amis") return;
     if (!r.ok) {
       err.textContent = t("amisErr")[r.refus];
       err.classList.remove("hidden");
@@ -2969,10 +3101,48 @@ $("amisForm").addEventListener("submit", (e) => {
       return;
     }
     saisie.value = "";
-    cercleAmis = r.cercle;
-    peintCercle(r.cercle);
+    apres(r.cercle);
+    // Le nom de l'autre se lit dans la réponse : une demande envoyée, ou une
+    // amitié si les deux s'étaient demandés.
+    const qui =
+      [...r.cercle.envoyees, ...r.cercle.amis].find((x) => x.code === tape)?.pseudo ?? "";
+    montreOkAmis(r.cercle.issue === "lie" ? t("amisLie")(qui) : t("amisDemandee")(qui));
     sfx.ui();
   });
+});
+
+function montreOkAmis(txt: string): void {
+  const ok = $("amisOk");
+  ok.textContent = txt;
+  ok.classList.remove("hidden");
+}
+
+/*
+ * ENVOYER MON CODE — le partage natif du téléphone (Messages, WhatsApp…),
+ * avec un lien qui ouvre l'écran des amis code pré-rempli. Sans partage
+ * natif (bureau), on copie : le geste reste le même, un appui.
+ */
+$("btnAmisPartager").addEventListener("click", () => {
+  const code = cercleAmis?.code;
+  if (!code) return;
+  sfx.ui();
+  const url = `${location.origin}/amis?code=${code}`;
+  const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+  if (typeof nav.share === "function") {
+    void nav.share({ title: "The One Rule", text: t("amisPartageTexte")(code), url }).catch(() => {});
+    track("amis_partage", {});
+    return;
+  }
+  $("btnAmisCopier").click();
+});
+
+$("btnMurAmis").addEventListener("click", () => {
+  sfx.ui();
+  ouvreAmis();
+});
+$("btnProfilAmis").addEventListener("click", () => {
+  sfx.ui();
+  ouvreAmis();
 });
 
 $("btnAmisCopier").addEventListener("click", () => {
@@ -7391,6 +7561,14 @@ async function demarreCompte(): Promise<void> {
     // d'entrer dans la table.
     await rafraichitClassement(true);
     repeintChiffres();
+    // Les demandes d'ami en attente allument la pastille du profil : une
+    // demande qu'on ne voit pas est une demande qui pourrit. Un seul appel au
+    // démarrage, jamais sur un chemin de jeu (n°12).
+    void cercle().then((c) => {
+      if (!c) return;
+      cercleAmis = c;
+      majPastilleAmis(c);
+    });
   } finally {
     compteBootFini = true;
   }
@@ -7436,6 +7614,9 @@ function ouvreAdresse(id: EcranId): void {
     case "classement":
       renderClassement();
       show("classement");
+      return;
+    case "amis":
+      ouvreAmis();
       return;
     case "compte":
       // `renderCompte()` ne montre pas l'écran — seul `ouvreCompte` le fait.

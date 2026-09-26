@@ -2998,8 +2998,14 @@ body {
 
 .amis__ajout {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.amis__ajoutrang {
+  display: flex;
+  gap: 8px;
 }
 
 /* ⚠️ `min-width: 0` : un champ flexible ne rétrécit pas sous son contenu
@@ -3469,4 +3475,299 @@ body {
   flex: 1 1 0;
   min-width: max-content;
   min-height: var(--tap);
+}
+
+/* ==================================================================
+   L'ÉCRAN DES AMIS — /amis
+   Rapporté par Pierre : « c'est dans classement donc mal pensé niveau UX,
+   pas de page dédiée ». L'ordre suit l'urgence : les demandes reçues (elles
+   attendent quelqu'un), son code (on vient le donner), la saisie, les
+   demandes envoyées, puis le cercle. Téléphone d'abord : une colonne,
+   des cibles de 44 px, et le code en GRAND — il se dicte.
+   ================================================================== */
+.amisecran {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.amisecran__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--encre);
+}
+
+.amisecran__chapo {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+#amis .amis {
+  margin-top: 0;
+}
+
+#amis .amis__connecte {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.amis__anontxt {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  color: var(--encre);
+}
+
+.amisbloc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.amisbloc.hidden,
+.amis__ok.hidden,
+.amis__indispo.hidden,
+.murlien.hidden {
+  display: none;
+}
+
+.amisbloc__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.amisbloc__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 11px;
+  background: var(--signal);
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0;
+  vertical-align: 1px;
+}
+
+/* Une seule demande : pas de chiffre, donc pas de pastille vide. */
+.amisbloc__n:empty {
+  display: none;
+}
+
+/* Les demandes reçues sont LE point chaud de l'écran : l'autocollant plein,
+   bordé d'accent — le seul accent de la page. */
+.amisbloc--recues {
+  padding: 14px;
+  border: var(--trait) solid var(--signal);
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, var(--signal) 10%, var(--surface));
+  box-shadow: 4px 4px 0 var(--ombre-c);
+}
+
+.amisbloc--recues .amisbloc__titre {
+  color: var(--signal);
+}
+
+.demandes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demande {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  text-align: left;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 6px 8px 6px 6px;
+  border: 2px solid var(--encre);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.demande__nom {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--encre);
+}
+
+.demande__attente {
+  display: none;
+}
+
+.demande__actes {
+  display: flex;
+  gap: 6px;
+}
+
+/* Des boutons SERRÉS : à 375 px, « ACCEPTER » et « NON » à la largeur d'un
+   bouton ordinaire ne laissaient que trois lettres au nom (« JUL… »). */
+.demande__actes .btn {
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* Le code, en GRAND : il se dicte comme un code de salon. */
+.moncode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: var(--ombre);
+}
+
+.moncode__quoi {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.moncode__val {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--encre);
+  user-select: all;
+}
+
+.moncode__actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.moncode__actions .btn {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: var(--tap);
+}
+
+.amis__ok {
+  margin: -6px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--signal);
+  background: color-mix(in srgb, var(--signal) 8%, var(--surface));
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--encre);
+}
+
+.amis__indispo {
+  margin: 0;
+  color: var(--paper-dim);
+}
+
+/* La PORTE des amis — sur le mur et sur le profil. Une rangée qu'on touche,
+   pas un intitulé : elle dit où elle mène et, s'il y en a, combien de
+   demandes attendent. */
+.murlien {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: var(--ombre);
+  color: var(--encre);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.murlien__quoi {
+  grid-column: 1;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.murlien__dit {
+  grid-column: 1;
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+
+.murlien.a-demandes .murlien__dit {
+  color: var(--signal);
+  font-weight: 800;
+}
+
+.murlien__fleche {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.murlien:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+#compte .murlien {
+  margin-top: 14px;
+}
+
+/* La pastille sur PROFIL, dans la barre haute. */
+#btnTopCompte {
+  position: relative;
+}
+
+#btnTopCompte.a-demandes::after {
+  content: attr(data-demandes);
+  position: absolute;
+  top: -2px;
+  left: 26px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  border: 2px solid var(--ink);
+  background: var(--signal);
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
 }

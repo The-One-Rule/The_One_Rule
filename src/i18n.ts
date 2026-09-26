@@ -228,7 +228,15 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "amis.tonCode": "TON CODE",
     "amis.copier": "COPIER",
     "amis.ph": "CODE D'UN AMI",
-    "amis.ajoute": "AJOUTER",
+    "amis.ajoute": "DEMANDER",
+    "amis.chapo": "Donne ton code, ton ami accepte, et vous comparez vos runs du jour.",
+    "amis.recues": "VEULENT ÊTRE TES AMIS",
+    "amis.partager": "ENVOYER MON CODE",
+    "amis.ajouterTitre": "AJOUTER UN AMI",
+    "amis.envoyees": "EN ATTENTE DE LEUR RÉPONSE",
+    "amis.cercle": "LE RUN DU JOUR, ENTRE VOUS",
+    "amis.indispo": "Les amis ne sont pas encore ouverts.",
+    "amis.voir": "Comparez vos runs du jour",
     "rgl.photos": "PHOTOS DES AUTRES",
     "rgl.photosQuoi": "Les photos de profil des joueurs de ton salon.",
     "rgl.apparenceQuoi": "AUTO suit ton appareil. SOMBRE ménage les yeux le soir.",
@@ -425,7 +433,15 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "amis.tonCode": "YOUR CODE",
     "amis.copier": "COPY",
     "amis.ph": "FRIEND'S CODE",
-    "amis.ajoute": "ADD",
+    "amis.ajoute": "ASK",
+    "amis.chapo": "Give your code, they accept, and you compare your daily runs.",
+    "amis.recues": "WANT TO BE YOUR FRIEND",
+    "amis.partager": "SEND MY CODE",
+    "amis.ajouterTitre": "ADD A FRIEND",
+    "amis.envoyees": "WAITING FOR THEIR ANSWER",
+    "amis.cercle": "TODAY'S RUN, BETWEEN YOU",
+    "amis.indispo": "Friends aren't open yet.",
+    "amis.voir": "Compare your daily runs",
     "rgl.photos": "OTHERS' PHOTOS",
     "rgl.photosQuoi": "Profile photos of the players in your room.",
     "rgl.apparenceQuoi": "AUTO follows your device. DARK is easier on the eyes at night.",
@@ -902,6 +918,16 @@ type Dyn = {
   amisNote: string;
   amisPasJoue: string;
   amisCopie: string;
+  amisAccepter: string;
+  amisRefuser: string;
+  amisAnnuler: string;
+  amisEnAttente: string;
+  amisDemandee: (qui: string) => string;
+  amisLie: (qui: string) => string;
+  amisDemandes: (n: number) => string;
+  amisPartageTexte: (code: string) => string;
+  ariaAccepterAmi: (qui: string) => string;
+  ariaRefuserAmi: (qui: string) => string;
   amisMeilleur: (n: number) => string;
   ariaRetirerAmi: (qui: string) => string;
   ariaSemaine: (qui: string, scores: string) => string;
@@ -1497,7 +1523,7 @@ const DYN: Record<Lang, Dyn> = {
       code: "UN CODE FAIT SIX LETTRES OU CHIFFRES.",
       soi: "C'EST TON PROPRE CODE.",
       inconnu: "AUCUN JOUEUR N'A CE CODE. VÉRIFIE-LE AVEC LUI.",
-      plein: "LISTE PLEINE : 50 AMIS AU PLUS.",
+      plein: "LISTE PLEINE : 50 AMIS ET 30 DEMANDES AU PLUS.",
       reseau: "PAS DE RÉPONSE. RÉESSAIE DANS UN INSTANT.",
     },
     amisSeul: "DONNE TON CODE À UN AMI, OU TAPE LE SIEN.",
@@ -1516,6 +1542,16 @@ const DYN: Record<Lang, Dyn> = {
     amisNote: "CLASSÉS SUR LE RUN DU JOUR — LE MÊME POUR TOUT LE MONDE. LES BARRES : LES 7 DERNIERS JOURS. « 30 J » : LE MEILLEUR DU MOIS.",
     amisPasJoue: "PAS JOUÉ",
     amisCopie: "COPIÉ",
+    amisAccepter: "ACCEPTER",
+    amisRefuser: "NON",
+    amisAnnuler: "ANNULER",
+    amisEnAttente: "EN ATTENTE",
+    amisDemandee: (qui) => `DEMANDE ENVOYÉE${qui ? ` À ${qui}` : ""}. ELLE ATTEND SA RÉPONSE.`,
+    amisLie: (qui) => `${qui || "VOUS"} ET TOI, AMIS. VOS RUNS SE COMPARENT.`,
+    amisDemandes: (n) => (n === 1 ? "1 DEMANDE D'AMI" : `${n} DEMANDES D'AMIS`),
+    amisPartageTexte: (code) => `Mon code ami sur The One Rule : ${code}`,
+    ariaAccepterAmi: (qui) => `Accepter ${qui}`,
+    ariaRefuserAmi: (qui) => `Refuser ${qui}`,
     amisMeilleur: (n) => `30 J · ${n}`,
     ariaRetirerAmi: (qui) => `Retirer ${qui} de tes amis`,
     ariaSemaine: (qui, scores) => `${qui}, 7 derniers jours : ${scores}`,
@@ -2010,7 +2046,7 @@ const DYN: Record<Lang, Dyn> = {
       code: "A CODE IS SIX LETTERS OR DIGITS.",
       soi: "THAT'S YOUR OWN CODE.",
       inconnu: "NO PLAYER HAS THIS CODE. CHECK IT WITH THEM.",
-      plein: "LIST FULL: 50 FRIENDS AT MOST.",
+      plein: "LIST FULL: 50 FRIENDS AND 30 REQUESTS AT MOST.",
       reseau: "NO ANSWER. TRY AGAIN IN A MOMENT.",
     },
     amisSeul: "GIVE YOUR CODE TO A FRIEND, OR TYPE THEIRS.",
@@ -2029,6 +2065,16 @@ const DYN: Record<Lang, Dyn> = {
     amisNote: "RANKED ON THE DAILY RUN — THE SAME FOR EVERYONE. THE BARS: THE LAST 7 DAYS. “30 D”: THE BEST OF THE MONTH.",
     amisPasJoue: "NOT YET",
     amisCopie: "COPIED",
+    amisAccepter: "ACCEPT",
+    amisRefuser: "NO",
+    amisAnnuler: "CANCEL",
+    amisEnAttente: "PENDING",
+    amisDemandee: (qui) => `REQUEST SENT${qui ? ` TO ${qui}` : ""}. IT WAITS FOR THEIR ANSWER.`,
+    amisLie: (qui) => `YOU AND ${qui || "THEM"}, FRIENDS. YOUR RUNS NOW COMPARE.`,
+    amisDemandes: (n) => (n === 1 ? "1 FRIEND REQUEST" : `${n} FRIEND REQUESTS`),
+    amisPartageTexte: (code) => `My friend code on The One Rule: ${code}`,
+    ariaAccepterAmi: (qui) => `Accept ${qui}`,
+    ariaRefuserAmi: (qui) => `Decline ${qui}`,
     amisMeilleur: (n) => `30 D · ${n}`,
     ariaRetirerAmi: (qui) => `Remove ${qui} from your friends`,
     ariaSemaine: (qui, scores) => `${qui}, last 7 days: ${scores}`,
