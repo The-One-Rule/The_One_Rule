@@ -177,8 +177,9 @@ describe("les vies dans Session", () => {
   function laisseFiler(s: Session, t: number): number {
     t += s.round.durationMs + 1;
     s.tick(t);
-    // gel de mort éventuel
-    t += 600;
+    // Gel de mort éventuel — plus long que `FREEZE_MS` (820), quel qu'il soit
+    // demain : l'aide ne doit pas dépendre de sa valeur exacte.
+    t += 2000;
     s.tick(t);
     return t;
   }

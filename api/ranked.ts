@@ -192,6 +192,7 @@ export default async function handler(req: Request): Promise<Response> {
         clavier: (body.capacites as Record<string, unknown> | undefined)?.clavier !== false,
         maintien: (body.capacites as Record<string, unknown> | undefined)?.maintien !== false,
         encre: (body.capacites as Record<string, unknown> | undefined)?.encre !== false,
+        lettres: (body.capacites as Record<string, unknown> | undefined)?.lettres !== false,
       },
       catalogue: body.catalogue === 2 ? 2 : undefined,
     };

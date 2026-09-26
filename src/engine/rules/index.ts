@@ -393,6 +393,29 @@ export function withoutInk(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule 
   return rule;
 }
 
+/** Une règle qui ne juge que des LETTRES tapées. */
+export const REGLES_A_LETTRES = ["voyelle"];
+
+/**
+ * La même règle, ou son remplaçant sans clavier.
+ *
+ * LA VOYELLE interdit de TAPER une voyelle : au doigt, le tirage ne sort
+ * aucune consigne clavier, donc elle ne peut jamais piéger — elle est INERTE,
+ * un avantage gratuit (décision n°1). Le parcours l'excluait déjà ; le run du
+ * jour et l'entraînement la servaient telle quelle au téléphone. Même
+ * mécanique que `withoutHold` et `withoutInk` : le suivant du catalogue,
+ * déterministe, pour que deux téléphones aient la même règle le même jour.
+ */
+export function withoutLetters(rule: OneRule, pool: OneRule[] = ONE_RULES): OneRule {
+  if (!REGLES_A_LETTRES.includes(rule.id)) return rule;
+  const depart = pool.indexOf(rule);
+  for (let k = 1; k <= pool.length; k++) {
+    const cand = pool[(depart + k) % pool.length]!;
+    if (!REGLES_A_LETTRES.includes(cand.id) && cand.watchRelease === undefined) return cand;
+  }
+  return rule;
+}
+
 export const ONE_RULES: OneRule[] = [
   LE_SANG,
   L_AZUR,

@@ -1,4 +1,5 @@
 import "./style.css";
+import { gardeEcranAllume } from "./eveil";
 import "./theme.css";
 
 import {
@@ -14,7 +15,7 @@ import {
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
-import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
+import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
@@ -378,7 +379,19 @@ let ghostLead = false;
 let ranked: { opponent: Opponent | null; seed: number; ruleId: string } | null = null;
 let queueing = false;
 /** Dernier point cliqué : sert d'origine aux particules de réussite. */
-let lastClick = { x: 500, y: 210, color: "#EFEAE0" };
+let lastClick = { x: 500, y: 210, color: "#EFEAE0", r: 34, t: -1e9 };
+/**
+ * LA SÉRIE — manches tenues d'affilée depuis la dernière faute, solo comme
+ * multi. Elle fait monter l'intensité (`render/intensite.ts`) : c'est ce qui
+ * la rend GAGNÉE, et une faute la fait retomber.
+ */
+let serie = 0;
+/** À qui appartient la série : la session solo, ou le multi. Change → série à zéro. */
+let porteurSerie: object | null = null;
+/** Le cercle du maintien est-il déjà passé au vert (la vibration part une fois). */
+let maintienPleinDit = false;
+/** La dernière manche dont la consigne a claqué. */
+let mancheClaquee: object | null = null;
 let day = dayIndex();
 /**
  * Le boot du compte. On n'attend PAS ça pour afficher ni pour rejoindre
@@ -775,6 +788,8 @@ function show(id: ScreenId): void {
   cacheToast();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  // La partie et le salon gardent l'écran allumé : voir `eveil.ts`.
+  gardeEcranAllume(id === null || id === "multi-lobby" || id === "multi-end");
   /*
    * La barre haute vit HORS FLUX et disparait pendant la partie.
    *
@@ -2981,7 +2996,8 @@ const jamaisJoue = (): boolean => P.load().recent.length === 0;
  * règle le même jour, et donc des scores encore comparables entre eux.
  */
 const regleJouableIci = (rule: OneRule): OneRule => {
-  const sansMaintien = TOUCH_ONLY ? withoutHold(rule) : rule;
+  // Au doigt, LA VOYELLE ne pourrait jamais piéger : voir `withoutLetters`.
+  const sansMaintien = TOUCH_ONLY ? withoutLetters(withoutHold(rule)) : rule;
   // Et en mode daltonien, LE DALTONIEN sort aussi : elle ne serait pas
   // injouable mais INERTE, ce qui est pire — voir `withoutInk`.
   return P.load().daltonien ? withoutInk(sansMaintien) : sansMaintien;
@@ -3250,7 +3266,10 @@ function openBrief(mode: Mode): void {
         derniere: derniereEntrainement,
         sansMaintien: TOUCH_ONLY,
         rng: Math.random,
-      });
+        // ⚠️ LE CATALOGUE JOUABLE ICI, pas le catalogue entier : le tirage ne
+        // connaissait que le maintien, et servait LA VOYELLE au doigt (inerte)
+        // et LE DALTONIEN en mode motifs. Vu en jouant au téléphone.
+      }, ONE_RULES.filter(estJouableIci));
     derniereEntrainement = pendingRule.id;
   }
 
@@ -4571,7 +4590,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     seed,
     ruleId,
     inputs: log,
-    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
     catalogue: 2,
     opponentScore: ranked?.opponent?.score,
     opponentRating: ranked?.opponent?.rating,
@@ -4819,7 +4838,7 @@ function finishRun(): void {
       valeur: end.score,
       valeur2: duree,
       // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
-      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
       catalogue: 2,
     });
     /*
@@ -5562,11 +5581,25 @@ $("btnAvanceTrain").addEventListener("click", () => {
  * du son : c'est le même événement, dit deux fois au même rythme.
  */
 function vibrePiegeDejoue(): void {
+  vibre([18, 40, 26]);
+}
+
+/** Une vibration, jamais une erreur : voir `vibrePiegeDejoue`. */
+function vibre(motif: number | number[]): void {
   try {
-    navigator.vibrate?.([18, 40, 26]);
+    navigator.vibrate?.(motif);
   } catch {
     /* appareil sans vibreur, ou geste utilisateur pas encore reçu */
   }
+}
+
+/**
+ * Le point de la faute, pour la rupture : le dernier clic s'il date de cette
+ * manche (une mauvaise pièce, un vide), sinon le centre du terrain (le temps
+ * écoulé n'a pas de point).
+ */
+function pointDeFaute(depuis: number): { x: number; y: number } {
+  return lastClick.t >= depuis ? { x: lastClick.x, y: lastClick.y } : { x: FIELD_W / 2, y: FIELD_H / 2 };
 }
 
 function react(outcome: Outcome, comboBefore: number, manche: Round): void {
@@ -5587,6 +5620,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
     return;
   }
   if (outcome.kind === "survive") {
+    serie++;
     if (outcome.trap) {
       const t = performance.now();
       sfx.trapAvoided();
@@ -5596,7 +5630,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
-      scene.burst(lastClick.x, lastClick.y, lastClick.color, 14, 230);
+      scene.impact(lastClick.x, lastClick.y, lastClick.color, serie, performance.now(), lastClick.r);
     }
     // Le score SAUTE à chaque manche tenue : la réussite se sent sur le
     // chiffre qu'on regarde, pas seulement à l'oreille.
@@ -5615,25 +5649,33 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
      * faute, une secousse franche, le cœur qui s'éteint dans le bandeau et le
      * mot au centre — sans rien arrêter : la manche suivante est déjà là.
      */
+    serie = 0;
     if (session.vieJustePerdue) {
       session.vieJustePerdue = false;
       sfx.fail();
-      scene.kick(performance.now(), 0.7);
+      const t = performance.now();
+      scene.kick(t, 0.7);
+      const p = pointDeFaute(t - manche.durationMs);
+      scene.burst(p.x, p.y, "#F74058", 18, 320);
       hud.setVies(session.vies, session.viesMax);
       hud.announce(tp().vieperdue);
-      try {
-        navigator.vibrate?.(60);
-      } catch {
-        /* sans vibreur */
-      }
+      vibre(60);
       return;
     }
     sfx.grace();
     return;
   }
+  serie = 0;
   sfx.fail();
   musicApi.cut();
-  scene.kick(performance.now(), outcome.cause === "macro" ? 1.15 : 0.8);
+  {
+    // LA RUPTURE : la mort casse le terrain — voir `render/intensite.ts`.
+    const t = performance.now();
+    const p = pointDeFaute(t - manche.durationMs);
+    scene.rompt(p.x, p.y, t);
+    scene.kick(t, outcome.cause === "macro" ? 1.4 : 1.1);
+    vibre([70, 50, 160]);
+  }
   hud.showStamp(
     outcome.cause === "macro"
       ? t("tamponInfraction")
@@ -5690,7 +5732,7 @@ function sendOrMulti(action: Action): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(now);
       scene.kick(now, 0.45);
-    } else scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
+    } else scene.impact(lastClick.x, lastClick.y, lastClick.color, serie + 1, now, lastClick.r);
   }
 }
 
@@ -5714,7 +5756,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     send({ kind: "click", ent, x, y });
@@ -5727,7 +5769,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
@@ -5746,7 +5788,7 @@ function leve(ev: Event): void {
   const e = ev as PointerEvent;
   const { x, y } = scene.toField(e.clientX, e.clientY);
   const ent = scene.hit(round.ents, x, y);
-  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
   sendOrMulti({ kind: "lift", ent, x, y });
 }
 
@@ -6983,6 +7025,15 @@ function loop(now: number): void {
       if (fx.burstScreen) scene.burstScreen("#CFC9F2");
       if (fx.flashViolet) scene.flashViolet(now);
       if (fx.kick != null) scene.kick(now, fx.kick);
+      if (fx.reussi) serie++;
+      if (fx.mort) {
+        // Le verdict du SERVEUR dit la mort : la rupture part du dernier geste
+        // s'il date de la manche, du centre sinon (un temps écoulé).
+        const p = pointDeFaute(now - 2600);
+        serie = 0;
+        scene.rompt(p.x, p.y, now);
+        vibre([70, 50, 160]);
+      }
     }
     // Même grammaire en multijoueur : la pause entre deux manches redescend à
     // froid, ce qui rend la reprise plus franche.
@@ -7005,6 +7056,52 @@ function loop(now: number): void {
     tension = { manche: session.level, grace: session.manchesGrace, enManche: false, critique: false };
   }
   poseTension(tension?.manche ?? null, tension?.grace ?? 0, !!tension?.enManche, !!tension?.critique, now);
+
+  /*
+   * L'INTENSITÉ GAGNÉE — le palier de la partie ET la série en cours. Une
+   * nouvelle partie (solo ou salon) repart d'une série nulle.
+   */
+  {
+    const porteur: object | null = session ?? (multi.isPlayingMulti() ? multi : null);
+    if (porteur !== porteurSerie) {
+      porteurSerie = porteur;
+      serie = 0;
+    }
+    scene.poseIntensite(tension ? palierTension(tension.manche, tension.grace).n : 0, tension ? serie : 0);
+  }
+
+  /*
+   * LE MAINTIEN VALIDÉ SE SENT AU DOIGT : quand le cercle passe au vert, une
+   * impulsion brève. C'est l'instant où lâcher devient juste, et c'est au
+   * doigt — qui tient la pièce — qu'on le sent le mieux.
+   */
+  const gesteCourant = session || multiDraw ? gesteAffiche() : null;
+  {
+    const plein = gesteCourant?.kind === "hold" && gesteCourant.progres >= 1;
+    if (plein && !maintienPleinDit) {
+      maintienPleinDit = true;
+      vibre(14);
+    }
+    if (!plein) maintienPleinDit = false;
+  }
+
+  /*
+   * LA CONSIGNE CLAQUE à l'arrivée d'une manche, quand l'intensité l'a
+   * gagné : un coup d'échelle, `transform` seul — la bande de la consigne ne
+   * bouge pas d'un pixel (décision n°17).
+   */
+  {
+    const r = session ? session.round : multiDraw?.round ?? null;
+    if (r && r !== mancheClaquee) {
+      mancheClaquee = r;
+      if (scene.intensite >= 0.5) {
+        const el = $("instr");
+        el.classList.remove("a-claque");
+        void el.offsetWidth;
+        el.classList.add("a-claque");
+      }
+    }
+  }
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant
   // qu'elle se joue reviendrait à donner la réponse.
@@ -7036,7 +7133,7 @@ function loop(now: number): void {
       now,
       reveal: session.phase === "freeze" && !!session.round.trap,
       ratio: session.phase === "playing" ? session.ratio(now) : undefined,
-      geste: gesteAffiche(),
+      geste: gesteCourant,
     });
   } else if (multiDraw) {
     scene.draw({
@@ -7047,7 +7144,7 @@ function loop(now: number): void {
       ratio: multiDraw.ratio,
       needs: multiDraw.needs,
       charges: multiDraw.charges,
-      geste: gesteAffiche(),
+      geste: gesteCourant,
     });
     multi.paintCursors(now, scene.fieldRect());
   } else {
@@ -7409,7 +7506,17 @@ requestAnimationFrame(loop);
 appliqueTheme(P.load().theme);
 
 if (import.meta.env.DEV) {
+  /** Le crochet touche la pièce comme un doigt : le retour part de là. */
+  const vise = (e: Round["ents"][number]): void => {
+    lastClick = { x: e.x, y: e.y, color: colorHex(e.color), r: e.r, t: performance.now() };
+  };
   (window as unknown as { __tor: unknown }).__tor = {
+    get intensite(): number {
+      return scene.intensite;
+    },
+    get serie(): number {
+      return serie;
+    },
     joue(): string {
       if (!session || session.phase !== "playing") return "idle";
       const r = session.round;
@@ -7432,7 +7539,10 @@ if (import.meta.env.DEV) {
             step.kind === "click"
               ? r.ents[step.idx]
               : r.ents.find((x) => juge(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
-          if (e) send({ kind: "click", ent: e, x: e.x, y: e.y });
+          if (e) {
+            vise(e);
+            send({ kind: "click", ent: e, x: e.x, y: e.y });
+          }
         }
       }
       return "played";
@@ -7476,7 +7586,10 @@ if (import.meta.env.DEV) {
           step.kind === "click"
             ? r.ents[step.idx]
             : r.ents.find((x) => permis(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
-        if (e) sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+        if (e) {
+          vise(e);
+          sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+        }
       }
       return "played";
     },
