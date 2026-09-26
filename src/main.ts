@@ -1194,9 +1194,19 @@ function renderParcours(): void {
   const s = P.load();
   const e = etoilesDuCarnet(s);
   const jouables = chapitresJouables();
-  $("pstatEtoiles").textContent = String(PC.totalEtoiles(e, jouables));
-  $("pstatPieces").textContent = String(s.coins);
-  $("pstatSerie").textContent = String(s.streak.count);
+  /*
+   * LES CHIFFRES QU'ON ACCUMULE — et seulement ceux qui valent quelque chose.
+   * Rapporté par Pierre : « il y a trop de choses à l'écran d'accueil, tout
+   * semble important ». Trois pastilles à zéro sont trois choses de plus à
+   * lire pour rien : une pastille nulle se TAIT, et paraît quand elle compte.
+   */
+  const pastille = (id: string, v: number): void => {
+    $(id).textContent = String(v);
+    $(id).parentElement!.classList.toggle("hidden", v <= 0);
+  };
+  pastille("pstatEtoiles", PC.totalEtoiles(e, jouables));
+  pastille("pstatPieces", s.coins);
+  pastille("pstatSerie", s.streak.count);
 
   const prochain = PC.prochainNiveau(e, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const ch =
@@ -1259,22 +1269,69 @@ function renderParcours(): void {
     lanceNiveau({ chapitre: ch, ruleId: id, niveau: d.n });
   };
 
-  // Les modes, verrouillés tant que le parcours ne les a pas ouverts.
-  const verrou = (btn: string, note: string, quoi: keyof typeof VERROU_MODES, texte: string): void => {
-    const ouvert = modeOuvert(quoi, s);
-    $(btn).classList.toggle("is-verrou", !ouvert);
-    $(note).textContent = ouvert ? texte : tp().verrouMode(VERROU_MODES[quoi]);
-  };
-  verrou("profJour", "profJourNote", "jour", CHAINES[langue()]["prof.jourNote"] ?? "");
-  verrou("profLibre", "profLibreNote", "libre", CHAINES[langue()]["prof.libreNote"] ?? "");
-  verrou("profEscalade", "profEscaladeNote", "escalade", CHAINES[langue()]["prof.escaladeNote"] ?? "");
+  /*
+   * LES MODES SE DÉCOUVRENT, ILS NE S'AFFICHENT PAS VERROUILLÉS.
+   *
+   * Rapporté par Pierre : « tout semble important — un nouveau joueur doit
+   * savoir : ah, il y a un parcours, ah, des cartes, une boutique, des potes ».
+   * Quatre tuiles de couleur au même poids que le niveau à jouer, dont trois
+   * cadenassées, disaient tout d'un coup à quelqu'un qui n'a pas fini son
+   * premier chapitre. Un mode fermé n'apparaît donc PAS ; il paraît le jour
+   * où il s'ouvre, marqué NOUVEAU jusqu'au premier appui. Le bloc entier se
+   * tait tant qu'aucun ne l'est — le multi est dans la barre du bas.
+   */
+  const modes: [string, string, keyof typeof VERROU_MODES][] = [
+    ["profJour", "jour", "jour"],
+    ["profLibre", "libre", "libre"],
+    ["profEscalade", "escalade", "escalade"],
+  ];
+  if (s.modesVus === undefined) {
+    // Premier passage depuis ce correctif : ce qui est déjà ouvert est déjà vu.
+    const deja = modes.filter(([, , q]) => modeOuvert(q, s)).map(([, m]) => m);
+    P.mutate((st) => {
+      st.modesVus = deja;
+    });
+    s.modesVus = deja;
+  }
+  let ouverts = 0;
+  for (const [btn, m, q] of modes) {
+    const ouvert = modeOuvert(q, s);
+    if (ouvert) ouverts++;
+    $(btn).classList.toggle("hidden", !ouvert);
+    $(btn).classList.remove("is-verrou");
+    const neuf = ouvert && !s.modesVus.includes(m);
+    $(btn).classList.toggle("is-neuf", neuf);
+    $(btn).dataset.neuf = neuf ? tp().nouveau : "";
+  }
+  $("profJourNote").textContent = CHAINES[langue()]["prof.jourNote"] ?? "";
+  $("profLibreNote").textContent = CHAINES[langue()]["prof.libreNote"] ?? "";
+  $("profEscaladeNote").textContent = CHAINES[langue()]["prof.escaladeNote"] ?? "";
+  $("profondeur").classList.toggle("hidden", ouverts === 0);
+  $("modesTitre").classList.toggle("hidden", ouverts === 0);
+  $("modesTitre").textContent = tp().modesTitre;
 
-  // Le chemin : un chapitre par ligne.
+  /*
+   * Le chemin : un chapitre par ligne — jusqu'au PROCHAIN seulement.
+   *
+   * Il déroulait les seize chapitres, soit 1 524 px au téléphone dont douze
+   * lignes de « ??? 🔒 » : un mur de cadenas sous le niveau à jouer. On montre
+   * ce qui est ouvert, le prochain chapitre fermé (le suivant se VOIT, c'est
+   * ce qui fait envie), et une ligne qui compte le reste.
+   */
   const chemin = $("chemin");
   chemin.innerHTML = "";
+  const ouvertsChemin = PC.CHAPITRES.map(
+    (cid, i) => chapitreJouable(cid) && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues()),
+  );
+  const dernierOuvert = ouvertsChemin.lastIndexOf(true);
+  let reste = 0;
   PC.CHAPITRES.forEach((cid, i) => {
+    if (i > Math.max(dernierOuvert, ch) + 1) {
+      if (chapitreJouable(cid)) reste++;
+      return;
+    }
     const jouable = chapitreJouable(cid);
-    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues());
+    const ouvert = ouvertsChemin[i]!;
     const fini = PC.chapitreFini(e, cid);
     const et = PC.etoilesChapitre(e, cid);
     const li = document.createElement("li");
@@ -1314,6 +1371,12 @@ function renderParcours(): void {
     li.appendChild(b);
     chemin.appendChild(li);
   });
+  if (reste > 0) {
+    const li = document.createElement("li");
+    li.className = "chap chap--reste";
+    li.textContent = tp().chapitresRestants(reste);
+    chemin.appendChild(li);
+  }
 }
 
 /**
@@ -1575,8 +1638,9 @@ function renderSolo(): void {
     strip.appendChild(el);
   };
   const j = jetons();
-  chip(`${j.serie} <b>${s.streak.count}</b>`, s.streak.count >= 3);
-  chip(`${j.pieces} <b>${s.coins}</b>`);
+  // Une pastille à ZÉRO se tait : « SÉRIE 0 · PIÈCES 0 » ne dit rien à lire.
+  if (s.streak.count > 0) chip(`${j.serie} <b>${s.streak.count}</b>`, s.streak.count >= 3);
+  if (s.coins > 0) chip(`${j.pieces} <b>${s.coins}</b>`);
   chip(`${j.regles} <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
   // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
   // identifiant est la clé du carnet et de la comparabilité.
@@ -4304,11 +4368,22 @@ function oublieRecordDuJour(): void {
  */
 function peintBut(sien: number | null, duJour: number | null): void {
   const but = vueBut({ jour: sien, entrainement: 0 }, duJour, "aucun");
-  const note = $("profJourNote");
-  if (!but.cible) return;
-  note.textContent = but.depasse
-    ? t("profJourBattu")(but.cible.score)
-    : t("profJourRecord")(but.cible.score);
+  const chiffre = $("profJourChiffre");
+  if (!but.cible) {
+    chiffre.classList.add("hidden");
+    return;
+  }
+  /*
+   * ⚠️ UN CHIFFRE, PAS UNE PHRASE. Rapporté par Pierre : « certaines cartes
+   * font un peu UI design, par exemple les blocs "du jour à battre
+   * aujourd'hui : 5" restent de l'UI très classique ». La phrase en capitales
+   * grises était une ligne de plus parmi d'autres ; le chiffre, gros, est
+   * l'objet même — comme un score sur un tableau.
+   */
+  $("profJourChiffreN").textContent = String(but.cible.score);
+  $("profJourChiffreQuoi").textContent = but.depasse ? t("profJourBattuCourt") : t("profJourABattre");
+  chiffre.classList.toggle("is-battu", but.depasse);
+  chiffre.classList.remove("hidden");
 }
 
 /**
@@ -6444,7 +6519,13 @@ function joueLaSuite(): void {
  * se lit comme un objectif.
  */
 function refuseSiFerme(quoi: keyof typeof VERROU_MODES): boolean {
-  if (modeOuvert(quoi)) return false;
+  if (modeOuvert(quoi)) {
+    // Le premier appui éteint « NOUVEAU » : le mode est désormais connu.
+    P.mutate((st) => {
+      if (st.modesVus && !st.modesVus.includes(quoi)) st.modesVus.push(quoi);
+    });
+    return false;
+  }
   sfx.fail();
   montreToast(tp().verrouMode(VERROU_MODES[quoi]), tp().verrouChapitre(VERROU_MODES[quoi]), 2200);
   return true;

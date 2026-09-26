@@ -175,6 +175,13 @@ export interface Save {
   /** L'invitation à installer a paru (voir `game/installer.ts`). */
   installVu?: boolean;
   /**
+   * Les modes déjà vus sur l'accueil (`jour`, `libre`, `escalade`). Un mode
+   * qui s'ouvre et n'y est pas porte « NOUVEAU ». ABSENT = pas encore
+   * initialisé : l'accueil y range alors tout ce qui est DÉJÀ ouvert, pour
+   * qu'un joueur d'avant ne voie pas trois « NOUVEAU » au déploiement.
+   */
+  modesVus?: string[];
+  /**
    * La première arrivée a-t-elle été vue ?
    *
    * ⚠️ Absent vaut FAUX, donc un joueur déjà venu la verra une fois — c'est
@@ -440,6 +447,7 @@ export function normaliseSave(brut: unknown): Save {
   if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
   if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
   if (typeof brut.installVu === "boolean") s.installVu = brut.installVu;
+  if (Array.isArray(brut.modesVus)) s.modesVus = brut.modesVus.filter((m: unknown): m is string => typeof m === "string");
   if (typeof brut.veteran === "boolean") s.veteran = brut.veteran;
   else if (!estObjet(brut.boutique) && (s.recent.length > 0 || Object.keys(carnet).length > 0)) s.veteran = true;
   return s;

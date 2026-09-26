@@ -527,11 +527,15 @@
               </div>
             </div>
 
+            <h3 class="modes__titre hidden" id="modesTitre"></h3>
             <div class="profondeur modes" id="profondeur">
               <button class="prof" id="profJour">
                 <span class="prof__quoi" data-i18n="prof.jour">DAILY</span>
                 <span class="prof__nom" data-i18n="prof.jourNom">Everyone's run</span>
                 <span class="prof__note" id="profJourNote" data-i18n="prof.jourNote">SAME RULE · 3 TRIES · ONCE A DAY</span>
+                <!-- Le chiffre du jour, en CHIFFRE : « À BATTRE AUJOURD'HUI · 31 »
+                     en capitales grises se lisait comme une ligne de plus. -->
+                <span class="prof__chiffre hidden" id="profJourChiffre"><b id="profJourChiffreN"></b><small id="profJourChiffreQuoi"></small></span>
               </button>
               <button class="prof" id="btnMulti">
                 <span class="prof__quoi" data-i18n="prof.multi">MULTI</span>

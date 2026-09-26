@@ -1054,6 +1054,9 @@ type Dyn = {
 
   /* ---- LE MODE ATTRACT ---- */
   /** L'intitulé au-dessus du nom de la règle, coin haut gauche. */
+  /** Sous le chiffre de la carte DU JOUR. */
+  profJourABattre: string;
+  profJourBattuCourt: string;
   /** « À BATTRE AUJOURD'HUI · 31 » sur la carte DU JOUR. */
   profJourRecord: (n: number) => string;
   profJourBattu: (n: number) => string;
@@ -1694,6 +1697,8 @@ const DYN: Record<Lang, Dyn> = {
     bilanCarnet: "CARNET",
 
     profJourRecord: (n) => `À BATTRE AUJOURD'HUI · ${n}`,
+    profJourABattre: "à battre",
+    profJourBattuCourt: "battu !",
     profJourBattu: (n) => `TU FAIS MIEUX QUE ${n}`,
     attractRegle: "TA RÈGLE",
     attractManche: (n) => `DÉMO · MANCHE ${n}`,
@@ -2188,6 +2193,8 @@ const DYN: Record<Lang, Dyn> = {
     bilanCarnet: "CODEX",
 
     profJourRecord: (n) => `TO BEAT TODAY · ${n}`,
+    profJourABattre: "to beat",
+    profJourBattuCourt: "beaten!",
     profJourBattu: (n) => `YOU ARE ABOVE ${n}`,
     attractRegle: "YOUR RULE",
     attractManche: (n) => `DEMO · ROUND ${n}`,
