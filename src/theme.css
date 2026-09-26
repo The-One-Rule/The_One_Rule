@@ -1493,7 +1493,14 @@ body {
   height: 15px;
   border: none;
   background: var(--line);
-  clip-path: path("M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z");
+  /*
+   * ⚠️ UN MASQUE, PAS UN `clip-path: path()`. Le tracé d'un `path()` est en
+   * pixels absolus, calé pour une case de 16 × 15 : sur les plaques du
+   * téléphone, la case descend à 7 px et il ne restait qu'un DEMI-DISQUE du
+   * cœur (vu en match à 375 px). Un masque SVG suit la taille de sa case.
+   */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 15'%3E%3Cpath d='M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 15'%3E%3Cpath d='M8 15 L1.4 8.3 A4 4 0 0 1 8 2.8 A4 4 0 0 1 14.6 8.3 Z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 .plate__lives i.is-on,
@@ -2642,6 +2649,120 @@ body {
 @media (min-width: 900px) {
   #codex .rulename::after {
     margin-left: 0;
+  }
+}
+
+/* ==================================================================
+   L'ÉCRAN DE JEU, ÉPURÉ — surtout au téléphone
+
+   Rapporté par Pierre : « sur téléphone l'écran de jeu est juste atroce et
+   les icônes sont mal placées ». Mesuré en match à 375 × 812 : cinq couches
+   disaient toutes « le temps presse » — les équerres aux coins de l'ÉCRAN,
+   un cadre hachuré rouge de 16 px sur toute la page, la bordure critique de
+   `#app`, le halo, le voile — et plusieurs pièces tombaient mal. Le cadre de
+   temps épouse désormais le TERRAIN (`scene.drawTimeFrame`) ; ce qui le
+   doublait part.
+   ================================================================== */
+.equerres {
+  display: none;
+}
+
+#app.is-critical::after {
+  display: none;
+}
+
+/* Les plaques compactes (téléphone) : cœurs lisibles, badge en onglet. */
+#app:not(.has-gutters) .plates .plate__lives i {
+  width: 11px;
+  height: 10px;
+}
+
+/* ⚠️ Le badge « 1RE » était posé DANS le coin haut-droit de la plaque, donc
+   sur le nom dès que la plaque est compacte (« ALICE » caché sous « 1ST »).
+   Il devient un ONGLET à cheval sur le bord supérieur : la plaque garde
+   toute sa hauteur pour le nom. */
+.plates--compact .plate--rookie::before,
+#app:not(.has-gutters) .plates .plate--rookie::before {
+  top: 0;
+  right: 8px;
+  transform: translateY(-60%);
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  line-height: 1.2;
+}
+
+/* Le panneau des temps forts devient un autocollant : les équerres de viseur
+   et le liseré translucide étaient l'habillage de l'identité nocturne. */
+.drama__panel,
+.drama.drama--me .drama__panel,
+.drama.drama--dead-me .drama__panel {
+  background: var(--surface);
+  background-image: none;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-haute);
+}
+
+.drama.drama--dead-me .drama__panel {
+  border-color: var(--rouge);
+}
+
+@media (max-width: 680px) and (orientation: portrait) {
+  /* Le fil des chutes se peignait SUR le haut du terrain, en gris, et disait
+     ce que le panneau et les plaques disent déjà au même instant. */
+  .feed {
+    display: none;
+  }
+
+  /* Les hachures du bandeau : un pictogramme coupé contre le bord gauche, rien
+     qu'un reste de l'ancienne identité à cette taille. */
+  .band__mark {
+    display: none;
+  }
+
+  #band {
+    padding-left: 16px;
+  }
+
+  /* L'annonce (régime, vie perdue, exercice validé) se peignait AU CENTRE du
+     terrain, sur les pièces, pendant 1,4 s de manche. Elle se pose dans
+     l'espace libre entre la barre de temps (fin à 138) et le terrain (176) :
+     deux bandes CONSTANTES, `RESERVE_CONSIGNE`, donc la place est garantie. */
+  .tier {
+    top: 140px;
+    font-size: 22px;
+    line-height: 1.3;
+  }
+
+  /* Les émotes en DEUX colonnes : à trois (155 px), elles coupaient la
+     troisième plaque. Trois rangées de 36 px tiennent dans la bande (124). */
+  #app:not(.has-gutters) #liveHud .emotes {
+    grid-template-columns: repeat(2, 36px);
+    grid-auto-rows: 36px;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  #app:not(.has-gutters) #liveHud .emotes .chip {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  /* Les plaques se PARTAGENT la largeur jusqu'à trois ; au-delà elles
+     défilent à 80 px. À largeur fixe, la troisième était rognée (mesuré :
+     293 px demandés pour 287). */
+  #app:not(.has-gutters) .plates .plate {
+    flex: 1 1 0;
+    min-width: 80px;
+  }
+
+  /* Un nom long s'ellipse dans sa plaque plutôt que d'en sortir. */
+  #app:not(.has-gutters) .plates .plate__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

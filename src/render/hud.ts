@@ -364,10 +364,18 @@ export class Hud {
     const critique = document.getElementById("app")?.classList.contains("is-critical");
     const vite = !hidden && !!critique && n > 0 ? t("hudVite") : "";
     const puces = !hidden && this.puces.length > 1 ? this.puces : [];
-    const ligne = hidden ? "" : [subText, compte, puces.join("|"), vite].join("\0");
+    /*
+     * ⚠️ LA CLÉ PORTE CE QUI EST PEINT, pas ce qui est calculé. Elle contenait
+     * `compte` même quand la manche n'a aucun geste — le texte n'était retiré
+     * qu'au moment de peindre. Après une manche à un geste, « NE FAIS RIEN »
+     * gardait donc « 1 GESTE » (vu en jouant le niveau 1-1 au téléphone) : une
+     * consigne d'agir sur la seule manche où il faut s'abstenir.
+     */
+    const comptePeint = n > 0 ? compte : "";
+    const ligne = hidden ? "" : [subText, comptePeint, puces.join("|"), vite].join("\0");
     if (ligne !== this.lastLigne) {
       this.lastLigne = ligne;
-      this.peintSub(hidden, subText, n > 0 ? compte : "", vite, puces);
+      this.peintSub(hidden, subText, comptePeint, vite, puces);
     }
 
     /*

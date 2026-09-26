@@ -6814,7 +6814,9 @@ function loop(now: number): void {
         session.tierJustCrossed = false;
       } else if (session.tierJustCrossed) {
         session.tierJustCrossed = false;
-        hud.announce(TIER_NAMES[session.tier] ?? "");
+        // Le nom du régime, dans la langue du joueur : `TIER_NAMES` est le
+        // français du moteur, jamais affiché tel quel.
+        hud.announce(t("nomsPaliers")[session.tier] ?? TIER_NAMES[session.tier] ?? "");
       } else if (session.graceJustEnded && !finEchauffementDite) {
         // Une seule fois par run : la boucle passe ici soixante fois par
         // seconde, et relancer l'annonce à chaque image la figerait.

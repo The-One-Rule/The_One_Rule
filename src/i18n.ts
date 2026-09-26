@@ -940,6 +940,8 @@ type Dyn = {
   piedDepasse: string;
   objectifReste: (n: number) => string;
   exerciceValide: string;
+  /** Les cinq régimes du run (`TIER_NAMES`), annoncés toutes les 10 manches. */
+  nomsPaliers: readonly string[];
   briefLongueur: string;
   briefEssais: string;
   briefEchauffement: string;
@@ -1559,6 +1561,7 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "SUR TON MIEUX",
     objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
     exerciceValide: "EXERCICE VALIDÉ",
+    nomsPaliers: ["ÉCHAUFFEMENT", "PRESSION", "ÉTAU", "ASPHYXIE", "AU-DELÀ"],
     briefLongueur: "MANCHES",
     briefEssais: "ESSAIS",
     briefEchauffement: "SANS RISQUE",
@@ -2049,6 +2052,7 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "OVER YOUR BEST",
     objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
     exerciceValide: "EXERCISE CLEARED",
+    nomsPaliers: ["WARM-UP", "PRESSURE", "VICE", "SUFFOCATION", "BEYOND"],
     briefLongueur: "ROUNDS",
     briefEssais: "TRIES",
     briefEchauffement: "RISK-FREE",
