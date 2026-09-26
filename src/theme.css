@@ -2619,6 +2619,61 @@ body {
 /* Couché, la bande entière vaut `RESERVE_HUD_MULTI_COUCHE` : les deux rangées
    descendent à 36 px pour tenir dans la hauteur d'une plaque compacte (94). */
 @media (orientation: landscape) and (max-height: 500px) {
+  /* COMMENCER et REJOUER sous la ligne de flottaison, téléphone couché :
+     mesuré, le brief fait 807 px de contenu et l'écran de fin 932 pour 375,
+     et les deux boutons tombaient à y = 395 et 495 — il fallait défiler pour
+     jouer. Leur rangée (une seule ligne, 47 à 59 px) colle au bas de l'écran,
+     juste au-dessus de la barre de navigation (57 px, mesurée de 360 à 414 de
+     haut) : la même réponse que LANCER au salon. */
+  #brief .btnrow,
+  #over .over__foot {
+    position: sticky;
+    bottom: 57px;
+    z-index: 5;
+    padding: 8px 0;
+    background: var(--ink);
+    box-shadow: 0 -10px 12px -8px var(--ink);
+  }
+
+  /* UNE seule ligne, qui défile de côté si elle déborde : à 667 px la rangée
+     de fin passait sur deux lignes (110 px collés en bas, sur le score). */
+  #over .over__foot .btnrow {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    margin-top: 0;
+    scrollbar-width: none;
+  }
+
+  #over .over__foot .btnrow > .btn {
+    flex: 0 0 auto;
+  }
+
+  #over .over__foot .btnrow > .btn.hidden {
+    display: none;
+  }
+
+  /* Et le SCORE doit tenir au-dessus de la rangée collée : mesuré, le compte
+     tombait à 223-287 sous une rangée collée à 231-294. Le haut de l'écran se
+     resserre — la raison de la mort et le chiffre restent les premiers lus. */
+  #over .over {
+    row-gap: 6px;
+  }
+
+  #over .over__head {
+    padding-bottom: 6px;
+  }
+
+  #over .tally {
+    font-size: 46px;
+    line-height: 1;
+  }
+
+  #over .over__foot {
+    padding-top: 0;
+    box-shadow: none;
+  }
+
   #app:not(.has-gutters) #liveHud .emotes {
     grid-template-columns: repeat(3, 36px);
     grid-auto-rows: 36px;
@@ -3367,4 +3422,51 @@ body {
 
 #classement .mur__tete {
   text-align: center;
+}
+
+/* ==================================================================
+   L'INVITATION À INSTALLER — une fois, après trois parties
+   (`game/installer.ts`). Même famille que l'avis : un ÉTAT de l'écran de
+   fin, pas une modale.
+   ================================================================== */
+.installer {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 3px solid var(--encre);
+  border-radius: 16px;
+  background: var(--ink-2);
+  box-shadow: 4px 4px 0 var(--ombre-c);
+  text-align: left;
+}
+
+.installer.hidden,
+.installer .hidden {
+  display: none;
+}
+
+.installer__q {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--encre);
+}
+
+.installer__quoi {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+.installer__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.installer__actions .btn {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: var(--tap);
 }

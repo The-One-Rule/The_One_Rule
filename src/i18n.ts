@@ -247,6 +247,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "avis.envoyer": "ENVOYER",
     "avis.non": "NON MERCI",
     "avis.merci": "MERCI. CHAQUE MOT EST LU.",
+    "installer.titre": "JOUE EN PLEIN ÉCRAN",
+    "installer.ajouter": "AJOUTER",
+    "installer.non": "PAS MAINTENANT",
     "rgl.langue": "LANGUE",
     "rgl.mesure": "MESURE",
     "rgl.compter": "COMPTER MES PARTIES",
@@ -441,6 +444,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "avis.envoyer": "SEND",
     "avis.non": "NO THANKS",
     "avis.merci": "THANKS. EVERY WORD IS READ.",
+    "installer.titre": "PLAY IT FULL SCREEN",
+    "installer.ajouter": "ADD IT",
+    "installer.non": "NOT NOW",
     "rgl.langue": "LANGUAGE",
     "rgl.mesure": "METRICS",
     "rgl.compter": "COUNT MY GAMES",
@@ -835,6 +841,9 @@ type Dyn = {
   toastAllure: string;
   pastilleSur: (n: number) => string;
   pastilleRecord: (n: number) => string;
+  installerAndroid: string;
+  installerIos: string;
+  installerCompris: string;
   hudVite: string;
   puceDe: (id: string) => string;
   allureRef: string;
@@ -1440,6 +1449,9 @@ const DYN: Record<Lang, Dyn> = {
     toastAllure: "ALLURE",
     pastilleSur: (n) => `+${n} SUR TON MIEUX`,
     pastilleRecord: (n) => `RECORD DÉPASSÉ · ${n}`,
+    installerAndroid: "Ajoute TOR à ton écran d'accueil : plus de barre du navigateur, plus de terrain.",
+    installerIos: "Touche Partager, puis « Sur l'écran d'accueil » : plus de barre du navigateur, plus de terrain.",
+    installerCompris: "COMPRIS",
     hudVite: "VITE",
     puceDe: (id) => (debout && id === "gaucher" ? GAUCHER_DEBOUT.fr.puce : (PUCES.fr[id] ?? "")),
     allureRef: "ALLURE DE RÉFÉRENCE · C'EST ELLE QUI INSCRIT LE RECORD",
@@ -1950,6 +1962,9 @@ const DYN: Record<Lang, Dyn> = {
     toastAllure: "PACE",
     pastilleSur: (n) => `+${n} OVER YOUR BEST`,
     pastilleRecord: (n) => `RECORD BEATEN · ${n}`,
+    installerAndroid: "Add TOR to your home screen: no browser bar, more board.",
+    installerIos: "Tap Share, then “Add to Home Screen”: no browser bar, more board.",
+    installerCompris: "GOT IT",
     hudVite: "FAST",
     puceDe: (id) => (debout && id === "gaucher" ? GAUCHER_DEBOUT.en.puce : (PUCES.en[id] ?? "")),
     allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",

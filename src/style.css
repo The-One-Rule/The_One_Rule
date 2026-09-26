@@ -5745,6 +5745,19 @@ button.chip:active:not(:disabled) {
     #app:not(.has-topbar) #head #instr {
       margin-top: 8px;
     }
+
+    /*
+     * ⚠️ MAIS SON TEXTE ABSORBE LES TOUCHERS. Le conteneur est à hauteur
+     * nulle et laisse passer ; la consigne et la ligne des gestes, elles, se
+     * peignent SUR le canvas. Un doigt qui visait la consigne — pour la
+     * relire, par réflexe — traversait jusqu'au canvas, qui le jugeait comme
+     * un clic dans le VIDE : toucher le texte TUAIT. C'est la même décision
+     * que le paysage serré (« la bande absorbe les touchers »), prise ici
+     * aussi : un doigt posé sur un texte ne voulait pas jouer.
+     */
+    #app:not(.has-topbar) #head > * {
+      pointer-events: auto;
+    }
   }
 }
 

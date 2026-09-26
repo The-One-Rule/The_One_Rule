@@ -70,6 +70,7 @@ export const ALLOWED = new Set([
   // un tap, puis le mot libre s'il y en a un.
   "avis",
   "avis_mot",
+  "installer",
 ]);
 
 /**

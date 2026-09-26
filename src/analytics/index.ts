@@ -124,6 +124,7 @@ export const EVENT_NAMES = [
   "accueil_premier_clic",
   "avis",
   "avis_mot",
+  "installer",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

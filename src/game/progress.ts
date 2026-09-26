@@ -172,6 +172,8 @@ export interface Save {
    * joueurs déjà venus le verront une fois, à leur prochaine fin de partie.
    */
   avisVu?: boolean;
+  /** L'invitation à installer a paru (voir `game/installer.ts`). */
+  installVu?: boolean;
   /**
    * La première arrivée a-t-elle été vue ?
    *
@@ -437,6 +439,7 @@ export function normaliseSave(brut: unknown): Save {
   // commentaire respectif). On ne les pose que s'ils sont vraiment booléens.
   if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
   if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
+  if (typeof brut.installVu === "boolean") s.installVu = brut.installVu;
   if (typeof brut.veteran === "boolean") s.veteran = brut.veteran;
   else if (!estObjet(brut.boutique) && (s.recent.length > 0 || Object.keys(carnet).length > 0)) s.veteran = true;
   return s;

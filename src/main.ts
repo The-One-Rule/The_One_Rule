@@ -35,6 +35,8 @@ import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { doitDemanderAvis, nettoieAvis } from "./game/avis";
 import type { NoteAvis } from "./game/avis";
+import { estSafariIos, installAProposer } from "./game/installer";
+import type { Plateforme } from "./game/installer";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
 import type { Mode } from "./game/session";
@@ -2585,6 +2587,71 @@ function proposeAvis(mesureDemandee: boolean): boolean {
   $<HTMLTextAreaElement>("avisTexte").value = "";
   return true;
 }
+
+/*
+ * L'INVITATION À INSTALLER — voir `game/installer.ts`.
+ *
+ * Chrome prête son invite une fois par chargement, et seulement si le site
+ * est installable : on la GARDE, sans l'afficher — c'est notre écran de fin,
+ * après trois parties, qui la déclenchera sur un geste du joueur.
+ */
+type InviteInstall = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+let inviteInstall: InviteInstall | null = null;
+window.addEventListener("beforeinstallprompt", (ev) => {
+  ev.preventDefault();
+  inviteInstall = ev as InviteInstall;
+});
+const installeDeja = (): boolean =>
+  (typeof matchMedia !== "undefined" &&
+    (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches)) ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+let plateformeInstall: Plateforme | null = null;
+
+function proposeInstall(autreDemande: boolean): boolean {
+  const s = P.load();
+  const boite = $("installer");
+  plateformeInstall = installAProposer({
+    runsAcheves: s.recent.length,
+    dejaVu: !!s.installVu,
+    installe: installeDeja(),
+    autreDemande,
+    inviteAndroid: !!inviteInstall,
+    safariIos: estSafariIos(navigator.userAgent, navigator.maxTouchPoints || 0),
+  });
+  if (!plateformeInstall) {
+    boite.classList.add("hidden");
+    return false;
+  }
+  P.mutate((st) => {
+    st.installVu = true;
+  });
+  const ios = plateformeInstall === "ios";
+  $("installerQuoi").textContent = ios ? t("installerIos") : t("installerAndroid");
+  // Sur iPhone il n'y a rien à cliquer : on dit le geste, et on le range.
+  $("btnInstaller").classList.toggle("hidden", ios);
+  $("btnInstallerNon").textContent = ios ? t("installerCompris") : (CHAINES[langue()]["installer.non"] ?? "");
+  boite.classList.remove("hidden");
+  track("installer", { plateforme: plateformeInstall, issue: "propose" });
+  return true;
+}
+
+$("btnInstaller").addEventListener("click", () => {
+  sfx.ui();
+  const inv = inviteInstall;
+  inviteInstall = null;
+  $("installer").classList.add("hidden");
+  if (!inv) return;
+  void inv
+    .prompt()
+    .then(() => inv.userChoice)
+    .then((c) => track("installer", { plateforme: "android", issue: c.outcome === "accepted" ? "accepte" : "refuse" }))
+    .catch(() => {});
+});
+$("btnInstallerNon").addEventListener("click", () => {
+  sfx.ui();
+  $("installer").classList.add("hidden");
+  if (plateformeInstall) track("installer", { plateforme: plateformeInstall, issue: "plus_tard" });
+});
 
 function closAvis(): void {
   avisNote = null;
@@ -5174,7 +5241,9 @@ function finishRun(): void {
   // L'avis cède au bandeau de mesure, et l'invitation au compte cède aux deux :
   // une seule sollicitation par écran.
   const avisDemande = proposeAvis(mesureDemandee);
-  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande);
+  // L'installation cède aux deux, et l'invitation au compte cède aux trois.
+  const installDemande = proposeInstall(mesureDemandee || avisDemande);
+  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande || installDemande);
   renderPodium(mode);
   /*
    * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
