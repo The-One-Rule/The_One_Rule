@@ -221,7 +221,16 @@ export function dessinePiece(
   }
 
   if (skin === "pixel") {
-    const pas = Math.max(4, r / 4.5);
+    /*
+     * ⚠️ LE PAS DÉCIDE SI UN ROND SE LIT ROND. À `r / 4,5` (plancher 4), une
+     * pièce de la boutique (r 22) tenait en 9 cellules de côté : le rond et le
+     * carré ne différaient que par 4 cellules d'angle sur 64 (6 %) — rapporté
+     * par un joueur : « le style pixel n'a pas de rond, difficile de jouer ».
+     * La forme EST la règle (LA ROUE, LE SOLITAIRE) : un style qui la brouille
+     * est un désavantage acheté. À `r / 7` (plancher 2,5) : 36 cellules sur
+     * 168, 21 % — la courbe se voit en escalier, comme un rond de pixel art.
+     */
+    const pas = Math.max(2.5, r / 7);
     const n = Math.ceil(r / pas) + 1;
     ctx.save();
     for (let i = -n; i <= n; i++) {
