@@ -1986,6 +1986,22 @@ body {
   #multiPodium .lobbyrow.is-off .lifedots {
     display: none;
   }
+
+  /* Un joueur ENCORE EN VIE débordait à son tour : quatre cœurs de 16 px et
+     « 60 MANCHES » sur une ligne finissaient à 422 px pour un écran de 375
+     (mesuré, match à trois joué jusqu'au bout). Vies au-dessus, manches
+     dessous, en cœurs de 10 px. */
+  #multiPodium .lobbyrow__meta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex: none;
+  }
+
+  #multiPodium .lifedots i {
+    width: 10px;
+    height: 9px;
+  }
 }
 
 .titles__row {
@@ -2691,6 +2707,17 @@ body {
   line-height: 1.2;
 }
 
+/* Les vies en chiffre, quand elles sont trop nombreuses pour des cœurs. */
+.vies__n {
+  margin-left: 4px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
 /* COPIER LE LIEN était un mot sans cadre à côté d'un bouton cadré : les deux
    font la même chose (partager le salon), ils portent le même habit. */
 #multi-lobby #btnMultiInvite {
@@ -2746,6 +2773,12 @@ body {
     box-shadow: 0 -10px 12px -8px var(--ink);
   }
 
+  /* Le compteur du COOP (« VIES 12 · SCORE 0 ») se peignait PAR-DESSUS la
+     consigne, et répétait mot pour mot le pied de l'écran. */
+  .coophud {
+    display: none;
+  }
+
   /* L'annonce (régime, vie perdue, exercice validé) se peignait AU CENTRE du
      terrain, sur les pièces, pendant 1,4 s de manche. Elle se pose dans
      l'espace libre entre la barre de temps (fin à 138) et le terrain (176) :
@@ -2777,6 +2810,24 @@ body {
   #app:not(.has-gutters) .plates .plate {
     flex: 1 1 0;
     min-width: 80px;
+  }
+
+  /* À quatre plaques de 80 px, l'avatar de 24 px ne laissait que trois
+     lettres au nom (« AL… », vu en DUO). Il descend à 16 px, et les gouttières
+     se resserrent : « ALICE » tient. */
+  #app:not(.has-gutters) .plates .plate__glyph svg,
+  #app:not(.has-gutters) .plates .plate__glyph img {
+    width: 16px;
+    height: 16px;
+  }
+
+  #app:not(.has-gutters) .plates .plate__head {
+    gap: 4px;
+  }
+
+  #app:not(.has-gutters) .plates .plate {
+    padding-left: 6px;
+    padding-right: 6px;
   }
 
   /* Un nom long s'ellipse dans sa plaque plutôt que d'en sortir. */

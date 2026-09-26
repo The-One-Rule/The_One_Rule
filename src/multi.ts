@@ -39,6 +39,7 @@ import { livesDots } from "./render/hud";
 import { montreToast } from "./render/micro";
 import { fillOptions } from "./render/option";
 import { plateClasses } from "./render/plate";
+import { classeMatch } from "./render/rangs";
 import { paysageSerre } from "./render/orientation";
 import type { PlateActe, PlateFlash } from "./render/plate";
 import { paintCursors } from "./render/cursors";
@@ -2415,93 +2416,74 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (mine?.kind === "death") hud.showStamp(stampFor(mine));
   }
 
-  function renderTitles(players: PlayerPublic[]): void {
+  function renderTitles(players: PlayerPublic[], winnerId: string | null): void {
     const box = $("multiTitles");
     box.innerHTML = "";
-    const withStats = players.map((p) => ({ p, s: p.stats ?? EMPTY_STATS }));
+    const withStats = players.filter((p) => !p.spectator).map((p) => ({ p, s: p.stats ?? EMPTY_STATS }));
 
     type Title = { label: string; value: string; player: PlayerPublic };
     const titles: Title[] = [];
 
-    let reflex: (typeof withStats)[number] | null = null;
-    for (const row of withStats) {
-      if (row.s.reaction == null) continue;
-      if (!reflex || row.s.reaction < reflex.s.reaction!) reflex = row;
-    }
+    /*
+     * ⚠️ UN TITRE NE SE DÉCERNE PAS AU HASARD D'UNE ÉGALITÉ.
+     *
+     * Vu en jouant un match à trois jusqu'au bout : trois séries de ×60, et
+     * SÉRIE allait à ALICE — la première arrivée, rien d'autre. Un titre dit
+     * « celui-là, et pas les autres » ; à égalité au sommet, il se tait.
+     */
+    const seul = (
+      valeur: (s: typeof EMPTY_STATS) => number | null,
+      mieux: (a: number, b: number) => boolean,
+      seuil: (v: number) => boolean,
+    ): (typeof withStats)[number] | null => {
+      const notes = withStats
+        .map((row) => ({ row, v: valeur(row.s) }))
+        .filter((x): x is { row: (typeof withStats)[number]; v: number } => x.v != null && seuil(x.v));
+      if (!notes.length) return null;
+      let meilleure = notes[0]!;
+      for (const x of notes) if (mieux(x.v, meilleure.v)) meilleure = x;
+      return notes.filter((x) => x.v === meilleure.v).length === 1 ? meilleure.row : null;
+    };
+
+    const reflex = seul((s) => s.reaction ?? null, (a, b) => a < b, () => true);
     if (reflex) {
-      titles.push({
-        label: tr("titreReflexe"),
-        value: `${reflex.s.reaction} ms`,
-        player: reflex.p,
-      });
+      titles.push({ label: tr("titreReflexe"), value: `${reflex.s.reaction} ms`, player: reflex.p });
     }
 
-    let flair: (typeof withStats)[number] | null = null;
-    for (const row of withStats) {
-      if (row.s.traps < 1) continue;
-      if (!flair || row.s.traps > flair.s.traps) flair = row;
-    }
+    const flair = seul((s) => s.traps, (a, b) => a > b, (v) => v >= 1);
     if (flair) {
-      titles.push({
-        label: tr("titreFlair"),
-        value: String(flair.s.traps),
-        player: flair.p,
-      });
+      titles.push({ label: tr("titreFlair"), value: String(flair.s.traps), player: flair.p });
     }
 
-    let serie: (typeof withStats)[number] | null = null;
-    for (const row of withStats) {
-      if (row.s.bestStreak < 3) continue;
-      if (!serie || row.s.bestStreak > serie.s.bestStreak) serie = row;
-    }
+    const serie = seul((s) => s.bestStreak, (a, b) => a > b, (v) => v >= 3);
     if (serie) {
-      titles.push({
-        label: tr("titreSerie"),
-        value: `×${serie.s.bestStreak}`,
-        player: serie.p,
-      });
+      titles.push({ label: tr("titreSerie"), value: `×${serie.s.bestStreak}`, player: serie.p });
     }
-
 
     /*
      * TÊTE BRÛLÉE — celui qui est mort le plus souvent sur SA PROPRE règle.
      *
      * C'est le seul titre qui célèbre une défaite, et c'est voulu : mourir sur
-     * sa règle unique est la faute que le jeu existe pour produire. Elle se
-     * raconte, elle se charrie, et elle dit exactement ce qui distingue TOR
-     * d'un jeu de réflexes.
+     * sa règle unique est la faute que le jeu existe pour produire.
      *
      * ⚠️ Le compte vient du SERVEUR (`stats.rulebreaks`), pas du client. Deux
-     * clients qui observent des fenêtres différentes — quelqu'un arrivé en
-     * cours de match — décerneraient des titres différents sur le même écran.
+     * clients qui observent des fenêtres différentes décerneraient des titres
+     * différents sur le même écran.
      */
-    let brulee: (typeof withStats)[number] | null = null;
-    for (const row of withStats) {
-      if (row.s.rulebreaks < 2) continue;
-      if (!brulee || row.s.rulebreaks > brulee.s.rulebreaks) brulee = row;
-    }
+    const brulee = seul((s) => s.rulebreaks, (a, b) => a > b, (v) => v >= 2);
     if (brulee) {
-      titles.push({
-        label: tr("titreBrulee"),
-        value: String(brulee.s.rulebreaks),
-        player: brulee.p,
-      });
+      titles.push({ label: tr("titreBrulee"), value: String(brulee.s.rulebreaks), player: brulee.p });
     }
 
     /*
      * SURVIVANTE — première partie, et elle gagne.
      *
-     * Le titre le plus rare et le plus social du salon : un nouveau invité par
-     * un ami qui bat toute la table. Aucune donnée nouvelle — `rookie` est déjà
-     * sur la plaque, et le vainqueur est celui qui a encore des vies.
-     *
-     * ⚠️ Il ne parait QUE si le vainqueur est un débutant. Le décerner au
-     * meilleur débutant qui a perdu serait un lot de consolation, c'est-à-dire
-     * exactement ce qu'un titre ne doit pas être.
+     * ⚠️ Le vainqueur est celui du SERVEUR (`winnerId`). Il était redéduit
+     * ici (« le plus de vies ») : sur une égalité, sans vainqueur, le titre
+     * allait quand même au premier débutant du tri — vu à trois débutants
+     * ex æquo, sous le titre ÉGALITÉ.
      */
-    const vainqueur = [...players]
-      .filter((p) => !p.spectator && p.lives > 0)
-      .sort((a, b) => b.lives - a.lives || b.score - a.score)[0];
+    const vainqueur = winnerId ? players.find((p) => p.id === winnerId) : undefined;
     if (vainqueur?.rookie) {
       titles.push({
         label: tr("titreSurvivante"),
@@ -2567,16 +2549,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * jugements sur un même écran finissent par se contredire ; il n'en reste
      * qu'un, et il est en tête du classement.
      */
-    const sorted = [...joueurs].sort(
-      (a, b) =>
-        Number(b.id === winnerId) - Number(a.id === winnerId) ||
-        b.lives - a.lives ||
-        b.score - a.score,
-    );
+    const classes = classeMatch(joueurs, winnerId);
     const maxLives = Math.max(roomSettings.lives, ...joueurs.map((p) => p.lives), 1);
     const list = $("multiPodium");
     list.innerHTML = "";
-    sorted.forEach((p, rang) => {
+    classes.forEach(({ joueur: p, rang }) => {
       const row = document.createElement("div");
       const isWinner = p.id === winnerId;
       row.className =
@@ -2593,7 +2570,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         `<span class="lobbyrow__rule"></span>` +
         `<span class="lobbyrow__status"></span>` +
         `<span class="lobbyrow__meta"></span>`;
-      row.querySelector<HTMLElement>(".lobbyrow__rank")!.textContent = `${rang + 1}`;
+      row.querySelector<HTMLElement>(".lobbyrow__rank")!.textContent = `${rang}`;
       peintAvatar(row.querySelector<HTMLElement>(".lobbyrow__glyph")!, p, 16, p.id === net?.myId, P.load().photosAutres);
       poseCarte(row, p);
       row.querySelector<HTMLElement>(".lobbyrow__name-text")!.textContent = p.name;
@@ -2614,7 +2591,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         ? tr("vainqueur")
         : p.lives <= 0
           ? tr("elimine")
-          : tr("rangEme")(rang + 1);
+          : tr("rangEme")(rang);
       // Vies en points, comme sur les plaques et au pied : une seule grammaire
       // visuelle pour une même information.
       // `livesDots` rend des <i> NUS : sans le conteneur `.lifedots`, la CSS
@@ -2785,17 +2762,20 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * ⚠️ `match.idx` est lu ICI, avant `clearMatch()` — comme `match_fin`.
      */
     const rang = $("multiEndRang");
-    const classes = msg.players
-      .filter((p) => !p.spectator)
-      .sort((a, b) => b.lives - a.lives || b.score - a.score);
-    const maPlace = classes.findIndex((p) => p.id === net!.myId);
+    // LE MÊME classement que le podium (`classeMatch`), vainqueur du serveur
+    // compris — et un rang partagé se dit partagé.
+    const classes = classeMatch(msg.players, msg.winnerId);
+    const moi = classes.find((c) => c.joueur.id === net!.myId);
+    // `match.idx` compte à partir de 0 : la dernière manche jouée est idx + 1
+    // (vu : « MANCHE 59 » au-dessus de joueurs à 60 manches tenues).
+    const manchesJouees = manchesTenues + 1;
     rang.textContent = etaitCoop
       ? tr("coopFinRang")(vaguesCoop, scoreCoop)
-      : maPlace >= 0
-        ? tr("finTonRang")(maPlace + 1, classes.length, manchesTenues)
+      : moi
+        ? (moi.exAequo ? tr("finExAequo") : tr("finTonRang"))(moi.rang, classes.length, manchesJouees)
         : "";
 
-    renderTitles(msg.players);
+    renderTitles(msg.players, msg.winnerId);
     renderPodium(msg.players, msg.winnerId);
     $("multiEndInviteHint").textContent = tr("lienInvitation");
 

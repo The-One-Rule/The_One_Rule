@@ -213,7 +213,14 @@ export class Hud {
       return;
     }
     const n = Math.max(0, lives);
-    this.vies.innerHTML = livesDots(n, max);
+    /*
+     * Au-delà de six, des cœurs ne se COMPTENT plus d'un coup d'œil, et ils
+     * mangent le bandeau : vu en COOP à quatre (douze vies communes), douze
+     * cœurs ne laissaient que « THE … » au nom de la règle. Un cœur et un
+     * chiffre disent la même chose en 40 px.
+     */
+    this.vies.innerHTML =
+      max > 6 ? `${livesDots(n > 0 ? 1 : 0, 1)}<b class="vies__n">×${n}</b>` : livesDots(n, max);
     this.viesLabel.textContent = n === 1 ? t("hudDerniereVie") : t("piedVies");
     this.droite.classList.toggle("is-last", n === 1);
   }

@@ -94,9 +94,10 @@ export function drawNeedBadge(
   y: number,
   need: 1 | 2 | 3,
   n = 0,
+  /** Taille en unités de terrain — la scène la grossit quand l'échelle est petite. */
+  s = 20,
 ): void {
   if (need < 2) return;
-  const s = 20;
   const bx = Math.round(x - s / 2);
   const by = Math.round(y - s / 2);
   ctx.save();
@@ -115,7 +116,7 @@ export function drawNeedBadge(
     cx += cranW + gap;
   }
   ctx.fillStyle = NEED_BADGE.signal;
-  ctx.font = policeMono(700, 10);
+  ctx.font = policeMono(700, Math.round(s / 2));
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(n > 0 ? `${n}/${need}` : String(need), bx + s / 2, by + s / 2 + 1);
@@ -916,6 +917,12 @@ export class SceneRenderer {
        * Rien ici ne touche à `e.x`, `e.y` ni `e.r` : la géométrie du hit-test
        * est exactement celle d'avant, au pixel près.
        */
+      /*
+       * La pastille du coop tient au moins 22 px À L'ÉCRAN. À 20 unités de
+       * terrain, elle tombait à 9 px au téléphone (échelle 0,46) : le nombre
+       * d'appuis qu'une pièce demande ne se lisait plus.
+       */
+      const tailleBadge = Math.max(20, 22 / Math.max(0.01, this.scale));
       for (const e of round.ents) {
         let scale = birth;
         if (breathes) {
@@ -942,10 +949,10 @@ export class SceneRenderer {
             ctx.save();
             ctx.translate(e.x + bdx, e.y + bdy);
             ctx.transform(0, 1, 1, 0, 0, 0);
-            drawNeedBadge(ctx, 0, 0, need, charges?.get(e.idx)?.n ?? 0);
+            drawNeedBadge(ctx, 0, 0, need, charges?.get(e.idx)?.n ?? 0, tailleBadge);
             ctx.restore();
           } else {
-            drawNeedBadge(ctx, e.x + bdx, e.y + bdy, need, charges?.get(e.idx)?.n ?? 0);
+            drawNeedBadge(ctx, e.x + bdx, e.y + bdy, need, charges?.get(e.idx)?.n ?? 0, tailleBadge);
           }
         }
       }

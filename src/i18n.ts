@@ -1000,6 +1000,8 @@ type Dyn = {
   hudPieges: (n: number) => string;
   /** « TU FINIS 2ᵉ SUR 6 · MANCHE 22 » — l'écran de fin d'un match. */
   finTonRang: (place: number, total: number, manches: number) => string;
+  /** Même ligne, pour un rang PARTAGÉ : jamais « 1er sur 3 » sous « ÉGALITÉ ». */
+  finExAequo: (place: number, total: number, manches: number) => string;
   /** Les trois repères sous le score de fin de run. */
   finReperRecord: (n: number) => string;
   finReperMediane: (n: number) => string;
@@ -1630,6 +1632,8 @@ const DYN: Record<Lang, Dyn> = {
      */
     finTonRang: (place, total, manches) =>
       `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
+    finExAequo: (place, total, manches) =>
+      `EX ÆQUO ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
     finReperRecord: (n) => `TON RECORD · ${n}`,
     finReperMediane: (n) => `MÉDIANE · ${n}`,
     finReperMeilleur: (n) => `RECORD · ${n}`,
@@ -2110,6 +2114,7 @@ const DYN: Record<Lang, Dyn> = {
         d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
       return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
     },
+    finExAequo: (place, total, manches) => `TIED ${place}${rangSuffixe(place)} OF ${total} · ROUND ${manches}`,
     finReperRecord: (n) => `YOUR BEST · ${n}`,
     finReperMediane: (n) => `MEDIAN · ${n}`,
     finReperMeilleur: (n) => `RECORD · ${n}`,

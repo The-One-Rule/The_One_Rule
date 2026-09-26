@@ -5660,6 +5660,12 @@ function send(action: Action): void {
   react(session.input(action, performance.now()), combo, manche);
 }
 
+/** Les manches multi déjà vues par `__tor.joueMulti`, et quand (−1 = jouée). */
+const mancheVue = new WeakMap<object, number>();
+
+/** Le dernier rendu multi — lu par le crochet de dev `__tor.joueMulti`. */
+let dernierMultiDraw: ReturnType<typeof multi.syncFrame> = null;
+
 /** Où est le doigt pendant un appui, en coordonnées de champ — pour GLISSER. */
 let doigt: { x: number; y: number } | null = null;
 
@@ -6971,6 +6977,7 @@ function loop(now: number): void {
     }
   } else if (multi.isPlayingMulti()) {
     multiDraw = multi.syncFrame();
+    dernierMultiDraw = multiDraw;
     const fx = multi.takeFx();
     if (fx) {
       if (fx.burstScreen) scene.burstScreen("#CFC9F2");
@@ -7432,6 +7439,46 @@ if (import.meta.env.DEV) {
     },
     get phase(): string {
       return session?.phase ?? "none";
+    },
+    /** Joue la bonne réponse de la manche MULTI en cours (dev seulement). */
+    joueMulti(): string {
+      const d = dernierMultiDraw;
+      if (!d?.round || !d.rule || !multi.isPlayingMulti()) return "idle";
+      const r = d.round;
+      if (r.steps.length === 0) return "wait";
+      // Une fois par manche, et pas avant 460 ms (LA SECONDE interdit 400).
+      const vu = mancheVue.get(r);
+      const maintenant = performance.now();
+      if (vu === undefined) {
+        mancheVue.set(r, maintenant);
+        return "vu";
+      }
+      if (vu < 0) return "joue";
+      if (maintenant - vu < 460) return "attend";
+      mancheVue.set(r, -1);
+      const regle = d.rule;
+      const permis = (e: Round["ents"][number]): boolean =>
+        regle.judge({ kind: "click", ent: e, x: e.x, y: e.y }, { round: r, elapsedMs: 9999 } as never) === null;
+      for (const step of r.steps) {
+        if (step.kind === "key") continue;
+        if (step.kind === "hold") {
+          const e = r.ents[step.idx]!;
+          sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+          setTimeout(() => sendOrMulti({ kind: "lift", ent: e, x: e.x, y: e.y }), step.ms + 60);
+          return "hold";
+        }
+        if (step.kind === "drop") {
+          const e = r.ents[step.idx]!;
+          sendOrMulti({ kind: "lift", ent: e, x: e.x, y: e.y });
+          continue;
+        }
+        const e =
+          step.kind === "click"
+            ? r.ents[step.idx]
+            : r.ents.find((x) => permis(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
+        if (e) sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+      }
+      return "played";
     },
     /** Le champ en coordonnées de PAGE — pour mesurer un recouvrement. */
     champ(): { x: number; y: number; w: number; h: number } {

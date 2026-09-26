@@ -849,6 +849,41 @@ ligne des gestes ; un trait pointillé de la pièce prise au doigt. Le canvas
 capture le pointeur à l'appui : un glisser qui sort du terrain lève encore
 sur lui.
 
+### L'écran de jeu au téléphone, et les modes multi joués pour de vrai (26/09/2026)
+
+Rapporté par Pierre : « beaucoup de bugs sur les modes multi, sur téléphone
+l'écran de jeu est juste atroce et les icônes sont mal placées ». Tout a été
+JOUÉ (Playwright, hôte au téléphone, joueurs pilotés par `__tor.joueMulti`,
+dev seulement : il retient chaque manche et n'agit qu'à 460 ms, LA SECONDE).
+
+- ⚠️ **« NE FAIS RIEN » affichait « 1 GESTE »** après une manche à un geste :
+  la clé de repeinture de la ligne portait le compte CALCULÉ, pas le compte
+  PEINT. `tests/hud-gestes.test.ts`, éprouvé.
+- **Une seule horloge** : le cadre de temps épouse le TERRAIN (plus les bords
+  de l'écran, donc plus de barres parasites derrière la consigne), sans
+  hachures ; équerres et bordure critique de `#app` retirées.
+- Cœurs en MASQUE SVG (un `clip-path: path()` est en pixels : réduit à 7 px il
+  restait un demi-disque) ; badge « 1RE » en onglet (il couvrait le nom) ;
+  émotes 2 × 3 ; plaques qui se partagent la largeur, avatar 16 px, noms en
+  ellipse ; annonce de régime traduite (`nomsPaliers`) et posée hors du
+  terrain ; fil des chutes tu au téléphone ; panneau de perte de vie en
+  autocollant ; au-delà de six vies, un cœur et « ×12 ».
+- **Salon** : LANCER était à y = 1208 pour un écran de 812 — la rangée
+  d'actions colle au bas du panneau, au-dessus de la discussion.
+- **Fin de match** : « ÉGALITÉ » au-dessus de 1er, 2e, 3e pour trois ex æquo,
+  et « TU FINIS 1er SUR 3 ». Le rang se COMPTE (`render/rangs.ts`, pur,
+  testé : 1 + le nombre strictement devant) et la ligne de rang et le podium
+  lisent la MÊME fonction — ils triaient chacun de leur côté, l'un avec
+  `winnerId`, l'autre sans. « MANCHE 59 » sous 60 manches tenues (`idx` part de
+  0). Un titre à égalité au sommet se TAIT (SÉRIE allait au premier arrivé) ;
+  SURVIVANT lit `winnerId` (il se décernait sur une égalité). La rangée d'un
+  joueur en vie débordait de 47 px.
+- **Coop au téléphone** : le compteur « VIES 12 · SCORE 0 » se peignait sur la
+  consigne et doublait le pied (tu) ; les pastilles d'appuis faisaient 9 px
+  (taille plancher de 22 px à l'écran).
+- Imposteur : sa porte est fermée depuis le playtest (voir le commentaire dans
+  `index.html`), non rejoué.
+
 ### Le rejeu serveur jugeait les runs de téléphone sur d'AUTRES manches (26/09/2026)
 
 Trouvé en ouvrant les consignes au solo, antérieur à elles. Le téléphone tire
