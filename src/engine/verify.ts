@@ -17,6 +17,7 @@ import { ONE_RULES, withoutHold, withoutInk } from "./rules";
 import { combineRules } from "./rules/combine";
 import { pileA, pileEscalade } from "./escalade";
 import { buildRound } from "./round";
+import { TOUCH_INSTRUCTIONS } from "./instructions";
 import { resolveAction, resolveTimeout } from "./resolve";
 import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty";
 import type { Action, Entity, OneRule, Round, RoundProgress } from "./types";
@@ -47,7 +48,7 @@ export interface RunClaim {
    * compare qu'a ses semblables. Les declarer ne donne aucun avantage — cela
    * change la pile, pas sa difficulte — mais cela change a QUI on se compare.
    */
-  capacites?: { maintien: boolean; encre: boolean };
+  capacites?: { maintien: boolean; encre: boolean; clavier?: boolean };
 }
 
 export interface Verdict {
@@ -151,15 +152,31 @@ export function verifyRun(claim: RunClaim): Verdict {
   let traps = 0;
   const reactions: number[] = [];
   let roundStart = 0;
-  /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
-  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : rule);
+  /*
+   * ⚠️ LE TÉLÉPHONE NE JOUE PAS LES MÊMES MANCHES, et le rejeu doit le savoir.
+   *
+   * Le client tire au doigt dans `TOUCH_INSTRUCTIONS` et remplace une règle à
+   * maintien (`withoutHold`) ou d'encre (`withoutInk`). Le rejeu tirait
+   * toujours dans le catalogue complet, sous la règle brute : mesuré sur 200
+   * graines, les manches divergeaient dès la manche 3 (au plus tard la 7) —
+   * chaque run du jour joué au téléphone était rejoué sur d'AUTRES manches,
+   * et son score vérifié était faux. ABSENT VAUT CLAVIER : un client d'avant
+   * ce correctif est rejoué comme avant, rien ne change pour lui.
+   */
+  const pool = claim.capacites?.clavier === false ? TOUCH_INSTRUCTIONS : undefined;
+  let regleSeule: OneRule = rule;
+  if (claim.capacites?.maintien === false) regleSeule = withoutHold(regleSeule);
+  if (claim.capacites?.encre === false) regleSeule = withoutInk(regleSeule);
 
-  let round: Round = buildRound(rng, level, regleA(level));
+  /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
+  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : regleSeule);
+
+  let round: Round = buildRound(rng, level, regleA(level), pool);
   let progress: RoundProgress = { step: 0 };
   let cursor = 0;
 
   const nextRound = (at: number): void => {
-    round = buildRound(rng, level, regleA(level));
+    round = buildRound(rng, level, regleA(level), pool);
     progress = { step: 0 };
     roundStart = at;
   };

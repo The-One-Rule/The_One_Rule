@@ -4816,6 +4816,8 @@ function finishRun(): void {
       pose: Date.now(),
       valeur: end.score,
       valeur2: duree,
+      // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
+      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
     });
     /*
      * Le run qui vient de finir a pu prendre la tête du classement : la valeur

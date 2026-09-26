@@ -46,6 +46,12 @@ export interface Envoi {
   valeur?: number;
   /** Durée du run en ms — départage à score égal, même ordre que `posePerf`. */
   valeur2?: number;
+  /**
+   * Ce que l'appareil savait jouer : sans ça, le serveur rejouait un run de
+   * téléphone sur les manches du clavier. Absent des files écrites avant —
+   * elles sont rejouées comme avant.
+   */
+  capacites?: { clavier: boolean; maintien: boolean; encre: boolean };
 }
 
 function lit(): Envoi[] {
@@ -199,7 +205,7 @@ async function videUne(): Promise<Resultat[]> {
       const res = await fetch(POINT, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
-        body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs }),
+        body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs, capacites: e.capacites }),
       });
       if (res.ok) {
         const r = (await res.json()) as Resultat;
