@@ -89,6 +89,15 @@ describe("HUD téléphone — bandeau et consigne", () => {
     expect(corps).not.toMatch(/position:\s*absolute/);
   });
 
+  it("⚠️ mais le TEXTE de la consigne absorbe les touchers : le toucher ne tue plus", () => {
+    // Le conteneur laisse passer (hauteur nulle) ; ses enfants, qui se
+    // peignent sur le canvas, arrêtent le doigt. Sans ça, toucher la consigne
+    // était un clic dans le vide — une mort.
+    const enfants = /#app:not\(\.has-topbar\)\s+#head\s*>\s*\*\s*\{([^}]*)\}/.exec(tel);
+    expect(enfants, "règle des enfants de #head introuvable").not.toBeNull();
+    expect(enfants![1]).toMatch(/pointer-events:\s*auto/);
+  });
+
   it("hors jeu, #head reste dans le flux — visibility, pas display", () => {
     const vis = /#app\.has-topbar #band,[\s\S]*?\{([^}]+)\}/.exec(css);
     expect(vis, "règle has-topbar HUD introuvable").not.toBeNull();

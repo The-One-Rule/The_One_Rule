@@ -13,7 +13,7 @@
  */
 
 import { mulberry32 } from "./rng";
-import { ONE_RULES, withoutHold, withoutInk } from "./rules";
+import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./rules";
 import { combineRules } from "./rules/combine";
 import { pileA, pileEscalade } from "./escalade";
 import { buildRound } from "./round";
@@ -54,7 +54,17 @@ export interface RunClaim {
    * compare qu'a ses semblables. Les declarer ne donne aucun avantage — cela
    * change la pile, pas sa difficulte — mais cela change a QUI on se compare.
    */
-  capacites?: { maintien: boolean; encre: boolean; clavier?: boolean };
+  capacites?: {
+    maintien: boolean;
+    encre: boolean;
+    clavier?: boolean;
+    /**
+     * `false` : LA VOYELLE a été remplacée (`withoutLetters`). ABSENT VAUT
+     * NON REMPLACÉE — un téléphone d'avant ce correctif la jouait telle
+     * quelle, et doit être rejoué ainsi.
+     */
+    lettres?: boolean;
+  };
   /**
    * Le catalogue de consignes du run. 2 = le catalogue du solo élargi
    * (double appui, MAINTENIR, GLISSER). ABSENT VAUT 1 : un run d'un client
@@ -156,6 +166,7 @@ export function verifyRun(claim: RunClaim): Verdict {
       ? pileEscalade(mulberry32(claim.seed ^ 0x5eca1ade), (r) => {
           if (claim.capacites?.maintien === false && withoutHold(r) !== r) return false;
           if (claim.capacites?.encre === false && withoutInk(r) !== r) return false;
+          if (claim.capacites?.lettres === false && withoutLetters(r) !== r) return false;
           return true;
         })
       : null;
@@ -193,6 +204,7 @@ export function verifyRun(claim: RunClaim): Verdict {
   let regleSeule: OneRule = rule;
   if (claim.capacites?.maintien === false) regleSeule = withoutHold(regleSeule);
   if (claim.capacites?.encre === false) regleSeule = withoutInk(regleSeule);
+  if (claim.capacites?.lettres === false) regleSeule = withoutLetters(regleSeule);
 
   /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
   const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : regleSeule);

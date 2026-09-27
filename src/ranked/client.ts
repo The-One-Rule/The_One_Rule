@@ -72,7 +72,7 @@ export const submitRun = (payload: {
   seed: number;
   ruleId: string;
   inputs: LoggedInput[];
-  capacites?: { clavier: boolean; maintien: boolean; encre: boolean };
+  capacites?: { clavier: boolean; maintien: boolean; encre: boolean; lettres?: boolean };
   catalogue?: number;
   opponentScore?: number;
   opponentRating?: number;

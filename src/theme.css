@@ -1670,6 +1670,20 @@ body {
   color: var(--encre);
 }
 
+/*
+ * LA CONSIGNE CLAQUE — seulement quand l'intensité l'a gagné (voir
+ * `render/intensite.ts`). `transform` seul : la bande ne bouge pas d'un pixel
+ * (décision n°17), c'est le texte qui arrive en force.
+ */
+#instr.a-claque {
+  animation: tor-claque 180ms cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes tor-claque {
+  0% { transform: scale(1.22); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* ==================================================================
    LE SALON — entrée, salle d'attente, partie, fin de match
 
@@ -2605,6 +2619,61 @@ body {
 /* Couché, la bande entière vaut `RESERVE_HUD_MULTI_COUCHE` : les deux rangées
    descendent à 36 px pour tenir dans la hauteur d'une plaque compacte (94). */
 @media (orientation: landscape) and (max-height: 500px) {
+  /* COMMENCER et REJOUER sous la ligne de flottaison, téléphone couché :
+     mesuré, le brief fait 807 px de contenu et l'écran de fin 932 pour 375,
+     et les deux boutons tombaient à y = 395 et 495 — il fallait défiler pour
+     jouer. Leur rangée (une seule ligne, 47 à 59 px) colle au bas de l'écran,
+     juste au-dessus de la barre de navigation (57 px, mesurée de 360 à 414 de
+     haut) : la même réponse que LANCER au salon. */
+  #brief .btnrow,
+  #over .over__foot {
+    position: sticky;
+    bottom: 57px;
+    z-index: 5;
+    padding: 8px 0;
+    background: var(--ink);
+    box-shadow: 0 -10px 12px -8px var(--ink);
+  }
+
+  /* UNE seule ligne, qui défile de côté si elle déborde : à 667 px la rangée
+     de fin passait sur deux lignes (110 px collés en bas, sur le score). */
+  #over .over__foot .btnrow {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    margin-top: 0;
+    scrollbar-width: none;
+  }
+
+  #over .over__foot .btnrow > .btn {
+    flex: 0 0 auto;
+  }
+
+  #over .over__foot .btnrow > .btn.hidden {
+    display: none;
+  }
+
+  /* Et le SCORE doit tenir au-dessus de la rangée collée : mesuré, le compte
+     tombait à 223-287 sous une rangée collée à 231-294. Le haut de l'écran se
+     resserre — la raison de la mort et le chiffre restent les premiers lus. */
+  #over .over {
+    row-gap: 6px;
+  }
+
+  #over .over__head {
+    padding-bottom: 6px;
+  }
+
+  #over .tally {
+    font-size: 46px;
+    line-height: 1;
+  }
+
+  #over .over__foot {
+    padding-top: 0;
+    box-shadow: none;
+  }
+
   #app:not(.has-gutters) #liveHud .emotes {
     grid-template-columns: repeat(3, 36px);
     grid-auto-rows: 36px;
@@ -2779,14 +2848,35 @@ body {
     display: none;
   }
 
+  /* UNE SEULE HORLOGE, pour de bon. Le cadre qui épouse le terrain dit le
+     temps, et ses deux têtes brûlent quand la partie chauffe : la barre sous
+     la consigne (`#timer`) le répétait à 30 px de là — deux horloges qui
+     filent ensemble, c'est deux endroits à regarder. `visibility` et non
+     `display` : la bande de la consigne garde sa hauteur (n°17). */
+  #timer {
+    visibility: hidden;
+  }
+
   /* L'annonce (régime, vie perdue, exercice validé) se peignait AU CENTRE du
-     terrain, sur les pièces, pendant 1,4 s de manche. Elle se pose dans
-     l'espace libre entre la barre de temps (fin à 138) et le terrain (176) :
-     deux bandes CONSTANTES, `RESERVE_CONSIGNE`, donc la place est garantie. */
+     terrain, sur les pièces, pendant 1,4 s de manche. Posée ensuite entre la
+     consigne et le terrain (top 140), elle chevauchait la ligne des gestes dès
+     qu'une consigne passait sur deux lignes — vu en jouant : « AU-DELÀ » sur
+     « 1 GESTE · VITE ». Elle vit maintenant DEBOUT dans la bande vide à
+     gauche du terrain (67 à 100 px selon le téléphone) : hors du champ, hors
+     de la consigne, et c'est la seule place libre qui ne bouge jamais. */
   .tier {
-    top: 140px;
-    font-size: 22px;
-    line-height: 1.3;
+    top: 50%;
+    left: 6px;
+    right: auto;
+    writing-mode: vertical-rl;
+    font-size: 26px;
+    line-height: 1;
+    letter-spacing: 0.14em;
+    transform: translateY(-50%) rotate(180deg) scale(0.94);
+  }
+
+  .tier.is-on {
+    transform: translateY(-50%) rotate(180deg) scale(1);
   }
 
   /* Les émotes en DEUX colonnes : à trois (155 px), elles coupaient la
@@ -2843,6 +2933,7 @@ body {
    Mouvement réduit : rien ne bouge, rien ne disparaît
    ================================================================== */
 @media (prefers-reduced-motion: reduce) {
+  #instr.a-claque { animation: none; }
   .play,
   .piste__pas.is-courant .piste__n,
   .etoiles.joue .etoile.is-on,
@@ -2907,8 +2998,14 @@ body {
 
 .amis__ajout {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-bottom: 8px;
+}
+
+.amis__ajoutrang {
+  display: flex;
+  gap: 8px;
 }
 
 /* ⚠️ `min-width: 0` : un champ flexible ne rétrécit pas sous son contenu
@@ -3331,4 +3428,574 @@ body {
 
 #classement .mur__tete {
   text-align: center;
+}
+
+/* ==================================================================
+   L'INVITATION À INSTALLER — une fois, après trois parties
+   (`game/installer.ts`). Même famille que l'avis : un ÉTAT de l'écran de
+   fin, pas une modale.
+   ================================================================== */
+.installer {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 3px solid var(--encre);
+  border-radius: 16px;
+  background: var(--ink-2);
+  box-shadow: 4px 4px 0 var(--ombre-c);
+  text-align: left;
+}
+
+.installer.hidden,
+.installer .hidden {
+  display: none;
+}
+
+.installer__q {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--encre);
+}
+
+.installer__quoi {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+.installer__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.installer__actions .btn {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: var(--tap);
+}
+
+/* ==================================================================
+   L'ÉCRAN DES AMIS — /amis
+   Rapporté par Pierre : « c'est dans classement donc mal pensé niveau UX,
+   pas de page dédiée ». L'ordre suit l'urgence : les demandes reçues (elles
+   attendent quelqu'un), son code (on vient le donner), la saisie, les
+   demandes envoyées, puis le cercle. Téléphone d'abord : une colonne,
+   des cibles de 44 px, et le code en GRAND — il se dicte.
+   ================================================================== */
+.amisecran {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.amisecran__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--encre);
+}
+
+.amisecran__chapo {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--paper-dim);
+}
+
+#amis .amis {
+  margin-top: 0;
+}
+
+#amis .amis__connecte {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.amis__anontxt {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  color: var(--encre);
+}
+
+.amisbloc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.amisbloc.hidden,
+.amis__ok.hidden,
+.amis__indispo.hidden,
+.murlien.hidden {
+  display: none;
+}
+
+.amisbloc__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.amisbloc__n {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: 4px;
+  border-radius: 11px;
+  background: var(--signal);
+  color: #fff;
+  font-size: 12px;
+  letter-spacing: 0;
+  vertical-align: 1px;
+}
+
+/* Une seule demande : pas de chiffre, donc pas de pastille vide. */
+.amisbloc__n:empty {
+  display: none;
+}
+
+/* Les demandes reçues sont LE point chaud de l'écran : l'autocollant plein,
+   bordé d'accent — le seul accent de la page. */
+.amisbloc--recues {
+  padding: 14px;
+  border: var(--trait) solid var(--signal);
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, var(--signal) 10%, var(--surface));
+  box-shadow: 4px 4px 0 var(--ombre-c);
+}
+
+.amisbloc--recues .amisbloc__titre {
+  color: var(--signal);
+}
+
+.demandes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.demande {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  text-align: left;
+  align-items: center;
+  gap: 10px;
+  min-height: 56px;
+  padding: 6px 8px 6px 6px;
+  border: 2px solid var(--encre);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.demande__nom {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--encre);
+}
+
+.demande__attente {
+  display: none;
+}
+
+.demande__actes {
+  display: flex;
+  gap: 6px;
+}
+
+/* Des boutons SERRÉS : à 375 px, « ACCEPTER » et « NON » à la largeur d'un
+   bouton ordinaire ne laissaient que trois lettres au nom (« JUL… »). */
+.demande__actes .btn {
+  min-height: var(--tap);
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+/* Le code, en GRAND : il se dicte comme un code de salon. */
+.moncode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: var(--ombre);
+}
+
+.moncode__quoi {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.moncode__val {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: var(--encre);
+  user-select: all;
+}
+
+.moncode__actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.moncode__actions .btn {
+  flex: 1 1 0;
+  min-width: max-content;
+  min-height: var(--tap);
+}
+
+.amis__ok {
+  margin: -6px 0 0;
+  padding: 10px 12px;
+  border-left: 4px solid var(--signal);
+  background: color-mix(in srgb, var(--signal) 8%, var(--surface));
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--encre);
+}
+
+.amis__indispo {
+  margin: 0;
+  color: var(--paper-dim);
+}
+
+/* La PORTE des amis — sur le mur et sur le profil. Une rangée qu'on touche,
+   pas un intitulé : elle dit où elle mène et, s'il y en a, combien de
+   demandes attendent. */
+.murlien {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: var(--ombre);
+  color: var(--encre);
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.murlien__quoi {
+  grid-column: 1;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.murlien__dit {
+  grid-column: 1;
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+
+.murlien.a-demandes .murlien__dit {
+  color: var(--signal);
+  font-weight: 800;
+}
+
+.murlien__fleche {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.murlien:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+#compte .murlien {
+  margin-top: 14px;
+}
+
+/* La pastille sur PROFIL, dans la barre haute. */
+#btnTopCompte {
+  position: relative;
+}
+
+#btnTopCompte.a-demandes::after {
+  content: attr(data-demandes);
+  position: absolute;
+  top: -2px;
+  left: 26px;
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  border: 2px solid var(--ink);
+  background: var(--signal);
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* ==================================================================
+   L'ACCUEIL QUI SE DÉCOUVRE — hiérarchie et dévoilement progressif.
+   Rapporté par Pierre : « trop de choses à l'écran d'accueil, tout semble
+   important » ; « la typographie est trop uniforme » ; « certaines cartes
+   font un peu UI design ». Trois réponses, toutes ici :
+   - le NIVEAU À JOUER est le seul bloc fort (carte, gros bouton) ;
+   - les modes deviennent des RANGÉES, d'un seul poids en dessous : un titre
+     en Fredoka, une ligne en Nunito, et une pastille de couleur pour les
+     reconnaître — plus quatre tuiles pleines qui disputaient l'œil au niveau ;
+   - le chiffre du jour se lit comme un SCORE, pas comme une phrase.
+   ================================================================== */
+.modes__titre {
+  margin: 26px 0 10px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.modes__titre.hidden,
+#home .profondeur.modes.hidden,
+#home .modes .prof.hidden,
+.prof__chiffre.hidden,
+.pstat.hidden {
+  display: none;
+}
+
+#home .profondeur.modes {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+@media (min-width: 640px) {
+  #home .profondeur.modes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+#profJour { --mode: var(--miel); }
+#btnMulti { --mode: var(--ciel); }
+#profLibre { --mode: var(--menthe); }
+#profEscalade { --mode: var(--rose); }
+
+#home .modes .prof {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 14px;
+  row-gap: 2px;
+  align-items: center;
+  min-height: 68px;
+  padding: 12px 16px 12px 12px;
+  background: var(--surface);
+  text-align: left;
+}
+
+#home .modes .prof::before {
+  content: "";
+  grid-column: 1;
+  grid-row: 1 / 3;
+  align-self: stretch;
+  border-radius: 6px;
+  border: 2px solid var(--encre);
+  background: var(--mode, var(--lilas));
+}
+
+#home .modes .prof__quoi {
+  grid-column: 2;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--encre);
+}
+
+#home .modes .prof__nom {
+  grid-column: 2;
+  display: block;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--paper-dim);
+}
+
+/* Le détail en capitales se lit sur l'écran du mode : ici il doublait le
+   sous-titre dans le même gris. */
+#home .modes .prof__note {
+  display: none;
+}
+
+.prof__chiffre {
+  grid-column: 3;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+
+.prof__chiffre b {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 34px;
+  color: var(--encre);
+  font-variant-numeric: tabular-nums;
+}
+
+.prof__chiffre small {
+  margin-top: 2px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--signal);
+}
+
+.prof__chiffre.is-battu b {
+  color: var(--signal);
+}
+
+/* NOUVEAU : un mode qui vient de s'ouvrir, jusqu'au premier appui. */
+#home .modes .prof.is-neuf {
+  border-color: var(--signal);
+}
+
+#home .modes .prof.is-neuf::after {
+  content: attr(data-neuf);
+  position: absolute;
+  top: -10px;
+  right: 14px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 2px solid var(--encre);
+  background: var(--signal);
+  color: #fff;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* Les chiffres qu'on accumule passent au second plan : plus petits, sans
+   ombre. Ils se lisent, ils ne se disputent plus le haut de la page. */
+#home .pstat {
+  gap: 5px;
+  padding: 3px 10px 3px 5px;
+  font-size: 14px;
+  border-width: 2px;
+  box-shadow: none;
+}
+
+#home .pstat i {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+}
+
+/* Le reste du chemin, en une ligne. */
+.chap--reste {
+  padding: 14px;
+  border: 2px dashed color-mix(in srgb, var(--encre) 35%, transparent);
+  border-radius: var(--r-m);
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--paper-dim);
+}
+
+/* ------------------------------------------------------------------
+   LE CONTRASTE TYPOGRAPHIQUE — « trop uniforme, pas assez de contraste
+   entre les infos importantes et secondaires » (Pierre).
+   Mesuré sur la carte du niveau : nom 26 px / 700, brief 16 px / 600,
+   surtitre 13 px / 800 en violet. Trois tailles proches, trois graisses
+   lourdes : tout criait pareil. La règle posée ici, pour les blocs qu'on
+   voit en premier : UN élément fort (le nom, 36-40 px), le reste en
+   dessous d'un palier franc — taille ET graisse ET couleur.
+   ------------------------------------------------------------------ */
+#home .hero__nom {
+  font-size: clamp(34px, 9vw, 44px);
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+}
+
+#home .hero__eyebrow {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+#home .hero__brief {
+  font-weight: 500;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+/* Les cartes de SOLO : le NOM du mode en Fredoka franc, la phrase en
+   Nunito régulier et gris, l'état en petite étiquette. Elles étaient trois
+   lignes de capitales en graisse lourde. */
+.cards .card .card__title {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 0.01em;
+  color: var(--encre);
+}
+
+.cards .card .card__desc {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 15px;
+  color: var(--paper-dim);
+}
+
+.cards .card .card__state {
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.1em;
 }

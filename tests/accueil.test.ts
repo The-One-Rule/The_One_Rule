@@ -107,7 +107,8 @@ describe("les cinq portes de la profondeur", () => {
      */
     for (const id of IDS) {
       const b = document.getElementById(id)!;
-      expect(b.querySelectorAll("span").length, `${id} n'a pas ses trois spans`).toBe(3);
+      // Au moins trois : la carte DU JOUR porte en plus son chiffre à battre.
+      expect(b.querySelectorAll("span").length, `${id} n'a pas ses trois spans`).toBeGreaterThanOrEqual(3);
       expect(b.hasAttribute("data-i18n"), `${id} porte data-i18n sur le BOUTON`).toBe(false);
     }
   });

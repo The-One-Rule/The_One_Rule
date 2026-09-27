@@ -685,9 +685,22 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   // Les vies se lisent dans le dernier VERDICT et non dans `room` : `roomState`
   // n'est pas rediffuse a chaque manche, donc `room.players` reste sur les
   // vies du lancement. C'est le meme flux que le vrai client utilise.
-  await sleep(9000);
-  const dernier = eq[0].verdicts[eq[0].verdicts.length - 1];
+  //
+  // ⚠️ ON ATTEND LA CONDITION, PAS UNE DUREE. Neuf secondes fixes ne
+  // garantissaient pas une mort de D2 : ses manches sont tirees au hasard, et
+  // une suite de pieges (ne rien faire = survivre) le garde en vie. Vu tomber
+  // une fois (D1=3, D2=3 apres 9 s) sans aucun code de match change ; le
+  // passage suivant lisait D1=2. On attend donc la PREMIERE baisse de la
+  // reserve, bornee a 30 s, puis encore 2 s pour que le verdict voyage.
   const viesDe = (v, nom) => v?.players?.find((p) => p.name === nom)?.lives;
+  const debutFenetre = Date.now();
+  while (Date.now() - debutFenetre < 30000) {
+    if (eq[0].verdicts.some((v) => (viesDe(v, "D1") ?? 3) < 3)) break;
+    await sleep(250);
+  }
+  info(`premiere baisse de la reserve apres ${Date.now() - debutFenetre} ms`);
+  await sleep(2000);
+  const dernier = eq[0].verdicts[eq[0].verdicts.length - 1];
   const v1 = viesDe(dernier, "D1");
   const v2 = viesDe(dernier, "D2");
   const v3 = viesDe(dernier, "D3");

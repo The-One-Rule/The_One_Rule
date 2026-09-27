@@ -257,10 +257,11 @@ describe("application", () => {
     document.getElementById("btnNiveauParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     /*
      * ⚠️ LE RUN DU JOUR EST FERMÉ tant que le chapitre 1 n'est pas bouclé : un
-     * nouveau venu y brûlait un essai à l'aveugle. La carte le DIT au lieu de
-     * s'ouvrir.
+     * nouveau venu y brûlait un essai à l'aveugle. Depuis l'accueil allégé,
+     * un mode fermé ne s'affiche PAS du tout (il paraît quand il s'ouvre,
+     * marqué NOUVEAU) — et un appui forcé reste refusé.
      */
-    expect(document.getElementById("profJour")!.classList.contains("is-verrou")).toBe(true);
+    expect(document.getElementById("profJour")!.classList.contains("hidden")).toBe(true);
     document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("solo")!.classList.contains("hidden")).toBe(true);
 
@@ -269,7 +270,9 @@ describe("application", () => {
       st.encountered.sang = { ...st.encountered.sang!, etoiles: [1, 1, 1, 1, 1] };
     });
     document.getElementById("navParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(document.getElementById("profJour")!.classList.contains("is-verrou")).toBe(false);
+    expect(document.getElementById("profJour")!.classList.contains("hidden")).toBe(false);
+    // Il vient de s'ouvrir : il le DIT, jusqu'au premier appui.
+    expect(document.getElementById("profJour")!.classList.contains("is-neuf")).toBe(true);
     // La carte DU JOUR ouvre l'écran SOLO — il porte les essais restants, la
     // série et les quêtes, c'est-à-dire tout ce qu'on veut savoir AVANT de
     // brûler un des trois essais. L'annonce vient ensuite.

@@ -87,6 +87,12 @@ export interface TextesParcours {
   piedCible: string;
   // Verrous des modes
   verrouMode: (chapitre: number) => string;
+  /** L'étiquette d'un mode qui vient de s'ouvrir. */
+  nouveau: string;
+  /** La ligne qui compte les chapitres qu'on ne montre pas encore. */
+  chapitresRestants: (n: number) => string;
+  /** Au-dessus des modes de l'accueil. */
+  modesTitre: string;
   // Boutique
   skinNom: Record<string, string>;
   skinDesc: Record<string, string>;
@@ -165,6 +171,9 @@ export const PARCOURS: Record<Lang, TextesParcours> = {
     piedNiveau: (c, n) => `NIVEAU ${c}-${n}`,
     piedCible: "OBJECTIF",
     verrouMode: (c) => `APRÈS LE CHAPITRE ${c}`,
+    nouveau: "NOUVEAU",
+    chapitresRestants: (n) => (n === 1 ? "+ 1 chapitre à découvrir" : `+ ${n} chapitres à découvrir`),
+    modesTitre: "AUTRES FAÇONS DE JOUER",
     skinNom: {
       sticker: "STICKER",
       neon: "NÉON",
@@ -234,6 +243,9 @@ export const PARCOURS: Record<Lang, TextesParcours> = {
     piedNiveau: (c, n) => `LEVEL ${c}-${n}`,
     piedCible: "GOAL",
     verrouMode: (c) => `AFTER CHAPTER ${c}`,
+    nouveau: "NEW",
+    chapitresRestants: (n) => (n === 1 ? "+ 1 chapter to discover" : `+ ${n} chapters to discover`),
+    modesTitre: "OTHER WAYS TO PLAY",
     skinNom: {
       sticker: "STICKER",
       neon: "NEON",

@@ -1,4 +1,5 @@
 import "./style.css";
+import { gardeEcranAllume } from "./eveil";
 import "./theme.css";
 
 import {
@@ -14,7 +15,7 @@ import {
 } from "./engine/difficulty";
 import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
-import { ONE_RULES, withoutHold, withoutInk } from "./engine/rules";
+import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
@@ -34,6 +35,8 @@ import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
 import { doitDemanderAvis, nettoieAvis } from "./game/avis";
 import type { NoteAvis } from "./game/avis";
+import { estSafariIos, installAProposer } from "./game/installer";
+import type { Plateforme } from "./game/installer";
 import { bump, claimAll, ensureDay, viewQuests } from "./game/quests";
 import { Session } from "./game/session";
 import type { Mode } from "./game/session";
@@ -98,12 +101,14 @@ import {
   supprimeCompte,
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
-import { ajouteAmi, cercle, retireAmi } from "./compte/amis";
+import { ajouteAmi, annuleDemande, cercle, reponds, retireAmi } from "./compte/amis";
 import { lignesRecords } from "./game/murRecords";
 import { eclatBattement, palierTension, periodeCoeur } from "./render/tension";
 import { brancheProfil, rendProfil } from "./profil";
 import type { Cercle } from "./compte/amis";
 import { carteValide } from "../shared/profil";
+import { codeAmiValide } from "../shared/amis";
+import type { Demandeur } from "../shared/amis";
 import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
@@ -323,6 +328,7 @@ const SCREENS = [
   "codex",
   "compte",
   "classement",
+  "amis",
   "reglages",
   "multi-id",
   "multi-join",
@@ -378,7 +384,19 @@ let ghostLead = false;
 let ranked: { opponent: Opponent | null; seed: number; ruleId: string } | null = null;
 let queueing = false;
 /** Dernier point cliqué : sert d'origine aux particules de réussite. */
-let lastClick = { x: 500, y: 210, color: "#EFEAE0" };
+let lastClick = { x: 500, y: 210, color: "#EFEAE0", r: 34, t: -1e9 };
+/**
+ * LA SÉRIE — manches tenues d'affilée depuis la dernière faute, solo comme
+ * multi. Elle fait monter l'intensité (`render/intensite.ts`) : c'est ce qui
+ * la rend GAGNÉE, et une faute la fait retomber.
+ */
+let serie = 0;
+/** À qui appartient la série : la session solo, ou le multi. Change → série à zéro. */
+let porteurSerie: object | null = null;
+/** Le cercle du maintien est-il déjà passé au vert (la vibration part une fois). */
+let maintienPleinDit = false;
+/** La dernière manche dont la consigne a claqué. */
+let mancheClaquee: object | null = null;
 let day = dayIndex();
 /**
  * Le boot du compte. On n'attend PAS ça pour afficher ni pour rejoindre
@@ -412,6 +430,7 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "codex",
   "compte",
   "classement",
+  "amis",
   "reglages",
 ]);
 
@@ -775,6 +794,8 @@ function show(id: ScreenId): void {
   cacheToast();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  // La partie et le salon gardent l'écran allumé : voir `eveil.ts`.
+  gardeEcranAllume(id === null || id === "multi-lobby" || id === "multi-end");
   /*
    * La barre haute vit HORS FLUX et disparait pendant la partie.
    *
@@ -1173,9 +1194,19 @@ function renderParcours(): void {
   const s = P.load();
   const e = etoilesDuCarnet(s);
   const jouables = chapitresJouables();
-  $("pstatEtoiles").textContent = String(PC.totalEtoiles(e, jouables));
-  $("pstatPieces").textContent = String(s.coins);
-  $("pstatSerie").textContent = String(s.streak.count);
+  /*
+   * LES CHIFFRES QU'ON ACCUMULE — et seulement ceux qui valent quelque chose.
+   * Rapporté par Pierre : « il y a trop de choses à l'écran d'accueil, tout
+   * semble important ». Trois pastilles à zéro sont trois choses de plus à
+   * lire pour rien : une pastille nulle se TAIT, et paraît quand elle compte.
+   */
+  const pastille = (id: string, v: number): void => {
+    $(id).textContent = String(v);
+    $(id).parentElement!.classList.toggle("hidden", v <= 0);
+  };
+  pastille("pstatEtoiles", PC.totalEtoiles(e, jouables));
+  pastille("pstatPieces", s.coins);
+  pastille("pstatSerie", s.streak.count);
 
   const prochain = PC.prochainNiveau(e, chapitreJouable, PC.CHAPITRES, reglesConnues());
   const ch =
@@ -1238,22 +1269,69 @@ function renderParcours(): void {
     lanceNiveau({ chapitre: ch, ruleId: id, niveau: d.n });
   };
 
-  // Les modes, verrouillés tant que le parcours ne les a pas ouverts.
-  const verrou = (btn: string, note: string, quoi: keyof typeof VERROU_MODES, texte: string): void => {
-    const ouvert = modeOuvert(quoi, s);
-    $(btn).classList.toggle("is-verrou", !ouvert);
-    $(note).textContent = ouvert ? texte : tp().verrouMode(VERROU_MODES[quoi]);
-  };
-  verrou("profJour", "profJourNote", "jour", CHAINES[langue()]["prof.jourNote"] ?? "");
-  verrou("profLibre", "profLibreNote", "libre", CHAINES[langue()]["prof.libreNote"] ?? "");
-  verrou("profEscalade", "profEscaladeNote", "escalade", CHAINES[langue()]["prof.escaladeNote"] ?? "");
+  /*
+   * LES MODES SE DÉCOUVRENT, ILS NE S'AFFICHENT PAS VERROUILLÉS.
+   *
+   * Rapporté par Pierre : « tout semble important — un nouveau joueur doit
+   * savoir : ah, il y a un parcours, ah, des cartes, une boutique, des potes ».
+   * Quatre tuiles de couleur au même poids que le niveau à jouer, dont trois
+   * cadenassées, disaient tout d'un coup à quelqu'un qui n'a pas fini son
+   * premier chapitre. Un mode fermé n'apparaît donc PAS ; il paraît le jour
+   * où il s'ouvre, marqué NOUVEAU jusqu'au premier appui. Le bloc entier se
+   * tait tant qu'aucun ne l'est — le multi est dans la barre du bas.
+   */
+  const modes: [string, string, keyof typeof VERROU_MODES][] = [
+    ["profJour", "jour", "jour"],
+    ["profLibre", "libre", "libre"],
+    ["profEscalade", "escalade", "escalade"],
+  ];
+  if (s.modesVus === undefined) {
+    // Premier passage depuis ce correctif : ce qui est déjà ouvert est déjà vu.
+    const deja = modes.filter(([, , q]) => modeOuvert(q, s)).map(([, m]) => m);
+    P.mutate((st) => {
+      st.modesVus = deja;
+    });
+    s.modesVus = deja;
+  }
+  let ouverts = 0;
+  for (const [btn, m, q] of modes) {
+    const ouvert = modeOuvert(q, s);
+    if (ouvert) ouverts++;
+    $(btn).classList.toggle("hidden", !ouvert);
+    $(btn).classList.remove("is-verrou");
+    const neuf = ouvert && !s.modesVus.includes(m);
+    $(btn).classList.toggle("is-neuf", neuf);
+    $(btn).dataset.neuf = neuf ? tp().nouveau : "";
+  }
+  $("profJourNote").textContent = CHAINES[langue()]["prof.jourNote"] ?? "";
+  $("profLibreNote").textContent = CHAINES[langue()]["prof.libreNote"] ?? "";
+  $("profEscaladeNote").textContent = CHAINES[langue()]["prof.escaladeNote"] ?? "";
+  $("profondeur").classList.toggle("hidden", ouverts === 0);
+  $("modesTitre").classList.toggle("hidden", ouverts === 0);
+  $("modesTitre").textContent = tp().modesTitre;
 
-  // Le chemin : un chapitre par ligne.
+  /*
+   * Le chemin : un chapitre par ligne — jusqu'au PROCHAIN seulement.
+   *
+   * Il déroulait les seize chapitres, soit 1 524 px au téléphone dont douze
+   * lignes de « ??? 🔒 » : un mur de cadenas sous le niveau à jouer. On montre
+   * ce qui est ouvert, le prochain chapitre fermé (le suivant se VOIT, c'est
+   * ce qui fait envie), et une ligne qui compte le reste.
+   */
   const chemin = $("chemin");
   chemin.innerHTML = "";
+  const ouvertsChemin = PC.CHAPITRES.map(
+    (cid, i) => chapitreJouable(cid) && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues()),
+  );
+  const dernierOuvert = ouvertsChemin.lastIndexOf(true);
+  let reste = 0;
   PC.CHAPITRES.forEach((cid, i) => {
+    if (i > Math.max(dernierOuvert, ch) + 1) {
+      if (chapitreJouable(cid)) reste++;
+      return;
+    }
     const jouable = chapitreJouable(cid);
-    const ouvert = jouable && PC.chapitreOuvert(e, i, chapitreJouable, PC.CHAPITRES, reglesConnues());
+    const ouvert = ouvertsChemin[i]!;
     const fini = PC.chapitreFini(e, cid);
     const et = PC.etoilesChapitre(e, cid);
     const li = document.createElement("li");
@@ -1293,6 +1371,12 @@ function renderParcours(): void {
     li.appendChild(b);
     chemin.appendChild(li);
   });
+  if (reste > 0) {
+    const li = document.createElement("li");
+    li.className = "chap chap--reste";
+    li.textContent = tp().chapitresRestants(reste);
+    chemin.appendChild(li);
+  }
 }
 
 /**
@@ -1554,8 +1638,9 @@ function renderSolo(): void {
     strip.appendChild(el);
   };
   const j = jetons();
-  chip(`${j.serie} <b>${s.streak.count}</b>`, s.streak.count >= 3);
-  chip(`${j.pieces} <b>${s.coins}</b>`);
+  // Une pastille à ZÉRO se tait : « SÉRIE 0 · PIÈCES 0 » ne dit rien à lire.
+  if (s.streak.count > 0) chip(`${j.serie} <b>${s.streak.count}</b>`, s.streak.count >= 3);
+  if (s.coins > 0) chip(`${j.pieces} <b>${s.coins}</b>`);
   chip(`${j.regles} <b>${Object.keys(s.encountered).length}/${ONE_RULES.length}</b>`);
   // Le nom de la règle ne se traduit pas : « LE SANG » est un nom, et son
   // identifiant est la clé du carnet et de la comparabilité.
@@ -2223,6 +2308,12 @@ function renderCompte(): void {
 
   $("compteAnon").classList.toggle("hidden", connecte);
   $("compteConnecte").classList.toggle("hidden", !connecte);
+  // La porte des amis : là où les comptes existent. Anonyme, l'écran des
+  // amis dit lui-même comment se connecter.
+  void chargeFournisseurs().then(() => {
+    $("btnProfilAmis").classList.toggle("hidden", !comptesPossibles());
+    majPastilleAmis(cercleAmis);
+  });
   // Rouvrir l'écran DÉSARME la suppression : une confirmation qui survit à une
   // sortie et un retour n'est plus une confirmation.
   suppressionArmee = false;
@@ -2571,6 +2662,71 @@ function proposeAvis(mesureDemandee: boolean): boolean {
   return true;
 }
 
+/*
+ * L'INVITATION À INSTALLER — voir `game/installer.ts`.
+ *
+ * Chrome prête son invite une fois par chargement, et seulement si le site
+ * est installable : on la GARDE, sans l'afficher — c'est notre écran de fin,
+ * après trois parties, qui la déclenchera sur un geste du joueur.
+ */
+type InviteInstall = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+let inviteInstall: InviteInstall | null = null;
+window.addEventListener("beforeinstallprompt", (ev) => {
+  ev.preventDefault();
+  inviteInstall = ev as InviteInstall;
+});
+const installeDeja = (): boolean =>
+  (typeof matchMedia !== "undefined" &&
+    (matchMedia("(display-mode: standalone)").matches || matchMedia("(display-mode: fullscreen)").matches)) ||
+  (navigator as Navigator & { standalone?: boolean }).standalone === true;
+let plateformeInstall: Plateforme | null = null;
+
+function proposeInstall(autreDemande: boolean): boolean {
+  const s = P.load();
+  const boite = $("installer");
+  plateformeInstall = installAProposer({
+    runsAcheves: s.recent.length,
+    dejaVu: !!s.installVu,
+    installe: installeDeja(),
+    autreDemande,
+    inviteAndroid: !!inviteInstall,
+    safariIos: estSafariIos(navigator.userAgent, navigator.maxTouchPoints || 0),
+  });
+  if (!plateformeInstall) {
+    boite.classList.add("hidden");
+    return false;
+  }
+  P.mutate((st) => {
+    st.installVu = true;
+  });
+  const ios = plateformeInstall === "ios";
+  $("installerQuoi").textContent = ios ? t("installerIos") : t("installerAndroid");
+  // Sur iPhone il n'y a rien à cliquer : on dit le geste, et on le range.
+  $("btnInstaller").classList.toggle("hidden", ios);
+  $("btnInstallerNon").textContent = ios ? t("installerCompris") : (CHAINES[langue()]["installer.non"] ?? "");
+  boite.classList.remove("hidden");
+  track("installer", { plateforme: plateformeInstall, issue: "propose" });
+  return true;
+}
+
+$("btnInstaller").addEventListener("click", () => {
+  sfx.ui();
+  const inv = inviteInstall;
+  inviteInstall = null;
+  $("installer").classList.add("hidden");
+  if (!inv) return;
+  void inv
+    .prompt()
+    .then(() => inv.userChoice)
+    .then((c) => track("installer", { plateforme: "android", issue: c.outcome === "accepted" ? "accepte" : "refuse" }))
+    .catch(() => {});
+});
+$("btnInstallerNon").addEventListener("click", () => {
+  sfx.ui();
+  $("installer").classList.add("hidden");
+  if (plateformeInstall) track("installer", { plateforme: plateformeInstall, issue: "plus_tard" });
+});
+
 function closAvis(): void {
   avisNote = null;
   $("avisPlus").classList.add("hidden");
@@ -2765,6 +2921,25 @@ function renderClassement(): void {
   $("murRecordsVide").classList.toggle("hidden", lignes.length > 0);
 
   peintPodium("murPodium", "classement");
+  // Les amis ont leur écran : le mur n'en garde qu'une porte, qui se tait
+  // sans comptes au déploiement comme le podium.
+  void chargeFournisseurs().then(() => {
+    $("btnMurAmis").classList.toggle("hidden", !comptesPossibles());
+  });
+}
+
+/** Ouvre l'écran des amis — depuis le mur, le profil, ou son adresse. */
+function ouvreAmis(): void {
+  $("amisOk").classList.add("hidden");
+  $("amisErr").classList.add("hidden");
+  /*
+   * UN LIEN D'AMI PRÉ-REMPLIT LA SAISIE : « ENVOYER MON CODE » partage
+   * `/amis?code=XXXXXX`. On ne DEMANDE pas à l'arrivée — ouvrir un lien ne
+   * vaut pas geste ; le joueur voit le code, et appuie sur DEMANDER.
+   */
+  const lien = codeAmiValide(new URLSearchParams(location.search).get("code") ?? "");
+  if (lien) $<HTMLInputElement>("amisSaisie").value = lien;
+  show("amis");
   peintAmis();
 }
 
@@ -2781,8 +2956,10 @@ let cercleAmis: Cercle | null = null;
 function peintAmis(): void {
   const boite = $("murAmis");
   void chargeFournisseurs().then(() => {
-    if (screen !== "classement") return;
-    if (!comptesPossibles()) {
+    if (screen !== "amis") return;
+    const possible = comptesPossibles();
+    $("amisIndispo").classList.toggle("hidden", possible);
+    if (!possible) {
       boite.classList.add("hidden");
       return;
     }
@@ -2794,15 +2971,119 @@ function peintAmis(): void {
     // On peint ce qu'on sait (le cercle précédent), et on repeint à l'arrivée.
     if (cercleAmis) peintCercle(cercleAmis);
     void cercle().then((c) => {
-      if (!c || screen !== "classement") return;
+      if (!c) return;
       cercleAmis = c;
-      peintCercle(c);
+      majPastilleAmis(c);
+      if (screen === "amis") peintCercle(c);
     });
   });
 }
 
+/**
+ * LA PASTILLE DES DEMANDES — sur le bouton PROFIL de la barre haute, et une
+ * ligne sur l'écran profil. Une demande qu'on ne voit pas est une demande qui
+ * pourrit : c'est tout ce qui la rend visible sans ouvrir l'écran des amis.
+ */
+function majPastilleAmis(c: Cercle | null): void {
+  const n = c?.recues.length ?? 0;
+  $("btnTopCompte").classList.toggle("a-demandes", n > 0);
+  $("btnTopCompte").dataset.demandes = n > 0 ? String(n) : "";
+  $("profilAmisDit").textContent = n > 0 ? t("amisDemandes")(n) : tr1("amis.voir");
+  $("btnProfilAmis").classList.toggle("a-demandes", n > 0);
+}
+
+/** Une chaîne statique, lue dans la langue courante. */
+const tr1 = (cle: string): string => CHAINES[langue()][cle] ?? "";
+
+/** Une ligne de demande : le visage, le nom, et ses boutons. */
+function ligneDemande(d: Demandeur, boutons: HTMLButtonElement[]): HTMLLIElement {
+  const li = document.createElement("li");
+  li.className = "demande";
+  const visage = document.createElement("span");
+  visage.className = "ami__visage";
+  const carte = carteValide(d.carte);
+  if (carte) {
+    visage.classList.add("a-vignette");
+    visage.innerHTML = `<img class="ami__carte" src="/cartes/${carte}.png" width="40" height="40" alt="" loading="lazy" />`;
+  }
+  visage.insertAdjacentHTML("beforeend", `<i class="ami__signe">${glyphSvg(glyphFromIndex(d.glyphe), carte ? 14 : 22)}</i>`);
+  const nom = document.createElement("b");
+  nom.className = "demande__nom";
+  // `textContent` : un pseudo vient d'un joueur.
+  nom.textContent = d.pseudo || t("cptSansNom");
+  const actes = document.createElement("span");
+  actes.className = "demande__actes";
+  actes.append(...boutons);
+  li.append(visage, nom, actes);
+  return li;
+}
+
+function bouton(txt: string, cls: string, aria: string, fait: () => void): HTMLButtonElement {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.className = cls;
+  b.textContent = txt;
+  b.setAttribute("aria-label", aria);
+  b.addEventListener("click", () => {
+    sfx.ui();
+    b.disabled = true;
+    fait();
+  });
+  return b;
+}
+
+/** Repeint après une action réseau, si l'on regarde encore l'écran. */
+function apres(n: Cercle | null): void {
+  if (!n) return;
+  cercleAmis = n;
+  majPastilleAmis(n);
+  if (screen === "amis") peintCercle(n);
+}
+
 function peintCercle(c: Cercle): void {
   $("amisCode").textContent = c.code;
+
+  // LES DEMANDES REÇUES : accepter est l'action évidente, refuser se dit NON
+  // et ne prévient personne (voir api/amis.ts).
+  const recues = $("amisRecues");
+  recues.replaceChildren();
+  for (const d of c.recues) {
+    const nom = d.pseudo || t("cptSansNom");
+    recues.appendChild(
+      ligneDemande(d, [
+        bouton(t("amisAccepter"), "btn btn--primary btn--mini", t("ariaAccepterAmi")(nom), () => {
+          void reponds(d.code, true).then((r) => {
+            if (!r.ok) return;
+            apres(r.cercle);
+            montreOkAmis(t("amisLie")(nom));
+          });
+        }),
+        bouton(t("amisRefuser"), "btn btn--ghost btn--mini", t("ariaRefuserAmi")(nom), () => {
+          void reponds(d.code, false).then((r) => apres(r.ok ? r.cercle : null));
+        }),
+      ]),
+    );
+  }
+  $("amisRecuesBloc").classList.toggle("hidden", c.recues.length === 0);
+  $("amisRecuesN").textContent = c.recues.length > 1 ? String(c.recues.length) : "";
+
+  const envoyees = $("amisEnvoyees");
+  envoyees.replaceChildren();
+  for (const d of c.envoyees) {
+    const nom = d.pseudo || t("cptSansNom");
+    const li = ligneDemande(d, [
+      bouton(t("amisAnnuler"), "btn btn--ghost btn--mini", `${t("amisAnnuler")} ${nom}`, () => {
+        void annuleDemande(d.code).then(apres);
+      }),
+    ]);
+    const attente = document.createElement("span");
+    attente.className = "demande__attente";
+    attente.textContent = t("amisEnAttente");
+    li.querySelector(".demande__nom")!.after(attente);
+    envoyees.appendChild(li);
+  }
+  $("amisEnvoyeesBloc").classList.toggle("hidden", c.envoyees.length === 0);
+
   const liste = $("amisListe");
   liste.replaceChildren();
   // L'échelle de la semaine est COMMUNE au cercle : chacun se lit contre les
@@ -2859,12 +3140,7 @@ function peintCercle(c: Cercle): void {
       x.setAttribute("aria-label", t("ariaRetirerAmi")(nom));
       x.addEventListener("click", () => {
         sfx.ui();
-        void retireAmi(a.code).then((n) => {
-          if (n && screen === "classement") {
-            cercleAmis = n;
-            peintCercle(n);
-          }
-        });
+        void retireAmi(a.code).then(apres);
       });
       li.appendChild(x);
     }
@@ -2878,8 +3154,10 @@ $("amisForm").addEventListener("submit", (e) => {
   const saisie = $<HTMLInputElement>("amisSaisie");
   const err = $("amisErr");
   err.classList.add("hidden");
+  $("amisOk").classList.add("hidden");
+  const tape = codeAmiValide(saisie.value);
   void ajouteAmi(saisie.value).then((r) => {
-    if (screen !== "classement") return;
+    if (screen !== "amis") return;
     if (!r.ok) {
       err.textContent = t("amisErr")[r.refus];
       err.classList.remove("hidden");
@@ -2887,10 +3165,48 @@ $("amisForm").addEventListener("submit", (e) => {
       return;
     }
     saisie.value = "";
-    cercleAmis = r.cercle;
-    peintCercle(r.cercle);
+    apres(r.cercle);
+    // Le nom de l'autre se lit dans la réponse : une demande envoyée, ou une
+    // amitié si les deux s'étaient demandés.
+    const qui =
+      [...r.cercle.envoyees, ...r.cercle.amis].find((x) => x.code === tape)?.pseudo ?? "";
+    montreOkAmis(r.cercle.issue === "lie" ? t("amisLie")(qui) : t("amisDemandee")(qui));
     sfx.ui();
   });
+});
+
+function montreOkAmis(txt: string): void {
+  const ok = $("amisOk");
+  ok.textContent = txt;
+  ok.classList.remove("hidden");
+}
+
+/*
+ * ENVOYER MON CODE — le partage natif du téléphone (Messages, WhatsApp…),
+ * avec un lien qui ouvre l'écran des amis code pré-rempli. Sans partage
+ * natif (bureau), on copie : le geste reste le même, un appui.
+ */
+$("btnAmisPartager").addEventListener("click", () => {
+  const code = cercleAmis?.code;
+  if (!code) return;
+  sfx.ui();
+  const url = `${location.origin}/amis?code=${code}`;
+  const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+  if (typeof nav.share === "function") {
+    void nav.share({ title: "The One Rule", text: t("amisPartageTexte")(code), url }).catch(() => {});
+    track("amis_partage", {});
+    return;
+  }
+  $("btnAmisCopier").click();
+});
+
+$("btnMurAmis").addEventListener("click", () => {
+  sfx.ui();
+  ouvreAmis();
+});
+$("btnProfilAmis").addEventListener("click", () => {
+  sfx.ui();
+  ouvreAmis();
 });
 
 $("btnAmisCopier").addEventListener("click", () => {
@@ -2981,7 +3297,8 @@ const jamaisJoue = (): boolean => P.load().recent.length === 0;
  * règle le même jour, et donc des scores encore comparables entre eux.
  */
 const regleJouableIci = (rule: OneRule): OneRule => {
-  const sansMaintien = TOUCH_ONLY ? withoutHold(rule) : rule;
+  // Au doigt, LA VOYELLE ne pourrait jamais piéger : voir `withoutLetters`.
+  const sansMaintien = TOUCH_ONLY ? withoutLetters(withoutHold(rule)) : rule;
   // Et en mode daltonien, LE DALTONIEN sort aussi : elle ne serait pas
   // injouable mais INERTE, ce qui est pire — voir `withoutInk`.
   return P.load().daltonien ? withoutInk(sansMaintien) : sansMaintien;
@@ -3250,7 +3567,10 @@ function openBrief(mode: Mode): void {
         derniere: derniereEntrainement,
         sansMaintien: TOUCH_ONLY,
         rng: Math.random,
-      });
+        // ⚠️ LE CATALOGUE JOUABLE ICI, pas le catalogue entier : le tirage ne
+        // connaissait que le maintien, et servait LA VOYELLE au doigt (inerte)
+        // et LE DALTONIEN en mode motifs. Vu en jouant au téléphone.
+      }, ONE_RULES.filter(estJouableIci));
     derniereEntrainement = pendingRule.id;
   }
 
@@ -4048,11 +4368,22 @@ function oublieRecordDuJour(): void {
  */
 function peintBut(sien: number | null, duJour: number | null): void {
   const but = vueBut({ jour: sien, entrainement: 0 }, duJour, "aucun");
-  const note = $("profJourNote");
-  if (!but.cible) return;
-  note.textContent = but.depasse
-    ? t("profJourBattu")(but.cible.score)
-    : t("profJourRecord")(but.cible.score);
+  const chiffre = $("profJourChiffre");
+  if (!but.cible) {
+    chiffre.classList.add("hidden");
+    return;
+  }
+  /*
+   * ⚠️ UN CHIFFRE, PAS UNE PHRASE. Rapporté par Pierre : « certaines cartes
+   * font un peu UI design, par exemple les blocs "du jour à battre
+   * aujourd'hui : 5" restent de l'UI très classique ». La phrase en capitales
+   * grises était une ligne de plus parmi d'autres ; le chiffre, gros, est
+   * l'objet même — comme un score sur un tableau.
+   */
+  $("profJourChiffreN").textContent = String(but.cible.score);
+  $("profJourChiffreQuoi").textContent = but.depasse ? t("profJourBattuCourt") : t("profJourABattre");
+  chiffre.classList.toggle("is-battu", but.depasse);
+  chiffre.classList.remove("hidden");
 }
 
 /**
@@ -4571,7 +4902,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     seed,
     ruleId,
     inputs: log,
-    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+    capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
     catalogue: 2,
     opponentScore: ranked?.opponent?.score,
     opponentRating: ranked?.opponent?.rating,
@@ -4819,7 +5150,7 @@ function finishRun(): void {
       valeur: end.score,
       valeur2: duree,
       // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
-      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien },
+      capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
       catalogue: 2,
     });
     /*
@@ -5155,7 +5486,9 @@ function finishRun(): void {
   // L'avis cède au bandeau de mesure, et l'invitation au compte cède aux deux :
   // une seule sollicitation par écran.
   const avisDemande = proposeAvis(mesureDemandee);
-  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande);
+  // L'installation cède aux deux, et l'invitation au compte cède aux trois.
+  const installDemande = proposeInstall(mesureDemandee || avisDemande);
+  renderInvite(end.score, recordBattu, mesureDemandee || avisDemande || installDemande);
   renderPodium(mode);
   /*
    * ⚠️ NI « CE QUE CE RUN A FAIT AVANCER », NI « RÈGLE DÉCOUVERTE » EN ESCALADE.
@@ -5562,11 +5895,25 @@ $("btnAvanceTrain").addEventListener("click", () => {
  * du son : c'est le même événement, dit deux fois au même rythme.
  */
 function vibrePiegeDejoue(): void {
+  vibre([18, 40, 26]);
+}
+
+/** Une vibration, jamais une erreur : voir `vibrePiegeDejoue`. */
+function vibre(motif: number | number[]): void {
   try {
-    navigator.vibrate?.([18, 40, 26]);
+    navigator.vibrate?.(motif);
   } catch {
     /* appareil sans vibreur, ou geste utilisateur pas encore reçu */
   }
+}
+
+/**
+ * Le point de la faute, pour la rupture : le dernier clic s'il date de cette
+ * manche (une mauvaise pièce, un vide), sinon le centre du terrain (le temps
+ * écoulé n'a pas de point).
+ */
+function pointDeFaute(depuis: number): { x: number; y: number } {
+  return lastClick.t >= depuis ? { x: lastClick.x, y: lastClick.y } : { x: FIELD_W / 2, y: FIELD_H / 2 };
 }
 
 function react(outcome: Outcome, comboBefore: number, manche: Round): void {
@@ -5587,6 +5934,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
     return;
   }
   if (outcome.kind === "survive") {
+    serie++;
     if (outcome.trap) {
       const t = performance.now();
       sfx.trapAvoided();
@@ -5596,7 +5944,7 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
       vibrePiegeDejoue();
     } else {
       sfx.success(comboBefore);
-      scene.burst(lastClick.x, lastClick.y, lastClick.color, 14, 230);
+      scene.impact(lastClick.x, lastClick.y, lastClick.color, serie, performance.now(), lastClick.r);
     }
     // Le score SAUTE à chaque manche tenue : la réussite se sent sur le
     // chiffre qu'on regarde, pas seulement à l'oreille.
@@ -5615,25 +5963,33 @@ function react(outcome: Outcome, comboBefore: number, manche: Round): void {
      * faute, une secousse franche, le cœur qui s'éteint dans le bandeau et le
      * mot au centre — sans rien arrêter : la manche suivante est déjà là.
      */
+    serie = 0;
     if (session.vieJustePerdue) {
       session.vieJustePerdue = false;
       sfx.fail();
-      scene.kick(performance.now(), 0.7);
+      const t = performance.now();
+      scene.kick(t, 0.7);
+      const p = pointDeFaute(t - manche.durationMs);
+      scene.burst(p.x, p.y, "#F74058", 18, 320);
       hud.setVies(session.vies, session.viesMax);
       hud.announce(tp().vieperdue);
-      try {
-        navigator.vibrate?.(60);
-      } catch {
-        /* sans vibreur */
-      }
+      vibre(60);
       return;
     }
     sfx.grace();
     return;
   }
+  serie = 0;
   sfx.fail();
   musicApi.cut();
-  scene.kick(performance.now(), outcome.cause === "macro" ? 1.15 : 0.8);
+  {
+    // LA RUPTURE : la mort casse le terrain — voir `render/intensite.ts`.
+    const t = performance.now();
+    const p = pointDeFaute(t - manche.durationMs);
+    scene.rompt(p.x, p.y, t);
+    scene.kick(t, outcome.cause === "macro" ? 1.4 : 1.1);
+    vibre([70, 50, 160]);
+  }
   hud.showStamp(
     outcome.cause === "macro"
       ? t("tamponInfraction")
@@ -5690,7 +6046,7 @@ function sendOrMulti(action: Action): void {
       scene.burstScreen("#CFC9F2");
       scene.flashViolet(now);
       scene.kick(now, 0.45);
-    } else scene.burst(lastClick.x, lastClick.y, lastClick.color, 10, 190);
+    } else scene.impact(lastClick.x, lastClick.y, lastClick.color, serie + 1, now, lastClick.r);
   }
 }
 
@@ -5714,7 +6070,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     send({ kind: "click", ent, x, y });
@@ -5727,7 +6083,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
@@ -5746,7 +6102,7 @@ function leve(ev: Event): void {
   const e = ev as PointerEvent;
   const { x, y } = scene.toField(e.clientX, e.clientY);
   const ent = scene.hit(round.ents, x, y);
-  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0" };
+  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
   sendOrMulti({ kind: "lift", ent, x, y });
 }
 
@@ -6163,7 +6519,13 @@ function joueLaSuite(): void {
  * se lit comme un objectif.
  */
 function refuseSiFerme(quoi: keyof typeof VERROU_MODES): boolean {
-  if (modeOuvert(quoi)) return false;
+  if (modeOuvert(quoi)) {
+    // Le premier appui éteint « NOUVEAU » : le mode est désormais connu.
+    P.mutate((st) => {
+      if (st.modesVus && !st.modesVus.includes(quoi)) st.modesVus.push(quoi);
+    });
+    return false;
+  }
   sfx.fail();
   montreToast(tp().verrouMode(VERROU_MODES[quoi]), tp().verrouChapitre(VERROU_MODES[quoi]), 2200);
   return true;
@@ -6983,6 +7345,15 @@ function loop(now: number): void {
       if (fx.burstScreen) scene.burstScreen("#CFC9F2");
       if (fx.flashViolet) scene.flashViolet(now);
       if (fx.kick != null) scene.kick(now, fx.kick);
+      if (fx.reussi) serie++;
+      if (fx.mort) {
+        // Le verdict du SERVEUR dit la mort : la rupture part du dernier geste
+        // s'il date de la manche, du centre sinon (un temps écoulé).
+        const p = pointDeFaute(now - 2600);
+        serie = 0;
+        scene.rompt(p.x, p.y, now);
+        vibre([70, 50, 160]);
+      }
     }
     // Même grammaire en multijoueur : la pause entre deux manches redescend à
     // froid, ce qui rend la reprise plus franche.
@@ -7005,6 +7376,52 @@ function loop(now: number): void {
     tension = { manche: session.level, grace: session.manchesGrace, enManche: false, critique: false };
   }
   poseTension(tension?.manche ?? null, tension?.grace ?? 0, !!tension?.enManche, !!tension?.critique, now);
+
+  /*
+   * L'INTENSITÉ GAGNÉE — le palier de la partie ET la série en cours. Une
+   * nouvelle partie (solo ou salon) repart d'une série nulle.
+   */
+  {
+    const porteur: object | null = session ?? (multi.isPlayingMulti() ? multi : null);
+    if (porteur !== porteurSerie) {
+      porteurSerie = porteur;
+      serie = 0;
+    }
+    scene.poseIntensite(tension ? palierTension(tension.manche, tension.grace).n : 0, tension ? serie : 0);
+  }
+
+  /*
+   * LE MAINTIEN VALIDÉ SE SENT AU DOIGT : quand le cercle passe au vert, une
+   * impulsion brève. C'est l'instant où lâcher devient juste, et c'est au
+   * doigt — qui tient la pièce — qu'on le sent le mieux.
+   */
+  const gesteCourant = session || multiDraw ? gesteAffiche() : null;
+  {
+    const plein = gesteCourant?.kind === "hold" && gesteCourant.progres >= 1;
+    if (plein && !maintienPleinDit) {
+      maintienPleinDit = true;
+      vibre(14);
+    }
+    if (!plein) maintienPleinDit = false;
+  }
+
+  /*
+   * LA CONSIGNE CLAQUE à l'arrivée d'une manche, quand l'intensité l'a
+   * gagné : un coup d'échelle, `transform` seul — la bande de la consigne ne
+   * bouge pas d'un pixel (décision n°17).
+   */
+  {
+    const r = session ? session.round : multiDraw?.round ?? null;
+    if (r && r !== mancheClaquee) {
+      mancheClaquee = r;
+      if (scene.intensite >= 0.5) {
+        const el = $("instr");
+        el.classList.remove("a-claque");
+        void el.offsetWidth;
+        el.classList.add("a-claque");
+      }
+    }
+  }
 
   // Le piège n'est révélé qu'une fois la manche perdue : le montrer pendant
   // qu'elle se joue reviendrait à donner la réponse.
@@ -7036,7 +7453,7 @@ function loop(now: number): void {
       now,
       reveal: session.phase === "freeze" && !!session.round.trap,
       ratio: session.phase === "playing" ? session.ratio(now) : undefined,
-      geste: gesteAffiche(),
+      geste: gesteCourant,
     });
   } else if (multiDraw) {
     scene.draw({
@@ -7047,7 +7464,7 @@ function loop(now: number): void {
       ratio: multiDraw.ratio,
       needs: multiDraw.needs,
       charges: multiDraw.charges,
-      geste: gesteAffiche(),
+      geste: gesteCourant,
     });
     multi.paintCursors(now, scene.fieldRect());
   } else {
@@ -7225,6 +7642,14 @@ async function demarreCompte(): Promise<void> {
     // d'entrer dans la table.
     await rafraichitClassement(true);
     repeintChiffres();
+    // Les demandes d'ami en attente allument la pastille du profil : une
+    // demande qu'on ne voit pas est une demande qui pourrit. Un seul appel au
+    // démarrage, jamais sur un chemin de jeu (n°12).
+    void cercle().then((c) => {
+      if (!c) return;
+      cercleAmis = c;
+      majPastilleAmis(c);
+    });
   } finally {
     compteBootFini = true;
   }
@@ -7270,6 +7695,9 @@ function ouvreAdresse(id: EcranId): void {
     case "classement":
       renderClassement();
       show("classement");
+      return;
+    case "amis":
+      ouvreAmis();
       return;
     case "compte":
       // `renderCompte()` ne montre pas l'écran — seul `ouvreCompte` le fait.
@@ -7409,7 +7837,17 @@ requestAnimationFrame(loop);
 appliqueTheme(P.load().theme);
 
 if (import.meta.env.DEV) {
+  /** Le crochet touche la pièce comme un doigt : le retour part de là. */
+  const vise = (e: Round["ents"][number]): void => {
+    lastClick = { x: e.x, y: e.y, color: colorHex(e.color), r: e.r, t: performance.now() };
+  };
   (window as unknown as { __tor: unknown }).__tor = {
+    get intensite(): number {
+      return scene.intensite;
+    },
+    get serie(): number {
+      return serie;
+    },
     joue(): string {
       if (!session || session.phase !== "playing") return "idle";
       const r = session.round;
@@ -7432,7 +7870,10 @@ if (import.meta.env.DEV) {
             step.kind === "click"
               ? r.ents[step.idx]
               : r.ents.find((x) => juge(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
-          if (e) send({ kind: "click", ent: e, x: e.x, y: e.y });
+          if (e) {
+            vise(e);
+            send({ kind: "click", ent: e, x: e.x, y: e.y });
+          }
         }
       }
       return "played";
@@ -7476,7 +7917,10 @@ if (import.meta.env.DEV) {
           step.kind === "click"
             ? r.ents[step.idx]
             : r.ents.find((x) => permis(x) && (step.kind !== "clickAnyExcept" || x.color !== step.color));
-        if (e) sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+        if (e) {
+          vise(e);
+          sendOrMulti({ kind: "click", ent: e, x: e.x, y: e.y });
+        }
       }
       return "played";
     },

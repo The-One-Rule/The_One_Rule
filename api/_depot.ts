@@ -20,7 +20,7 @@
 import { agregatsVides, litApparence } from "../shared/compte";
 import type { Agregats, Apparence } from "../shared/compte";
 import { cleanEnv } from "../src/env";
-import { MAX_AMIS, nouveauCodeAmi } from "../shared/amis";
+import { MAX_AMIS, MAX_DEMANDES, nouveauCodeAmi } from "../shared/amis";
 
 /* ------------------------------------------------------------------ *
  * Le modèle
@@ -164,6 +164,14 @@ export interface Depot {
   lie(a: string, b: string): Promise<void>;
   /** Délie deux comptes, dans les deux sens. Idempotent. */
   delie(a: string, b: string): Promise<void>;
+  /** Les demandes d'ami REÇUES par un compte (qui me demande). */
+  demandesVers(id: string): Promise<Ami[]>;
+  /** Les demandes d'ami ENVOYÉES par un compte (à qui j'ai demandé). */
+  demandesDe(id: string): Promise<Ami[]>;
+  /** Pose une demande `de → a`. Idempotent. */
+  demande(de: string, a: string): Promise<void>;
+  /** Retire la demande `de → a`, et elle seule. Idempotent. */
+  retireDemande(de: string, a: string): Promise<void>;
   /**
    * Les performances VÉRIFIÉES et jugées humaines de plusieurs comptes, depuis
    * un jour donné. Même filtre que le classement : un ami ne se compare pas à
@@ -270,6 +278,7 @@ export class DepotMemoire implements Depot {
     // Les amitiés aussi : un compte supprimé ne doit plus paraître dans la
     // liste de personne, et son code ne doit plus rien ouvrir.
     for (const k of [...this.amities]) if (k.startsWith(`${id}→`) || k.endsWith(`→${id}`)) this.amities.delete(k);
+    for (const k of [...this.demandes]) if (k.startsWith(`${id}→`) || k.endsWith(`→${id}`)) this.demandes.delete(k);
     this.codes.delete(id);
   }
 
@@ -402,6 +411,42 @@ export class DepotMemoire implements Depot {
   async delie(a: string, b: string): Promise<void> {
     this.amities.delete(`${a}→${b}`);
     this.amities.delete(`${b}→${a}`);
+  }
+
+  private demandes = new Set<string>(); // "de→a"
+
+  private amiDe(id: string): Ami | null {
+    const u = this.users.get(id);
+    if (!u || u.supprimeLe) return null;
+    return { id, code: this.codes.get(id) ?? null, pseudo: u.pseudo, apparence: structuredClone(u.apparence) };
+  }
+
+  async demandesVers(id: string): Promise<Ami[]> {
+    const out: Ami[] = [];
+    for (const k of this.demandes) {
+      const [de, a] = k.split("→") as [string, string];
+      const x = a === id ? this.amiDe(de) : null;
+      if (x) out.push(x);
+    }
+    return out;
+  }
+
+  async demandesDe(id: string): Promise<Ami[]> {
+    const out: Ami[] = [];
+    for (const k of this.demandes) {
+      const [de, a] = k.split("→") as [string, string];
+      const x = de === id ? this.amiDe(a) : null;
+      if (x) out.push(x);
+    }
+    return out;
+  }
+
+  async demande(de: string, a: string): Promise<void> {
+    if (de !== a) this.demandes.add(`${de}→${a}`);
+  }
+
+  async retireDemande(de: string, a: string): Promise<void> {
+    this.demandes.delete(`${de}→${a}`);
   }
 
   async perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]> {
@@ -593,6 +638,8 @@ export class DepotSupabase implements Depot {
     const e = encodeURIComponent(id);
     const amis = await this.req(`amitie?or=(utilisateur_id.eq.${e},ami_id.eq.${e})`, { method: "DELETE" });
     if (!amis.ok) throw new Error(`supabase amities ${amis.status}`);
+    const dem = await this.req(`demande_ami?or=(de_id.eq.${e},a_id.eq.${e})`, { method: "DELETE" });
+    if (!dem.ok) throw new Error(`supabase demandes ${dem.status}`);
     await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
     await this.revoque(id);
   }
@@ -804,6 +851,56 @@ export class DepotSupabase implements Depot {
       { method: "DELETE" },
     );
     if (!res.ok) throw new Error(`supabase delie ${res.status}`);
+  }
+
+  /**
+   * Les deux côtés d'une demande. Même jointure nommée que `amisDe` :
+   * `demande_ami` a deux clés étrangères vers `utilisateur`.
+   */
+  private async demandesPar(colonne: "de_id" | "a_id", id: string): Promise<Ami[]> {
+    const suivie = colonne === "a_id" ? "demande_ami_de_id_fkey" : "demande_ami_a_id_fkey";
+    const res = await this.req(
+      `demande_ami?${colonne}=eq.${encodeURIComponent(id)}` +
+        `&select=qui:utilisateur!${suivie}(id,pseudo,apparence,code_ami,supprime_le)` +
+        `&order=cree_le.desc&limit=${MAX_DEMANDES}`,
+    );
+    if (!res.ok) throw new Error(`supabase demandes ${res.status}`);
+    const lignes = (await res.json()) as { qui: Record<string, unknown> | null }[];
+    return lignes
+      .map((l) => l.qui)
+      .filter((a): a is Record<string, unknown> => !!a && !a.supprime_le)
+      .map((a) => ({
+        id: String(a.id),
+        code: a.code_ami ? String(a.code_ami) : null,
+        pseudo: String(a.pseudo ?? ""),
+        apparence: litApparence(a.apparence),
+      }));
+  }
+
+  demandesVers(id: string): Promise<Ami[]> {
+    return this.demandesPar("a_id", id);
+  }
+
+  demandesDe(id: string): Promise<Ami[]> {
+    return this.demandesPar("de_id", id);
+  }
+
+  async demande(de: string, a: string): Promise<void> {
+    if (de === a) return;
+    const res = await this.req("demande_ami", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates" },
+      body: JSON.stringify([{ de_id: de, a_id: a }]),
+    });
+    if (!res.ok) throw new Error(`supabase demande ${res.status}`);
+  }
+
+  async retireDemande(de: string, a: string): Promise<void> {
+    const res = await this.req(
+      `demande_ami?de_id=eq.${encodeURIComponent(de)}&a_id=eq.${encodeURIComponent(a)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) throw new Error(`supabase retire demande ${res.status}`);
   }
 
   async perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]> {

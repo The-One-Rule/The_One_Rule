@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../src/engine/rng";
 import { buildRound } from "../src/engine/round";
 import { TOUCH_INSTRUCTIONS } from "../src/engine/instructions";
-import { ONE_RULES, withoutHold } from "../src/engine/rules";
+import { ONE_RULES, withoutHold, withoutLetters } from "../src/engine/rules";
 import { verifyRun } from "../src/engine/verify";
 import type { LoggedInput } from "../src/engine/verify";
 import type { OneRule } from "../src/engine/types";
@@ -75,5 +75,36 @@ describe("un run joué au doigt se rejoue au doigt", () => {
       if (!v.ok || v.score !== DAILY_LENGTH) faux++;
     }
     expect(faux).toBeGreaterThan(15);
+  });
+});
+
+describe("LA VOYELLE au doigt", () => {
+  const voyelle = ONE_RULES.find((x) => x.id === "voyelle")!;
+  const TEL_LETTRES = { ...TEL, lettres: false };
+
+  it("est remplacée par une règle qui peut piéger au doigt", () => {
+    const r = withoutLetters(voyelle);
+    expect(r.id).not.toBe("voyelle");
+    expect(r.watchRelease).toBeUndefined();
+    // Les autres règles ne bougent pas.
+    for (const x of ONE_RULES) if (x.id !== "voyelle") expect(withoutLetters(x)).toBe(x);
+  });
+
+  it("un run du jour joué sous le remplaçant se rejoue sous le remplaçant", () => {
+    const jouee = withoutLetters(voyelle);
+    for (const seed of [11, 42, 777]) {
+      const v = verifyRun({ seed, ruleId: "voyelle", mode: "daily", inputs: joueAuDoigt(seed, jouee), capacites: TEL_LETTRES });
+      expect(v.ok, v.reason).toBe(true);
+      expect(v.score).toBe(DAILY_LENGTH);
+    }
+  });
+
+  it("⚠️ sans `lettres`, un téléphone d'avant reste rejoué sous LA VOYELLE", () => {
+    // Les dents : les files écrites avant ce correctif portent la voyelle
+    // brute ; ABSENT doit la garder.
+    const seed = 42;
+    const v = verifyRun({ seed, ruleId: "voyelle", mode: "daily", inputs: joueAuDoigt(seed, voyelle), capacites: TEL });
+    expect(v.ok, v.reason).toBe(true);
+    expect(v.score).toBe(DAILY_LENGTH);
   });
 });

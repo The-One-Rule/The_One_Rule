@@ -97,6 +97,10 @@ export type MultiFx = {
   burstScreen?: boolean;
   flashViolet?: boolean;
   kick?: number;
+  /** Le serveur dit : j'ai tenu cette manche. La série monte. */
+  reussi?: boolean;
+  /** Le serveur dit : j'ai perdu une vie. La rupture. */
+  mort?: boolean;
 };
 
 
@@ -2254,10 +2258,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     if (mine?.kind === "survive") {
       if (mine.trap) {
         sfx.trapAvoided();
-        queueFx({ burstScreen: true, flashViolet: true, kick: 0.45 });
-      } else sfx.success(match.score);
+        queueFx({ burstScreen: true, flashViolet: true, kick: 0.45, reussi: true });
+      } else {
+        sfx.success(match.score);
+        queueFx({ reussi: true });
+      }
     } else if (mine?.kind === "death") {
       sfx.fail();
+      queueFx({ mort: true });
       // Le tampon est posé plus bas, une fois qu'on sait si un panneau va
       // occuper le centre : le poser ici le faisait clignoter sous la kill-cam.
     }

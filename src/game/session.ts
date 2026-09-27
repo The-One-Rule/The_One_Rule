@@ -25,7 +25,14 @@ export interface SessionEnd {
   vies: number;
 }
 
-const FREEZE_MS = 520;
+/**
+ * Le gel après la mort. 520 → 820 ms : la mort est devenue une RUPTURE
+ * (éclair, terrain qui s'éteint, fissures — `render/intensite.ts`), et à
+ * 520 ms l'écran de fin la coupait au moment où les fissures finissaient de
+ * courir. Hors jeu : aucune manche ne se joue pendant ce gel, et le rejeu
+ * serveur s'arrête à la mort.
+ */
+const FREEZE_MS = 820;
 
 /**
  * Orchestrateur d'un run. Ne connaît pas le DOM et ne lit jamais l'horloge :

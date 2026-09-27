@@ -1,7 +1,9 @@
 import { FIELD_H, FIELD_W } from "../engine/types";
 import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
 import { MOTIFS, encrePour } from "./motif";
-import { policeMono } from "./polices";
+import { policeDisplay, policeMono } from "./polices";
+import { effets, fissures, intensite as intensiteDe, rupture, RUPTURE_MS } from "./intensite";
+import type { Effets } from "./intensite";
 import type { ColorId, Entity, OneRule, Round, ZoneRect } from "../engine/types";
 import { FIELD_GUTTER, cadrePour, decalage, orientationPour, rectEcran, versChamp, versEcran } from "./orientation";
 import type { Cadre, Orientation } from "./orientation";
@@ -268,6 +270,80 @@ export class SceneRenderer {
    * dessin qui ne change jamais.
    */
   private trames = new Map<ColorId, CanvasPattern>();
+
+  /*
+   * ================= L'INTENSITÉ GAGNÉE — voir `render/intensite.ts` =========
+   *
+   * Tout ce qui suit est du DESSIN. Aucun de ces états ne touche `e.x`, `e.y`,
+   * `e.r` ni une durée : le hit-test et le verdict sont ceux d'avant.
+   */
+  /** 0 → 1, posé par la boucle à chaque image. */
+  private niveauIntensite = 0;
+  private fx: Effets = effets(0);
+  /** Ondes de choc des réussites (unités du champ). Bac fixe, réutilisé. */
+  private ondes = Array.from({ length: 6 }, () => ({ x: 0, y: 0, t: -1e9, couleur: PAPER, force: 0, r: 30 }));
+  private ondeHead = 0;
+  /** « ×12 » qui monte du point de la réussite (unités du champ). */
+  private textes = Array.from({ length: 4 }, () => ({ x: 0, y: 0, t: -1e9, txt: "" }));
+  private texteHead = 0;
+  /** Coup de poing du terrain : amplitude et instant. */
+  private poing = { t: -1e9, amp: 0 };
+  /** La dernière mort : point, instant, graine des fissures. */
+  private mort: { x: number; y: number; t: number; graine: number; i: number } | null = null;
+  /** Étincelles du cadre de temps, en repère CSS. */
+  private etinc = Array.from({ length: 48 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1 }));
+  private etincHead = 0;
+  private etincDette = 0;
+
+  /** Pose l'intensité courante (palier de la partie, série en cours). */
+  poseIntensite(palier: number, serie: number): void {
+    const i = this.reduced ? 0 : intensiteDe(palier, serie);
+    if (i === this.niveauIntensite) return;
+    this.niveauIntensite = i;
+    this.fx = effets(i);
+  }
+
+  get intensite(): number {
+    return this.niveauIntensite;
+  }
+
+  /**
+   * UNE RÉUSSITE — le retour doit être satisfaisant, et plus satisfaisant
+   * quand on l'a mérité. La gerbe grossit, une onde part de la pièce, le
+   * terrain encaisse un petit coup, la série s'affiche.
+   */
+  impact(x: number, y: number, couleur: string, serie: number, now: number, r = 34): void {
+    const f = this.fx;
+    this.burst(x, y, couleur, f.gerbe, f.vitesse);
+    if (this.reduced) return;
+    if (f.onde > 0) {
+      const o = this.ondes[this.ondeHead]!;
+      this.ondeHead = (this.ondeHead + 1) % this.ondes.length;
+      o.x = x; o.y = y; o.t = now; o.couleur = couleur; o.force = f.onde; o.r = r;
+    }
+    if (f.poing > 0) this.poing = { t: now, amp: f.poing };
+    if (f.serieVisible && serie >= 3) {
+      const tx = this.textes[this.texteHead]!;
+      this.texteHead = (this.texteHead + 1) % this.textes.length;
+      tx.x = x; tx.y = y; tx.t = now; tx.txt = `×${serie}`;
+    }
+  }
+
+  /**
+   * LA MORT — une vraie rupture, pas un tampon. Éclair, terrain qui s'éteint,
+   * fissures qui partent de la faute, éclats. Voir `rupture()`.
+   */
+  rompt(x: number, y: number, now: number): void {
+    this.mort = { x, y, t: now, graine: Math.round(x * 7 + y * 13 + now) % 997, i: this.niveauIntensite };
+    this.burst(x, y, "#F74058", 26, 420);
+    this.burst(x, y, this.sombre ? "#F1E8D8" : "#241B3A", 14, 300);
+    this.kick(now, 1.1 + this.niveauIntensite * 0.5);
+  }
+
+  /** Efface la rupture : la manche suivante (ou l'écran d'après) est là. */
+  repare(): void {
+    this.mort = null;
+  }
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d", { alpha: true });
@@ -570,7 +646,7 @@ export class SceneRenderer {
    * bas, symétrique), et dans le dernier quart un liseré garance qui bat. Pas de
    * hachures. Le cadre ne subit pas la secousse.
    */
-  private drawTimeFrame(ratio: number, now: number): void {
+  private drawTimeFrame(ratio: number, now: number, dt = 0): void {
     const { ctx, cssW: W, cssH: H } = this;
     const f = rectEcran(this.cadreCourant);
     const pad = 7;
@@ -604,11 +680,25 @@ export class SceneRenderer {
     ctx.lineWidth = 4;
     ctx.strokeRect(x0, y0, w, h);
 
-    // Le temps restant, dans l'encre de la page.
+    // Le temps restant, dans l'encre de la page. Il s'épaissit avec l'intensité.
     const per = (w + h) * 2;
     const left = Math.max(0, 1 - ratio) * per;
+    const trait = this.fx.cadre;
     ctx.strokeStyle = critique ? "#E0243E" : pageSombre ? "#F1E8D8" : ENCRE;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = trait;
+    /*
+     * La NAISSANCE d'une manche, à haute intensité : le cadre claque en
+     * blanc 140 ms. La manche suivante se SENT arriver, et plus on va vite
+     * plus ces claquements se rapprochent — l'accélération devient visible.
+     */
+    const nait = now - this.bornAt;
+    if (this.fx.cascade > 0 && nait >= 0 && nait < 140 && !this.reduced) {
+      ctx.save();
+      ctx.strokeStyle = `rgba(255,255,255,${0.9 * (1 - nait / 140)})`;
+      ctx.lineWidth = trait + 6;
+      ctx.strokeRect(x0, y0, w, h);
+      ctx.restore();
+    }
     ctx.beginPath();
     let rest = left / 2;
     const seg = (fromX: number, fromY: number, toX: number, toY: number): void => {
@@ -628,7 +718,205 @@ export class SceneRenderer {
     seg(x0, y0, x0, y1);
     seg(x0, y1, midX, y1);
     ctx.stroke();
+
+    /*
+     * LES DEUX TÊTES DU TEMPS. Le temps qui reste se referme par ses deux
+     * bouts ; à haute intensité ces bouts brûlent — un point vif, et des
+     * étincelles qui s'en détachent. On voit le temps MANGER le cadre.
+     */
+    if (this.fx.etincelles > 0 && left > 0 && !this.reduced) {
+      const point = (cote: 1 | -1): [number, number] => {
+        let reste = left / 2;
+        const chemin: [number, number, number, number][] =
+          cote === 1
+            ? [[midX, y0, x1, y0], [x1, y0, x1, y1], [x1, y1, midX, y1]]
+            : [[midX, y0, x0, y0], [x0, y0, x0, y1], [x0, y1, midX, y1]];
+        let px = midX;
+        let py = y0;
+        for (const [ax, ay, bx, by] of chemin) {
+          const len = Math.hypot(bx - ax, by - ay);
+          const k = Math.min(1, reste / len);
+          px = ax + (bx - ax) * k;
+          py = ay + (by - ay) * k;
+          reste -= len;
+          if (reste <= 0) break;
+        }
+        return [px, py];
+      };
+      const tetes = [point(1), point(-1)];
+      this.etincDette += this.fx.etincelles * dt;
+      for (const [px, py] of tetes) {
+        ctx.fillStyle = critique ? "#FFD2D8" : "#FFFFFF";
+        ctx.beginPath();
+        ctx.arc(px, py, trait * 0.9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = critique ? "#E0243E" : "#9184D9";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      while (this.etincDette >= 1) {
+        this.etincDette -= 1;
+        const [px, py] = tetes[Math.random() < 0.5 ? 0 : 1]!;
+        const e = this.etinc[this.etincHead]!;
+        this.etincHead = (this.etincHead + 1) % this.etinc.length;
+        const a = Math.random() * Math.PI * 2;
+        const v = 60 + Math.random() * 120;
+        e.x = px; e.y = py; e.vx = Math.cos(a) * v; e.vy = Math.sin(a) * v - 40;
+        e.max = 0.25 + Math.random() * 0.25; e.life = e.max;
+      }
+    }
     ctx.restore();
+  }
+
+  /** Étincelles du cadre (repère CSS). */
+  private drawEtincelles(dt: number): void {
+    const { ctx } = this;
+    for (const e of this.etinc) {
+      if (e.life <= 0) continue;
+      e.life -= dt;
+      e.x += e.vx * dt;
+      e.y += e.vy * dt;
+      e.vy += 260 * dt;
+      ctx.globalAlpha = Math.max(0, e.life / e.max);
+      ctx.fillStyle = "#FFC24A";
+      ctx.fillRect(e.x - 1.5, e.y - 1.5, 3, 3);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * LES TRAÎNÉES — l'accélération qu'on VOIT. Autour du terrain (jamais
+   * dessus), des traits filent vers le bas, de plus en plus vite et de plus
+   * en plus nombreux avec l'intensité. Sur téléphone debout, ce sont les
+   * bandes vides de chaque côté du terrain qui se mettent à courir.
+   */
+  private drawTrainees(now: number): void {
+    const k = this.fx.trainees;
+    if (k <= 0 || this.reduced) return;
+    const { ctx, cssW: W, cssH: H } = this;
+    const f = rectEcran(this.cadreCourant);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.rect(f.x - 12, f.y - 12, f.w + 24, f.h + 24);
+    ctx.clip("evenodd");
+    const n = Math.round(10 + k * 26);
+    const vitesse = 0.35 + k * 1.4; // px par ms
+    const encre = this.sombre || !terrainDe(this.skin, this.sombre).clair ? "241,232,216" : "36,27,58";
+    ctx.lineCap = "round";
+    for (let j = 0; j < n; j++) {
+      const hx = Math.sin(j * 127.1) * 43758.5453;
+      const col = (hx - Math.floor(hx)) * W;
+      const hy = Math.sin(j * 311.7) * 12543.13;
+      const dec = (hy - Math.floor(hy)) * (H + 200);
+      const long = 30 + k * 90 + (j % 3) * 18;
+      const y = ((now * vitesse * (0.7 + (j % 5) * 0.12) + dec) % (H + long + 40)) - long;
+      ctx.strokeStyle = `rgba(${encre},${0.05 + k * 0.13})`;
+      ctx.lineWidth = 2 + (j % 3);
+      ctx.beginPath();
+      ctx.moveTo(col, y);
+      ctx.lineTo(col, y + long);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** Ondes de choc des réussites (unités du champ). */
+  private drawOndes(now: number): void {
+    const { ctx } = this;
+    for (const o of this.ondes) {
+      const t = now - o.t;
+      if (t < 0 || t > 340) continue;
+      const k = t / 340;
+      const ease = 1 - (1 - k) * (1 - k);
+      ctx.save();
+      ctx.globalAlpha = (1 - k) * 0.9;
+      ctx.strokeStyle = o.couleur;
+      ctx.lineWidth = 14 * o.force * (1 - k) + 1;
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r * (1 + ease * 1.6 * o.force), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = "#FFFFFF";
+      ctx.lineWidth = 3 * (1 - k);
+      ctx.beginPath();
+      ctx.arc(o.x, o.y, o.r * (1 + ease * 1.1 * o.force), 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  /** La série qui monte du point de la réussite (repère CSS : un chiffre ne se transpose pas). */
+  private drawTextes(now: number): void {
+    const { ctx } = this;
+    for (const tx of this.textes) {
+      const t = now - tx.t;
+      if (t < 0 || t > 650) continue;
+      const k = t / 650;
+      const p = this.versEcran(tx.x, tx.y);
+      const pop = t < 90 ? 0.6 + (t / 90) * 0.6 : 1.2 - Math.min(0.2, (t - 90) / 400);
+      const taille = Math.round((18 + this.niveauIntensite * 16) * pop);
+      ctx.save();
+      ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+      ctx.font = policeDisplay(700, taille);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const y = p.y - 26 - k * 46;
+      ctx.lineWidth = 5;
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#241B3A";
+      ctx.strokeText(tx.txt, p.x, y);
+      ctx.fillStyle = "#FFE27A";
+      ctx.fillText(tx.txt, p.x, y);
+      ctx.restore();
+    }
+  }
+
+  /** Le terrain qui s'éteint et se fend (unités du champ). */
+  private drawRupture(now: number): void {
+    const m = this.mort;
+    if (!m) return;
+    const t = now - m.t;
+    const r = rupture(t, m.i);
+    if (t >= RUPTURE_MS) {
+      // La rupture TIENT jusqu'à ce qu'on la répare : l'écran d'après arrive.
+      r.voile = 0.62;
+      r.fissure = 1;
+    }
+    const { ctx } = this;
+    ctx.save();
+    ctx.fillStyle = `rgba(16,8,26,${r.voile})`;
+    ctx.fillRect(0, 0, FIELD_W, FIELD_H);
+    if (r.fissure > 0) {
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      for (const rayon of fissures(m.graine)) {
+        const n = Math.max(1, Math.round((rayon.length - 1) * r.fissure));
+        for (const [couleur, larg] of [
+          // Au moins 5 et 2,5 px À L'ÉCRAN : au téléphone l'échelle tombe à
+          // 0,46, et 9 unités ne faisaient plus qu'un cheveu.
+          ["rgba(255,255,255,0.92)", Math.max(9, 5 / Math.max(0.01, this.scale))],
+          ["#F74058", Math.max(4, 2.5 / Math.max(0.01, this.scale))],
+        ] as const) {
+          ctx.strokeStyle = couleur;
+          ctx.lineWidth = larg;
+          ctx.beginPath();
+          ctx.moveTo(m.x, m.y);
+          for (let k = 1; k <= n; k++) ctx.lineTo(m.x + rayon[k]![0], m.y + rayon[k]![1]);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+
+  /** L'éclair blanc de la mort (repère CSS, tout le canvas). */
+  private drawEclair(now: number): void {
+    const m = this.mort;
+    if (!m) return;
+    const r = rupture(now - m.t, m.i);
+    if (r.eclair <= 0.004) return;
+    this.ctx.fillStyle = `rgba(255,255,255,${r.eclair})`;
+    this.ctx.fillRect(0, 0, this.cssW, this.cssH);
   }
 
   /** Anime les formes mobiles. Muter en place évite toute allocation par frame. */
@@ -868,9 +1156,21 @@ export class SceneRenderer {
       ox = (Math.random() * 2 - 1) * amp;
       oy = (Math.random() * 2 - 1) * amp;
     }
-    const s = this.scale * this.dpr;
-    const ex = (this.offX + ox * this.scale) * this.dpr;
-    const ey = (this.offY + oy * this.scale) * this.dpr;
+    /*
+     * Le COUP DE POING d'une réussite : le terrain se gonfle d'une fraction
+     * autour de son centre, 140 ms. Le dessin seulement — `toField` lit le
+     * cadre, pas cette matrice, donc un clic dans l'intervalle est projeté
+     * exactement comme avant.
+     */
+    let gonfle = 1;
+    const tp = now - this.poing.t;
+    if (tp >= 0 && tp < 140) gonfle = 1 + this.poing.amp * Math.sin((tp / 140) * Math.PI);
+    const s = this.scale * this.dpr * gonfle;
+    const fr0 = rectEcran(this.cadreCourant);
+    const cxE = fr0.x + fr0.w / 2;
+    const cyE = fr0.y + fr0.h / 2;
+    const ex = (cxE + (this.offX - cxE) * gonfle + ox * this.scale) * this.dpr;
+    const ey = (cyE + (this.offY - cyE) * gonfle + oy * this.scale) * this.dpr;
     // Debout, la matrice TRANSPOSE : x du champ → bas de l'écran, y → droite.
     if (this.orientation === "portrait") ctx.setTransform(0, s, s, 0, ex, ey);
     else ctx.setTransform(s, 0, 0, s, ex, ey);
@@ -880,6 +1180,14 @@ export class SceneRenderer {
     this.drawField();
 
     if (rule?.zone) this.drawZones(rule.zone);
+
+    /*
+     * La rupture s'efface quand le jeu passe à autre chose : plus de manche
+     * (l'écran de fin), ou une manche NEUVE (la suivante en multi). Pas avant
+     * 300 ms — une kill-cam qui rejoue une autre manche aussitôt ne doit pas
+     * avaler la mort.
+     */
+    if (this.mort && now - this.mort.t > 300 && (!round || round !== this.bornRound)) this.mort = null;
 
     if (round) {
       if (round !== this.bornRound) {
@@ -925,6 +1233,18 @@ export class SceneRenderer {
       const tailleBadge = Math.max(20, 22 / Math.max(0.01, this.scale));
       for (const e of round.ents) {
         let scale = birth;
+        /*
+         * LA CASCADE : à haute intensité, les pièces d'une manche tombent l'une
+         * après l'autre (quelques ms d'écart) — la manche ARRIVE, elle ne
+         * s'allume pas. Le hit-test reste sur `e.r` plein.
+         */
+        const cas = this.fx.cascade;
+        if (cas > 0 && !this.reduced) {
+          const a = age - e.idx * cas;
+          scale = a < 0 ? 0.35 : a < 130 ? 0.55 + (0.53 * a) / 130 : a < 200 ? 1.08 - (0.08 * (a - 130)) / 70 : 1;
+        }
+        // LE POULS : les pièces battent avec le cœur de la partie.
+        if (this.fx.pouls > 0) scale *= 1 + this.fx.pouls * this.pression.eclat;
         if (breathes) {
           // ±1,5 %, période ~2,6 s ; phase déterministe (e.phase).
           scale *= 1 + 0.015 * Math.sin((now / 1000) * ((Math.PI * 2) / 2.6) + e.phase);
@@ -960,6 +1280,9 @@ export class SceneRenderer {
       if (state.geste) this.drawGeste(round, state.geste);
     }
 
+    this.drawOndes(now);
+    this.drawRupture(now);
+
     this.stepParticles(dt);
     this.drawParticles();
 
@@ -986,11 +1309,16 @@ export class SceneRenderer {
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.drawPression(now);
+    this.drawTrainees(now);
 
     if (ratio !== undefined) {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      this.drawTimeFrame(ratio, now);
+      this.drawTimeFrame(ratio, now, dt);
     }
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.drawEtincelles(dt);
+    this.drawTextes(now);
+    this.drawEclair(now);
 
     if (now < this.veilUntil) {
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);

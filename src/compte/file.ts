@@ -51,7 +51,7 @@ export interface Envoi {
    * téléphone sur les manches du clavier. Absent des files écrites avant —
    * elles sont rejouées comme avant.
    */
-  capacites?: { clavier: boolean; maintien: boolean; encre: boolean };
+  capacites?: { clavier: boolean; maintien: boolean; encre: boolean; lettres?: boolean };
   /** Le catalogue de consignes du run (voir `RunClaim.catalogue`). */
   catalogue?: number;
 }

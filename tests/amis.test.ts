@@ -169,6 +169,15 @@ async function appel(id: string | null, methode = "GET", action?: string, corps?
 
 const codeDe = async (id: string): Promise<string> => (await appel(id)).corps.code as string;
 
+/** Deux comptes deviennent amis PAR LE CHEMIN RÉEL : demande, puis acceptation. */
+async function deviennentAmis(a: string, b: string): Promise<void> {
+  await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+  const r = await appel(b, "POST", "accepte", { code: await codeDe(a) });
+  expect(r.status).toBe(200);
+}
+
+const pseudos = (l: { pseudo: string }[]) => l.map((x) => x.pseudo).sort();
+
 describe("la route des amis", () => {
   it("exige un compte — et ne lève jamais sans", async () => {
     expect((await appel(null)).status).toBe(401);
@@ -186,18 +195,83 @@ describe("la route des amis", () => {
     expect(await codeDe(a)).toBe(c1);
   });
 
-  it("ajouter un code lie les DEUX comptes", async () => {
+  it("⚠️ ajouter un code ne lie PLUS : c'est une DEMANDE, que l'autre voit", async () => {
+    // Rapporté par Pierre : « on ne lui demande même pas l'autorisation ».
     const a = await compte("ALICE");
     const b = await compte("BOB", "gaucher");
     const cb = await codeDe(b);
     const r = await appel(a, "POST", "ajoute", { code: cb.toLowerCase() });
     expect(r.status).toBe(200);
-    expect(r.corps.amis.map((x: { pseudo: string }) => x.pseudo).sort()).toEqual(["ALICE", "BOB"]);
-    // et BOB voit ALICE sans rien avoir fait : donner son code vaut accord
+    expect(r.corps.issue).toBe("demande");
+    expect(pseudos(r.corps.amis)).toEqual(["ALICE"]);
+    expect(pseudos(r.corps.envoyees)).toEqual(["BOB"]);
     const vuParB = await appel(b);
-    expect(vuParB.corps.amis.map((x: { pseudo: string }) => x.pseudo).sort()).toEqual(["ALICE", "BOB"]);
+    expect(pseudos(vuParB.corps.amis)).toEqual(["BOB"]);
+    expect(pseudos(vuParB.corps.recues)).toEqual(["ALICE"]);
+  });
+
+  it("accepter lie les DEUX comptes et range la demande", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB", "gaucher");
+    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    const r = await appel(b, "POST", "accepte", { code: await codeDe(a) });
+    expect(r.corps.issue).toBe("lie");
+    expect(pseudos(r.corps.amis)).toEqual(["ALICE", "BOB"]);
+    expect(r.corps.recues).toHaveLength(0);
+    const vuParA = await appel(a);
+    expect(pseudos(vuParA.corps.amis)).toEqual(["ALICE", "BOB"]);
+    expect(vuParA.corps.envoyees).toHaveLength(0);
     // la carte de visite suit
-    expect(r.corps.amis.find((x: { pseudo: string }) => x.pseudo === "BOB").carte).toBe("gaucher");
+    expect(vuParA.corps.amis.find((x: { pseudo: string }) => x.pseudo === "BOB").carte).toBe("gaucher");
+  });
+
+  it("⚠️ on n'accepte que ce qu'on a REÇU — sinon « accepter » serait l'ajout forcé", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB");
+    const r = await appel(a, "POST", "accepte", { code: await codeDe(b) });
+    expect(r.status).toBe(404);
+    expect(pseudos((await appel(b)).corps.amis)).toEqual(["BOB"]);
+  });
+
+  it("deux demandes croisées valent accord", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB");
+    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    const r = await appel(b, "POST", "ajoute", { code: await codeDe(a) });
+    expect(r.corps.issue).toBe("lie");
+    expect(pseudos(r.corps.amis)).toEqual(["ALICE", "BOB"]);
+  });
+
+  it("refuser efface la demande, sans lier ni prévenir", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB");
+    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    const r = await appel(b, "POST", "refuse", { code: await codeDe(a) });
+    expect(r.corps.recues).toHaveLength(0);
+    const vuParA = await appel(a);
+    expect(vuParA.corps.envoyees).toHaveLength(0);
+    expect(pseudos(vuParA.corps.amis)).toEqual(["ALICE"]);
+    expect(JSON.stringify(vuParA.corps)).not.toMatch(/refus/i);
+  });
+
+  it("annuler retire sa propre demande", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB");
+    const cb = await codeDe(b);
+    await appel(a, "POST", "ajoute", { code: cb });
+    expect((await appel(a, "POST", "annule", { code: cb })).corps.envoyees).toHaveLength(0);
+    expect((await appel(b)).corps.recues).toHaveLength(0);
+  });
+
+  it("⚠️ une demande ne montre de son auteur que son visage — aucun score", async () => {
+    const a = await compte("ALICE");
+    const b = await compte("BOB");
+    await run(a, JOUR, 17);
+    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    const r = await appel(b);
+    for (const d of r.corps.recues) expect(Object.keys(d).sort()).toEqual(["carte", "code", "glyphe", "pseudo"]);
+    expect(JSON.stringify(r.corps.recues)).not.toContain(a);
+    expect(JSON.stringify(r.corps.recues)).not.toContain("17");
   });
 
   it("refuse son propre code, un code inconnu, un code malformé", async () => {
@@ -212,7 +286,7 @@ describe("la route des amis", () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
     const cb = await codeDe(b);
-    await appel(a, "POST", "ajoute", { code: cb });
+    await deviennentAmis(a, b);
     await appel(a, "POST", "retire", { code: cb });
     expect((await appel(b)).corps.amis).toHaveLength(1);
     expect((await appel(a)).corps.amis).toHaveLength(1);
@@ -223,16 +297,18 @@ describe("la route des amis", () => {
     const cc = await codeDe(cible);
     for (let i = 0; i < MAX_AMIS; i++) {
       const x = await compte(`X${i}`);
-      expect((await appel(x, "POST", "ajoute", { code: cc })).status).toBe(200);
+      await deviennentAmis(x, cible);
     }
+    expect((await appel(cible)).corps.amis).toHaveLength(MAX_AMIS + 1);
     const tard = await compte("TARD");
-    expect((await appel(tard, "POST", "ajoute", { code: cc })).corps.error).toBe("plein");
+    expect((await appel(tard, "POST", "ajoute", { code: cc })).status).toBe(200);
+    expect((await appel(cible, "POST", "accepte", { code: await codeDe(tard) })).corps.error).toBe("plein");
   });
 
   it("classe le cercle sur le run du jour, et compare la semaine", async () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
-    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    await deviennentAmis(a, b);
     await run(a, JOUR, 12);
     await run(b, JOUR, 30);
     await run(b, JOUR - 1, 8);
@@ -245,7 +321,7 @@ describe("la route des amis", () => {
   it("⚠️ un run jugé DOUTEUX ne compte pas, même entre amis", async () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
-    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    await deviennentAmis(a, b);
     await run(b, JOUR, 40, { verdictBot: "douteux" });
     const bob = (await appel(a)).corps.amis.find((x: { pseudo: string }) => x.pseudo === "BOB");
     expect(bob.aujourdhui).toBeNull();
@@ -255,7 +331,7 @@ describe("la route des amis", () => {
   it("⚠️ n'invente rien depuis les AGRÉGATS (décision n°14)", async () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
-    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    await deviennentAmis(a, b);
     // BOB se déclare un record d'entraînement mirobolant : ça ne regarde que lui
     const u = (await depot.parId(b))!;
     u.agregats.records = { "training|x": 999 } as never;
@@ -268,7 +344,7 @@ describe("la route des amis", () => {
   it("⚠️ ne publie JAMAIS un identifiant de compte", async () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
-    await appel(a, "POST", "ajoute", { code: await codeDe(b) });
+    await deviennentAmis(a, b);
     await run(b, JOUR, 5);
     const r = await appel(a);
     const brut = JSON.stringify(r.corps);
@@ -286,7 +362,7 @@ describe("la route des amis", () => {
     const a = await compte("ALICE");
     const b = await compte("BOB");
     const cb = await codeDe(b);
-    await appel(a, "POST", "ajoute", { code: cb });
+    await deviennentAmis(a, b);
     await depot.supprime(b);
     expect((await appel(a)).corps.amis.map((x: { pseudo: string }) => x.pseudo)).toEqual(["ALICE"]);
     expect((await appel(a, "POST", "ajoute", { code: cb })).status).toBe(404);

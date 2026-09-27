@@ -52,6 +52,7 @@ export type EcranId =
   | "codex"
   | "compte"
   | "classement"
+  | "amis"
   | "reglages"
   | "multi-id"
   | "multi-join"
@@ -79,6 +80,7 @@ const TABLE: Record<EcranId, Route> = {
   solo: { chemin: "/solo", adressable: true, parent: "home" },
   codex: { chemin: "/cartes", adressable: true, parent: "home" },
   classement: { chemin: "/classement", adressable: true, parent: "home" },
+  amis: { chemin: "/amis", adressable: true, parent: "home" },
   reglages: { chemin: "/reglages", adressable: true, parent: "home" },
   compte: { chemin: "/compte", adressable: true, parent: "home" },
   "multi-join": { chemin: "/multi", adressable: true, parent: "home" },
@@ -117,6 +119,7 @@ const TABLE: Record<EcranId, Route> = {
  */
 const ALIAS: Record<string, EcranId> = {
   "/home": "home",
+  "/friends": "amis",
   "/accueil": "home",
   "/index": "home",
   "/play": "solo",
