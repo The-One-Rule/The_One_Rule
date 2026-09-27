@@ -675,7 +675,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | ~~Pièces sans dépense~~ | **levée** — la boutique de styles de pièces (§12, refonte PARCOURS) |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
 | ~~Couleur sans second canal~~ | **levée** — mode MOTIFS (§12) |
-| **Aucune intégration continue** | pas de `.github/` : rien ne relance tsc, vitest ni l'e2e sur une PR. Tout repose sur un lancement à la main |
+| ~~Aucune intégration continue~~ | **levée** — `.github/workflows/verification.yml` relance tsc, vitest, le build (et l'absence de `__tor` dans `dist`) puis l'e2e, sur les PR vers `master`. ⚠️ L'e2e y tourne sur une machine partagée : les faux échecs de charge ([001], [005]) peuvent y paraître |
 
 ---
 
