@@ -393,6 +393,8 @@ let lastClick = { x: 500, y: 210, color: "#EFEAE0", r: 34, t: -1e9 };
 let serie = 0;
 /** À qui appartient la série : la session solo, ou le multi. Change → série à zéro. */
 let porteurSerie: object | null = null;
+/** L'index de manche multi vu à l'image précédente — il redescend à un match neuf. */
+let dernierIdxMulti = -1;
 /** Le cercle du maintien est-il déjà passé au vert (la vibration part une fois). */
 let maintienPleinDit = false;
 /** La dernière manche dont la consigne a claqué. */
@@ -2928,17 +2930,50 @@ function renderClassement(): void {
   });
 }
 
+/*
+ * LE CODE D'UN LIEN D'AMI (`/amis?code=XXXXXX`), lu À L'ÉVALUATION DU MODULE.
+ *
+ * ⚠️ Il était lu dans `ouvreAmis` — donc APRÈS `poseArrivee`, qui réécrit
+ * l'adresse en `cheminDe(écran) + hash` et jette la requête. Le lien partagé
+ * par ENVOYER MON CODE ne pré-remplissait donc JAMAIS rien : mesuré, saisie
+ * vide et adresse réduite à `/amis`. Le test d'écran ouvrait `/amis` nu, il
+ * ne pouvait pas le voir.
+ *
+ * Et il est GARDÉ en mémoire locale jusqu'à ce qu'un joueur connecté le voie :
+ * quelqu'un qui reçoit le lien sans compte passe par la connexion, qui le
+ * ramène ailleurs — sans ça, le code de son ami serait perdu en route.
+ */
+const CLE_LIEN_AMI = "oneRule.lienAmi";
+let codeDuLienAmi: string | undefined = (() => {
+  const lu = codeAmiValide(new URLSearchParams(location.search).get("code") ?? "");
+  try {
+    if (lu) localStorage.setItem(CLE_LIEN_AMI, lu);
+    return lu ?? codeAmiValide(localStorage.getItem(CLE_LIEN_AMI) ?? "");
+  } catch {
+    return lu;
+  }
+})();
+
 /** Ouvre l'écran des amis — depuis le mur, le profil, ou son adresse. */
 function ouvreAmis(): void {
   $("amisOk").classList.add("hidden");
   $("amisErr").classList.add("hidden");
   /*
-   * UN LIEN D'AMI PRÉ-REMPLIT LA SAISIE : « ENVOYER MON CODE » partage
-   * `/amis?code=XXXXXX`. On ne DEMANDE pas à l'arrivée — ouvrir un lien ne
-   * vaut pas geste ; le joueur voit le code, et appuie sur DEMANDER.
+   * UN LIEN D'AMI PRÉ-REMPLIT LA SAISIE. On ne DEMANDE pas à l'arrivée —
+   * ouvrir un lien ne vaut pas geste ; le joueur voit le code, et appuie sur
+   * DEMANDER. Consommé seulement par un joueur CONNECTÉ, qui peut s'en servir.
    */
-  const lien = codeAmiValide(new URLSearchParams(location.search).get("code") ?? "");
-  if (lien) $<HTMLInputElement>("amisSaisie").value = lien;
+  if (codeDuLienAmi) {
+    $<HTMLInputElement>("amisSaisie").value = codeDuLienAmi;
+    if (estConnecte()) {
+      codeDuLienAmi = undefined;
+      try {
+        localStorage.removeItem(CLE_LIEN_AMI);
+      } catch {
+        /* stockage interdit : le code n'était gardé que pour cette page */
+      }
+    }
+  }
   show("amis");
   peintAmis();
 }
@@ -7383,10 +7418,18 @@ function loop(now: number): void {
    */
   {
     const porteur: object | null = session ?? (multi.isPlayingMulti() ? multi : null);
-    if (porteur !== porteurSerie) {
+    /*
+     * ⚠️ En multi le porteur est l'objet `multi`, le MÊME d'un match à
+     * l'autre : sans ce second test, la série d'un match gagné entrait dans
+     * la revanche, qui démarrait à pleine intensité sans l'avoir gagnée. Un
+     * match neuf se reconnaît à son index de manche qui REDESCEND.
+     */
+    const idxMulti = porteur === multi ? multi.roundIndex() : -1;
+    if (porteur !== porteurSerie || idxMulti < dernierIdxMulti) {
       porteurSerie = porteur;
       serie = 0;
     }
+    dernierIdxMulti = idxMulti;
     scene.poseIntensite(tension ? palierTension(tension.manche, tension.grace).n : 0, tension ? serie : 0);
   }
 
