@@ -1390,6 +1390,82 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
 }
 
 /* ------------------------------------------------------------------ *
+ * LA PARTIE RAPIDE — une table publique qui part et repart seule.
+ *
+ * Tout est mesuré sur le fil, contre les constantes de `server/rapide.ts` :
+ * seul, on attend ; à deux, l'échéance est posée et le match part À
+ * L'HEURE ; LANCER et les réglages y sont ignorés ; un troisième qui arrive
+ * en cours de match rejoint LA MÊME table, en spectateur ; et après le
+ * match, le suivant repart sans que personne ne touche à rien, le
+ * spectateur assis. Les trois clients sont `manuel` : ils ne jouent pas, et
+ * le match se termine au temps.
+ * ------------------------------------------------------------------ */
+{
+  const { ATTENTE_SALON_MS, ATTENTE_APRES_MATCH_MS } = await import("./server/rapide.ts");
+  const [q1, q2, q3] = await Promise.all([client("RAPIDE1", "kq1"), client("RAPIDE2", "kq2"), client("RAPIDE3", "kq3")]);
+  const departs = new Map();
+  for (const c of [q1, q2, q3]) {
+    c.manuel = true;
+    departs.set(c, []);
+    c.ws.on("message", (raw) => {
+      const m = JSON.parse(raw);
+      if (m.t === "match_start") departs.get(c).push({ at: Date.now(), rules: m.rules });
+    });
+    for (let i = 0; i < 4; i++) { c.ws.send(JSON.stringify({ t: "ping", sent: Date.now() })); await sleep(25); }
+  }
+
+  q1.ws.send(JSON.stringify({ t: "quick" }));
+  await sleep(250);
+  ok(q1.room?.public === true, "partie rapide : la table est PUBLIQUE");
+  ok(q1.room?.autoAt === null, "partie rapide : seul, aucun départ n'est prévu");
+
+  q2.ws.send(JSON.stringify({ t: "quick" }));
+  await sleep(250);
+  ok(q2.room?.code === q1.room?.code, `partie rapide : le second rejoint la MÊME table (${q1.room?.code} / ${q2.room?.code})`);
+  const autoAt = q1.room?.autoAt;
+  ok(typeof autoAt === "number", "partie rapide : à deux, l'échéance est posée et diffusée");
+  const reste = autoAt - (Date.now() + q1.offset);
+  okMarge(Math.abs(reste - ATTENTE_SALON_MS), 1000, "max", "partie rapide : l'échéance vaut la fenêtre d'arrivée");
+
+  // Personne n'est l'hôte de personne : LANCER et les réglages ne font rien.
+  q1.ws.send(JSON.stringify({ t: "start" }));
+  q1.ws.send(JSON.stringify({ t: "settings", settings: { lives: 1 } }));
+  await sleep(300);
+  ok(departs.get(q1).length === 0, "partie rapide : LANCER est ignoré sur une table publique");
+  ok(q1.room?.settings?.lives !== 1, "partie rapide : les réglages sont ignorés sur une table publique");
+
+  const tDepart = Date.now();
+  while (!departs.get(q1).length && Date.now() - tDepart < ATTENTE_SALON_MS + 3000) await sleep(100);
+  const premier = departs.get(q1)[0];
+  ok(!!premier, "partie rapide : le match part SEUL");
+  if (premier) {
+    okMarge(Math.abs(premier.at + q1.offset - autoAt), 600, "max", "partie rapide : il part à l'heure annoncée");
+  }
+
+  // Un troisième arrive pendant le match : même table, il regarde.
+  q3.ws.send(JSON.stringify({ t: "quick" }));
+  await sleep(400);
+  ok(q3.room?.code === q1.room?.code, "partie rapide : une arrivée en cours de match rejoint la table EN COURS");
+  ok(departs.get(q3).length === 1 && !(q3.id in (departs.get(q3)[0]?.rules ?? {})),
+    "partie rapide : l'arrivant reçoit le match en cours, sans siège");
+
+  // Personne ne joue : le match se termine au temps, puis repart seul.
+  const tFin = Date.now();
+  while (departs.get(q1).length < 2 && Date.now() - tFin < 90_000) await sleep(200);
+  const second = departs.get(q1)[1];
+  ok(!!second, "partie rapide : le match SUIVANT repart sans que personne ne lance");
+  if (second) {
+    ok(q3.id in second.rules, "partie rapide : le spectateur d'hier est assis au match suivant");
+    const fin = q1.recus.filter((r) => r.t === "verdict" && r.nextRoundAt == null).pop();
+    if (fin) {
+      okMarge(Math.abs(second.at - fin.at - ATTENTE_APRES_MATCH_MS), 1500, "max", "partie rapide : la pause entre deux matchs est celle annoncée");
+    }
+  }
+  for (const c of [q1, q2, q3]) c.ws.close();
+  await sleep(220);
+}
+
+/* ------------------------------------------------------------------ *
  * Cohérence du flux — relue sur ce que le serveur a réellement envoyé.
  *
  * Rien de neuf n'est joué ici : on repasse sur les messages déjà collectés

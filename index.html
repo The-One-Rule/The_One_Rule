@@ -1678,6 +1678,20 @@
             <h2 class="rulename" data-i18n="multi.titre">PLAY TOGETHER</h2>
           </div>
 
+          <!-- LA PARTIE RAPIDE, en tête : c'est la seule porte qui ne demande
+               ni code ni ami. Une table publique, qui part seule dès deux
+               joueurs et repart seule après chaque match (`server/rapide.ts`).
+               Pleine largeur (`panel--large`), comme REJOINDRE. -->
+          <div class="col panel panel--large panel--rapide">
+            <p class="eyebrow" data-i18n="multi.rapide.eyebrow">NO CODE</p>
+            <h3 class="panel__title" data-i18n="multi.rapide">QUICK MATCH</h3>
+            <p class="panel__text" data-i18n="multi.rapide.desc">A public table that starts by itself as soon as two players are in, and starts again after every match.</p>
+            <p class="warn hidden" id="multiRapideErr"></p>
+            <div class="btnrow">
+              <button class="btn btn--primary" id="btnMultiRapide" data-i18n="multi.rapide.go">PLAY NOW</button>
+            </div>
+          </div>
+
           <div class="col panel panel--large">
             <p class="eyebrow" data-i18n="multi.attend">THEY'RE WAITING</p>
             <h3 class="panel__title" data-i18n="multi.rejoindre">JOIN</h3>
@@ -1884,6 +1898,10 @@
             <!-- Le lancement ferme la colonne : c'est la dernière chose qu'on
                  fait, elle est en bas et elle est seule de sa taille. -->
             <div class="room__acts">
+              <!-- TABLE PUBLIQUE : personne ne lance, la table part seule. La
+                   ligne dit quand, ou qu'on attend quelqu'un. Une feuille,
+                   écrite à chaque seconde par `majDepartAuto`. -->
+              <p class="room__auto hidden" id="multiAuto" aria-live="polite"></p>
               <button class="btn btn--launch hidden" id="btnMultiStart" data-i18n="salon.lancer">START THE MATCH</button>
               <!-- Arrivé par un lien : on entre d'abord, on se nomme ensuite.
                    Ce bouton n'apparaît que pour qui n'a pas encore de nom —
@@ -1942,6 +1960,9 @@
           </div>
 
           <div class="end__foot">
+            <!-- TABLE PUBLIQUE : le match suivant part seul, et la ligne dit
+                 quand. Même feuille que celle du salon. -->
+            <p class="room__auto hidden" id="multiEndAuto" aria-live="polite"></p>
             <div class="btnrow">
               <button class="btn btn--primary" id="btnMultiReplay" data-i18n="fin.rejouerMulti">PLAY AGAIN · SAME ROOM</button>
               <button class="btn" id="btnMultiEndInvite" data-i18n="salon.copierLien">COPY THE LINK</button>

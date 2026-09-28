@@ -35,6 +35,7 @@ export const EVENT_NAMES = [
   "share_carte",
   "relance_rejoue",
   "relance_bilan",
+  "salon_rapide",
   "niveau_fin",
   "boutique_achat",
   "duel_sent",

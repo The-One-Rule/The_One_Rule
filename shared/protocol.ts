@@ -434,6 +434,15 @@ export type ClientMsg =
     }
   | { t: "create" }
   | { t: "join"; code: string }
+  /**
+   * PARTIE RAPIDE : une table publique, sans code (`server/rapide.ts`).
+   *
+   * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un serveur
+   * ancien n'a pas ce cas et l'ignore : le client ne reçoit alors aucun
+   * `room`, et c'est à lui de dire, après quelques secondes, que la partie
+   * rapide n'est pas encore disponible.
+   */
+  | { t: "quick" }
   | { t: "leave" }
   | { t: "start" } // hôte uniquement
   | { t: "settings"; settings: Partial<RoomSettings> } // hôte uniquement
@@ -593,7 +602,20 @@ export type ServerMsg =
       imposteurId: string;
       vainqueur: "imposteur" | "village";
     }
-  | { t: "room"; code: string; players: PlayerPublic[]; inMatch: boolean; settings: RoomSettings }
+  | {
+      t: "room";
+      code: string;
+      players: PlayerPublic[];
+      inMatch: boolean;
+      settings: RoomSettings;
+      /**
+       * Table PUBLIQUE (partie rapide) : personne ne règle ni ne lance, elle
+       * part toute seule. ABSENT VAUT NON — un serveur ancien n'en a pas.
+       */
+      public?: boolean;
+      /** L'heure SERVEUR du départ automatique, `null` quand il manque du monde. */
+      autoAt?: number | null;
+    }
   | {
       t: "match_start";
       seed: number;

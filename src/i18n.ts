@@ -246,6 +246,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allureQuoi": "Elle ne vaut que pour l'entraînement. Le run du jour est le même pour tout le monde.",
     "tuto.passer": "PASSER",
     "relance.bilan": "BILAN ›",
+    "multi.rapide.eyebrow": "SANS CODE",
+    "multi.rapide": "PARTIE RAPIDE",
+    "multi.rapide.desc": "Une table publique, qui part toute seule dès que deux joueurs sont là, et repart après chaque match.",
+    "multi.rapide.go": "JOUER MAINTENANT",
     "avis.question": "DEUX PARTIES. ALORS, CE JEU ?",
     "avis.bof": "BOF",
     "avis.sympa": "SYMPA",
@@ -452,6 +456,10 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allureQuoi": "It only applies to training. The daily run is the same for everyone.",
     "tuto.passer": "SKIP",
     "relance.bilan": "SUMMARY ›",
+    "multi.rapide.eyebrow": "NO CODE",
+    "multi.rapide": "QUICK MATCH",
+    "multi.rapide.desc": "A public table that starts by itself as soon as two players are in, and starts again after every match.",
+    "multi.rapide.go": "PLAY NOW",
     "avis.question": "TWO RUNS IN. SO, THIS GAME?",
     "avis.bof": "MEH",
     "avis.sympa": "NICE",
@@ -992,6 +1000,11 @@ type Dyn = {
   sortieRecharger: string;
   errSalonInconnu: string;
   errSalonComplet: (max: number) => string;
+  /** LA PARTIE RAPIDE — voir `server/rapide.ts`. */
+  autoDans: (s: number) => string;
+  autoAttente: string;
+  autoEnCours: string;
+  errRapide: string;
   errNeedPlayers: (min: number, max: number) => string;
   coopFinRang: (vagues: number, score: number) => string;
   coopTenu: string;
@@ -1658,6 +1671,10 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "CE SALON N'EXISTE PLUS — SOIT LE CODE EST MAL RECOPIÉ (LE 2 ET LE Z SE RESSEMBLENT), SOIT L'HÔTE A FERMÉ",
     errSalonComplet: (max) => `SALON COMPLET · ${max} JOUEURS`,
+    autoDans: (s) => `LA PARTIE COMMENCE DANS ${s} S`,
+    autoAttente: "EN ATTENTE D'UN AUTRE JOUEUR · ENVOIE LE LIEN",
+    autoEnCours: "UNE PARTIE EST EN COURS · TU JOUES LA SUIVANTE",
+    errRapide: "LA PARTIE RAPIDE N'EST PAS ENCORE DISPONIBLE",
     errNeedPlayers: (min, max) => `IL FAUT ENTRE ${min} ET ${max} JOUEURS POUR LANCER`,
     coopFinRang: (vagues, score) =>
       `${vagues} VAGUE${vagues > 1 ? "S" : ""} · SCORE ${score}`,
@@ -2179,6 +2196,10 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
     errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
+    autoDans: (s) => `THE MATCH STARTS IN ${s}S`,
+    autoAttente: "WAITING FOR ANOTHER PLAYER · SEND THE LINK",
+    autoEnCours: "A MATCH IS ON · YOU PLAY THE NEXT ONE",
+    errRapide: "QUICK MATCH ISN'T AVAILABLE YET",
     errNeedPlayers: (min, max) => `YOU NEED ${min} TO ${max} PLAYERS TO START`,
     coopFinRang: (vagues, score) =>
       vagues === 1 ? `1 WAVE · SCORE ${score}` : `${vagues} WAVES · SCORE ${score}`,

@@ -17,6 +17,7 @@
  * (liste séparée par des virgules) pour la liste blanche des origines.
  */
 
+import { choisitTable, echeanceDepart, RAPIDE_MIN } from "./rapide";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
@@ -170,6 +171,11 @@ interface Room {
    */
   cursorPos: Map<string, { x: number; y: number }>;
   roundOpen: boolean;
+  /** Table de PARTIE RAPIDE : elle part et repart seule (`server/rapide.ts`). */
+  public: boolean;
+  /** L'échéance du départ automatique, heure serveur. */
+  autoAt: number | null;
+  autoTimer: ReturnType<typeof setTimeout> | null;
 }
 
 const rooms = new Map<string, Room>();
@@ -339,7 +345,75 @@ const roomState = (room: Room): ServerMsg => ({
   players: publicPlayers(room),
   inMatch: enPartie(room),
   settings: room.settings,
+  // Absent sur une table privée : le message reste octet pour octet celui
+  // qu'un client ancien connaît.
+  ...(room.public ? { public: true, autoAt: room.autoAt } : {}),
 });
+
+/**
+ * Le départ automatique d'une table publique. Appelé à chaque changement
+ * d'effectif et à chaque fin de match ; ne fait rien sur une table privée.
+ * ⚠️ Appeler AVANT de diffuser `roomState`, qui porte l'échéance.
+ */
+function planifieDepart(room: Room, apresMatch = false): void {
+  if (!room.public) return;
+  const annule = (): void => {
+    if (room.autoTimer) clearTimeout(room.autoTimer);
+    room.autoTimer = null;
+    room.autoAt = null;
+  };
+  if (enPartie(room)) {
+    annule();
+    return;
+  }
+  const e = echeanceDepart({
+    assis: idsAssis(room).length,
+    maintenant: now(),
+    echeance: apresMatch ? null : room.autoAt,
+    apresMatch,
+  });
+  if (e === null) {
+    annule();
+    return;
+  }
+  if (e === room.autoAt && room.autoTimer) return;
+  annule();
+  room.autoAt = e;
+  room.autoTimer = setTimeout(() => {
+    room.autoTimer = null;
+    room.autoAt = null;
+    // La table a pu se vider, partir ou disparaître entre-temps.
+    if (rooms.get(room.code) !== room || enPartie(room)) return;
+    if (idsAssis(room).length < RAPIDE_MIN) {
+      broadcast(room, roomState(room));
+      return;
+    }
+    startMatch(room);
+  }, Math.max(0, e - now()));
+}
+
+function nouveauSalon(client: Client, publique: boolean): Room {
+  const room: Room = {
+    code: newCode(),
+    clients: new Map([[client.id, client]]),
+    hostId: client.id,
+    match: null,
+    coop: null,
+    settings: { ...DEFAULT_SETTINGS },
+    roundStartAt: 0,
+    roundDeadline: 0,
+    timer: null,
+    chargeTimers: new Map(),
+    cursorPos: new Map(),
+    roundOpen: false,
+    public: publique,
+    autoAt: null,
+    autoTimer: null,
+  };
+  rooms.set(room.code, room);
+  client.room = room;
+  return room;
+}
 
 /* ------------------------------------------------------------------ *
  * Déroulement d'un match
@@ -360,6 +434,10 @@ function chuchoteRole(room: Room): void {
 }
 
 function startMatch(room: Room): void {
+  // Un départ, automatique ou non, éteint l'échéance d'une table publique.
+  if (room.autoTimer) clearTimeout(room.autoTimer);
+  room.autoTimer = null;
+  room.autoAt = null;
   if (room.settings.mode === "coop") {
     startMatchCoop(room);
     return;
@@ -584,6 +662,7 @@ function closeVagueCoop(room: Room): void {
     });
     room.coop = null;
     room.cursorPos.clear();
+    planifieDepart(room, true);
     broadcast(room, roomState(room));
     return;
   }
@@ -676,6 +755,7 @@ function closeRound(room: Room): void {
       players: publicPlayers(room),
     });
     room.match = null;
+    planifieDepart(room, true);
     broadcast(room, roomState(room));
     return;
   }
@@ -705,6 +785,7 @@ function clotureVote(room: Room, issue: IssueVote): void {
     players: publicPlayers(room),
   });
   room.match = null;
+  planifieDepart(room, true);
   broadcast(room, roomState(room));
 }
 
@@ -899,22 +980,36 @@ wss.on("connection", (ws) => {
 
       case "create": {
         leaveRoom(client);
-        const room: Room = {
-          code: newCode(),
-          clients: new Map([[client.id, client]]),
-          hostId: client.id,
-          match: null,
-          coop: null,
-          settings: { ...DEFAULT_SETTINGS },
-          roundStartAt: 0,
-          roundDeadline: 0,
-          timer: null,
-          chargeTimers: new Map(),
-          cursorPos: new Map(),
-          roundOpen: false,
-        };
-        rooms.set(room.code, room);
-        client.room = room;
+        const room = nouveauSalon(client, false);
+        broadcast(room, roomState(room));
+        envoiePhotos(room, client);
+        return;
+      }
+
+      /*
+       * PARTIE RAPIDE — voir `server/rapide.ts`. Une table publique qui
+       * attend, sinon une en cours (on y regarde jusqu'au match suivant),
+       * sinon une neuve. L'entrée elle-même est EXACTEMENT celle de `join` :
+       * reprise de siège, spectateur en cours de match, photos.
+       */
+      case "quick": {
+        if (client.room?.public) {
+          send(client, roomState(client.room));
+          return;
+        }
+        leaveRoom(client);
+        const code = choisitTable(
+          [...rooms.values()]
+            .filter((r) => r.public)
+            .map((r) => ({ code: r.code, joueurs: r.clients.size, enPartie: enPartie(r) })),
+          MAX_PLAYERS,
+        );
+        const table = code ? rooms.get(code) : undefined;
+        if (table) {
+          rejoindre(client, table);
+          return;
+        }
+        const room = nouveauSalon(client, true);
         broadcast(room, roomState(room));
         envoiePhotos(room, client);
         return;
@@ -926,134 +1021,14 @@ wss.on("connection", (ws) => {
           send(client, { t: "error", code: "room_unknown" });
           return;
         }
-        /*
-         * Reprise de siège. Un joueur coupé reste dans le salon, socket
-         * fermée, pendant RECONNECT_GRACE_MS. S'il revient avec la même clé
-         * locale, il REPREND son identifiant — donc son siège, ses vies et
-         * son score — au lieu d'entrer en spectateur avec une identité neuve.
-         *
-         * On n'accepte la reprise que si l'ancienne socket est effectivement
-         * fermée : sinon deux onglets du même navigateur, qui partagent la
-         * clé, se voleraient mutuellement leur place.
-         */
-        /*
-         * Déjà dans ce salon : rejoindre à nouveau ne doit RIEN casser.
-         *
-         * Sans ce garde, le chemin normal passait par leaveRoom(), donc par
-         * forfeit() : cliquer REJOINDRE en étant encore connecté s'éliminait
-         * soi-même — et à deux joueurs, ça terminait le match pour tout le
-         * monde. Rejoindre là où l'on est déjà est une demande d'état, pas un
-         * départ.
-         */
-        if (client.room === room) {
-          send(client, roomState(room));
-          return;
-        }
-
-        // AVANT toute reprise d'identifiant : leaveRoom retire l'entrée sous
-        // la clé `client.id`, donc il doit tourner tant que celle-ci vaut
-        // encore l'ancienne. L'appeler après laisserait une entrée morte dans
-        // le salon précédent, introuvable et jamais nettoyée.
-        leaveRoom(client);
-
-        const fantome = client.key
-          ? [...room.clients.values()].find(
-              (c) => c.key === client.key && c.ws.readyState !== WebSocket.OPEN,
-            )
-          : undefined;
-        if (fantome) {
-          if (fantome.graceTimer) clearTimeout(fantome.graceTimer);
-          fantome.graceTimer = null;
-          fantome.room = null;
-          room.clients.delete(fantome.id);
-          client.id = fantome.id;
-          // De retour : le siège rejoue dès la manche suivante (classique)
-          // ou dans la vague en cours (coop — une coupure n'est pas une défaite).
-          room.match?.setAway(client.id, false);
-          room.coop?.setAway(client.id, false);
-          // L'identifiant vient de changer : le client doit le réapprendre,
-          // sinon il ne se reconnaît pas dans les verdicts ni sur les plaques.
-          send(client, { t: "welcome", id: client.id });
-        } else if (room.clients.size >= MAX_PLAYERS) {
-          send(client, { t: "error", code: "room_full" });
-          return;
-        }
-        room.clients.set(client.id, client);
-        client.room = room;
-        // Arrivée en cours de match : spectateur jusqu'à la manche d'après —
-        // c'est le modèle BombParty, on ne bloque jamais la porte.
-        broadcast(room, roomState(room));
-        envoiePhotos(room, client);
-
-        /*
-         * Arrivée en cours de match : renvoyer de quoi se reconstruire.
-         *
-         * Le client détruit tout son état de match quand il est coupé, et ne le
-         * rebâtit que sur `match_start`. Sans ce renvoi, `beginRound()` sort
-         * immédiatement.
-         *
-         * Envoyé à TOUT arrivant, pas seulement à qui reprend un siège :
-         *   · celui qui revient d'une coupure récupérait sa place mais restait
-         *     bloqué au salon jusqu'à la fin de la partie ;
-         *   · et un vrai SPECTATEUR — quelqu'un qui rejoint pendant qu'on joue —
-         *     n'obtenait rien du tout. Toute l'interface de spectateur existe
-         *     (barre de cibles, pied « JE REGARDE X », reconstruction locale de
-         *     la scène) mais elle est conditionnée à un état de match qu'il ne
-         *     recevait jamais. Il attendait devant un salon figé.
-         *
-         * Envoyé APRÈS roomState : beginMatch lit les vies et le statut dans la
-         * liste de joueurs qu'il vient de recevoir.
-         */
-        const m = room.match;
-        if (m) {
-          send(client, {
-            t: "match_start",
-            seed: m.seed,
-            rules: m.reglesPubliques(Math.max(0, m.roundIdx)),
-            // La manche en cours ne lui est pas ouverte : il reprend à la
-            // suivante, et le message `round` fixera les vraies dates.
-            firstRoundAt: now(),
-            settings: room.settings,
-            // Le mode du match EN COURS, pas celui qu'on recalculerait avec
-            // l'arrivant : il est spectateur, il n'a pas voix au tirage, et
-            // il doit reconstruire exactement ce que les autres voient.
-            clavier: m.clavier,
-            consignes: m.consignes,
-          });
-          if (m.imposteur && m.imposteurId === client.id) {
-            send(client, { t: "role", imposteur: true });
-          }
-          if (m.enObservation()) {
-            send(client, { t: "journal", tours: m.journalPublic() });
-            send(client, { t: "observe" });
-          }
-        }
-        const coop = room.coop;
-        if (coop) {
-          send(client, {
-            t: "match_start",
-            seed: coop.seed,
-            rules: coop.reglesPubliques(),
-            firstRoundAt: now(),
-            settings: room.settings,
-            clavier: false,
-          });
-          if (room.roundOpen) {
-            send(client, {
-              t: "round",
-              idx: coop.roundIdx,
-              startAt: room.roundStartAt,
-              deadline: room.roundDeadline,
-              consumed: [...coop.consumed],
-            });
-          }
-        }
+        rejoindre(client, room);
         return;
       }
 
       case "start": {
         const room = client.room;
-        if (!room) return;
+        // Une table publique part SEULE : personne n'y est l'hôte de personne.
+        if (!room || room.public) return;
         if (client.id !== room.hostId) {
           send(client, { t: "error", code: "not_host" });
           return;
@@ -1081,7 +1056,8 @@ wss.on("connection", (ws) => {
 
       case "settings": {
         const room = client.room;
-        if (!room) return;
+        // Les réglages d'une table publique sont ceux par défaut, pour tous.
+        if (!room || room.public) return;
         if (client.id !== room.hostId) {
           send(client, { t: "error", code: "not_host" });
           return;
@@ -1281,7 +1257,9 @@ wss.on("connection", (ws) => {
 
       case "kick": {
         const room = client.room;
-        if (!room) return;
+        // Sur une table publique, le premier arrivé n'a aucun droit sur les
+        // suivants : une expulsion y serait un abus, pas une modération.
+        if (!room || room.public) return;
         if (client.id !== room.hostId) {
           send(client, { t: "error", code: "not_host" });
           return;
@@ -1344,6 +1322,139 @@ function matchState(match: MatchLogic, id: string): { outcome: RoundOutcome | nu
   return (match as unknown as { states: Map<string, { outcome: RoundOutcome | null }> }).states.get(id) ?? null;
 }
 
+/**
+ * Entrer dans un salon — le chemin commun de `join` et de `quick`.
+ * Reprise de siège, arrivée en spectateur, photos : tout est ici, une fois.
+ */
+function rejoindre(client: Client, room: Room): void {
+  /*
+   * Reprise de siège. Un joueur coupé reste dans le salon, socket
+   * fermée, pendant RECONNECT_GRACE_MS. S'il revient avec la même clé
+   * locale, il REPREND son identifiant — donc son siège, ses vies et
+   * son score — au lieu d'entrer en spectateur avec une identité neuve.
+   *
+   * On n'accepte la reprise que si l'ancienne socket est effectivement
+   * fermée : sinon deux onglets du même navigateur, qui partagent la
+   * clé, se voleraient mutuellement leur place.
+   */
+  /*
+   * Déjà dans ce salon : rejoindre à nouveau ne doit RIEN casser.
+   *
+   * Sans ce garde, le chemin normal passait par leaveRoom(), donc par
+   * forfeit() : cliquer REJOINDRE en étant encore connecté s'éliminait
+   * soi-même — et à deux joueurs, ça terminait le match pour tout le
+   * monde. Rejoindre là où l'on est déjà est une demande d'état, pas un
+   * départ.
+   */
+  if (client.room === room) {
+    send(client, roomState(room));
+    return;
+  }
+
+  // AVANT toute reprise d'identifiant : leaveRoom retire l'entrée sous
+  // la clé `client.id`, donc il doit tourner tant que celle-ci vaut
+  // encore l'ancienne. L'appeler après laisserait une entrée morte dans
+  // le salon précédent, introuvable et jamais nettoyée.
+  leaveRoom(client);
+
+  const fantome = client.key
+    ? [...room.clients.values()].find(
+        (c) => c.key === client.key && c.ws.readyState !== WebSocket.OPEN,
+      )
+    : undefined;
+  if (fantome) {
+    if (fantome.graceTimer) clearTimeout(fantome.graceTimer);
+    fantome.graceTimer = null;
+    fantome.room = null;
+    room.clients.delete(fantome.id);
+    client.id = fantome.id;
+    // De retour : le siège rejoue dès la manche suivante (classique)
+    // ou dans la vague en cours (coop — une coupure n'est pas une défaite).
+    room.match?.setAway(client.id, false);
+    room.coop?.setAway(client.id, false);
+    // L'identifiant vient de changer : le client doit le réapprendre,
+    // sinon il ne se reconnaît pas dans les verdicts ni sur les plaques.
+    send(client, { t: "welcome", id: client.id });
+  } else if (room.clients.size >= MAX_PLAYERS) {
+    send(client, { t: "error", code: "room_full" });
+    return;
+  }
+  room.clients.set(client.id, client);
+  client.room = room;
+  // Une arrivée peut rapprocher le départ d'une table publique (jamais le
+  // repousser) : l'échéance part dans le `roomState` juste en dessous.
+  planifieDepart(room);
+  // Arrivée en cours de match : spectateur jusqu'à la manche d'après —
+  // c'est le modèle BombParty, on ne bloque jamais la porte.
+  broadcast(room, roomState(room));
+  envoiePhotos(room, client);
+
+  /*
+   * Arrivée en cours de match : renvoyer de quoi se reconstruire.
+   *
+   * Le client détruit tout son état de match quand il est coupé, et ne le
+   * rebâtit que sur `match_start`. Sans ce renvoi, `beginRound()` sort
+   * immédiatement.
+   *
+   * Envoyé à TOUT arrivant, pas seulement à qui reprend un siège :
+   *   · celui qui revient d'une coupure récupérait sa place mais restait
+   *     bloqué au salon jusqu'à la fin de la partie ;
+   *   · et un vrai SPECTATEUR — quelqu'un qui rejoint pendant qu'on joue —
+   *     n'obtenait rien du tout. Toute l'interface de spectateur existe
+   *     (barre de cibles, pied « JE REGARDE X », reconstruction locale de
+   *     la scène) mais elle est conditionnée à un état de match qu'il ne
+   *     recevait jamais. Il attendait devant un salon figé.
+   *
+   * Envoyé APRÈS roomState : beginMatch lit les vies et le statut dans la
+   * liste de joueurs qu'il vient de recevoir.
+   */
+  const m = room.match;
+  if (m) {
+    send(client, {
+      t: "match_start",
+      seed: m.seed,
+      rules: m.reglesPubliques(Math.max(0, m.roundIdx)),
+      // La manche en cours ne lui est pas ouverte : il reprend à la
+      // suivante, et le message `round` fixera les vraies dates.
+      firstRoundAt: now(),
+      settings: room.settings,
+      // Le mode du match EN COURS, pas celui qu'on recalculerait avec
+      // l'arrivant : il est spectateur, il n'a pas voix au tirage, et
+      // il doit reconstruire exactement ce que les autres voient.
+      clavier: m.clavier,
+      consignes: m.consignes,
+    });
+    if (m.imposteur && m.imposteurId === client.id) {
+      send(client, { t: "role", imposteur: true });
+    }
+    if (m.enObservation()) {
+      send(client, { t: "journal", tours: m.journalPublic() });
+      send(client, { t: "observe" });
+    }
+  }
+  const coop = room.coop;
+  if (coop) {
+    send(client, {
+      t: "match_start",
+      seed: coop.seed,
+      rules: coop.reglesPubliques(),
+      firstRoundAt: now(),
+      settings: room.settings,
+      clavier: false,
+    });
+    if (room.roundOpen) {
+      send(client, {
+        t: "round",
+        idx: coop.roundIdx,
+        startAt: room.roundStartAt,
+        deadline: room.roundDeadline,
+        consumed: [...coop.consumed],
+      });
+    }
+  }
+  return;
+}
+
 function leaveRoom(client: Client): void {
   const room = client.room;
   if (!room) return;
@@ -1363,6 +1474,7 @@ function leaveRoom(client: Client): void {
 
   if (room.clients.size === 0) {
     if (room.timer) clearTimeout(room.timer);
+    if (room.autoTimer) clearTimeout(room.autoTimer);
     clearChargeTimers(room);
     rooms.delete(room.code);
     return;
@@ -1370,6 +1482,7 @@ function leaveRoom(client: Client): void {
   if (client.id === room.hostId) {
     room.hostId = [...room.clients.keys()][0]!;
   }
+  planifieDepart(room);
   broadcast(room, roomState(room));
   if (room.coop && curseurParti) diffuserCurseurs(room);
 }

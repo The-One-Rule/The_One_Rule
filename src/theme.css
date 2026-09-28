@@ -4178,3 +4178,50 @@ body {
     margin-top: 8px;
   }
 }
+
+/* ------------------------------------------------------------------ *
+ * LA PARTIE RAPIDE — voir `server/rapide.ts`.
+ * ------------------------------------------------------------------ */
+
+/* La porte sans code : la seule qui ne demande rien. Elle prend l'accent. */
+.panel--rapide {
+  border-color: var(--signal);
+  background: var(--lilas);
+}
+
+/* Le compte d'une table publique : on ne lance rien, on regarde partir. */
+.room__auto {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--miel);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.25;
+  text-align: center;
+  color: var(--encre);
+}
+
+.room__auto.hidden {
+  display: none;
+}
+
+/* Personne n'est l'hôte de personne : ni réglages, ni expulsion. */
+#multi-lobby.is-public #multiSettings,
+#multi-lobby.is-public .seat__act--kick {
+  display: none;
+}
+
+/*
+ * LE SPECTATEUR AU PODIUM, au téléphone. « SPECTATEUR » puis « A REGARDÉ » :
+ * deux fois la même chose, et la rangée débordait de 27 px à 375 (mesuré).
+ * Rare dans un salon entre amis, COURANT à une table publique, où chaque
+ * arrivée en cours de match regarde jusqu'au suivant.
+ */
+@media (max-width: 560px) {
+  #multiPodium .lobbyrow.is-spectateur .lobbyrow__meta {
+    display: none;
+  }
+}

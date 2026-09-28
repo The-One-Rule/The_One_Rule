@@ -44,6 +44,7 @@ export const ALLOWED = new Set([
   "share_carte",
   "relance_rejoue",
   "relance_bilan",
+  "salon_rapide",
   "niveau_fin",
   "boutique_achat",
   "duel_sent",
