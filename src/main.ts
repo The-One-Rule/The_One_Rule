@@ -29,7 +29,7 @@ import { exploitDuRun } from "./render/exploit";
 import { actionsDeFin } from "./render/finactions";
 import { dessineCarte, donneesCarte } from "./render/partage";
 import { estMaitrisee, resteAMaitriser } from "./game/maitrise";
-import { classementDuJour } from "./compte";
+import { classementDuJour, scoresDuJour } from "./compte";
 import { etatCarte } from "./render/carte";
 import type { EtatCarte } from "./render/carte";
 import * as P from "./game/progress";
@@ -79,7 +79,9 @@ import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
 import { cleEntrainement, cleEscalade } from "./game/perfs";
-import { RELANCE_GARDE_MS, relancePossible, vueRelance } from "./render/relance";
+import { estPresque, RELANCE_GARDE_MS, relancePossible, vueRelance } from "./render/relance";
+import { adversaires, cibleDuPied, depasses, ligneRival, prochainPalier } from "./game/rival";
+import type { Adversaire } from "./game/rival";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -3624,6 +3626,7 @@ function openBrief(mode: Mode): void {
   // La grille ne vit QUE sur l'entraînement : le run du jour et l'escalade
   // n'offrent aucun choix de règle, et en montrer un là serait un mensonge.
   // Un niveau du parcours non plus : sa règle EST le chapitre.
+  if (mode === "daily" && !challenge) chargeRival();
   if (mode === "training" && !niveauEnCours) renderPick();
   else $("briefPick").classList.add("hidden");
   if (niveauEnCours) {
@@ -3960,6 +3963,7 @@ function lanceRun(): void {
     ? 0
     : pendingMode === "daily" ? (s.daily.score ?? 0) : P.recordDeSonAllure(s);
   pastilleDite = false;
+  rivalVu = 0;
   /**
    * Le palier du niveau joué par ce run, s'il y en a un. Lu une fois.
    *
@@ -6489,6 +6493,52 @@ function replay(): void {
 }
 
 /* ------------------------------------------------------------------ *
+ * LE RIVAL DU JOUR — voir `game/rival.ts`.
+ *
+ * Chargé à l'ouverture du brief du jour et JAMAIS attendu : le battement de
+ * lecture dure une à trois secondes, largement de quoi répondre, et une
+ * réponse en retard rend simplement le pied muet une manche de plus. Sans
+ * compte, `cercle()` rend `null` sans appel réseau ; sans comptes au
+ * déploiement, la répartition aussi. Le pied retombe alors sur « SUR 40 ».
+ * Aucune décision de jeu n'en dépend (n°12) : c'est de l'affichage.
+ * ------------------------------------------------------------------ */
+
+let rivaux: Adversaire[] = [];
+let scoresDuJourVus: number[] = [];
+/** Le niveau déjà vu par le rival pendant ce run, pour annoncer UNE fois. */
+let rivalVu = 0;
+
+function chargeRival(): void {
+  const jour = day;
+  void cercle().then((c) => {
+    rivaux = c && c.jour === jour ? adversaires(c.amis) : [];
+  });
+  void scoresDuJour(jour).then((sc) => {
+    scoresDuJourVus = sc ?? [];
+  });
+}
+
+/** Un run du jour vient de gagner une manche : qui vient-on de passer ? */
+function annonceRival(niveau: number): void {
+  if (niveau <= rivalVu) return;
+  const avant = rivalVu;
+  rivalVu = niveau;
+  const passes = depasses(rivaux, avant, niveau);
+  if (passes.length) {
+    const dernier = passes[passes.length - 1]!;
+    montrePastille(t("pastilleDepasse")(dernier.nom), t("pastilleDepasseSous")(dernier.valeur));
+    sfx.success(3);
+    return;
+  }
+  // Un palier anonyme franchi : le « prochain » d'avant n'est plus le même.
+  const pAvant = prochainPalier(scoresDuJourVus, avant);
+  const pApres = prochainPalier(scoresDuJourVus, niveau);
+  if (pAvant && pAvant.top !== (pApres?.top ?? 0) && niveau >= pAvant.valeur) {
+    montrePastille(t("pastilleTop")(pAvant.top), t("pastilleTopSous"));
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * LA CARTE DE RELANCE — voir `render/relance.ts`.
  * ------------------------------------------------------------------ */
 
@@ -6524,6 +6574,16 @@ function montreRelance(o: {
           : v.id === "loin"
             ? t("relanceLoin")(v.ancien, o.jour)
             : t("relancePremier");
+  const lr = o.jour
+    ? ligneRival(rivaux, scoresDuJourVus, Math.max(0, o.ancien), o.score, (m, v) => estPresque(m, v))
+    : null;
+  $("relanceRival").textContent = !lr
+    ? ""
+    : lr.kind === "depasse"
+      ? t("rivalDepasse")(lr.noms)
+      : lr.kind === "presque"
+        ? t("rivalPresque")(lr.nom, lr.manque)
+        : t("rivalPart")(lr.part);
   $("relanceEssais").textContent = o.jour ? t("relanceEssais")(o.essaisRestants) : "";
   $("btnRelance").textContent = t("relanceGo")(TOUCH_ONLY);
   boite.classList.remove("hidden");
@@ -7417,13 +7477,35 @@ function loop(now: number): void {
        * n'a encore rien fait ne compare rien.
        */
       const recAv = recordAvantRun;
+      let cibleRival: ReturnType<typeof cibleDuPied> = null;
       if (session.mode !== "daily" && recAv > 0 && session.level > recAv) {
         hud.setFooterRecord(session.level, session.level - recAv, t("modeTraining"));
         if (!pastilleDite) {
           pastilleDite = true;
           montrePastille(t("pastilleRecord")(session.level), t("pastilleSur")(session.level - recAv));
         }
+      } else if (
+        session.mode === "daily" &&
+        !challenge &&
+        (cibleRival = cibleDuPied(rivaux, scoresDuJourVus, session.level))
+      ) {
+        /*
+         * LE RIVAL DANS LA CASE DU MILIEU, à la place de « SUR 40 ».
+         *
+         * Même case, même hauteur, zéro pixel ajouté (n°10) : c'est le mot et
+         * le chiffre qui changent. Un ami d'abord — « LÉA · 14 » —, puis le
+         * prochain palier anonyme — « TOP 25 % · 12 ». Devant tout le monde,
+         * on retombe sur « SUR 40 », qui reste vrai.
+         */
+        annonceRival(session.level);
+        hud.setFooter(
+          session.level,
+          cibleRival.valeur,
+          t("piedDaily")(day),
+          cibleRival.kind === "ami" ? cibleRival.nom : t("piedTop")(cibleRival.top),
+        );
       } else {
+        if (session.mode === "daily" && !challenge) annonceRival(session.level);
         const st = P.load();
         const ciblePied =
           session.mode === "daily"

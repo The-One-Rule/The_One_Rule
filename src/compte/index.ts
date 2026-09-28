@@ -380,6 +380,17 @@ export async function classementDuJour(jour: number): Promise<Classement | null>
 }
 
 /**
+ * Les scores vérifiés du jour, sans personne derrière — le rang anonyme du
+ * rival (`game/rival.ts`). `null` hors ligne ou sans comptes au déploiement :
+ * le rival se tait alors, il ne devine rien.
+ */
+export async function scoresDuJour(jour: number): Promise<number[] | null> {
+  const r = await appelPerf<{ scores?: unknown }>(`?a=repartition&jour=${jour}`);
+  if (!r || !Array.isArray(r.scores)) return null;
+  return r.scores.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+}
+
+/**
  * Supprime le compte, définitivement.
  *
  * Efface aussi l'état local : rester « connecté » à un compte qui n'existe

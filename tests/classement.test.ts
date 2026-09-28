@@ -312,3 +312,39 @@ describe("mon rang quand je ne suis pas sur le podium", () => {
     expect(r.moi).toBeNull();
   });
 });
+
+describe("la RÉPARTITION du jour — le rang anonyme du rival", () => {
+  const repartition = (q = `jour=${JOUR}`): Promise<Response> =>
+    traite(
+      new Request(`https://www.theonerule.party/api/perf?a=repartition&${q}`, { method: "GET" }),
+      ENV,
+      depot,
+      MAINTENANT,
+    );
+
+  it("⚠️ ne publie que des SCORES : ni pseudo, ni durée, ni identifiant", async () => {
+    const id = await pose("PIERRE", 7, 40, 61_234);
+    await pose("LEA", 2, 12, 45_678);
+    const brut = await (await repartition()).text();
+    expect(brut).not.toContain(id);
+    expect(brut).not.toContain("PIERRE");
+    expect(brut).not.toContain("61234");
+    const r = JSON.parse(brut);
+    expect(Object.keys(r).sort()).toEqual(["jour", "scores"]);
+    expect([...r.scores].sort((a: number, b: number) => a - b)).toEqual([12, 40]);
+  });
+
+  it("les MÊMES filtres que le podium : douteux, non vérifié, autre jour dehors", async () => {
+    await pose("HUMAIN", 1, 20);
+    await pose("DOUTEUX", 2, 39, 0, { verdictBot: "douteux" });
+    await pose("HIER", 3, 38, 0, { cle: cleDuJour(JOUR - 1), jour: JOUR - 1 });
+    const r = await (await repartition()).json();
+    expect(r.scores).toEqual([20]);
+  });
+
+  it("se lit sans compte, et un jour illisible reste un 400", async () => {
+    await pose("X", 1, 5);
+    expect((await repartition()).status).toBe(200);
+    expect((await repartition("jour=abc")).status).toBe(400);
+  });
+});

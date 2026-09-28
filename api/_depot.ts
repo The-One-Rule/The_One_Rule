@@ -137,6 +137,13 @@ export interface Depot {
    */
   rangDe(cle: string, valeur: number, valeur2: number): Promise<number>;
   /**
+   * Les SCORES classables du jour, et rien d'autre : ni pseudo, ni durée, ni
+   * identifiant. C'est la matière du rang anonyme (« mieux que 68 % des
+   * joueurs aujourd'hui ») — les MÊMES filtres que le podium, sinon le
+   * pourcentage compterait ce que le podium écarte.
+   */
+  scoresDuJour(cle: string): Promise<number[]>;
+  /**
    * Incrémente le cumul de suspicion.
    *
    * On compte, on ne sanctionne pas : le contrôle d'automatisation est un test
@@ -214,6 +221,9 @@ export const nouvelId = (): string => `u_${crypto.randomUUID().replace(/-/g, "")
 /* ------------------------------------------------------------------ *
  * Mémoire — tests et développement local
  * ------------------------------------------------------------------ */
+
+/** Plafond de lignes lues pour le rang anonyme. */
+export const SCORES_MAX = 5000;
 
 export class DepotMemoire implements Depot {
   private users = new Map<string, Utilisateur>();
@@ -344,6 +354,10 @@ export class DepotMemoire implements Depot {
         valeur2: p.valeur2,
         moi: !!moiId && p.utilisateurId === moiId,
       }));
+  }
+
+  async scoresDuJour(cle: string): Promise<number[]> {
+    return this.classables(cle).map((p) => p.valeur);
   }
 
   async rangDe(cle: string, valeur: number, valeur2: number): Promise<number> {
@@ -756,6 +770,21 @@ export class DepotSupabase implements Depot {
    * Le `or` reproduit exactement le départage de l'index — mieux, ou aussi bien
    * mais plus vite.
    */
+  /**
+   * Une liste, cette fois, mais d'UNE colonne et bornée : un jour compte
+   * aujourd'hui quelques centaines de joueurs. Au-delà du plafond, le
+   * pourcentage porte sur les meilleurs — il ne peut que se montrer sévère,
+   * jamais flatteur.
+   */
+  async scoresDuJour(cle: string): Promise<number[]> {
+    const res = await this.req(
+      `performance?select=valeur&cle=eq.${encodeURIComponent(cle)}` +
+        `&verifiee=is.true&verdict_bot=eq.humain&order=valeur.desc&limit=${SCORES_MAX}`,
+    );
+    if (!res.ok) throw new Error(`supabase scores ${res.status}`);
+    return ((await res.json()) as { valeur: number }[]).map((l) => Number(l.valeur));
+  }
+
   async rangDe(cle: string, valeur: number, valeur2: number): Promise<number> {
     const filtre =
       `performance?select=id&cle=eq.${encodeURIComponent(cle)}` +

@@ -1101,6 +1101,15 @@ type Dyn = {
   relancePremier: string;
   relanceEssais: (n: number) => string;
   relanceGo: (toucher: boolean) => string;
+  /** LE RIVAL DU JOUR — voir `game/rival.ts`. */
+  rivalDepasse: (noms: string[]) => string;
+  rivalPresque: (nom: string, n: number) => string;
+  rivalPart: (p: number) => string;
+  piedTop: (top: number) => string;
+  pastilleDepasse: (nom: string) => string;
+  pastilleDepasseSous: (v: number) => string;
+  pastilleTop: (top: number) => string;
+  pastilleTopSous: string;
   /** L'exploit tel qu'il paraît SUR la carte de partage, en une ligne. */
   finRecordCarte: (n: number) => string;
   /** Le bouton, et son accusé de réception. */
@@ -1734,6 +1743,19 @@ const DYN: Record<Lang, Dyn> = {
     relancePremier: "TON PREMIER SCORE ICI",
     relanceEssais: (n) => (n > 1 ? `ENCORE ${n} ESSAIS AUJOURD'HUI` : "DERNIER ESSAI AUJOURD'HUI"),
     relanceGo: (toucher) => (toucher ? "TOUCHE POUR REJOUER" : "ESPACE POUR REJOUER"),
+    rivalDepasse: (noms) =>
+      noms.length === 1
+        ? `TU AS DÉPASSÉ ${noms[0]}`
+        : noms.length === 2
+          ? `TU AS DÉPASSÉ ${noms[0]} ET ${noms[1]}`
+          : `TU AS DÉPASSÉ ${noms[0]} ET ${noms.length - 1} AUTRES`,
+    rivalPresque: (nom, n) => `À ${n} ${n > 1 ? "MANCHES" : "MANCHE"} DE DÉPASSER ${nom}`,
+    rivalPart: (p) => `MIEUX QUE ${p} % DES JOUEURS AUJOURD'HUI`,
+    piedTop: (top) => `TOP ${top} %`,
+    pastilleDepasse: (nom) => `TU PASSES ${nom}`,
+    pastilleDepasseSous: (v) => `SON SCORE DU JOUR · ${v}`,
+    pastilleTop: (top) => `TOP ${top} % DU JOUR`,
+    pastilleTopSous: "PARMI TOUS LES JOUEURS",
     finRecordCarte: (n) => `NOUVEAU RECORD · +${n}`,
     finCarte: "CARTE À PARTAGER",
     finCartePrete: "CARTE PRÊTE",
@@ -2239,6 +2261,19 @@ const DYN: Record<Lang, Dyn> = {
     relancePremier: "YOUR FIRST SCORE HERE",
     relanceEssais: (n) => (n === 1 ? "LAST TRY TODAY" : `${n} TRIES LEFT TODAY`),
     relanceGo: (toucher) => (toucher ? "TAP TO PLAY AGAIN" : "SPACE TO PLAY AGAIN"),
+    rivalDepasse: (noms) =>
+      noms.length === 1
+        ? `YOU PASSED ${noms[0]}`
+        : noms.length === 2
+          ? `YOU PASSED ${noms[0]} AND ${noms[1]}`
+          : `YOU PASSED ${noms[0]} AND ${noms.length - 1} OTHERS`,
+    rivalPresque: (nom, n) => `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM PASSING ${nom}`,
+    rivalPart: (p) => `BETTER THAN ${p}% OF TODAY'S PLAYERS`,
+    piedTop: (top) => `TOP ${top}%`,
+    pastilleDepasse: (nom) => `YOU PASS ${nom}`,
+    pastilleDepasseSous: (v) => `THEIR SCORE TODAY · ${v}`,
+    pastilleTop: (top) => `TODAY'S TOP ${top}%`,
+    pastilleTopSous: "AMONG ALL PLAYERS",
     finRecordCarte: (n) => `NEW RECORD · +${n}`,
     finCarte: "SHAREABLE CARD",
     finCartePrete: "CARD READY",

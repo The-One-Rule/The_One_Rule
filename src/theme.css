@@ -4074,7 +4074,18 @@ body {
   background: var(--creme);
 }
 
+/* Le rival : un NOM se lit plus vite qu'un chiffre, il prend l'accent. */
+.relance__rival {
+  margin: 8px 0 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.2;
+  color: var(--signal);
+}
+
 .relance__ecart:empty,
+.relance__rival:empty,
 .relance__essais:empty {
   display: none;
 }
