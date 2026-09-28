@@ -3999,3 +3999,171 @@ body {
   font-size: 11px;
   letter-spacing: 0.1em;
 }
+
+/* ------------------------------------------------------------------ *
+ * LA CARTE DE RELANCE — voir `render/relance.ts`.
+ *
+ * Hors flux dans `#stage` : le canvas ne bouge pas (n°10). Le voile laisse
+ * voir le terrain figé et ses fissures : la mort reste visible derrière le
+ * chiffre. Tout le calque est une cible — « un appui n'importe où relance » —
+ * sauf BILAN, qui arrête la propagation.
+ * ------------------------------------------------------------------ */
+.relance {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--ink) 58%, transparent);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.relance.hidden {
+  display: none;
+}
+
+.relance__carte {
+  width: min(100%, 340px);
+  padding: 18px 20px 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  background: var(--surface);
+  box-shadow: var(--ombre-haute);
+  text-align: center;
+  animation: relance-entre 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.relance__motif {
+  margin: 0;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--dead);
+}
+
+.relance__score {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 76px;
+  line-height: 1;
+  color: var(--encre);
+}
+
+.relance__unite {
+  margin: 0;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: var(--paper-dim);
+}
+
+.relance__ecart {
+  margin: 12px 0 0;
+  padding: 7px 10px;
+  border-radius: var(--r-s);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--encre);
+  background: var(--creme);
+}
+
+.relance__ecart:empty,
+.relance__essais:empty {
+  display: none;
+}
+
+/* « À 2 DE TON RECORD » : la seule ligne qui doit tirer l'œil. */
+.relance[data-vue="presque"] .relance__ecart {
+  color: #fff;
+  background: var(--signal);
+}
+
+.relance[data-vue="record"] .relance__ecart,
+.relance[data-vue="egale"] .relance__ecart {
+  color: var(--or);
+  background: var(--or-fond);
+}
+
+.relance__essais {
+  margin: 8px 0 0;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--paper-dim);
+}
+
+.relance__go {
+  display: block;
+  width: 100%;
+  min-height: var(--tap, 44px);
+  margin-top: 14px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--signal);
+  box-shadow: var(--ombre);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: #fff;
+  cursor: pointer;
+}
+
+.relance__bilan {
+  min-height: var(--tap, 44px);
+  padding: 0 18px;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  background: var(--surface);
+  box-shadow: var(--ombre-basse);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--encre);
+  cursor: pointer;
+}
+
+/* Pendant la garde, rien ne répond : le bouton le dit en pâlissant. */
+.relance.is-garde .relance__go {
+  opacity: 0.55;
+}
+
+@keyframes relance-entre {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .relance__carte {
+    animation: none;
+  }
+}
+
+/* Couché, la bande est basse : la carte se serre plutôt que de déborder. */
+@media (max-height: 460px) {
+  .relance {
+    flex-direction: row;
+    gap: 12px;
+  }
+  .relance__carte {
+    padding: 10px 16px 12px;
+  }
+  .relance__score {
+    font-size: 48px;
+  }
+  .relance__ecart {
+    margin-top: 6px;
+  }
+  .relance__go {
+    margin-top: 8px;
+  }
+}

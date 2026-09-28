@@ -276,6 +276,24 @@
           <button type="button" class="tuto__passer" id="btnTutoPasser" data-i18n="tuto.passer">SKIP</button>
         </div>
 
+        <!-- LA CARTE DE RELANCE, HORS FLUX (voir `render/relance.ts`).
+             Paraît à la mort, sur le terrain figé : le score, l'écart au
+             record, et un appui N'IMPORTE OÙ relance. BILAN ouvre l'écran de
+             fin, qui a été préparé comme avant. Absolue dans `#stage` :
+             `#cv` ne bouge pas. Chaque texte est une feuille, jamais un
+             bouton à plusieurs enfants réécrit en `textContent`. -->
+        <div id="relance" class="relance hidden" aria-live="polite">
+          <div class="relance__carte">
+            <p class="relance__motif" id="relanceMotif"></p>
+            <p class="relance__score" id="relanceScore">0</p>
+            <p class="relance__unite" id="relanceUnite"></p>
+            <p class="relance__ecart" id="relanceEcart"></p>
+            <p class="relance__essais" id="relanceEssais"></p>
+            <button type="button" class="relance__go" id="btnRelance"></button>
+          </div>
+          <button type="button" class="relance__bilan" id="btnRelanceBilan" data-i18n="relance.bilan">SUMMARY ›</button>
+        </div>
+
         <!-- OBSERVATION IMPOSTEUR, HORS FLUX.
              Après les dix manches : rejouer les scènes, règles masquées.
              Absolu dans `#stage` comme `#tuto` : `#cv` ne bouge pas.

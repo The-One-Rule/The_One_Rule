@@ -245,6 +245,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
     "rgl.allureQuoi": "Elle ne vaut que pour l'entraînement. Le run du jour est le même pour tout le monde.",
     "tuto.passer": "PASSER",
+    "relance.bilan": "BILAN ›",
     "avis.question": "DEUX PARTIES. ALORS, CE JEU ?",
     "avis.bof": "BOF",
     "avis.sympa": "SYMPA",
@@ -450,6 +451,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allure": "DEFAULT PACE · TRAINING",
     "rgl.allureQuoi": "It only applies to training. The daily run is the same for everyone.",
     "tuto.passer": "SKIP",
+    "relance.bilan": "SUMMARY ›",
     "avis.question": "TWO RUNS IN. SO, THIS GAME?",
     "avis.bof": "MEH",
     "avis.sympa": "NICE",
@@ -1090,6 +1092,15 @@ type Dyn = {
   finRecordAvance: (n: number) => string;
   /** Le record ÉGALÉ. Un mot différent : « record » doit rester rare. */
   finEgaleTitre: string;
+  /** LA CARTE DE RELANCE — voir `render/relance.ts`. */
+  relanceUnite: (n: number, pile: boolean) => string;
+  relanceRecord: (n: number, jour: boolean) => string;
+  relanceEgale: (jour: boolean) => string;
+  relancePresque: (n: number, ancien: number, jour: boolean) => string;
+  relanceLoin: (ancien: number, jour: boolean) => string;
+  relancePremier: string;
+  relanceEssais: (n: number) => string;
+  relanceGo: (toucher: boolean) => string;
   /** L'exploit tel qu'il paraît SUR la carte de partage, en une ligne. */
   finRecordCarte: (n: number) => string;
   /** Le bouton, et son accusé de réception. */
@@ -1714,6 +1725,15 @@ const DYN: Record<Lang, Dyn> = {
     finRecordAncien: (n) => `ANCIEN · ${n}`,
     finRecordAvance: (n) => `+${n}`,
     finEgaleTitre: "TU AS ÉGALÉ TON RECORD",
+    relanceUnite: (n, pile) => (pile ? (n > 1 ? "RÈGLES TENUES" : "RÈGLE TENUE") : n > 1 ? "MANCHES" : "MANCHE"),
+    relanceRecord: (n, jour) => (jour ? `MEILLEUR DU JOUR BATTU · +${n}` : `NOUVEAU RECORD · +${n}`),
+    relanceEgale: (jour) => (jour ? "MEILLEUR DU JOUR ÉGALÉ" : "RECORD ÉGALÉ"),
+    relancePresque: (n, ancien, jour) =>
+      `À ${n} ${n > 1 ? "MANCHES" : "MANCHE"} ${jour ? "DE TON MEILLEUR DU JOUR" : "DE TON RECORD"} · ${ancien}`,
+    relanceLoin: (ancien, jour) => (jour ? `TON MEILLEUR DU JOUR · ${ancien}` : `TON RECORD · ${ancien}`),
+    relancePremier: "TON PREMIER SCORE ICI",
+    relanceEssais: (n) => (n > 1 ? `ENCORE ${n} ESSAIS AUJOURD'HUI` : "DERNIER ESSAI AUJOURD'HUI"),
+    relanceGo: (toucher) => (toucher ? "TOUCHE POUR REJOUER" : "ESPACE POUR REJOUER"),
     finRecordCarte: (n) => `NOUVEAU RECORD · +${n}`,
     finCarte: "CARTE À PARTAGER",
     finCartePrete: "CARTE PRÊTE",
@@ -2210,6 +2230,15 @@ const DYN: Record<Lang, Dyn> = {
     finRecordAncien: (n) => `PREVIOUS · ${n}`,
     finRecordAvance: (n) => `+${n}`,
     finEgaleTitre: "YOU MATCHED YOUR RECORD",
+    relanceUnite: (n, pile) => (pile ? (n === 1 ? "RULE HELD" : "RULES HELD") : n === 1 ? "ROUND" : "ROUNDS"),
+    relanceRecord: (n, jour) => (jour ? `TODAY'S BEST BEATEN · +${n}` : `NEW RECORD · +${n}`),
+    relanceEgale: (jour) => (jour ? "TODAY'S BEST MATCHED" : "RECORD MATCHED"),
+    relancePresque: (n, ancien, jour) =>
+      `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM ${jour ? "TODAY'S BEST" : "YOUR RECORD"} · ${ancien}`,
+    relanceLoin: (ancien, jour) => (jour ? `TODAY'S BEST · ${ancien}` : `YOUR RECORD · ${ancien}`),
+    relancePremier: "YOUR FIRST SCORE HERE",
+    relanceEssais: (n) => (n === 1 ? "LAST TRY TODAY" : `${n} TRIES LEFT TODAY`),
+    relanceGo: (toucher) => (toucher ? "TAP TO PLAY AGAIN" : "SPACE TO PLAY AGAIN"),
     finRecordCarte: (n) => `NEW RECORD · +${n}`,
     finCarte: "SHAREABLE CARD",
     finCartePrete: "CARD READY",

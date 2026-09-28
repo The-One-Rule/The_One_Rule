@@ -79,6 +79,7 @@ import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
 import { cleEntrainement, cleEscalade } from "./game/perfs";
+import { RELANCE_GARDE_MS, relancePossible, vueRelance } from "./render/relance";
 import {
   CHRONO_PIEGE_MS,
   REGLE_TUTO,
@@ -794,6 +795,7 @@ function show(id: ScreenId): void {
   cacheMicro();
   cachePastille();
   cacheToast();
+  cacheRelance();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   // La partie et le salon gardent l'écran allumé : voir `eveil.ts`.
@@ -3947,7 +3949,14 @@ function lanceRun(): void {
    */
   // Un niveau du parcours n'a pas de record à battre : il a une CIBLE, que le
   // pied affiche déjà. Sans ce zéro, « RECORD BATTU » sonnerait en plein 1-1.
-  recordAvantRun = niveauDemandeOuEnCours()
+  /*
+   * ⚠️ LA PILE N'A PAS DE RECORD EN MANCHES. Elle lisait celui de
+   * l'ENTRAÎNEMENT à l'allure du joueur, et le pied comme l'écran de fin le
+   * comparaient à des manches de pile : deux épreuves différentes, donc un
+   * « RECORD BATTU » possible sur un run moyen. Son record se compte en RÈGLES
+   * tenues (`cleEscalade`), et c'est la carte de relance qui le lit.
+   */
+  recordAvantRun = niveauDemandeOuEnCours() || pendingMode === "escalade"
     ? 0
     : pendingMode === "daily" ? (s.daily.score ?? 0) : P.recordDeSonAllure(s);
   pastilleDite = false;
@@ -4993,6 +5002,8 @@ function finishRun(): void {
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
   let avant: P.RuleRecord | undefined;
+  /** Le record de LA PILE avant ce run, en règles tenues — pour la carte de relance. */
+  const pileAvant = P.load().records[cleEscalade()] ?? 0;
 
   const s = P.mutate((st) => {
     ensureDay(st, day);
@@ -5557,6 +5568,40 @@ function finishRun(): void {
    * Elle accompagne une partie ; il n'y a plus de partie.
    */
   musicApi.stop();
+
+  /*
+   * LA CARTE DE RELANCE, ou l'écran de fin — voir `render/relance.ts`.
+   *
+   * Tout ce qui précède a été écrit de la même façon dans les deux cas :
+   * l'écran de fin est PRÊT, seul son affichage est repoussé derrière BILAN.
+   * Dès qu'il a quelque chose à donner, il passe devant.
+   */
+  const aDonner =
+    mesureDemandee ||
+    avisDemande ||
+    installDemande ||
+    fraiches.length > 0 ||
+    avance.franchi ||
+    !$("decouverte").classList.contains("hidden");
+  const etatMort = {
+    mode,
+    duel: !!challenge,
+    niveau: niveauDuDernierRun !== null,
+    termine: end.cleared,
+    essaisRestants,
+    aDonner,
+  };
+  if (relancePossible(etatMort)) {
+    montreRelance({
+      score: mode === "escalade" ? paliers : end.score,
+      ancien: mode === "escalade" ? pileAvant : recordAvantRun,
+      pile: mode === "escalade",
+      jour: mode === "daily",
+      essaisRestants,
+      motif: traduisMotif(end.reason),
+    });
+    return;
+  }
   show("over");
   if (avance.franchi) {
     montreMicro({
@@ -6193,6 +6238,14 @@ window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") backHome();
     return;
   }
+  if (screen === null && relanceVisible()) {
+    if (e.key === " " || e.key === "Enter" || e.key.toLowerCase() === "r") {
+      e.preventDefault();
+      relanceUnGeste();
+    }
+    if (e.key === "Escape") relanceBilan();
+    return;
+  }
   if (screen === "over") {
     if (e.key.toLowerCase() === "r" && !$<HTMLButtonElement>("btnAgain").disabled) replay();
     if (e.key === "Escape") backHome();
@@ -6425,8 +6478,98 @@ function replay(): void {
    * sur le bouton — inutile de le redire ici, ce serait une seconde moitié de
    * plus à tenir d'accord avec la première.
    */
-  openBrief(pendingMode === "daily" ? "daily" : "training");
+  /*
+   * ⚠️ LA PILE SE REJOUE EN PILE. Cette ligne envoyait tout ce qui n'était
+   * pas le run du jour vers l'ENTRAÎNEMENT : REJOUER après une pile lançait
+   * une partie d'un autre mode, sous une autre règle, sans rien dire. Le
+   * classé est sorti plus haut, donc `pendingMode` est ici l'un des trois
+   * modes qui ont un brief.
+   */
+  openBrief(pendingMode);
 }
+
+/* ------------------------------------------------------------------ *
+ * LA CARTE DE RELANCE — voir `render/relance.ts`.
+ * ------------------------------------------------------------------ */
+
+/** L'instant où la carte a paru, pour la garde. `0` quand elle est cachée. */
+let relanceDepuis = 0;
+
+function montreRelance(o: {
+  score: number;
+  ancien: number;
+  pile: boolean;
+  jour: boolean;
+  essaisRestants: number;
+  motif: string;
+}): void {
+  const v = vueRelance(o.score, o.ancien);
+  const boite = $("relance");
+  // La carte ne passe pas par `show` : ce qu'il nettoie à chaque changement
+  // d'écran resterait peint dessous — mesuré, « À TOI DE JOUER » sous la carte.
+  cacheMicro();
+  cachePastille();
+  cacheToast();
+  boite.dataset.vue = v.id;
+  $("relanceMotif").textContent = o.motif;
+  $("relanceScore").textContent = String(o.score);
+  $("relanceUnite").textContent = t("relanceUnite")(o.score, o.pile);
+  $("relanceEcart").textContent =
+    v.id === "record"
+      ? t("relanceRecord")(v.ecart, o.jour)
+      : v.id === "egale"
+        ? t("relanceEgale")(o.jour)
+        : v.id === "presque"
+          ? t("relancePresque")(v.ecart, v.ancien, o.jour)
+          : v.id === "loin"
+            ? t("relanceLoin")(v.ancien, o.jour)
+            : t("relancePremier");
+  $("relanceEssais").textContent = o.jour ? t("relanceEssais")(o.essaisRestants) : "";
+  $("btnRelance").textContent = t("relanceGo")(TOUCH_ONLY);
+  boite.classList.remove("hidden");
+  boite.classList.add("is-garde");
+  relanceDepuis = performance.now();
+  setTimeout(() => {
+    if (relanceDepuis) boite.classList.remove("is-garde");
+  }, RELANCE_GARDE_MS);
+  if (v.id === "record") sfx.win();
+}
+
+function cacheRelance(): void {
+  relanceDepuis = 0;
+  $("relance").classList.add("hidden");
+}
+
+const relanceVisible = (): boolean => relanceDepuis > 0;
+
+/** Un appui : on relance, par le brief et son battement de lecture. */
+function relanceUnGeste(): void {
+  if (!relanceVisible() || performance.now() - relanceDepuis < RELANCE_GARDE_MS) return;
+  sfx.ui();
+  track("relance_rejoue", { mode: pendingMode });
+  cacheRelance();
+  replay();
+  /*
+   * ⚠️ LE BRIEF N'EST PAS SAUTÉ, il se lit PENDANT le battement. Enchaîner
+   * sans revoir sa règle unique est un bug déjà payé (§8, jour 2). Le
+   * battement fait les deux : la règle est à l'écran, et la partie part seule.
+   * Si le brief refuse (plus d'essai, tutoriel), on s'arrête sur lui.
+   */
+  if (screen === "brief" && !$<HTMLButtonElement>("btnGo").disabled) startRun();
+}
+
+function relanceBilan(): void {
+  if (!relanceVisible()) return;
+  sfx.ui();
+  track("relance_bilan", { mode: pendingMode });
+  show("over");
+}
+
+$("relance").addEventListener("click", () => relanceUnGeste());
+$("btnRelanceBilan").addEventListener("click", (e) => {
+  e.stopPropagation();
+  relanceBilan();
+});
 
 $("btnDaily").addEventListener("click", () => {
   sfx.ui();

@@ -283,9 +283,25 @@ describe("application", () => {
     // Le battement de lecture d'abord, le run ensuite — et là encore on attend
     // la CONDITION plutôt qu'une durée devinée.
     pumpJusqua(
-      () => !document.getElementById("over")!.classList.contains("hidden"),
+      () =>
+        !document.getElementById("over")!.classList.contains("hidden") ||
+        !document.getElementById("relance")!.classList.contains("hidden"),
       "la fin du run du jour",
     );
+    /*
+     * LA CARTE DE RELANCE passe devant l'écran de fin quand il n'a rien à
+     * donner (`render/relance.ts`) : il reste deux essais, donc elle y a droit.
+     * BILAN ouvre l'écran de fin, qui a été préparé comme avant.
+     */
+    expect(
+      document.getElementById("relance")!.classList.contains("hidden"),
+      "une mort ordinaire au run du jour, deux essais restants : la carte de relance",
+    ).toBe(false);
+    expect(document.getElementById("over")!.classList.contains("hidden")).toBe(true);
+    expect(document.getElementById("relanceScore")!.textContent).toMatch(/^\d+$/);
+    document.getElementById("btnRelanceBilan")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(document.getElementById("relance")!.classList.contains("hidden")).toBe(true);
+    expect(document.getElementById("over")!.classList.contains("hidden")).toBe(false);
 
     const teaser = document.getElementById("teaser")!;
     // ⚠️ Ce test exigeait « DEMAIN » alors que le harnais tourne en ANGLAIS :
