@@ -203,15 +203,49 @@ const now = (): number => Date.now();
  * Chaque `case` valide ce qu'il lit ; ceci est la ceinture qui couvre aussi
  * ceux qu'on ajoutera demain sans y penser.
  */
+/** Exceptions rattrapées depuis le démarrage : `/health` les expose. */
+let erreursRattrapees = 0;
+
 const guarded =
-  <A extends unknown[]>(fn: (...a: A) => void) =>
+  <A extends unknown[]>(fn: (...a: A) => void, ou = "message") =>
   (...a: A): void => {
     try {
       fn(...a);
     } catch (err) {
-      console.error(`message_error ${String(err)}`);
+      erreursRattrapees++;
+      console.error(`${ou}_error ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
     }
   };
+
+/*
+ * ⚠️ LES MINUTERIES AUSSI, et c'était le trou.
+ *
+ * `guarded` ne couvrait que les MESSAGES. Or tout le déroulement d'un match
+ * tourne sur des minuteries — ouverture et clôture des manches, sursis de
+ * reconnexion, départ automatique d'une table publique — et une exception
+ * dans l'une d'elles n'a aucun appelant pour la rattraper : le processus
+ * meurt, et avec lui TOUS les salons de l'instance. Côté joueurs, c'est
+ * exactement « ça déconnecte tout seul », puis « impossible de créer un
+ * salon pendant plusieurs secondes » le temps que Fly relance la machine.
+ * `plusTard` est `setTimeout` avec la même ceinture.
+ */
+const plusTard = (fn: () => void, ms: number, ou = "minuterie"): ReturnType<typeof setTimeout> =>
+  setTimeout(guarded(fn, ou), ms);
+
+/*
+ * Le dernier filet, pour ce qu'on n'aura pas pensé à envelopper. Pour un
+ * serveur de jeu en mémoire, continuer en ayant peut-être abîmé UN salon vaut
+ * mieux que mourir en les perdant TOUS. L'erreur est journalisée et comptée :
+ * `/health` la montre, elle ne passe pas inaperçue.
+ */
+process.on("uncaughtException", (err) => {
+  erreursRattrapees++;
+  console.error(`crash_evite ${err.stack ?? String(err)}`);
+});
+process.on("unhandledRejection", (err) => {
+  erreursRattrapees++;
+  console.error(`crash_evite ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
+});
 
 const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // sans I/L/O/0/1 : un code se dicte à voix haute
 function newCode(): string {
@@ -379,7 +413,7 @@ function planifieDepart(room: Room, apresMatch = false): void {
   if (e === room.autoAt && room.autoTimer) return;
   annule();
   room.autoAt = e;
-  room.autoTimer = setTimeout(() => {
+  room.autoTimer = plusTard(() => {
     room.autoTimer = null;
     room.autoAt = null;
     // La table a pu se vider, partir ou disparaître entre-temps.
@@ -513,7 +547,7 @@ function startMatch(room: Room): void {
   });
   chuchoteRole(room);
 
-  room.timer = setTimeout(() => openRound(room), COUNTDOWN_MS);
+  room.timer = plusTard(() => openRound(room), COUNTDOWN_MS);
 }
 
 function startMatchCoop(room: Room): void {
@@ -534,7 +568,7 @@ function startMatchCoop(room: Room): void {
     // ancien. On envoie false : c'est le défaut, et ça ne change rien.
     clavier: false,
   });
-  room.timer = setTimeout(() => openVagueCoop(room), COUNTDOWN_MS);
+  room.timer = plusTard(() => openVagueCoop(room), COUNTDOWN_MS);
 }
 
 function diffuserCurseurs(room: Room): void {
@@ -562,7 +596,7 @@ function planifierClotureCharge(room: Room, i: number, expireElapsedMs: number):
   const delay = Math.max(0, room.roundStartAt + expireElapsedMs - now());
   room.chargeTimers.set(
     i,
-    setTimeout(() => {
+    plusTard(() => {
       room.chargeTimers.delete(i);
       const coop = room.coop;
       if (!coop || !room.roundOpen) return;
@@ -632,7 +666,7 @@ function openVagueCoop(room: Room): void {
     deadline: room.roundDeadline,
     consumed: [],
   });
-  room.timer = setTimeout(() => closeVagueCoop(room), durationMs + INPUT_TOLERANCE_MS + 15);
+  room.timer = plusTard(() => closeVagueCoop(room), durationMs + INPUT_TOLERANCE_MS + 15);
 }
 
 function closeVagueCoop(room: Room): void {
@@ -666,7 +700,7 @@ function closeVagueCoop(room: Room): void {
     broadcast(room, roomState(room));
     return;
   }
-  room.timer = setTimeout(() => openVagueCoop(room), INTERLUDE_MS);
+  room.timer = plusTard(() => openVagueCoop(room), INTERLUDE_MS);
 }
 
 function openRound(room: Room): void {
@@ -691,7 +725,7 @@ function openRound(room: Room): void {
 
   // La manche se clôt à l'échéance PLUS la tolérance réseau : un input parti
   // dans la fenêtre mais arrivé 100 ms en retard doit encore compter.
-  room.timer = setTimeout(() => closeRound(room), durationMs + INPUT_TOLERANCE_MS + 15);
+  room.timer = plusTard(() => closeRound(room), durationMs + INPUT_TOLERANCE_MS + 15);
 }
 
 function closeRound(room: Room): void {
@@ -759,7 +793,7 @@ function closeRound(room: Room): void {
     broadcast(room, roomState(room));
     return;
   }
-  room.timer = setTimeout(() => openRound(room), pause);
+  room.timer = plusTard(() => openRound(room), pause);
 }
 
 /**
@@ -818,6 +852,15 @@ const httpServer = createServer((req, res) => {
       rooms: rooms.size,
       players,
       uptime: Math.round((Date.now() - STARTED_AT) / 1000),
+      // De quoi diagnostiquer sans accès à la machine : quand elle a démarré
+      // (un redémarrage récent = une panne ou un déploiement), ce qu'elle
+      // consomme, quelle image tourne, et combien d'exceptions ont été
+      // rattrapées au lieu de la tuer.
+      demarre: new Date(STARTED_AT).toISOString(),
+      memoireMo: Math.round(process.memoryUsage().rss / 1048576),
+      connexions: clients.size,
+      image: process.env.FLY_IMAGE_REF ?? null,
+      erreurs: erreursRattrapees,
     }),
   );
 });
@@ -1282,7 +1325,7 @@ wss.on("connection", (ws) => {
     }
   }));
 
-  ws.on("close", () => {
+  ws.on("close", guarded(() => {
     clients.delete(client);
 
     /*
@@ -1306,7 +1349,7 @@ wss.on("connection", (ws) => {
       room.match?.setAway(client.id, true);
       room.coop?.setAway(client.id, true);
       if (room.coop && room.cursorPos.delete(client.id)) diffuserCurseurs(room);
-      client.graceTimer = setTimeout(() => {
+      client.graceTimer = plusTard(() => {
         client.graceTimer = null;
         leaveRoom(client);
       }, RECONNECT_GRACE_MS);
@@ -1314,7 +1357,7 @@ wss.on("connection", (ws) => {
       return;
     }
     leaveRoom(client);
-  });
+  }, "fermeture"));
 });
 
 /** Accès lecture à l'état d'un joueur — évite d'exposer la Map privée. */

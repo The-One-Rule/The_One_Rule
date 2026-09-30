@@ -14,7 +14,7 @@
  * tout fichier de `api/` qui n'en porte pas. Ce module n'est pas une route.
  */
 
-import { assemble, corps, decoupe, fraicheur, revendicationsPour } from "../shared/jeton";
+import { assemble, corps, decoupe, fraicheur, renouvelable, revendicationsPour } from "../shared/jeton";
 import type { Frappe, Revendications } from "../shared/jeton";
 
 const ENC = new TextEncoder();
@@ -78,6 +78,31 @@ export async function verifieJeton(
   );
   if (!bonne) return null;
   if (!fraicheur(d.revendications, maintenant).ok) return null;
+  return d.revendications;
+}
+
+/**
+ * Comme `verifieJeton`, mais accepte un jeton PÉRIMÉ depuis moins de
+ * `FENETRE_RENOUVELLEMENT_MS`. Réservé au renouvellement (`?a=refresh`), qui
+ * vérifie en plus la révocation en base. Voir `renouvelable`.
+ */
+export async function verifieJetonRenouvelable(
+  jeton: unknown,
+  secret: string,
+  maintenant: number = Date.now(),
+): Promise<Revendications | null> {
+  if (!secret) return null;
+  const d = decoupe(jeton);
+  if (!d) return null;
+
+  const bonne = await crypto.subtle.verify(
+    "HMAC",
+    await cle(secret),
+    d.signature,
+    ENC.encode(d.corps),
+  );
+  if (!bonne) return null;
+  if (!renouvelable(d.revendications, maintenant).ok) return null;
   return d.revendications;
 }
 

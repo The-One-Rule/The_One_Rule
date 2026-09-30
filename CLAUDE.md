@@ -663,7 +663,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Dette | Quand ça mord |
 |---|---|
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
-| **Front et salons déployés séparément** | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
+| **Front et salons déployés séparément** — ⚠️ **a planté la prod le 30/09** (§12) | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
 | `api/ranked.ts` en `MemoryStore` | mode classé masqué en production. **Ne pas rebrancher `a=top` tel quel** : il accepte `body.id` sans aucune vérification, donc n'importe qui peut soumettre sous n'importe quelle identité. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
@@ -774,6 +774,69 @@ Deux façons propres de s'en passer, toutes deux en place :
 ## 12. Où en est le travail
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+
+### Les salons plantaient en boucle, et la session durait un jour (30/09/2026)
+
+Rapporté par Pierre : « impossible de créer un salon pendant plusieurs
+secondes, ça déconnecte tout seul », et « ça me demande de me connecter alors
+que je suis déjà connecté ».
+
+⚠️ **LES SALONS : `fly logs` a tranché.** `RangeError: Max payload size
+exceeded` → `Unhandled 'error' event` → processus mort → Fly relance →
+recommence ~20 s plus tard. C'est EXACTEMENT le bug corrigé le 25/09
+(`2ac1915`, écouteur `error` + `maxPayload` relevé pour la photo). Fly
+tournait donc une version d'AVANT, pendant que Vercel servait un site qui
+envoie la photo (4-8 Ko) à un serveur plafonné à 4 Ko : chaque joueur avec une
+photo tuait tous les salons en se connectant, puis en se reconnectant. La
+dette du §9 « front et salons déployés séparément » a mordu pour de vrai.
+**Toute évolution du fil se déploie des DEUX côtés, Fly d'abord.** Ne pas lire
+« commit: 6172d83 » dans les journaux Fly comme une version du jeu : c'est
+celle de leur système de démarrage.
+
+Même lot, en défense : les MINUTERIES (manches, vagues, sursis, départ
+automatique) et la fermeture de socket passent par `guarded` (`plusTard`), plus
+un filet `uncaughtException`. Éprouvé par une panne injectée : l'ancien code
+meurt, le nouveau survit et un autre salon se crée encore. `/health` expose
+`demarre`, `memoireMo`, `image`, `erreurs` ; `check-salons` alerte sur un
+redémarrage de moins de 15 min et sur les erreurs rattrapées.
+
+⚠️ **LA SESSION : elle ne tenait que si l'on revenait chaque jour.** Jeton de
+24 h, renouvelé seulement à l'OUVERTURE du site s'il lui restait < 6 h, et le
+serveur refusait de renouveler un jeton périmé. Revenir après un jour
+déconnectait en silence — la barre du haut, qui lit la SAUVEGARDE, affichait
+toujours nom et signe. Et `compte()` ne relisait l'expiration qu'au premier
+appel : un onglet de téléphone resté ouvert se croyait connecté avec un jeton
+refusé partout. Correctif : un jeton périmé reste ÉCHANGEABLE 30 jours
+(`FENETRE_RENOUVELLEMENT_MS`, `?a=refresh` seulement — la révocation reste
+vérifiée en base, et il n'ouvre ni salon ni classement) ; `compte()` relit
+l'expiration ; renouvellement au retour sur l'onglet, toutes les 30 min, et
+AVANT l'envoi du run du jour ; l'invitation « connecte-toi » se tait quand la
+session est récupérable (`sessionRecuperable`).
+
+### LA SECONDE tuait au lever du doigt, et les menus au bureau (30/09/2026)
+
+Rapporté par Pierre : « LA SECONDE retire une vie peu importe quand on
+clique ». ⚠️ **Le clic était juste, c'est le LEVER qui tuait.** Un clic réussi
+ouvre la manche suivante, le doigt se lève ~80 ms plus tard — donc dans les
+400 premières ms de la manche d'APRÈS — et `resolveAction` passait ce lever à
+la règle unique AVANT de voir qu'il ne répondait à rien. Le rejeu serveur ne
+voyait rien (un lever inutile n'est pas journalisé) : l'écran tuait un run
+que le serveur aurait validé. Corrigé en tête de `resolveAction` : un lever
+sans `leverAttendu` est ignoré avant tout juge. `tests/seconde.test.ts`,
+éprouvé (sans la garde, il tombe dès la manche 0). **Leçon : toute règle qui
+juge le TEMPS doit se demander quels événements arrivent juste après une
+transition de manche.**
+
+**Les menus au bureau** (bloc « LE BUREAU » en fin de `theme.css`). Mesuré à
+1920 × 1080 : accueil dans 700 px, réglages et profil dans 510, pour un
+`#app` de 1680. Deux leviers : un `zoom` par paliers de FENÊTRE (1,15 dès
+1500 × 860, 1,3 dès 1800 × 1000, 1,55, 2) posé sur les enfants de `.screen`
+— barre haute et contenu — jamais sur `#app` ni `#stage` ; et des colonnes :
+accueil (niveau | parcours), profil (qui tu es | compte, seulement si le
+compte est visible), entrée multi (deux portes, puis trois salons), boutique
+sur une rangée. ⚠️ Canvas et `champ()` mesurés IDENTIQUES avant/après à
+1280, 1920 et 2560. Les réglages restent une liste. Le salon et l'écran de
+jeu n'ont pas été touchés.
 
 ### Le lot « addiction » (28/09/2026) — jamais vu par un joueur
 

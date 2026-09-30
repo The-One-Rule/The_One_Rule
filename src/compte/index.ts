@@ -19,7 +19,7 @@
  * jamais rendu en `innerHTML`.
  */
 
-import { decoupe, fraicheur } from "../../shared/jeton";
+import { decoupe, fraicheur, renouvelable } from "../../shared/jeton";
 import type { Agregats } from "../../shared/compte";
 import { cleanEnv } from "../env";
 import { glyphFromIndex } from "../net/glyph";
@@ -72,22 +72,60 @@ function ecrit(jeton: string | null): void {
   }
 }
 
-/** L'état courant. `null` = anonyme, ce qui est un état parfaitement normal. */
+/** Le jeton stocké, tel quel — frais, périmé ou absent. */
+function brutStocke(): string | null {
+  try {
+    return localStorage.getItem(CLE);
+  } catch {
+    return null;
+  }
+}
+
+/** Un jeton stocké, même périmé, qui peut encore être échangé contre un neuf. */
+function jetonRenouvelable(maintenant: number): string | null {
+  const brut = brutStocke();
+  const d = brut ? decoupe(brut) : null;
+  return d && renouvelable(d.revendications, maintenant).ok ? brut : null;
+}
+
+/**
+ * L'état courant. `null` = anonyme, ce qui est un état parfaitement normal.
+ *
+ * ⚠️ L'EXPIRATION SE RELIT À CHAQUE APPEL. Elle n'était lue qu'au premier :
+ * un onglet resté ouvert plus de 24 h — un téléphone garde la page des jours
+ * durant — se croyait encore connecté, et chaque envoi partait avec un jeton
+ * que le serveur refusait. Le symptôme : un score du jour « non enregistré »
+ * chez quelqu'un qui voyait son compte affiché.
+ *
+ * ⚠️ ET UN JETON PÉRIMÉ N'EST PLUS JETÉ s'il reste renouvelable
+ * (`FENETRE_RENOUVELLEMENT_MS`) : c'est lui que `rafraichit` échange contre un
+ * neuf. Le jeter déconnectait en silence quiconque revenait après un jour.
+ * Il n'ouvre rien d'autre : `compte()` rend `null` tant qu'il n'est pas frais.
+ */
 export function compte(maintenant: number = Date.now()): EtatCompte | null {
   if (!charge) {
     charge = true;
     try {
-      const brut = localStorage.getItem(CLE);
+      const brut = brutStocke();
       etat = brut ? litJetonLocal(brut, maintenant) : null;
-      // Un jeton périmé se jette : le garder ferait échouer chaque envoi en
-      // silence, ce qui est la panne la plus coûteuse à diagnostiquer.
-      if (brut && !etat) ecrit(null);
+      // Irrécupérable (frelaté, ou périmé depuis trop longtemps) : on le jette,
+      // sinon chaque ouverture retenterait un échange voué au refus.
+      if (brut && !etat && !jetonRenouvelable(maintenant)) ecrit(null);
     } catch {
       etat = null;
     }
   }
+  if (etat && etat.exp <= maintenant) etat = null;
   return etat;
 }
+
+/**
+ * La session peut-elle revenir sans que le joueur ne fasse rien ?
+ * Vrai quand le jeton a expiré mais reste renouvelable : dans ce cas on ne lui
+ * demande PAS de se reconnecter, on renouvelle.
+ */
+export const sessionRecuperable = (maintenant: number = Date.now()): boolean =>
+  !compte(maintenant) && jetonRenouvelable(maintenant) !== null;
 
 export const estConnecte = (maintenant?: number): boolean => compte(maintenant) !== null;
 
@@ -198,18 +236,61 @@ export function connexion(fournisseur: string): void {
  * péremption, et une panne réseau de trois secondes ne doit pas coûter son
  * compte à quelqu'un.
  */
-export async function rafraichit(maintenant: number = Date.now()): Promise<void> {
-  const c = compte(maintenant);
-  if (!c) return;
-  // Moins de six heures devant soi : on renouvelle. Au-delà, on ne dépense pas
-  // une requête à chaque ouverture d'onglet.
-  if (c.exp - maintenant > 6 * 60 * 60 * 1000) return;
+export function rafraichit(maintenant: number = Date.now()): Promise<void> {
+  // Un seul renouvellement en vol : l'ouverture, le retour sur l'onglet et la
+  // fin d'un run du jour peuvent le demander dans la même seconde.
+  if (!renouvellement) {
+    renouvellement = renouvelle(maintenant).finally(() => {
+      renouvellement = null;
+    });
+  }
+  return renouvellement;
+}
 
-  const r = await appel<{ jeton?: string }>("?a=refresh", { method: "POST" });
-  if (!r?.jeton) return;
-  const lu = litJetonLocal(r.jeton, maintenant);
+let renouvellement: Promise<void> | null = null;
+
+async function renouvelle(maintenant: number): Promise<void> {
+  const c = compte(maintenant);
+  let jeton: string;
+  if (c) {
+    // Moins de six heures devant soi : on renouvelle. Au-delà, on ne dépense
+    // pas une requête à chaque ouverture d'onglet.
+    if (c.exp - maintenant > 6 * 60 * 60 * 1000) return;
+    jeton = c.jeton;
+  } else {
+    // Périmé mais renouvelable : c'est le cas du joueur qui revient après
+    // plus d'une journée. Sans compte ni jeton, rien à faire.
+    const r = jetonRenouvelable(maintenant);
+    if (!r) return;
+    jeton = r;
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(`${POINT}?a=refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jeton}` },
+    });
+  } catch {
+    return; // hors ligne : on réessaiera, le jeton reste où il est
+  }
+  if (res.status === 401 || res.status === 403) {
+    // Révoqué, supprimé, banni ou trop vieux : c'est une vraie déconnexion.
+    // On ne jette que si le jeton n'est plus frais — un frais reste valable
+    // jusqu'à sa fin, et un refus passager ne doit rien coûter.
+    if (!c) {
+      ecrit(null);
+      etat = null;
+    }
+    return;
+  }
+  if (!res.ok) return;
+  const j = (await res.json().catch(() => ({}))) as { jeton?: string };
+  if (!j.jeton) return;
+  const lu = litJetonLocal(j.jeton, Date.now());
   if (!lu) return;
   etat = lu;
+  charge = true;
   ecrit(lu.jeton);
 }
 

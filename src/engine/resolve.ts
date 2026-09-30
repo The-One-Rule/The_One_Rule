@@ -59,6 +59,18 @@ export function resolveAction(
   elapsedMs: number,
   judge: (action: Action, ctx: { round: Round; elapsedMs: number }) => string | null,
 ): { outcome: Outcome; progress: RoundProgress } {
+  /*
+   * ⚠️ Un lever qui ne répond à rien n'est PAS une action, et la règle unique
+   * ne doit pas le voir. Rapporté en playtest : « LA SECONDE retire une vie
+   * peu importe quand on clique ». Le clic réussi ouvre la manche suivante,
+   * le doigt se lève ~80 ms plus tard — donc dans les 400 premières ms de la
+   * manche d'APRÈS, et LA SECONDE le jugeait « trop tôt ». Le rejeu serveur ne
+   * voyait rien (un tel lever n'est pas journalisé) : l'écran tuait un run que
+   * le serveur aurait validé.
+   */
+  if (action.kind === "lift" && !leverAttendu(round, progress)) {
+    return { outcome: { kind: "pending" }, progress };
+  }
   const violation = judge(action, { round, elapsedMs });
   if (violation) {
     return { outcome: { kind: "death", cause: "macro", reason: violation }, progress };

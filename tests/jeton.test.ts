@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import {
   DUREE_JETON_MS,
   DUREE_MAX_MS,
+  FENETRE_RENOUVELLEMENT_MS,
   JETON_MAX,
   TOLERANCE_HORLOGE_MS,
   b64url,
@@ -25,12 +26,13 @@ import {
   deB64url,
   decoupe,
   fraicheur,
+  renouvelable,
   revendicationsPour,
 } from "../shared/jeton";
 import type { Frappe } from "../shared/jeton";
 
 import { signeJeton as signeNode, verifieJeton as verifieNode } from "../server/jeton";
-import { signeJeton as signeEdge, verifieJeton as verifieEdge } from "../api/_jeton";
+import { signeJeton as signeEdge, verifieJeton as verifieEdge, verifieJetonRenouvelable } from "../api/_jeton";
 
 const SECRET = "un-secret-de-test-suffisamment-long-pour-etre-credible";
 const T0 = 1_800_000_000_000;
@@ -188,6 +190,43 @@ describe("fraîcheur", () => {
   it("distingue périmé de frelaté — l'API doit pouvoir proposer un rafraîchissement", () => {
     const r = revendicationsPour(frappe(), T0);
     expect(fraicheur(r, T0 + DUREE_JETON_MS)).toEqual({ ok: false, raison: "perime" });
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Renouvellement d'un jeton périmé
+ * ------------------------------------------------------------------ */
+
+describe("renouvelable — un jour d'absence ne déconnecte plus", () => {
+  it("frais : renouvelable", () => {
+    expect(renouvelable(revendicationsPour(frappe(), T0), T0 + 1000)).toEqual({ ok: true });
+  });
+
+  it("périmé depuis deux jours : encore renouvelable", () => {
+    const r = revendicationsPour(frappe(), T0);
+    const apres = T0 + DUREE_JETON_MS + 2 * 24 * 3_600_000;
+    expect(fraicheur(r, apres).ok).toBe(false);
+    expect(renouvelable(r, apres)).toEqual({ ok: true });
+  });
+
+  it("périmé depuis plus que la fenêtre : fini", () => {
+    const r = revendicationsPour(frappe(), T0);
+    expect(renouvelable(r, T0 + DUREE_JETON_MS + FENETRE_RENOUVELLEMENT_MS + 1)).toEqual({ ok: false, raison: "perime" });
+  });
+
+  it("la fenêtre ne blanchit ni un jeton du futur ni une durée aberrante", () => {
+    const futur = revendicationsPour(frappe(), T0 + 10 * 60_000);
+    expect(renouvelable(futur, T0).ok).toBe(false);
+    const aberrant = { ...revendicationsPour(frappe(), T0), exp: T0 + DUREE_MAX_MS + 1 };
+    expect(renouvelable(aberrant, T0).ok).toBe(false);
+  });
+
+  it("verifieJetonRenouvelable exige toujours la signature", async () => {
+    const vieux = signeNode(frappe(), SECRET, T0);
+    const apres = T0 + DUREE_JETON_MS + 3 * 24 * 3_600_000;
+    expect(await verifieEdge(vieux, SECRET, apres)).toBeNull();
+    expect(await verifieJetonRenouvelable(vieux, SECRET, apres)).not.toBeNull();
+    expect(await verifieJetonRenouvelable(vieux, SECRET + "x", apres)).toBeNull();
   });
 });
 
