@@ -1,4 +1,5 @@
 import "./style.css";
+import { GROSSI_TACTILE, MARGE_DOIGT_PX } from "./render/toucher";
 import { gardeEcranAllume } from "./eveil";
 import "./theme.css";
 
@@ -165,6 +166,15 @@ const isTyping = (t: EventTarget | null): boolean =>
 const hud = new Hud();
 const cv = $<HTMLCanvasElement>("cv");
 const scene = new SceneRenderer(cv);
+/*
+ * LES GROS DOIGTS : au doigt, les pièces se dessinent plus grandes et se
+ * touchent plus large (`render/toucher.ts`). Rien de ce qui est jugé ne
+ * bouge — le moteur ne reçoit qu'un index de pièce.
+ */
+if (TOUCH_ONLY) {
+  scene.grossi = GROSSI_TACTILE;
+  scene.margeDoigtPx = MARGE_DOIGT_PX;
+}
 // Le terrain de JEU peut se mettre debout sur un téléphone tenu droit ; celui
 // de l'attract, non. Voir `render/orientation.ts`.
 scene.permetPortrait = true;
@@ -6170,7 +6180,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     send({ kind: "click", ent, x, y });
@@ -6183,7 +6193,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
-    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
+    lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
     sendOrMulti({ kind: "click", ent, x, y });
@@ -6202,7 +6212,7 @@ function leve(ev: Event): void {
   const e = ev as PointerEvent;
   const { x, y } = scene.toField(e.clientX, e.clientY);
   const ent = scene.hit(round.ents, x, y);
-  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent?.r ?? 34, t: performance.now() };
+  lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
   sendOrMulti({ kind: "lift", ent, x, y });
 }
 

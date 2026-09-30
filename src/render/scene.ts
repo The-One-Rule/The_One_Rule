@@ -1,3 +1,4 @@
+import { pieceTouchee, rayonAffiche } from "./toucher";
 import { FIELD_H, FIELD_W } from "../engine/types";
 import { MOVE_AMP_X, MOVE_AMP_Y } from "../engine/scene";
 import { MOTIFS, encrePour } from "./motif";
@@ -509,17 +510,26 @@ export class SceneRenderer {
     return { ...rectEcran(this.cadreCourant), debout: this.debout };
   }
 
+  /**
+   * LES GROS DOIGTS — voir `render/toucher.ts`. Posé à `GROSSI_TACTILE` sur un
+   * écran tactile, 1 ailleurs. Le dessin ET le toucher le lisent : une pièce
+   * se touche là où on la voit.
+   */
+  grossi = 1;
+  /** Marge de toucher, en pixels d'écran. 0 à la souris. */
+  margeDoigtPx = 0;
+
+  /** Le rayon DESSINÉ d'une pièce — jamais sa géométrie de tirage. */
+  rayon(e: Entity): number {
+    return rayonAffiche(e.r, this.grossi);
+  }
+
   hit(ents: Entity[], x: number, y: number): Entity | null {
-    let best: Entity | null = null;
-    let bd = Infinity;
-    for (const e of ents) {
-      const d = Math.hypot(x - e.x, y - e.y);
-      if (d <= e.r * HIT && d < bd) {
-        bd = d;
-        best = e;
-      }
-    }
-    return best;
+    return pieceTouchee(ents, x, y, {
+      grossi: this.grossi,
+      margeChamp: this.margeDoigtPx / Math.max(0.01, this.scale),
+      hit: HIT,
+    });
   }
 
   flash(x: number, y: number, now: number): void {
@@ -932,7 +942,7 @@ export class SceneRenderer {
     }
   }
 
-  private path(e: Entity, r = e.r): void {
+  private path(e: Entity, r = this.rayon(e)): void {
     const { ctx } = this;
     const { x, y } = e;
     ctx.beginPath();
@@ -972,7 +982,7 @@ export class SceneRenderer {
     ctx.save();
     if (g.kind === "hold") {
       const p = Math.max(0, Math.min(1, g.progres));
-      const r = e.r + 14;
+      const r = this.rayon(e) + 14;
       ctx.lineWidth = 8;
       ctx.lineCap = "round";
       ctx.strokeStyle = "rgba(36,27,58,0.18)";
@@ -996,7 +1006,7 @@ export class SceneRenderer {
       ctx.fillStyle = ACCENT;
       ctx.globalAlpha = 0.35;
       ctx.beginPath();
-      ctx.arc(g.x, g.y, e.r * 0.8, 0, Math.PI * 2);
+      ctx.arc(g.x, g.y, this.rayon(e) * 0.8, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -1030,12 +1040,12 @@ export class SceneRenderer {
       ctx.strokeStyle = ACCENT;
       ctx.globalAlpha = 0.55 + 0.45 * k;
       ctx.lineWidth = 5;
-      this.path(e, e.r + 12);
+      this.path(e, this.rayon(e) + 12);
       ctx.stroke();
       // la barre du signe : le refus d'agir
       ctx.lineWidth = 7;
       ctx.beginPath();
-      const [dx0, dy0] = decalage(this.orientation, -e.r * 0.95, e.r * 0.95);
+      const [dx0, dy0] = decalage(this.orientation, -this.rayon(e) * 0.95, this.rayon(e) * 0.95);
       ctx.moveTo(e.x + dx0, e.y + dy0);
       ctx.lineTo(e.x - dx0, e.y - dy0);
       ctx.stroke();
@@ -1249,11 +1259,12 @@ export class SceneRenderer {
           // ±1,5 %, période ~2,6 s ; phase déterministe (e.phase).
           scale *= 1 + 0.015 * Math.sin((now / 1000) * ((Math.PI * 2) / 2.6) + e.phase);
         }
-        const r = e.r * scale;
+        const r0 = this.rayon(e);
+        const r = r0 * scale;
 
         dessinePiece(
           ctx,
-          { shape: e.shape, color: e.color, x: e.x, y: e.y, r, r0: e.r, phase: e.phase },
+          { shape: e.shape, color: e.color, x: e.x, y: e.y, r, r0, phase: e.phase },
           this.skin,
           this.orientation,
           this.daltonien ? this.trame(e.color) : null,
@@ -1262,7 +1273,7 @@ export class SceneRenderer {
 
         const need = needs?.get(e.idx);
         if (need && need >= 2) {
-          const [bdx, bdy] = decalage(this.orientation, e.r * 0.62, -e.r * 0.72);
+          const [bdx, bdy] = decalage(this.orientation, r0 * 0.62, -r0 * 0.72);
           if (this.orientation === "portrait") {
             // Le badge porte un CHIFFRE : sous la transposition il se lirait
             // en miroir. On transpose une seconde fois autour de lui.
