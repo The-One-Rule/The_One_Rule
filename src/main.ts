@@ -101,6 +101,7 @@ import {
   litRetourConnexion,
   mesPerfs,
   rafraichit,
+  sessionRecuperable,
   supprimeCompte,
 } from "./compte";
 import { enfile, estRefusReel, vide } from "./compte/file";
@@ -3281,7 +3282,14 @@ $("btnAmisCompte").addEventListener("click", () => {
 function renderInvite(score: number, record: boolean, mesureDemandee = false): void {
   const boite = $("compteInvite");
   const montrer =
-    !mesureDemandee && comptesPossibles() && !estConnecte() && !inviteEcartee && score > 0;
+    !mesureDemandee &&
+    comptesPossibles() &&
+    !estConnecte() &&
+    // Jeton périmé mais renouvelable : on ne demande PAS de se reconnecter à
+    // quelqu'un qui l'est déjà — on renouvelle, en arrière-plan.
+    !sessionRecuperable() &&
+    !inviteEcartee &&
+    score > 0;
   boite.classList.toggle("hidden", !montrer);
   if (!montrer) return;
 
@@ -5231,10 +5239,18 @@ function finishRun(): void {
      * `traiteEnvois` dit un refus au joueur et force le rechargement du
      * classement dès qu'un run est accepté.
      */
-    void vide().then((r) => {
-      traiteEnvois(r);
-      repeintChiffres();
-    });
+    /*
+     * ⚠️ LE JETON D'ABORD. Un onglet resté ouvert plus d'une journée porte un
+     * jeton périmé : l'envoi partait avec lui, se faisait refuser, et le
+     * joueur lisait « non enregistré » sous un compte pourtant affiché. On
+     * renouvelle (sans rien faire s'il est frais), PUIS on envoie.
+     */
+    void rafraichit()
+      .then(() => vide())
+      .then((r) => {
+        traiteEnvois(r);
+        repeintChiffres();
+      });
   }
 
   /*
@@ -7863,6 +7879,18 @@ retourCompte = litRetourConnexion();
  * d'invitation s'ouvre, la partie se lance. Une panne de compte ne doit
  * jamais retarder d'une frame le chemin « code/lien → rejoindre → jouer ».
  */
+/*
+ * Le renouvellement ne se fait plus qu'à l'OUVERTURE du site : un onglet de
+ * téléphone reste en mémoire des jours, et son jeton de 24 h y expirait sans
+ * que rien ne le renouvelle. On le relance au retour sur l'onglet, et toutes
+ * les demi-heures tant qu'il reste ouvert. Sans compte, `rafraichit` ne fait
+ * rien et ne coûte rien.
+ */
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") void rafraichit().then(() => repeintChiffres());
+});
+setInterval(() => void rafraichit().then(() => repeintChiffres()), 30 * 60 * 1000);
+
 async function demarreCompte(): Promise<void> {
   try {
     await rafraichit();

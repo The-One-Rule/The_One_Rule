@@ -26,7 +26,7 @@
 import { b64url, deB64url } from "../shared/jeton";
 import { depotConfigure, nouvelId, utilisateurNeuf } from "./_depot";
 import type { Depot, Lien, Utilisateur } from "./_depot";
-import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton";
+import { jetonDeLaRequete, signeJeton, verifieJeton, verifieJetonRenouvelable } from "./_jeton";
 import { cleanEnv } from "../src/env";
 
 export const config = { runtime: "edge" };
@@ -329,7 +329,10 @@ export async function traite(
 
   /* --- rafraîchissement : c'est ce qui garde la révocation à 24 h --- */
   if (action === "refresh" && req.method === "POST") {
-    const r = await verifieJeton(jetonDeLaRequete(req), c.secret, maintenant);
+    // Un jeton PÉRIMÉ depuis moins d'un mois s'échange encore : sans ça, un
+    // joueur absent plus d'une journée était déconnecté en silence. La
+    // révocation, elle, reste vérifiée en base juste en dessous.
+    const r = await verifieJetonRenouvelable(jetonDeLaRequete(req), c.secret, maintenant);
     if (!r) return json({ error: "jeton" }, 401);
 
     const u = await c.depot.parId(r.sub);

@@ -53,7 +53,10 @@ describe("l'UI suit la sync", () => {
   });
 
   it("finishRun repeint après vide() et après synchronise()", () => {
-    expect(main).toMatch(/vide\(\)\.then/);
+    expect(main).toMatch(/vide\(\)\)?\s*\.then/);
+    // Le jeton d'abord : un onglet resté ouvert plus d'un jour porte un jeton
+    // périmé, et l'envoi partait avec lui pour se faire refuser.
+    expect(main).toMatch(/rafraichit\(\)\s*\.then\(\(\) => vide\(\)\)/);
     expect(main).toMatch(/synchronise\(\)\.then/);
     expect(main).toMatch(/repeintChiffres\(/);
   });

@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { traite } from "../api/auth";
 import { DepotMemoire } from "../api/_depot";
-import { verifieJeton } from "../server/jeton";
+import { signeJeton, verifieJeton } from "../server/jeton";
 import { decoupe } from "../shared/jeton";
 
 const ENV = {
@@ -287,6 +287,36 @@ describe("rafraîchissement", () => {
     const sub = decoupe(jeton)!.revendications.sub;
     await depot.supprime(sub);
     expect((await appel("?a=refresh", avec(jeton))).status).toBe(401);
+  });
+
+  /*
+   * LE BUG RAPPORTÉ : « ça me demande de me connecter alors que je suis déjà
+   * connecté ». Le jeton vit 24 h, et un jeton périmé n'était plus
+   * renouvelable : revenir après une journée déconnectait en silence.
+   */
+  it("un jeton périmé depuis deux jours se renouvelle encore", async () => {
+    const neuf = await connecte();
+    const r = decoupe(neuf)!.revendications;
+    const vieux = signeJeton({ sub: r.sub, psd: r.psd, gly: r.gly, vj: r.vj }, ENV.TOR_AUTH_SECRET, Date.now() - 3 * 86_400_000);
+    expect(verifieJeton(vieux, ENV.TOR_AUTH_SECRET)).toBeNull(); // périmé pour tout le reste
+    const res = await appel("?a=refresh", avec(vieux));
+    expect(res.status).toBe(200);
+    expect(verifieJeton((await res.json()).jeton, ENV.TOR_AUTH_SECRET)).not.toBeNull();
+  });
+
+  it("au-delà de la fenêtre, fini : il faut se reconnecter", async () => {
+    const neuf = await connecte();
+    const r = decoupe(neuf)!.revendications;
+    const antique = signeJeton({ sub: r.sub, psd: r.psd, gly: r.gly, vj: r.vj }, ENV.TOR_AUTH_SECRET, Date.now() - 40 * 86_400_000);
+    expect((await appel("?a=refresh", avec(antique))).status).toBe(401);
+  });
+
+  it("⚠️ se déconnecter partout ferme AUSSI le renouvellement d'un jeton périmé", async () => {
+    const neuf = await connecte();
+    const r = decoupe(neuf)!.revendications;
+    const vieux = signeJeton({ sub: r.sub, psd: r.psd, gly: r.gly, vj: r.vj }, ENV.TOR_AUTH_SECRET, Date.now() - 3 * 86_400_000);
+    expect((await appel("?a=revoke", avec(neuf))).status).toBe(200);
+    expect((await appel("?a=refresh", avec(vieux))).status).toBe(401);
   });
 
   it("le rafraîchissement n'accepte pas GET", async () => {

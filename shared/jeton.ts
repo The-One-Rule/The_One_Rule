@@ -246,3 +246,30 @@ export function fraicheur(r: Revendications, maintenant: number): Fraicheur {
   if (r.exp - r.iat > DUREE_MAX_MS) return { ok: false, raison: "duree_aberrante" };
   return { ok: true };
 }
+
+/**
+ * Fenêtre pendant laquelle un jeton PÉRIMÉ peut encore être ÉCHANGÉ contre un
+ * neuf — et rien d'autre.
+ *
+ * ⚠️ LE BUG QU'ELLE RÈGLE. Le jeton vit 24 h et le client ne le renouvelait
+ * qu'en ouvrant le site, s'il lui restait moins de six heures ; le serveur,
+ * lui, refusait de renouveler un jeton déjà périmé. Un joueur qui revenait
+ * après plus d'une journée était donc DÉCONNECTÉ EN SILENCE — pendant que la
+ * barre du haut, qui lit la sauvegarde locale, affichait encore son nom et
+ * son signe. Rapporté tel quel : « ça me demande de me connecter alors que je
+ * suis déjà connecté ».
+ *
+ * Ce qui ne change pas, et c'est ce qui rend la fenêtre sûre :
+ *   · la révocation reste vérifiée EN BASE à chaque renouvellement
+ *     (`version_jeton`) — se déconnecter partout ferme cette porte aussi ;
+ *   · un jeton périmé n'ouvre RIEN d'autre : ni salon, ni classement, ni
+ *     envoi. Le serveur de salons continue d'exiger un jeton de moins de 24 h.
+ */
+export const FENETRE_RENOUVELLEMENT_MS = 30 * 24 * 60 * 60 * 1000;
+
+/** Le jeton peut-il être échangé contre un neuf ? Frais, ou périmé depuis moins de la fenêtre. */
+export function renouvelable(r: Revendications, maintenant: number): Fraicheur {
+  const f = fraicheur(r, maintenant);
+  if (f.ok || f.raison !== "perime") return f;
+  return r.exp + FENETRE_RENOUVELLEMENT_MS > maintenant ? { ok: true } : f;
+}
