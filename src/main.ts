@@ -1088,7 +1088,14 @@ function renderHome(): void {
    * (74 % repartaient sans jouer). Dès qu'il a joué, l'accueil devient son
    * PARCOURS : ce qui vient ensuite, et tout ce qu'il a déjà gagné.
    */
-  const neuf = estNouveau();
+  /*
+   * ⚠️ DIRECTIVE DE PIERRE (30/09) : plus de premier accueil à UN bouton.
+   * « Les gens arrivent sur le site et doivent faire le tuto avant de
+   * débloquer tout le site, ça les rend très réticents. » Un nouveau venu
+   * voit donc tout — parcours, modes, cartes — et le tutoriel se joue au
+   * premier lancement d'une partie, quelle qu'elle soit (`openBrief`).
+   */
+  const neuf = false;
   accueilNeuf = neuf;
   $("home").classList.toggle("is-neuf", neuf);
   $("bienvenue").classList.toggle("hidden", !neuf);
@@ -1159,8 +1166,16 @@ function chapitresBoucles(s: P.Save): number {
  * le run du jour qu'il jouait hier serait une régression, pas un onboarding.
  */
 const VERROU_MODES = { jour: 1, libre: 1, escalade: 3 } as const;
+const DECOUVERTE_LIBRE = true;
 
 function modeOuvert(quoi: keyof typeof VERROU_MODES, s: P.Save = P.load()): boolean {
+  /*
+   * ⚠️ TOUT EST OUVERT DÈS L'ARRIVÉE — directive de Pierre (30/09) : le
+   * tutoriel et le parcours ne sont plus la condition pour débloquer le jeu.
+   * Ce qui suit est gardé pour le jour où l'on voudrait des verrous de
+   * nouveau ; `DECOUVERTE_LIBRE` le court-circuite.
+   */
+  if (DECOUVERTE_LIBRE) return true;
   if (s.veteran || chapitresBoucles(s) >= VERROU_MODES[quoi]) return true;
   /*
    * ⚠️ « Après le chapitre N » = le chapitre N+1 est OUVERT — et un chapitre
@@ -3562,6 +3577,15 @@ function openBrief(mode: Mode): void {
    * Un défi reçu passe : il rejoue la graine d'un autre et se lance d'un lien.
    */
   if (estNouveau() && !challenge && mode !== "ranked") {
+    /*
+     * ⚠️ LE TUTORIEL EST LA PREMIÈRE PARTIE, PAS UNE PORTE.
+     *
+     * Directive de Pierre (30/09). Il se joue une fois, au premier lancement,
+     * puis on REPART vers ce que le joueur avait choisi — run du jour, pile,
+     * libre ou niveau — au lieu de le détourner vers le niveau 1-1. PASSER y
+     * mène aussi : sauter le tutoriel ne doit jamais coûter la partie voulue.
+     */
+    modeApresTuto = mode;
     niveauDemande = null;
     ouvreOnboarding();
     return;
@@ -4853,12 +4877,22 @@ function ouvreOnboarding(): void {
  * vient de jouer trois manches sous LE SANG, il sait ce qu'il fait. Le
  * battement de lecture du brief lui laisse quand même voir sa règle.
  */
+/** La partie que le joueur avait choisie quand le tutoriel l'a précédée. */
+let modeApresTuto: Mode | null = null;
+
 function finitOnboarding(passe: boolean): void {
   fermeTuto();
   P.mutate((st) => {
     st.onboarded = true;
   });
   track(passe ? "onb_skip" : "onb_done", {});
+  const voulu = modeApresTuto;
+  modeApresTuto = null;
+  if (voulu) {
+    // Le joueur avait choisi une partie : on l'y conduit, par son brief.
+    openBrief(voulu);
+    return;
+  }
   if (passe) {
     renderHome();
     show("home");

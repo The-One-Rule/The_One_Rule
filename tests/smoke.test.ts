@@ -256,23 +256,12 @@ describe("application", () => {
 
     document.getElementById("btnNiveauParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     /*
-     * ⚠️ LE RUN DU JOUR EST FERMÉ tant que le chapitre 1 n'est pas bouclé : un
-     * nouveau venu y brûlait un essai à l'aveugle. Depuis l'accueil allégé,
-     * un mode fermé ne s'affiche PAS du tout (il paraît quand il s'ouvre,
-     * marqué NOUVEAU) — et un appui forcé reste refusé.
+     * ⚠️ RIEN N'EST FERMÉ — directive de Pierre (30/09) : le tutoriel et le
+     * parcours ne sont plus la condition pour débloquer le jeu. Le run du
+     * jour est là dès l'arrivée. Sans étiquette NOUVEAU : tout étant ouvert
+     * d'emblée, trois « nouveau » sur un premier écran seraient du bruit.
      */
-    expect(document.getElementById("profJour")!.classList.contains("hidden")).toBe(true);
-    document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    expect(document.getElementById("solo")!.classList.contains("hidden")).toBe(true);
-
-    // Le boss du chapitre 1 battu : le run du jour s'ouvre.
-    P.mutate((st) => {
-      st.encountered.sang = { ...st.encountered.sang!, etoiles: [1, 1, 1, 1, 1] };
-    });
-    document.getElementById("navParcours")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(document.getElementById("profJour")!.classList.contains("hidden")).toBe(false);
-    // Il vient de s'ouvrir : il le DIT, jusqu'au premier appui.
-    expect(document.getElementById("profJour")!.classList.contains("is-neuf")).toBe(true);
     // La carte DU JOUR ouvre l'écran SOLO — il porte les essais restants, la
     // série et les quêtes, c'est-à-dire tout ce qu'on veut savoir AVANT de
     // brûler un des trois essais. L'annonce vient ensuite.
