@@ -813,6 +813,42 @@ l'expiration ; renouvellement au retour sur l'onglet, toutes les 30 min, et
 AVANT l'envoi du run du jour ; l'invitation « connecte-toi » se tait quand la
 session est récupérable (`sessionRecuperable`).
 
+### Le site s'ouvre d'emblée, les gros doigts, et les menus en colonnes (30/09/2026)
+
+Trois directives de Pierre, livrées ensemble.
+
+**« Le tuto ne doit plus être la condition pour débloquer le jeu. »** Les
+nouveaux venus devaient faire le tutoriel avant de voir le site (accueil à un
+seul bouton, modes cachés jusqu'au chapitre 1 ou 3), et ça les rendait
+réticents. Désormais :
+- `DECOUVERTE_LIBRE` court-circuite `VERROU_MODES` : RUN DU JOUR, LIBRE et LA
+  PILE sont là dès l'arrivée (sans étiquette NOUVEAU : trois « nouveau » sur un
+  premier écran seraient du bruit) ;
+- l'accueil « neuf » à un bouton n'est plus servi (`const neuf = false`) ;
+- le tutoriel se joue au PREMIER lancement, quel qu'il soit, puis conduit à la
+  partie CHOISIE (`modeApresTuto`), y compris par PASSER. Par JOUER ou un
+  niveau, il mène au 1-1 comme avant. `tests/decouverte.test.ts`.
+- ⚠️ Coût assumé : un nouveau venu peut brûler un essai du run du jour sans
+  connaître le jeu — c'était la raison du verrou.
+
+**Les gros doigts** (`render/toucher.ts`, pur, testé). Au téléphone, une petite
+pièce faisait 34 px de diamètre à l'écran (terrain debout 234 × 558, échelle
+0,557, borné par la HAUTEUR). Au doigt (`TOUCH_ONLY`), les pièces se DESSINENT
+×1,2 (plafond 66 unités : la grande tient dans sa cellule de 140) et se
+TOUCHENT là où on les voit, plus 12 px d'écran de marge : petite pièce ≈ 40 px
+visibles, ≈ 64 px touchables. ⚠️ Rien de jugé ne bouge : le moteur, le serveur
+et `verifyRun` ne reçoivent qu'un INDEX de pièce (n°3). `HIT` reste 1,22 et la
+souris garde exactement l'ancienne zone (testé). Départage par le CENTRE le
+plus proche — par le bord, la grande pièce volait l'appui de la petite (le
+test l'a montré contre mon premier commentaire). Coût : sous « n'importe où »,
+un appui PRÈS d'une pièce interdite la touche désormais.
+
+**Les menus en colonnes, suite.** RÉGLAGES : chaque groupe dans une
+`.rgl__section` en `display: contents` au téléphone (positions identiques au
+pixel, relevé comparé), grille 2 × 3 au bureau. BRIEF (quand il a une allure à
+régler) et FICHE : colonnes CSS avec un saut forcé (`break-before: column`),
+jamais une grille qui alignerait les rangées des deux moitiés.
+
 ### LA SECONDE tuait au lever du doigt, et les menus au bureau (30/09/2026)
 
 Rapporté par Pierre : « LA SECONDE retire une vie peu importe quand on
@@ -1337,8 +1373,9 @@ fin du 1-1 (révélée), plus pendant le tutoriel.
 ⚠️ **`estNouveau()` est gardé dans `openBrief`**, le point de passage commun :
 RUN DU JOUR / ESCALADE ne contournent plus le tutoriel.
 
-**Les modes s'ouvrent en jouant** (`VERROU_MODES` : jour et libre après le
-chapitre 1, LA PILE — ex-escalade — après le 3). Le MULTI n'est jamais
+~~**Les modes s'ouvrent en jouant**~~ — **levé le 30/09 sur directive de
+Pierre** (`DECOUVERTE_LIBRE`, voir plus haut). C'était `VERROU_MODES` : jour et
+libre après le chapitre 1, LA PILE — ex-escalade — après le 3. Le MULTI n'est jamais
 verrouillé. ⚠️ `Save.veteran` : posé UNE fois à la relecture d'une sauvegarde
 qui a un historique mais pas de `boutique` — les joueurs d'avant gardent tout
 ouvert.

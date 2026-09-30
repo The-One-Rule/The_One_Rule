@@ -4393,3 +4393,59 @@ body {
     grid-column: span 2;
   }
 }
+
+/* --- Les réglages : deux colonnes, sur directive de Pierre --------------
+   Chaque groupe (intitulé + ce qu'il intitule) vit dans une `.rgl__section`.
+   Au téléphone elle vaut `display: contents` : aucune boîte, donc ordre et
+   positions EXACTEMENT ceux d'avant (relevés identiques à 375). Au bureau,
+   une grille 2 × 3 — SON | LISIBILITÉ, APPARENCE | ALLURE, LANGUE | MESURE —
+   en placement automatique : un groupe ajouté prend la case suivante sans
+   qu'on touche à ceci. Titre et pied traversent les deux colonnes. */
+.rgl__section {
+  display: contents;
+}
+
+@media (min-width: 1200px) {
+  #app.has-topbar #reglages > .screen__scroll {
+    max-width: 1040px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 48px;
+    align-items: start;
+  }
+
+  #reglages > .screen__scroll > * {
+    grid-column: 1 / -1;
+  }
+
+  #reglages > .screen__scroll > .rgl__section {
+    grid-column: auto;
+    display: block;
+  }
+}
+
+/* --- Le brief et la fiche : ce qu'on lit à gauche, ce qu'on règle à droite.
+   Des COLONNES CSS avec un saut forcé, pas une grille : une grille alignerait
+   les rangées des deux moitiés et ouvrirait des trous sous le nom de la règle.
+   Le brief ne se coupe que s'il a quelque chose à régler (allure, choix de
+   règle) — le run du jour, qui n'en a pas, reste une colonne centrée. */
+@media (min-width: 1200px) {
+  #app.has-topbar #brief > .screen__scroll:has(> #briefPace:not(.hidden)),
+  #app.has-topbar #fiche > .screen__scroll {
+    max-width: 1120px;
+    display: block;
+    columns: 2;
+    column-gap: 56px;
+  }
+
+  #brief > .screen__scroll:has(> #briefPace:not(.hidden)) > *,
+  #fiche > .screen__scroll > * {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+
+  #brief > .screen__scroll > #briefPace,
+  #fiche > .screen__scroll > #ficheMaitrise {
+    break-before: column;
+  }
+}
