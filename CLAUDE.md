@@ -813,6 +813,31 @@ l'expiration ; renouvellement au retour sur l'onglet, toutes les 30 min, et
 AVANT l'envoi du run du jour ; l'invitation « connecte-toi » se tait quand la
 session est récupérable (`sessionRecuperable`).
 
+### LA SECONDE tuait au lever du doigt, et les menus au bureau (30/09/2026)
+
+Rapporté par Pierre : « LA SECONDE retire une vie peu importe quand on
+clique ». ⚠️ **Le clic était juste, c'est le LEVER qui tuait.** Un clic réussi
+ouvre la manche suivante, le doigt se lève ~80 ms plus tard — donc dans les
+400 premières ms de la manche d'APRÈS — et `resolveAction` passait ce lever à
+la règle unique AVANT de voir qu'il ne répondait à rien. Le rejeu serveur ne
+voyait rien (un lever inutile n'est pas journalisé) : l'écran tuait un run
+que le serveur aurait validé. Corrigé en tête de `resolveAction` : un lever
+sans `leverAttendu` est ignoré avant tout juge. `tests/seconde.test.ts`,
+éprouvé (sans la garde, il tombe dès la manche 0). **Leçon : toute règle qui
+juge le TEMPS doit se demander quels événements arrivent juste après une
+transition de manche.**
+
+**Les menus au bureau** (bloc « LE BUREAU » en fin de `theme.css`). Mesuré à
+1920 × 1080 : accueil dans 700 px, réglages et profil dans 510, pour un
+`#app` de 1680. Deux leviers : un `zoom` par paliers de FENÊTRE (1,15 dès
+1500 × 860, 1,3 dès 1800 × 1000, 1,55, 2) posé sur les enfants de `.screen`
+— barre haute et contenu — jamais sur `#app` ni `#stage` ; et des colonnes :
+accueil (niveau | parcours), profil (qui tu es | compte, seulement si le
+compte est visible), entrée multi (deux portes, puis trois salons), boutique
+sur une rangée. ⚠️ Canvas et `champ()` mesurés IDENTIQUES avant/après à
+1280, 1920 et 2560. Les réglages restent une liste. Le salon et l'écran de
+jeu n'ont pas été touchés.
+
 ### Le lot « addiction » (28/09/2026) — jamais vu par un joueur
 
 Directive de Pierre : « c'est juste un petit jeu plutôt sympa mais pas
