@@ -208,9 +208,13 @@ describe("REJOUER — le run du jour se rejoue tant qu'il reste un essai", () =>
   });
 
   it("replay() mène bien au brief du jour", () => {
-    expect(corps, "le run du jour doit repasser par son annonce").toMatch(
-      /openBrief\([^)]*"daily"/,
-    );
+    /*
+     * `openBrief(pendingMode)` : le run du jour repasse par SON annonce, et la
+     * pile par la sienne. L'ancienne forme — `"daily" ? "daily" : "training"`
+     * — envoyait la PILE vers l'entraînement ; elle est refusée ici.
+     */
+    expect(corps, "le run du jour doit repasser par son annonce").toMatch(/openBrief\(pendingMode\)/);
+    expect(corps, "REJOUER après une pile lançait un entraînement").not.toMatch(/:\s*"training"\s*\)/);
   });
 
   it("le brief du jour se verrouille aussi, et pas seulement les portes", () => {

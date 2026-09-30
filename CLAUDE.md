@@ -775,6 +775,61 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### Le lot « addiction » (28/09/2026) — jamais vu par un joueur
+
+Directive de Pierre : « c'est juste un petit jeu plutôt sympa mais pas
+addictif comme un Suika Game ou Bomb Party, les gens adorent se comparer ».
+Trois chantiers, dans l'ordre du moins cher au plus ambitieux. Ce qui les
+relie : **tout ce qu'on a proposé de DIFFÉRÉ est mort** (partage 0 %, duel
+par lien jamais utilisé). La comparaison et la relance doivent donc arriver
+là où le joueur est déjà, au moment où il y est.
+
+**LA CARTE DE RELANCE** (`render/relance.ts`, pur). À la mort, sur le terrain
+figé : motif, score, écart au record (« À 2 MANCHES DE TON RECORD » si l'on
+voyait la ligne, deux manches ou 15 %). Un appui n'importe où relance, par le
+brief ET son battement de lecture : la règle se relit pendant le rebours
+(§8, jour 2). ⚠️ Elle REPOUSSE l'écran de fin, elle ne le remplace pas.
+`finishRun` écrit tout comme avant, et l'écran passe devant dès qu'il a
+quelque chose à DONNER : carte, maîtrise, quête, mesure, avis, installation.
+Jamais sur un duel, un niveau, un classé ou un jour sans essai. ⚠️ Une GARDE
+de 450 ms ignore le tapotement réflexe de la mort ; le premier relevé
+Playwright a cru à une panne, c'était la garde. Trouvé en chemin : REJOUER
+après une PILE lançait un ENTRAÎNEMENT, et la pile comparait ses manches au
+record d'entraînement. Les deux sont corrigés.
+
+**LE RIVAL DU JOUR** (`game/rival.ts`, pur). Pendant le run du jour, la case
+du milieu du pied vise le plus FAIBLE des amis encore devant (« LÉA · 14 »).
+Une pastille « TU PASSES LÉA » tombe, puis la cible monte d'un barreau.
+Sans ami ou devant tous : les paliers anonymes TOP 50/25/10/1 %. La carte de
+mort raconte, dans cet ordre : un dépassement de CE run, un ami presque eu,
+« MIEUX QUE N % DES JOUEURS AUJOURD'HUI ». ⚠️ Que du REJOUÉ (n°14) :
+`GET /api/perf?a=repartition` rend des SCORES nus, derrière les filtres du
+podium ; un test cherche l'identifiant, le pseudo et la durée dans la
+réponse brute. Muet sous 10 joueurs. Rien n'est attendu : sans compte ou
+sans réseau, le pied redit « SUR 40 ».
+
+**LA PARTIE RAPIDE** (`server/rapide.ts`, pur). `{ t: "quick" }` range à une
+table PUBLIQUE qui part seule dès deux joueurs (15 s de fenêtre, 5 s à six)
+et REPART seule 12 s après chaque match. ⚠️ Une arrivée ne repousse jamais
+l'échéance (testé), sinon un flux d'arrivées la tiendrait en attente pour
+toujours. `start`, `settings` et `kick` y sont ignorés : personne n'est
+l'hôte de personne. `room` gagne `public` et `autoAt`, absents d'une table
+privée. `PROTOCOL_VERSION` inchangée. ⚠️ Un serveur de salons d'avant ce lot
+se TAIT sur `quick` : le client le dit après 5 s. **Il faut donc déployer
+Fly ET Vercel pour que la porte vive.** L'e2e mesure tout sur le fil (14
+assertions). ⚠️ Une table publique rend COURANT le spectateur au podium de
+fin : sa rangée débordait de 27 px à 375, corrigé.
+
+⚠️ **Le risque écrit au backlog tient toujours** : une table publique vaut
+ce que vaut le nombre de joueurs SIMULTANÉS. Seul, on lit « EN ATTENTE
+D'UN AUTRE JOUEUR · ENVOIE LE LIEN ». Le chiffre à lire est `salon_rapide`,
+à rapprocher de `match_debut`. Idée écartée pour ce lot : jouer le run du
+jour en attendant qu'une table se forme.
+
+Mesure du lot : `relance_rejoue`, `relance_bilan`, `salon_rapide` (dans les
+DEUX listes blanches). Le chiffre qui juge le tout : les runs par session, et
+D1.
+
 ### Le lot « téléphone vivant » (26/09/2026) — jamais vu par un joueur
 
 Directive de Pierre après une soirée entre amis : groupe 1 et 2 du téléphone,
@@ -3136,9 +3191,9 @@ désormais au-dessus du pied.
    (multi). Reste BALAYER, qui demanderait une direction sur le fil. Toute
    consigne neuve passe par `CONSIGNES_MULTI`, `VERSION_DE_CONSIGNE` et
    `CONSIGNES_VERSION`.
-2. **Salons publics**, à la manière de BombParty — rejoindre sans code. Mis de
-   côté : sa valeur est proportionnelle au nombre de joueurs SIMULTANÉS, et une
-   liste vide dit « personne ne joue ».
+2. ~~**Salons publics**~~ — **faits** sous la forme d'une PARTIE RAPIDE (lot
+   « addiction », §12) : pas de liste de salons, qui dirait « personne ne
+   joue », mais une porte qui range à une table.
 
 ### Ce qui a été écarté avec des chiffres
 

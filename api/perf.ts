@@ -168,6 +168,21 @@ export async function traite(
     return json({ jour, top, moi });
   }
 
+  /* ------------------------------------------------------------------ *
+   * LA RÉPARTITION DU JOUR — lecture, anonyme
+   *
+   * Sert le rang anonyme du rival (`game/rival.ts`). Des SCORES et rien
+   * d'autre : aucun pseudo, aucune durée, aucun identifiant — un score nu ne
+   * désigne personne. Sans jeton, comme le podium (n°12).
+   * ------------------------------------------------------------------ */
+  if (req.method === "GET" && new URL(req.url).searchParams.get("a") === "repartition") {
+    const brutJour = new URL(req.url).searchParams.get("jour");
+    const jour = brutJour === null || brutJour === "" ? jourDe(maintenant) : Number(brutJour);
+    if (!Number.isInteger(jour)) return json({ error: "jour" }, 400);
+    const scores = await depot.scoresDuJour(cleDuJour(jour));
+    return json({ jour, scores });
+  }
+
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
   const r = await verifieJeton(jetonDeLaRequete(req), secret, maintenant);

@@ -498,6 +498,8 @@ function renderLobby(
   muted: Set<string>,
   onToggleMute: (playerId: string) => void,
   onKick: (playerId: string) => void,
+  /** Table publique : personne n'y est l'hôte, la tuile ne le dit donc pas. */
+  publique = false,
 ): void {
   setRoomCode(code);
   const list = $("multiPlayers");
@@ -543,7 +545,7 @@ function renderLobby(
 
   const voirPhotos = P.load().photosAutres;
   for (const p of players) {
-    const etat = seatState(p, inMatch, myId);
+    const etat = seatState(publique ? { ...p, host: false } : p, inMatch, myId);
     const seat = document.createElement("div");
     seat.className = seatClasses(etat).join(" ") + (neufs.has(p.id) ? " is-entre" : "");
     seat.innerHTML =
@@ -1072,7 +1074,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * après un métro n'est pas une entrée, et le compter ferait passer un réseau
    * instable pour de l'affluence.
    */
-  let entreeSalon: "cree" | "rejoint" | null = null;
+  let entreeSalon: "cree" | "rejoint" | "rapide" | null = null;
+  /*
+   * LA TABLE PUBLIQUE — voir `server/rapide.ts`. Le serveur dit si le salon
+   * l'est (absent vaut non) et quand il partira (`autoAt`, heure serveur).
+   * Personne n'y règle ni n'y lance : on affiche seulement le compte.
+   */
+  let tablePublique = false;
+  let autoAt: number | null = null;
+  /** La partie rapide attend sa réponse ; un serveur ancien ne répond pas. */
+  let rapideAttente: ReturnType<typeof setTimeout> | null = null;
   /** Dernière liste salon — ordre stable pour les plaques. */
   let lastPlayers: PlayerPublic[] = [];
   let roomSettings: RoomSettings = { ...DEFAULT_SETTINGS };
@@ -1740,6 +1751,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * par une reconnexion.
      */
     $("btnMultiNom").classList.toggle("hidden", !!savedName() || lobbyInMatch);
+    majDepartAuto();
     renderLobby(
       roomCode,
       lastPlayers,
@@ -1755,8 +1767,38 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       (playerId) => {
         net?.kick(playerId);
       },
+      tablePublique,
     );
+    // Le premier arrivé d'une table publique porte le drapeau d'hôte, mais le
+    // serveur ignore son LANCER : un bouton qui ne fait rien ne s'affiche pas.
+    // ⚠️ APRÈS `renderLobby`, qui le rallume pour l'hôte : posé avant, il
+    // restait visible — mesuré au premier passage.
+    if (tablePublique) $("btnMultiStart").classList.add("hidden");
   }
+
+  /**
+   * La ligne de départ d'une table publique, au salon et sur l'écran de fin.
+   * Réécrite chaque seconde tant qu'une table publique est ouverte ; une
+   * table privée la cache et ne coûte rien.
+   */
+  function majDepartAuto(): void {
+    for (const id of ["multi-lobby", "multi-end"]) $(id).classList.toggle("is-public", tablePublique);
+    const texte = !tablePublique
+      ? ""
+      : lobbyInMatch
+        ? tr("autoEnCours")
+        : autoAt !== null && net
+          ? tr("autoDans")(Math.max(0, Math.ceil((autoAt - net.clock.now()) / 1000)))
+          : tr("autoAttente");
+    for (const id of ["multiAuto", "multiEndAuto"]) {
+      const el = $(id);
+      el.classList.toggle("hidden", !texte);
+      if (el.textContent !== texte) el.textContent = texte;
+    }
+  }
+  setInterval(() => {
+    if (tablePublique && roomCode) majDepartAuto();
+  }, 1000);
 
   function showEmote(playerId: string, k: number): void {
     if (muted.has(playerId)) return;
@@ -2612,7 +2654,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     for (const p of spectateurs) {
       const row = document.createElement("div");
-      row.className = "lobbyrow is-off" + (p.id === net?.myId ? " is-host" : "");
+      row.className = "lobbyrow is-off is-spectateur" + (p.id === net?.myId ? " is-host" : "");
       row.innerHTML =
         `<span class="lobbyrow__name">` +
         `<span class="lobbyrow__rank">—</span>` +
@@ -2825,11 +2867,16 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
        * certaine : le serveur vient de confirmer. Voir `entreeSalon`.
        */
       if (entreeSalon) {
-        track(entreeSalon === "cree" ? "salon_cree" : "salon_rejoint", {
-          joueurs: msg.players.length,
-        });
+        track(
+          entreeSalon === "cree" ? "salon_cree" : entreeSalon === "rapide" ? "salon_rapide" : "salon_rejoint",
+          { joueurs: msg.players.length },
+        );
         entreeSalon = null;
       }
+      if (rapideAttente) clearTimeout(rapideAttente);
+      rapideAttente = null;
+      tablePublique = msg.public === true;
+      autoAt = typeof msg.autoAt === "number" ? msg.autoAt : null;
       roomCode = msg.code;
       lastRoomCode = msg.code;
       roomSettings = msg.settings ?? roomSettings;
@@ -3858,6 +3905,32 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   $("btnMultiCreate").addEventListener("click", () => void ouvreSalon("classique"));
   $("btnMultiCreateDuo").addEventListener("click", () => void ouvreSalon("duo"));
   $("btnMultiCreateCoop").addEventListener("click", () => void ouvreSalon("coop"));
+
+  /*
+   * PARTIE RAPIDE. Même garde que les autres portes (un nom d'abord), même
+   * connexion. ⚠️ Un serveur de salons d'avant ce lot ne connaît pas `quick`
+   * et se TAIT — le front et les salons se déploient séparément (§9). Sans
+   * réponse en cinq secondes, on le dit, et on propose d'ouvrir le sien.
+   */
+  async function partieRapide(): Promise<void> {
+    sfx.ui();
+    const err = $("multiRapideErr");
+    err.classList.add("hidden");
+    if (needIdentity(() => void partieRapide())) return;
+    const client = await ensureConnected();
+    if (!client) return;
+    entreeSalon = "rapide";
+    client.quickRoom();
+    if (rapideAttente) clearTimeout(rapideAttente);
+    rapideAttente = setTimeout(() => {
+      rapideAttente = null;
+      if (roomCode) return;
+      entreeSalon = null;
+      err.textContent = tr("errRapide");
+      err.classList.remove("hidden");
+    }, 5000);
+  }
+  $("btnMultiRapide").addEventListener("click", () => void partieRapide());
 
   $("btnMultiJoin").addEventListener("click", () => {
     void (async () => {

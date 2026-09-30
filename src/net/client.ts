@@ -222,6 +222,10 @@ export class NetClient {
   createRoom(): void {
     this.send({ t: "create" });
   }
+  /** Partie rapide : une table publique, sans code (`server/rapide.ts`). */
+  quickRoom(): void {
+    this.send({ t: "quick" });
+  }
   joinRoom(code: string): void {
     this.send({ t: "join", code: code.toUpperCase() });
   }

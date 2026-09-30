@@ -245,6 +245,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allure": "ALLURE PAR DÉFAUT · ENTRAÎNEMENT",
     "rgl.allureQuoi": "Elle ne vaut que pour l'entraînement. Le run du jour est le même pour tout le monde.",
     "tuto.passer": "PASSER",
+    "relance.bilan": "BILAN ›",
+    "multi.rapide.eyebrow": "SANS CODE",
+    "multi.rapide": "PARTIE RAPIDE",
+    "multi.rapide.desc": "Une table publique, qui part toute seule dès que deux joueurs sont là, et repart après chaque match.",
+    "multi.rapide.go": "JOUER MAINTENANT",
     "avis.question": "DEUX PARTIES. ALORS, CE JEU ?",
     "avis.bof": "BOF",
     "avis.sympa": "SYMPA",
@@ -450,6 +455,11 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "rgl.allure": "DEFAULT PACE · TRAINING",
     "rgl.allureQuoi": "It only applies to training. The daily run is the same for everyone.",
     "tuto.passer": "SKIP",
+    "relance.bilan": "SUMMARY ›",
+    "multi.rapide.eyebrow": "NO CODE",
+    "multi.rapide": "QUICK MATCH",
+    "multi.rapide.desc": "A public table that starts by itself as soon as two players are in, and starts again after every match.",
+    "multi.rapide.go": "PLAY NOW",
     "avis.question": "TWO RUNS IN. SO, THIS GAME?",
     "avis.bof": "MEH",
     "avis.sympa": "NICE",
@@ -990,6 +1000,11 @@ type Dyn = {
   sortieRecharger: string;
   errSalonInconnu: string;
   errSalonComplet: (max: number) => string;
+  /** LA PARTIE RAPIDE — voir `server/rapide.ts`. */
+  autoDans: (s: number) => string;
+  autoAttente: string;
+  autoEnCours: string;
+  errRapide: string;
   errNeedPlayers: (min: number, max: number) => string;
   coopFinRang: (vagues: number, score: number) => string;
   coopTenu: string;
@@ -1090,6 +1105,24 @@ type Dyn = {
   finRecordAvance: (n: number) => string;
   /** Le record ÉGALÉ. Un mot différent : « record » doit rester rare. */
   finEgaleTitre: string;
+  /** LA CARTE DE RELANCE — voir `render/relance.ts`. */
+  relanceUnite: (n: number, pile: boolean) => string;
+  relanceRecord: (n: number, jour: boolean) => string;
+  relanceEgale: (jour: boolean) => string;
+  relancePresque: (n: number, ancien: number, jour: boolean) => string;
+  relanceLoin: (ancien: number, jour: boolean) => string;
+  relancePremier: string;
+  relanceEssais: (n: number) => string;
+  relanceGo: (toucher: boolean) => string;
+  /** LE RIVAL DU JOUR — voir `game/rival.ts`. */
+  rivalDepasse: (noms: string[]) => string;
+  rivalPresque: (nom: string, n: number) => string;
+  rivalPart: (p: number) => string;
+  piedTop: (top: number) => string;
+  pastilleDepasse: (nom: string) => string;
+  pastilleDepasseSous: (v: number) => string;
+  pastilleTop: (top: number) => string;
+  pastilleTopSous: string;
   /** L'exploit tel qu'il paraît SUR la carte de partage, en une ligne. */
   finRecordCarte: (n: number) => string;
   /** Le bouton, et son accusé de réception. */
@@ -1638,6 +1671,10 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "CE SALON N'EXISTE PLUS — SOIT LE CODE EST MAL RECOPIÉ (LE 2 ET LE Z SE RESSEMBLENT), SOIT L'HÔTE A FERMÉ",
     errSalonComplet: (max) => `SALON COMPLET · ${max} JOUEURS`,
+    autoDans: (s) => `LA PARTIE COMMENCE DANS ${s} S`,
+    autoAttente: "EN ATTENTE D'UN AUTRE JOUEUR · ENVOIE LE LIEN",
+    autoEnCours: "UNE PARTIE EST EN COURS · TU JOUES LA SUIVANTE",
+    errRapide: "LA PARTIE RAPIDE N'EST PAS ENCORE DISPONIBLE",
     errNeedPlayers: (min, max) => `IL FAUT ENTRE ${min} ET ${max} JOUEURS POUR LANCER`,
     coopFinRang: (vagues, score) =>
       `${vagues} VAGUE${vagues > 1 ? "S" : ""} · SCORE ${score}`,
@@ -1714,6 +1751,28 @@ const DYN: Record<Lang, Dyn> = {
     finRecordAncien: (n) => `ANCIEN · ${n}`,
     finRecordAvance: (n) => `+${n}`,
     finEgaleTitre: "TU AS ÉGALÉ TON RECORD",
+    relanceUnite: (n, pile) => (pile ? (n > 1 ? "RÈGLES TENUES" : "RÈGLE TENUE") : n > 1 ? "MANCHES" : "MANCHE"),
+    relanceRecord: (n, jour) => (jour ? `MEILLEUR DU JOUR BATTU · +${n}` : `NOUVEAU RECORD · +${n}`),
+    relanceEgale: (jour) => (jour ? "MEILLEUR DU JOUR ÉGALÉ" : "RECORD ÉGALÉ"),
+    relancePresque: (n, ancien, jour) =>
+      `À ${n} ${n > 1 ? "MANCHES" : "MANCHE"} ${jour ? "DE TON MEILLEUR DU JOUR" : "DE TON RECORD"} · ${ancien}`,
+    relanceLoin: (ancien, jour) => (jour ? `TON MEILLEUR DU JOUR · ${ancien}` : `TON RECORD · ${ancien}`),
+    relancePremier: "TON PREMIER SCORE ICI",
+    relanceEssais: (n) => (n > 1 ? `ENCORE ${n} ESSAIS AUJOURD'HUI` : "DERNIER ESSAI AUJOURD'HUI"),
+    relanceGo: (toucher) => (toucher ? "TOUCHE POUR REJOUER" : "ESPACE POUR REJOUER"),
+    rivalDepasse: (noms) =>
+      noms.length === 1
+        ? `TU AS DÉPASSÉ ${noms[0]}`
+        : noms.length === 2
+          ? `TU AS DÉPASSÉ ${noms[0]} ET ${noms[1]}`
+          : `TU AS DÉPASSÉ ${noms[0]} ET ${noms.length - 1} AUTRES`,
+    rivalPresque: (nom, n) => `À ${n} ${n > 1 ? "MANCHES" : "MANCHE"} DE DÉPASSER ${nom}`,
+    rivalPart: (p) => `MIEUX QUE ${p} % DES JOUEURS AUJOURD'HUI`,
+    piedTop: (top) => `TOP ${top} %`,
+    pastilleDepasse: (nom) => `TU PASSES ${nom}`,
+    pastilleDepasseSous: (v) => `SON SCORE DU JOUR · ${v}`,
+    pastilleTop: (top) => `TOP ${top} % DU JOUR`,
+    pastilleTopSous: "PARMI TOUS LES JOUEURS",
     finRecordCarte: (n) => `NOUVEAU RECORD · +${n}`,
     finCarte: "CARTE À PARTAGER",
     finCartePrete: "CARTE PRÊTE",
@@ -2137,6 +2196,10 @@ const DYN: Record<Lang, Dyn> = {
     errSalonInconnu:
       "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
     errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
+    autoDans: (s) => `THE MATCH STARTS IN ${s}S`,
+    autoAttente: "WAITING FOR ANOTHER PLAYER · SEND THE LINK",
+    autoEnCours: "A MATCH IS ON · YOU PLAY THE NEXT ONE",
+    errRapide: "QUICK MATCH ISN'T AVAILABLE YET",
     errNeedPlayers: (min, max) => `YOU NEED ${min} TO ${max} PLAYERS TO START`,
     coopFinRang: (vagues, score) =>
       vagues === 1 ? `1 WAVE · SCORE ${score}` : `${vagues} WAVES · SCORE ${score}`,
@@ -2210,6 +2273,28 @@ const DYN: Record<Lang, Dyn> = {
     finRecordAncien: (n) => `PREVIOUS · ${n}`,
     finRecordAvance: (n) => `+${n}`,
     finEgaleTitre: "YOU MATCHED YOUR RECORD",
+    relanceUnite: (n, pile) => (pile ? (n === 1 ? "RULE HELD" : "RULES HELD") : n === 1 ? "ROUND" : "ROUNDS"),
+    relanceRecord: (n, jour) => (jour ? `TODAY'S BEST BEATEN · +${n}` : `NEW RECORD · +${n}`),
+    relanceEgale: (jour) => (jour ? "TODAY'S BEST MATCHED" : "RECORD MATCHED"),
+    relancePresque: (n, ancien, jour) =>
+      `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM ${jour ? "TODAY'S BEST" : "YOUR RECORD"} · ${ancien}`,
+    relanceLoin: (ancien, jour) => (jour ? `TODAY'S BEST · ${ancien}` : `YOUR RECORD · ${ancien}`),
+    relancePremier: "YOUR FIRST SCORE HERE",
+    relanceEssais: (n) => (n === 1 ? "LAST TRY TODAY" : `${n} TRIES LEFT TODAY`),
+    relanceGo: (toucher) => (toucher ? "TAP TO PLAY AGAIN" : "SPACE TO PLAY AGAIN"),
+    rivalDepasse: (noms) =>
+      noms.length === 1
+        ? `YOU PASSED ${noms[0]}`
+        : noms.length === 2
+          ? `YOU PASSED ${noms[0]} AND ${noms[1]}`
+          : `YOU PASSED ${noms[0]} AND ${noms.length - 1} OTHERS`,
+    rivalPresque: (nom, n) => `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM PASSING ${nom}`,
+    rivalPart: (p) => `BETTER THAN ${p}% OF TODAY'S PLAYERS`,
+    piedTop: (top) => `TOP ${top}%`,
+    pastilleDepasse: (nom) => `YOU PASS ${nom}`,
+    pastilleDepasseSous: (v) => `THEIR SCORE TODAY · ${v}`,
+    pastilleTop: (top) => `TODAY'S TOP ${top}%`,
+    pastilleTopSous: "AMONG ALL PLAYERS",
     finRecordCarte: (n) => `NEW RECORD · +${n}`,
     finCarte: "SHAREABLE CARD",
     finCartePrete: "CARD READY",
