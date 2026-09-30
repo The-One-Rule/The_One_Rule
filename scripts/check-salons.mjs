@@ -26,6 +26,8 @@ if (!base) {
 
 const TIRS = 14;
 const vus = new Map(); // instance → nombre de réponses
+/** La dernière réponse de chaque instance : son état de santé. */
+const etats = new Map();
 
 for (let i = 0; i < TIRS; i++) {
   try {
@@ -40,6 +42,7 @@ for (let i = 0; i < TIRS; i++) {
     // différents produisent deux séries qui s'entrelacent.
     const cle = j.instance ?? `uptime~${Math.round((j.uptime ?? 0) / 5)}`;
     vus.set(cle, (vus.get(cle) ?? 0) + 1);
+    etats.set(cle, j);
   } catch (err) {
     console.error(`✗ ${base}/health injoignable : ${String(err)}`);
     process.exit(1);
@@ -50,6 +53,36 @@ for (let i = 0; i < TIRS; i++) {
 const n = vus.size;
 console.log(`\nSondage de ${base} — ${TIRS} appels\n`);
 for (const [k, c] of vus) console.log(`  ${String(c).padStart(3)} réponses   instance ${k}`);
+
+/*
+ * L'ÉTAT DE CHAQUE INSTANCE — de quoi diagnostiquer « ça déconnecte tout
+ * seul » sans accès à la machine. Un serveur récent expose son démarrage, sa
+ * mémoire, son image et les exceptions rattrapées ; un serveur plus ancien
+ * n'a que l'uptime, et on le dit.
+ */
+let alerte = false;
+for (const [k, j] of etats) {
+  const min = Math.round((j.uptime ?? 0) / 60);
+  console.log(`\n  instance ${k}`);
+  console.log(`     en marche depuis ${min} min${j.demarre ? ` (démarrée ${j.demarre})` : ""}`);
+  if (j.memoireMo !== undefined) console.log(`     mémoire ${j.memoireMo} Mo · ${j.connexions} connexions · ${j.rooms} salons`);
+  if (j.image) console.log(`     image ${j.image}`);
+  if (j.erreurs === undefined) {
+    console.log("     (serveur antérieur au diagnostic : redéployer pour voir erreurs et mémoire)");
+  } else if (j.erreurs > 0) {
+    alerte = true;
+    console.log(`  ⚠  ${j.erreurs} exception(s) rattrapée(s) depuis le démarrage — voir \`fly logs\` (minuterie_error, fermeture_error, crash_evite)`);
+  }
+  if (min < 15) {
+    alerte = true;
+    console.log("  ⚠  démarrée il y a moins de 15 min : un déploiement récent, ou un REDÉMARRAGE (plantage, mémoire). Tous les salons ont alors été perdus.");
+  }
+  if (j.memoireMo > 400) {
+    alerte = true;
+    console.log("  ⚠  plus de 400 Mo pour une machine de 512 : risque d'arrêt par manque de mémoire.");
+  }
+}
+if (alerte) console.log("");
 
 if (n === 1) {
   console.log("\n  OK  une seule instance : les codes de salon résoudront pour tout le monde.\n");
