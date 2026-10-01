@@ -20,8 +20,10 @@ import { buildRound } from "./round";
 import {
   INSTRUCTIONS,
   INSTRUCTIONS_SOLO,
+  INSTRUCTIONS_SOLO_V2,
   TOUCH_INSTRUCTIONS,
   TOUCH_INSTRUCTIONS_SOLO,
+  TOUCH_INSTRUCTIONS_SOLO_V2,
 } from "./instructions";
 import { resolveAction, resolveTimeout } from "./resolve";
 import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty";
@@ -67,8 +69,9 @@ export interface RunClaim {
   };
   /**
    * Le catalogue de consignes du run. 2 = le catalogue du solo élargi
-   * (double appui, MAINTENIR, GLISSER). ABSENT VAUT 1 : un run d'un client
-   * d'avant l'ouverture se rejoue sur l'ancien catalogue.
+   * (double appui, MAINTENIR, GLISSER) ; 3 = le 2 sans « NE FAIS RIEN », et
+   * jamais deux pièges d'affilée (`CATALOGUE_SOLO`). ABSENT VAUT 1 : un run
+   * d'un client d'avant l'ouverture se rejoue sur l'ancien catalogue.
    */
   catalogue?: number;
 }
@@ -192,15 +195,26 @@ export function verifyRun(claim: RunClaim): Verdict {
    * et son score vérifié était faux. ABSENT VAUT CLAVIER : un client d'avant
    * ce correctif est rejoué comme avant, rien ne change pour lui.
    */
-  const solo = claim.catalogue === 2;
+  /*
+   * Le catalogue qui a PRODUIT le run, jamais celui d'aujourd'hui : un run de
+   * la veille encore en file se rejoue sur les manches qu'il a jouées. Le 3
+   * retire « NE FAIS RIEN » et refuse deux pièges d'affilée (`apresPiege`).
+   */
+  const cat = claim.catalogue === 3 ? 3 : claim.catalogue === 2 ? 2 : 1;
+  const doigt = claim.capacites?.clavier === false;
   const pool =
-    claim.capacites?.clavier === false
-      ? solo
+    cat === 3
+      ? doigt
         ? TOUCH_INSTRUCTIONS_SOLO
-        : TOUCH_INSTRUCTIONS
-      : solo
-        ? INSTRUCTIONS_SOLO
-        : INSTRUCTIONS;
+        : INSTRUCTIONS_SOLO
+      : cat === 2
+        ? doigt
+          ? TOUCH_INSTRUCTIONS_SOLO_V2
+          : INSTRUCTIONS_SOLO_V2
+        : doigt
+          ? TOUCH_INSTRUCTIONS
+          : INSTRUCTIONS;
+  const sansDoublePiege = cat >= 3;
   let regleSeule: OneRule = rule;
   if (claim.capacites?.maintien === false) regleSeule = withoutHold(regleSeule);
   if (claim.capacites?.encre === false) regleSeule = withoutInk(regleSeule);
@@ -214,7 +228,7 @@ export function verifyRun(claim: RunClaim): Verdict {
   let cursor = 0;
 
   const nextRound = (at: number): void => {
-    round = buildRound(rng, level, regleA(level), pool);
+    round = buildRound(rng, level, regleA(level), pool, 1, undefined, sansDoublePiege && round.trap);
     progress = { step: 0 };
     roundStart = at;
   };

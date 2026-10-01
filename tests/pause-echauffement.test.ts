@@ -30,16 +30,32 @@ function joue(pauseMs: number): { log: unknown; level: number; splits: number[] 
       s.tick(now);
     }
     const round = s.round;
-    const st = round.steps[0];
-    const idx = st?.kind === "click" ? st.idx : st?.kind === "clickAny" ? round.ents.findIndex((e) => e.color !== "garance") : -1;
-    if (idx < 0 || round.steps.length > 1) {
+    // Un joueur qui obéit sans enfreindre LE SANG : chaque étape, dans l'ordre.
+    const sur = (e: (typeof round.ents)[number]) => e.color !== "garance";
+    const gestes: (() => void)[] = [];
+    for (const st of round.steps) {
+      if (st.kind === "click") {
+        const e = round.ents[st.idx]!;
+        gestes.push(() => s.input({ kind: "click", ent: e, x: e.x, y: e.y }, now));
+      } else if (st.kind === "clickAny" || st.kind === "clickAnyExcept") {
+        const e = round.ents.find((x) => sur(x) && (st.kind === "clickAny" || x.color !== st.color));
+        if (!e) break;
+        gestes.push(() => s.input({ kind: "click", ent: e, x: e.x, y: e.y }, now));
+      } else if (st.kind === "key") {
+        gestes.push(() => s.input({ kind: "key", key: st.key }, now));
+      } else break;
+    }
+    if (round.steps.length === 0 || gestes.length !== round.steps.length) {
+      // Piège, maintien, glisser : on laisse filer la manche.
       now += round.durationMs + 1;
       s.tick(now);
       continue;
     }
     now += 450;
-    const e = round.ents[idx]!;
-    s.input({ kind: "click", ent: e, x: e.x, y: e.y }, now);
+    for (const g of gestes) {
+      g();
+      now += 60;
+    }
   }
   return { log: s.log, level: s.level, splits: s.splits };
 }

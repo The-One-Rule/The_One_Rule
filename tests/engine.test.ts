@@ -132,10 +132,15 @@ describe("règles uniques", () => {
       stats[rule.id] = { rounds: 0, traps: 0 };
       for (let run = 0; run < 120; run++) {
         const rng = mulberry32(run * 7919 + 13);
+        let avant = false;
         for (let level = 0; level < 45; level++) {
           // Le catalogue réellement joué en solo (double appui, MAINTENIR,
           // GLISSER compris) : mesurer l'ancien donnerait un chiffre faux.
-          const round = buildRound(rng, level, rule, INSTRUCTIONS_SOLO);
+          // Et ENCHAÎNÉ comme le joue `Session` : jamais deux pièges
+          // d'affilée (catalogue 3). Sans la chaîne, LA POINTE mesurait
+          // 28,2 % — un tirage que plus aucun joueur ne reçoit.
+          const round = buildRound(rng, level, rule, INSTRUCTIONS_SOLO, 1, undefined, avant);
+          avant = round.trap;
           stats[rule.id]!.rounds++;
           if (round.trap) stats[rule.id]!.traps++;
         }

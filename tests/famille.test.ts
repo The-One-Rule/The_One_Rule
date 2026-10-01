@@ -65,9 +65,12 @@ describe("le taux de piège affiché", () => {
       let traps = 0;
       for (let run = 0; run < 120; run++) {
         const rng = mulberry32(run * 7919 + 13);
+        let avant = false;
         for (let level = 0; level < 45; level++) {
           rounds++;
-          if (buildRound(rng, level, rule, INSTRUCTIONS_SOLO).trap) traps++;
+          // Enchaîné comme le joue `Session` : jamais deux pièges d'affilée.
+          avant = buildRound(rng, level, rule, INSTRUCTIONS_SOLO, 1, undefined, avant).trap;
+          if (avant) traps++;
         }
       }
       const mesure = Number(((traps / rounds) * 100).toFixed(1));

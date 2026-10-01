@@ -688,24 +688,6 @@ type Dyn = {
   cptGardeRien: string;
   decouverteNote: (manche: number, vues: number, total: number) => string;
   butModeEntrainement: string;
-  /* --- première arrivée --- */
-  tutoEtape: (n: number, total: number) => string;
-  tutoObeis: string;
-  tutoOui: string;
-  tutoOuiNote: string;
-  tutoRienFaitBravo: string;
-  tutoRienFaitNote: string;
-  /** Temps 3 du tutoriel : le second piège, tenu comme le premier. */
-  tutoSecondPiege: string;
-  tutoPret: string;
-  /** L'aide posée sur le terrain pendant les deux temps joués. */
-  tutoVasy: string;
-  tutoSansChrono: string;
-  tutoRelis: string;
-  tutoRienFaire: string;
-  tutoRalenti: string;
-  tutoPasCelleLa: string;
-  tutoInterdit: string;
   cptNomRate: string;
   compteConfirmer: string;
   compteTitreConnecte: string;
@@ -1341,21 +1323,6 @@ const DYN: Record<Lang, Dyn> = {
     decouverteNote: (manche, vues, total) =>
       `Rencontrée à la manche ${manche}. Entrée au carnet · ${vues} / ${total}.`,
     butModeEntrainement: "ENTRAÎNEMENT",
-    tutoEtape: (n, total) => `DÉCOUVERTE ${n} / ${total}`,
-    tutoObeis: "TA RÈGLE : JAMAIS DE ROUGE. ICI, OBÉIS.",
-    tutoOui: "OUI. LE BLEU N'ENFREINT PAS TA RÈGLE.",
-    tutoOuiNote: "LA PLUPART DES CONSIGNES SONT AUSSI SIMPLES. PAS TOUTES.",
-    tutoRienFaitBravo: "TU N'AS RIEN FAIT : PIÈGE DÉJOUÉ.",
-    tutoRienFaitNote: "OBÉIR AURAIT ÉTÉ LA FAUTE. C'EST TOUT LE JEU.",
-    tutoSecondPiege: "UN AUTRE PIÈGE. TIENS BON JUSQU'AU BOUT.",
-    tutoPret: "À TOI. LA VRAIE PARTIE COMMENCE.",
-    tutoVasy: "VAS-Y, PRENDS TON TEMPS",
-    tutoSansChrono: "LE CHRONO EST DÉSACTIVÉ",
-    tutoRelis: "RELIS TA RÈGLE AVANT D'AGIR",
-    tutoRienFaire: "NE TOUCHE À RIEN — LAISSE PASSER",
-    tutoRalenti: "CHRONO RALENTI POUR CETTE MANCHE",
-    tutoPasCelleLa: "PAS CELLE-LÀ — REGARDE LA COULEUR DEMANDÉE",
-    tutoInterdit: "TA RÈGLE INTERDIT LE ROUGE",
     cptNomRate: "LE NOM N'A PAS PU ÊTRE ENREGISTRÉ — IL RESTE VALABLE SUR CET APPAREIL",
     compteConfirmer: "CONFIRMER LA SUPPRESSION",
     compteTitreConnecte: "TON COMPTE",
@@ -1902,21 +1869,6 @@ const DYN: Record<Lang, Dyn> = {
     decouverteNote: (manche, vues, total) =>
       `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
     butModeEntrainement: "TRAINING",
-    tutoEtape: (n, total) => `DISCOVERY ${n} / ${total}`,
-    tutoObeis: "YOUR RULE: NEVER RED. HERE, OBEY.",
-    tutoOui: "YES. BLUE DOES NOT BREAK YOUR RULE.",
-    tutoOuiNote: "MOST ORDERS ARE THIS SIMPLE. NOT ALL OF THEM.",
-    tutoRienFaitBravo: "YOU DID NOTHING: TRAP AVOIDED.",
-    tutoRienFaitNote: "OBEYING WOULD HAVE BEEN THE MISTAKE. THAT IS THE GAME.",
-    tutoSecondPiege: "ANOTHER TRAP. HOLD ON TO THE END.",
-    tutoPret: "YOUR TURN. THE REAL RUN STARTS.",
-    tutoVasy: "GO AHEAD, TAKE YOUR TIME",
-    tutoSansChrono: "THE CLOCK IS OFF",
-    tutoRelis: "READ YOUR RULE AGAIN BEFORE ACTING",
-    tutoRienFaire: "TOUCH NOTHING — LET IT PASS",
-    tutoRalenti: "CLOCK SLOWED FOR THIS ROUND",
-    tutoPasCelleLa: "NOT THAT ONE — LOOK AT THE COLOUR ASKED FOR",
-    tutoInterdit: "YOUR RULE FORBIDS RED",
     cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
     compteConfirmer: "CONFIRM DELETION",
     compteTitreConnecte: "YOUR ACCOUNT",

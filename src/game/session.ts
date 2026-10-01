@@ -290,6 +290,8 @@ export class Session {
     // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
     this.regleAjoutee = this.majRegle();
     if (this.regleAjoutee) this.derniereAjoutee = this.regleAjoutee;
+    // `round` n'existe pas encore à la première manche : rien ne la précède.
+    const apresPiege = (this.round as Round | undefined)?.trap ?? false;
     this.round = buildRound(
       this.rng,
       this.level,
@@ -297,6 +299,7 @@ export class Session {
       this.pool,
       this.pace,
       this.forcePiege,
+      apresPiege,
     );
     this.progress = { step: 0 };
     this.roundStart = now;

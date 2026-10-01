@@ -76,7 +76,12 @@ export function calculeVersion(
   // toucher une constante le jour où on la modifie.
   const courbe = [0, 5, 11, 12, 20, 38, 60].map(windowMs).join(",");
   const bornes = `${STEP_MS}/${DAILY_LENGTH}/${GRACE_ROUNDS}`;
-  return fnv1a(`${r}|${c}|${courbe}|${bornes}`).toString(36);
+  // La LOI DE TIRAGE : depuis le catalogue 3, jamais deux pièges d'affilée
+  // (`buildRound`, `apresPiege`). Elle change les manches sans toucher à une
+  // seule consigne : il faut donc la nommer, sinon la retirer un jour
+  // laisserait la version intacte sur des runs devenus incomparables.
+  const tirage = "sans-double-piege";
+  return fnv1a(`${r}|${c}|${courbe}|${bornes}|${tirage}`).toString(36);
 }
 
 /**

@@ -118,6 +118,7 @@ import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
 import { composePhrase, poseDebout, tp } from "./i18n";
+import { CATALOGUE_SOLO } from "./engine/instructions";
 import { ECRITS } from "./i18n-parcours";
 import type { CleEcrite } from "./i18n-parcours";
 import {
@@ -4605,19 +4606,27 @@ function fermeTuto(): void {
   hud.clearRound();
 }
 
+/** Après un temps réussi : le suivant, ou la fin du tutoriel. */
+function apresTemps(): void {
+  if (!tuto) return;
+  if (tuto.temps < TEMPS_JOUES.length) joueTemps((tuto.temps + 1) as Temps);
+  else finitOnboarding(false);
+}
+
 /**
  * Un clic pendant un temps.
  *
- * Temps 1 : seul le bleu est juste. Temps 2 et 3 : la consigne est un piège,
- * donc TOUT clic est une faute — y compris celui qu'elle demande.
+ * Temps d'obéissance (1 et 3) : seule la cible est juste. Temps 2 : la
+ * consigne est un piège, donc TOUT clic est une faute — y compris celui
+ * qu'elle demande.
  */
 function tutoClic(idx: number | null): void {
   if (!tuto?.manche || tuto.rate) return;
   const m = tuto.manche;
   const verdict = jugeClic(m, idx);
-  if (tuto.temps === 1 && verdict === "juste") {
+  if (m.cible !== null && verdict === "juste") {
     sfx.success(1);
-    reussitTemps("bien", () => joueTemps(2));
+    reussitTemps("bien", apresTemps);
     return;
   }
   sfx.fail();
@@ -4637,7 +4646,7 @@ function majTuto(now: number): void {
   }
   if (!tuto.manche || tuto.rate) return;
   if (now - tuto.debut < tuto.manche.round.durationMs) return;
-  if (tuto.temps === 1) {
+  if (tuto.manche.cible !== null) {
     // La moitié des morts réelles sont des dépassements de temps : la première
     // rencontre avec l'horloge se fait ici, et elle la NOMME.
     sfx.fail();
@@ -4646,8 +4655,7 @@ function majTuto(now: number): void {
   }
   // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
   sfx.trapAvoided();
-  if (tuto.temps === 2) reussitTemps("piege", () => joueTemps(3));
-  else reussitTemps("piege", () => finitOnboarding(false));
+  reussitTemps("piege", apresTemps);
 }
 
 /**
@@ -4852,7 +4860,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     ruleId,
     inputs: log,
     capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
-    catalogue: 2,
+    catalogue: CATALOGUE_SOLO,
     opponentScore: ranked?.opponent?.score,
     opponentRating: ranked?.opponent?.rating,
   });
@@ -5102,7 +5110,7 @@ function finishRun(): void {
       valeur2: duree,
       // Les MÊMES critères que `regleJouableIci` et que le tirage de `Session`.
       capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
-      catalogue: 2,
+      catalogue: CATALOGUE_SOLO,
     });
     /*
      * Le run qui vient de finir a pu prendre la tête du classement : la valeur

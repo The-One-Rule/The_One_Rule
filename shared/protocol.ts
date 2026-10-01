@@ -652,6 +652,13 @@ export type ServerMsg =
       /** présent uniquement quand la rotation vient d'avoir lieu */
       rules?: Record<string, string>;
       /**
+       * Le tirage de la scène commune (`draftShared`), choisi par le serveur
+       * pour que personne n'enchaîne deux pièges. FACULTATIF : absent = 0,
+       * la manche d'hier. Seulement en consignes ≥ 4, donc seulement vers des
+       * clients qui savent le lire.
+       */
+      tirage?: number;
+      /**
        * Indices déjà consumed (mode coop). FACULTATIF.
        *
        * Absent = aucun. Un client ancien ignore le champ. Sert surtout

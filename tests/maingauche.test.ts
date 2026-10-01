@@ -90,7 +90,12 @@ describe("en partie", () => {
 
   it("hors échauffement, elle tuait déjà — et elle tue toujours", () => {
     const s = partie();
-    for (let i = 0; i < GRACE_ROUNDS + 1; i++) s.tick(999_999 * (i + 1));
+    // On laisse filer les manches d'ÉCHAUFFEMENT seulement. Il en laissait
+    // filer une de plus, hors échauffement : le run ne survivait que parce
+    // que sa graine tirait là une manche sans geste (« NE FAIS RIEN » ou un
+    // piège). Retirée au catalogue 3, la manche tuait au temps — le test
+    // passait par chance (§11).
+    for (let i = 0; i < GRACE_ROUNDS; i++) s.tick(999_999 * (i + 1));
     expect(s.inGrace).toBe(false);
     expect(s.phase, "le run doit encore tourner").toBe("playing");
     expect(s.input({ kind: "release", key: " " }, 100).kind).toBe("death");

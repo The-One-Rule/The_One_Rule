@@ -11,7 +11,7 @@
 import { ONE_RULES } from "../src/engine/rules";
 import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
-import { applyRule, draftShared, poolMulti } from "../src/engine/multiround";
+import { applyRule, draftShared, poolMulti, tirageSansDoublePiege } from "../src/engine/multiround";
 import {
   acteDe,
   draftImposteur,
@@ -209,6 +209,8 @@ export class MatchLogic {
   /** Fenêtre réelle : courbe moteur × speed × tension, bornée par MIN/MAX_ROUND_MS. */
   private roundDurationMs = 0;
   private shared: SharedRound | null = null;
+  /** Le tirage de la manche ouverte (`tirageSansDoublePiege`) — 0 hors version 4. */
+  tirage = 0;
   private states = new Map<string, PlayerRoundState>();
 
   /**
@@ -477,13 +479,33 @@ export class MatchLogic {
   }
 
   /** Ouvre la manche suivante. Retourne sa durée (le serveur fixe l'échéance). */
-  openRound(): { idx: number; durationMs: number } {
+  openRound(): { idx: number; durationMs: number; tirage: number } {
+    // Qui sort d'un piège : lu AVANT d'effacer les états de la manche close.
+    const sortants = new Set<string>();
+    for (const [id, st] of this.states) if (st.round.trap) sortants.add(id);
     this.roundIdx++;
-    this.shared = this.imposteur && this.regleCommune
-      ? draftImposteur(this.seed, this.roundIdx, this.regleCommune, poolMulti(this.clavier, this.consignes))
-      : draftShared(this.seed, this.roundIdx, poolMulti(this.clavier, this.consignes));
-    this.states.clear();
     const rules = this.rulesAt(this.roundIdx);
+    const pool = poolMulti(this.clavier, this.consignes);
+    /*
+     * JAMAIS DEUX PIÈGES D'AFFILÉE (version 4) : le serveur, qui connaît toutes
+     * les règles, choisit le tirage ; le client le reçoit dans `round` et
+     * n'a rien à décider. Hors version 4 le tirage reste 0, c'est-à-dire la
+     * manche d'hier — un client qui ne connaît pas le champ reconstruit juste.
+     * L'imposteur force ses propres pièges et n'y entre pas.
+     */
+    this.tirage =
+      this.consignes >= 4 && !this.imposteur
+        ? tirageSansDoublePiege(
+            this.seed,
+            this.roundIdx,
+            pool,
+            this.alive.filter((x) => sortants.has(x.id)).map((x) => rules.get(x.id)!),
+          )
+        : 0;
+    this.shared = this.imposteur && this.regleCommune
+      ? draftImposteur(this.seed, this.roundIdx, this.regleCommune, pool)
+      : draftShared(this.seed, this.roundIdx, pool, this.tirage);
+    this.states.clear();
     for (const s of this.alive) {
       // Un absent n'a pas d'état : closeRound le verra donc « idle », sans
       // perte de vie ni rupture de série. C'est ce qui rend le sursis de
@@ -519,7 +541,7 @@ export class MatchLogic {
             ),
           ),
         );
-    return { idx: this.roundIdx, durationMs: this.roundDurationMs };
+    return { idx: this.roundIdx, durationMs: this.roundDurationMs, tirage: this.tirage };
   }
 
   /**

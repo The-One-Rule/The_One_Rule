@@ -183,6 +183,8 @@ type MatchState = {
   clavier: boolean;
   /** Le jeu de consignes du match, REÇU du serveur. Absent = 1. Voir `poolMulti`. */
   consignes: number;
+  /** Le tirage de la manche en cours, choisi par le serveur (absent = 0). */
+  tirage: number;
   phase: "countdown" | "round" | "frozen" | "observe";
   firstRoundAt: number;
   /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
@@ -1472,7 +1474,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     match.rule = rule;
-    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes));
+    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes), match.tirage);
     hud.setRule(rule);
   }
 
@@ -2149,6 +2151,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // Même doctrine : un serveur ancien ne l'envoie pas, et le client
       // retombe sur le catalogue que ce serveur sait juger.
       consignes: typeof msg.consignes === "number" ? msg.consignes : 1,
+      tirage: 0,
       phase: "countdown",
       firstRoundAt: msg.firstRoundAt,
       countSec: -1,
@@ -2235,6 +2238,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
 
     match.idx = msg.idx;
+    // ⚠️ AVANT toute reconstruction : la scène, la fenêtre commune et la
+    // kill-cam de cette manche lisent toutes ce tirage.
+    match.tirage = typeof msg.tirage === "number" && msg.tirage > 0 ? Math.floor(msg.tirage) : 0;
     musicApi.level(msg.idx);
     match.startAt = msg.startAt;
     match.deadline = msg.deadline;
@@ -2278,7 +2284,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * pour fatal (décision n°3). Le serveur, lui, rapporte bien la fenêtre
      * personnelle à la manche COMMUNE ; on lit donc la même chose que lui.
      */
-    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier, match.consignes)).durationMs;
+    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier, match.consignes), match.tirage).durationMs;
     match.spanFactor = match.round && commune > 0 ? match.round.durationMs / commune : 1;
     renderPlates();
     syncFooter();
@@ -2439,6 +2445,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           match.idx,
           focusRule,
           poolMulti(match.clavier, match.consignes),
+          match.tirage,
         );
         const elim = pauseMs > 3500;
         showKillCam(victims, focusRule, focusRound, elim, alive.length);

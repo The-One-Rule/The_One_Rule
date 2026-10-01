@@ -67,6 +67,18 @@ export function buildRound(
    * prétend entraîner.
    */
   forcePiege: (level: number) => boolean = (l) => FORCED_TRAP_ROUNDS.has(l),
+  /**
+   * LA MANCHE PRÉCÉDENTE ÉTAIT UN PIÈGE — catalogue solo 3 et au-delà.
+   *
+   * Directive de Pierre (01/10) : deux consignes d'affilée ne demandent jamais
+   * de ne rien faire. On retire donc la consigne tant qu'elle piège (64
+   * essais au plus, comme le forçage), et le forçage cède : un piège naturel
+   * à la manche 1 dispense la manche 2 de son piège garanti.
+   *
+   * ⚠️ FAUX PAR DÉFAUT, et le rejeu d'un run de catalogue 1 ou 2 ne le passe
+   * jamais : sans ce paramètre, le flux du RNG est exactement celui d'avant.
+   */
+  apresPiege = false,
 ): Round {
   /*
    * Piège garanti sur les manches d'ouverture.
@@ -82,20 +94,21 @@ export function buildRound(
    * et le multijoueur restent valides. Les manches choisies tombent pendant
    * l'échauffement : le joueur découvre le piège en le ratant, sans être puni.
    */
-  const wantsTrap = rule.traps && forcePiege(level);
+  const wantsTrap = rule.traps && forcePiege(level) && !apresPiege;
+  const refusePiege = apresPiege;
   let instr!: Instruction;
   let draft!: ReturnType<Instruction["gen"]>;
   let ents!: Entity[];
   let want!: Want;
   let trap = false;
 
-  for (let attempt = 0; attempt < (wantsTrap ? 64 : 1); attempt++) {
+  for (let attempt = 0; attempt < (wantsTrap || refusePiege ? 64 : 1); attempt++) {
     instr = pickInstruction(rng, level, pool);
     draft = instr.gen(rng, level);
     ents = place(rng, draft.specs);
     want = draft.wantFrom ? draft.wantFrom(ents) : draft.want;
     trap = rule.forbids(want, ents);
-    if (trap || !wantsTrap) break;
+    if (refusePiege ? !trap : trap || !wantsTrap) break;
   }
 
   const steps = trap ? [] : compile(want);

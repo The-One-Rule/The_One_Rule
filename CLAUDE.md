@@ -775,6 +775,47 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### « NE FAIS RIEN » retiré, et jamais deux pièges d'affilée (01/10/2026)
+
+Directive de Pierre : « garde la courbe de temps actuelle, supprime les
+consignes "ne rien faire" et fais en sorte que deux consignes ne puissent
+jamais demander à la fois de ne rien faire ». La courbe (`windowMs`) n'a pas
+bougé.
+
+- **SOLO — catalogue 3** (`CATALOGUE_SOLO`, annoncé dans chaque
+  revendication) : `INSTRUCTIONS_SOLO` sans `CONSIGNES_RIEN`, et
+  `buildRound(…, apresPiege)` retire la consigne tant qu'elle piège quand la
+  manche d'avant en était un (le piège forcé cède). `Session` passe la manche
+  précédente ; `verifyRun` rejoue chaque run sur SON catalogue (1, 2 =
+  `INSTRUCTIONS_SOLO_V2`, 3). ⚠️ **`VERSION_CONTENU` 1h63n7k → `bi44iq`** :
+  records d'entraînement affichés repartis d'une clé neuve, classement du
+  jour du déploiement coupé en deux. La loi de tirage est NOMMÉE dans
+  `calculeVersion` : elle change les manches sans toucher une consigne.
+- **Le tutoriel** enchaînait deux pièges (temps 2 et 3) : le temps 3 est
+  devenu une REPRISE — obéir de nouveau, un carré rouge à côté du carré bleu
+  demandé, 6 s.
+- **MULTI — version 4** (`CONSIGNES_VERSION`). La consigne est COMMUNE et la
+  règle PERSONNELLE : retirer un piège pour un joueur change la manche de
+  tous. C'est donc le SERVEUR qui choisit : `tirageSansDoublePiege` essaie
+  `draftShared(…, tirage)` 0, 1, 2… et garde le premier où aucun joueur
+  vivant sortant d'un piège n'en reçoit un second ; le numéro voyage dans
+  `round.tirage` (absent = 0 = la manche d'hier). Le client n'a rien à
+  décider, donc rien sur quoi diverger (n°3). `TIRAGES_MAX` = 32, mesuré :
+  à 8, 17 enchaînements sur 2400 manches à six règles piégeuses ; à 32,
+  aucun. L'imposteur n'y entre pas (il force ses pièges). Les quatre
+  combinaisons de déploiement retombent sur la version 3 tant qu'un côté
+  l'ignore — rien n'oblige à déployer Fly d'abord ici, mais rien ne vit
+  avant que les DEUX soient en ligne.
+- ⚠️ **L'e2e n'a vu AUCUN tirage retiré** sur son scénario (0 sur 13
+  manches, 3 pièges) : le trajet du fil avec `tirage > 0` est prouvé par
+  `tests/sans-double-piege.test.ts` (`MatchLogic` → `draftShared`), pas de
+  bout en bout. L'assertion « aucune faute de reconstruction » le verrait.
+- **Taux de pièges** remesurés enchaînés (comme `Session` joue) : tous
+  baissent de 2 à 5 points, LA POINTE 27,2 → 22,6 % (`TAUX_PIEGE`).
+- Deux tests passaient par chance et l'ont montré : `maingauche` laissait
+  expirer une manche HORS échauffement que sa graine rendait sans geste ;
+  `pause-echauffement` ne savait jouer qu'un clic simple.
+
 ### LOT A de la maquette : l'arrivée 1a, le tutoriel sans indice, l'échauffement annoncé (01/10/2026)
 
 Maquette de Claude Design rapportée par Pierre, lots A à D proposés et

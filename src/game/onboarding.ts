@@ -10,8 +10,8 @@
  *
  *   1. OBÉIR — une consigne compatible, chrono large (9 s) ;
  *   2. RÉSISTER — un piège, qu'on gagne en laissant passer le temps ;
- *   3. RÉSISTER ENCORE — un second piège, sous une consigne qui a l'air plus
- *      légitime, qu'on gagne de la même façon : en ne faisant rien.
+ *   3. REPRENDRE — obéir de nouveau, un carré rouge à côté de la cible : on
+ *      n'enchaîne jamais deux pièges (directive de Pierre, 01/10).
  *
  * (Le temps 3 enseignait DÉJOUER, la touche F qui concluait un piège tout de
  * suite. Le raccourci est retiré : il remplaçait « ne rien faire » par
@@ -208,35 +208,42 @@ export function manchePiege(): MancheTuto {
 }
 
 /**
- * TEMPS 3 — le second piège, qu'on tient jusqu'au bout comme le premier.
- *
- * Une autre scène et une autre consigne que le temps 2 : s'il revoyait la même,
- * le joueur apprendrait une position, pas un geste. Le rouge est cette fois un
- * CARRÉ désigné par sa forme ET sa couleur — la consigne a l'air plus précise,
- * donc plus légitime, et c'est ce qui fait un piège.
+ * Le chrono de la REPRISE : six secondes, entre les neuf de la découverte et
+ * les quatre de la première vraie manche — le cadre se resserre déjà.
  */
-export function mancheSecondPiege(): MancheTuto {
+export const CHRONO_REPRISE_MS = 6000;
+
+/**
+ * TEMPS 3 — LA REPRISE : on obéit de nouveau, juste après le piège.
+ *
+ * ⚠️ C'ÉTAIT UN SECOND PIÈGE, et la directive de Pierre (01/10) l'interdit :
+ * « deux consignes ne peuvent jamais demander à la fois de ne rien faire ».
+ * Deux pièges d'affilée apprenaient d'ailleurs la mauvaise leçon — qu'après
+ * une retenue, on se retient encore. Ici la consigne est légitime et un CARRÉ
+ * ROUGE est posé à côté de la cible, de la même forme : le doigt qui vient de
+ * se retenir doit agir, et viser juste.
+ */
+export function mancheReprise(): MancheTuto {
   const ents = [
-    piece(0, 4, 0, "carre", "garance"),
-    piece(1, 1, 2, "carre", "azur"),
+    piece(0, 1, 2, "carre", "azur"),
+    piece(1, 3, 2, "carre", "garance"),
     piece(2, 0, 0, "rond", "jade"),
-    piece(3, 3, 2, "triangle", "garance", "S"),
-    piece(4, 2, 1, "rond", "ambre", "L"),
+    piece(3, 4, 0, "triangle", "ambre", "S"),
+    piece(4, 2, 1, "rond", "garance", "L"),
   ];
   return {
     round: {
-      instructionId: "tutoSecondPiege",
-      text: "CLIQUE LE CARRÉ ROUGE",
-      phrase: { cle: "clicFormeCouleur", forme: "carre", couleur: "garance" },
-      colorWord: "garance",
+      instructionId: "tutoReprise",
+      text: "CLIQUE LE CARRÉ BLEU",
+      phrase: { cle: "clicFormeCouleur", forme: "carre", couleur: "azur" },
+      colorWord: "azur",
       ents,
       steps: [{ kind: "click", idx: 0 }],
-      trap: true,
-      originalWant: { kind: "click", idx: 0 },
-      durationMs: CHRONO_PIEGE_MS,
+      trap: false,
+      durationMs: CHRONO_REPRISE_MS,
     },
-    cible: null,
-    interdite: 0,
+    cible: 0,
+    interdite: 1,
   };
 }
 
@@ -244,7 +251,7 @@ export function mancheSecondPiege(): MancheTuto {
 export function mancheDe(temps: Temps): MancheTuto {
   if (temps === 1) return mancheDecouverte();
   if (temps === 2) return manchePiege();
-  return mancheSecondPiege();
+  return mancheReprise();
 }
 
 /** Ce que vaut un clic pendant un temps joué. */
