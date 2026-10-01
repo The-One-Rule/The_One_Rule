@@ -13,7 +13,6 @@ import {
   appliqueLangue,
   estLang,
   etatSolo,
-  TEXTES,
   CHAINES,
   DYNAMIQUES,
   langueDuNavigateur,
@@ -86,16 +85,8 @@ describe("appliqueLangue", () => {
     const carteAvant = document.getElementById("profJour")!.querySelectorAll("span").length;
     appliqueLangue(document, "en");
     expect(document.documentElement.lang).toBe("en");
-    /*
-     * L'accroche a pris la forme de la maquette : deux propositions, un saut
-     * de ligne, et la derniere en accent. Ce que le test garde, c'est ce qui
-     * compte — elle passe bien a l'anglais, et elle porte toujours sa SECONDE
-     * ligne en `<span>`, qui est le seul morceau que le style colore.
-     */
-    expect(document.getElementById("ledeHome")!.innerHTML).toBe(TEXTES.en.ledeHtml);
-    // L'accroche du nouvel accueil : trois temps, le dernier en `<em>` — le
-    // seul morceau que le style met en accent.
-    expect(document.getElementById("ledeHome")!.querySelectorAll("em").length).toBe(1);
+    // L'accroche de l'arrivée (maquette 1a) : une phrase, traduite.
+    expect(document.getElementById("ledeHome")!.textContent).toBe("Sometimes, obeying is the mistake.");
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("SETTINGS");
     expect(document.getElementById("btnLangEn")!.getAttribute("aria-pressed")).toBe("true");
     expect(document.getElementById("btnLangFr")!.getAttribute("aria-pressed")).toBe("false");
@@ -111,7 +102,7 @@ describe("appliqueLangue", () => {
   it("le français restaure le texte d'origine", () => {
     appliqueLangue(document, "fr");
     expect(document.documentElement.lang).toBe("fr");
-    expect(document.getElementById("ledeHome")!.innerHTML).toContain("obéir est la faute");
+    expect(document.getElementById("ledeHome")!.textContent).toBe("Parfois, obéir est l'erreur.");
     expect(document.getElementById("btnTopReglages")!.textContent).toBe("RÉGLAGES");
     expect(document.getElementById("btnLangFr")!.classList.contains("is-on")).toBe(true);
   });

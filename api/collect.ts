@@ -55,6 +55,7 @@ export const ALLOWED = new Set([
   "onb_start",
   "onb_done",
   "onb_skip",
+  "onb_rate",
   "compte_invite",
   "compte_start",
   "compte_lie",

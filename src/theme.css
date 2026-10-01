@@ -51,6 +51,10 @@
   /* L'or : un texte sur fond miel, et le fond miel d'une réussite. */
   --or: #b5820c;
   --or-fond: #fff1b8;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
 
   --r-s: 10px;
   --r-m: 16px;
@@ -102,6 +106,10 @@
   --lilas: #342a5c;
   --or: #f5c542;
   --or-fond: #3d3217;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -130,6 +138,10 @@
     --lilas: #342a5c;
     --or: #f5c542;
     --or-fond: #3d3217;
+    /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+    --pancarte: #b6a8ff;
+    --pancarte-encre: #241b3a;
+    --pancarte-clair: #fffbf3;
   }
 }
 
@@ -174,6 +186,10 @@
   --ombre-c: #000000;
   --or: #ffd23f;
   --or-fond: #2b2111;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
   --surface: #140e2b;
   --creme: #1a1236;
   --rose: #3a1233;
@@ -200,6 +216,10 @@
   --ombre-c: #5a2243;
   --or: #b5820c;
   --or-fond: #fff1c2;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
   --surface: #fff7fb;
   --creme: #ffeff6;
   --rose: #ffd2e6;
@@ -229,6 +249,10 @@
   --ombre-c: #05060f;
   --or: #f5c542;
   --or-fond: #2e2a12;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
   --surface: #1d2240;
   --creme: #232a4f;
   --rose: #3b1f3a;
@@ -258,6 +282,10 @@
   --ombre-c: #0b140f;
   --or: #f2d675;
   --or-fond: #2f3319;
+  /* pancartes du tutoriel : mêmes valeurs partout, posées sur leur propre fond */
+  --pancarte: #b6a8ff;
+  --pancarte-encre: #241b3a;
+  --pancarte-clair: #fffbf3;
   --surface: #22392e;
   --creme: #274233;
   --rose: #3e2b2e;
@@ -1414,9 +1442,9 @@ body {
   }
 }
 
-/* Un visiteur neuf n'a qu'un geste à faire : pas de barre de navigation. La
-   fin de niveau non plus — elle a sa propre suite, et une seule. */
-#app:has(#home.is-neuf:not(.hidden)) .nav,
+/* La fin de niveau n'a pas de barre : elle a sa propre suite, et une seule.
+   ⚠️ L'accueil NEUF la garde désormais — directive de Pierre : la navigation
+   reste à sa place habituelle, rien n'est verrouillé derrière le tutoriel. */
 #app:has(#niveau:not(.hidden)) .nav {
   display: none;
 }
@@ -4447,5 +4475,596 @@ body {
   #brief > .screen__scroll > #briefPace,
   #fiche > .screen__scroll > #ficheMaitrise {
     break-before: column;
+  }
+}
+
+/* ==================================================================
+   L'ARRIVÉE — maquette 1a, choisie par Pierre
+
+   Un visiteur neuf voit UNE démo écrite (obéir au bleu, renoncer au rouge),
+   une phrase, JOUER, et « J'ai un code de salon ». L'ancien mode attract —
+   une vraie partie sous une règle tirée au sort, plein écran — est éteint :
+   mesuré à 390 × 844, il montrait LA POINTE sans un seul piège, la consigne
+   peinte sur les pièces et sa dernière ligne mordant le cadre.
+
+   ⚠️ Les teintes des pièces sont écrites EN DUR ici, contre la règle des
+   jetons : ce sont les invariants du jeu (calibrage daltonien), elles ne
+   changent ni la nuit ni sous un plateau — un jeton laisserait croire
+   qu'elles peuvent.
+   ================================================================== */
+#home.is-neuf .attract,
+#home.is-neuf .home__regle,
+#home.is-neuf .home__consigne,
+#home.is-neuf .home__demo {
+  display: none;
+}
+
+/* ⚠️ Centré par `margin: auto` sur l'enfant, JAMAIS par `justify-content` :
+   mesuré au bureau, le centrage flex poussait le haut de la démo sous la barre
+   (décision n°6). */
+#app.has-topbar #home.is-neuf .screen__scroll.home {
+  display: flex;
+  flex-direction: column;
+  max-width: 1120px;
+  min-height: 0;
+  margin: auto;
+  padding: 18px 16px 120px;
+}
+
+#home .home__centre.bienvenue {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 26px;
+  width: 100%;
+  max-width: 440px;
+  margin: auto;
+  text-align: left;
+}
+
+#home .home__centre.bienvenue.hidden {
+  display: none;
+}
+
+.vitrine {
+  width: 100%;
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: 26px;
+  box-shadow: 5px 6px 0 var(--ombre-c);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vitrine__regle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border: var(--trait) solid var(--encre);
+  border-radius: 16px;
+  background: var(--ink-2);
+}
+
+.vitrine__interdit {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: var(--trait) solid var(--encre);
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, transparent 44%, var(--encre) 44%, var(--encre) 56%, transparent 56%),
+    radial-gradient(circle, #f74058 0 5px, transparent 5.5px);
+}
+
+.vitrine__regletxt {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+}
+
+.vitrine__regletxt small {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.vitrine__regletxt b {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--encre);
+}
+
+/* Hauteur FIXE : la consigne et le badge alternent sans faire sauter le
+   terrain (décision n°17, vraie jusque dans la vitrine). */
+.vitrine__haut {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.vitrine__consigne {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 21px;
+  color: var(--encre);
+}
+
+.vitrine__badge {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: max-content;
+  height: 34px;
+  display: none;
+  align-items: center;
+  padding: 0 16px;
+  border: var(--trait) solid var(--encre);
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--encre);
+  box-shadow: 3px 4px 0 var(--ombre-c);
+}
+
+.vitrine__badge.is-bien {
+  display: flex;
+  background: var(--menthe);
+}
+
+.vitrine__badge.is-piege {
+  display: flex;
+  background: var(--lilas);
+}
+
+/* Le badge remplace la consigne, il ne s'y superpose pas. */
+.vitrine__haut:has(.vitrine__badge.is-bien) .vitrine__consigne,
+.vitrine__haut:has(.vitrine__badge.is-piege) .vitrine__consigne {
+  visibility: hidden;
+}
+
+.vitrine__terrain {
+  position: relative;
+  aspect-ratio: 5 / 3;
+  container-type: size;
+  border: var(--trait) solid var(--encre);
+  border-radius: 18px;
+  background: var(--creme);
+  overflow: hidden;
+}
+
+/* L'horloge du jeu : une barre violette qui se vide. */
+.vitrine__chrono {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  height: 6px;
+  background: var(--signal);
+  transform-origin: left center;
+}
+
+.vitrine__piece {
+  position: absolute;
+  width: 17cqw;
+  height: 17cqw;
+  transform: translate(-50%, -50%);
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(2px 3px 0 var(--ombre-c));
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.vitrine__piece--bleu {
+  left: 22%;
+  top: 66%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='17' fill='%23237EF6' stroke='%23241b3a' stroke-width='3'/%3E%3C/svg%3E");
+}
+
+.vitrine__piece--vert {
+  left: 50%;
+  top: 30%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M20 4 37 35H3z' fill='%2340F7C0' stroke='%23241b3a' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.vitrine__piece--rouge {
+  left: 78%;
+  top: 66%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect x='4' y='4' width='32' height='32' rx='6' fill='%23F74058' stroke='%23241b3a' stroke-width='3'/%3E%3C/svg%3E");
+}
+
+.vitrine__piece--bleu.is-pris {
+  transform: translate(-50%, -50%) scale(0.2);
+  opacity: 0;
+}
+
+/* Manche piégée : le rouge, demandé, tremble à peine — il appelle le doigt. */
+.vitrine.is-piege .vitrine__piece--rouge {
+  animation: vitrineAppat 0.9s steps(2) infinite;
+}
+
+@keyframes vitrineAppat {
+  50% {
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+}
+
+.vitrine__main {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 26px;
+  height: 30px;
+  margin: -2px 0 0 -11px;
+  pointer-events: none;
+}
+
+.vitrine__main svg {
+  width: 100%;
+  height: 100%;
+  fill: var(--surface);
+  stroke: var(--encre);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transition: transform 0.1s ease;
+  transform-origin: 40% 10%;
+}
+
+.vitrine__main.is-appui svg {
+  transform: scale(0.86);
+}
+
+.vitrine__appel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+
+#home .vitrine__appel .bienvenue__titre {
+  font-size: clamp(30px, 8vw, 54px);
+  line-height: 1.02;
+  text-align: left;
+}
+
+.vitrine__code {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 12px;
+  background: none;
+  border: 0;
+  font-family: var(--body, inherit);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--encre);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vitrine.is-piege .vitrine__piece--rouge {
+    animation: none;
+  }
+}
+
+/* Au bureau : la phrase et le bouton à gauche, la démo en grand à droite —
+   l'œil va de l'image au bouton. */
+@media (min-width: 900px) {
+  #home .home__centre.bienvenue {
+    max-width: 1080px;
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    /* ⚠️ Battre `#home .home__centre.bienvenue` et ses cinq rangées héritées
+       de l'ancien accueil : la rangée 1 y valait `minmax(0, 1fr)`, et la démo
+       centrée dedans débordait de 70 px sous la barre (mesuré). */
+    grid-template-rows: auto;
+    align-items: center;
+    gap: 56px;
+  }
+
+  #home .home__centre.bienvenue > .vitrine {
+    grid-column: 2;
+    grid-row: 1;
+    max-width: 540px;
+    justify-self: end;
+  }
+
+  #home .home__centre.bienvenue > .vitrine__appel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .vitrine__appel .vitrine__code {
+    align-self: flex-start;
+    padding: 0;
+  }
+}
+
+/* ==================================================================
+   LE TUTORIEL JOUÉ — maquette 2.1 à 2.6
+
+   Aucun indice : la ligne d'aide n'existe plus que pour les RETOURS
+   (BIEN, PIÈGE DÉJOUÉ), et l'échauffement se voit en trois pastilles.
+   Tout vit hors flux dans `#stage` : `#cv` ne bouge pas (n°10).
+   ================================================================== */
+
+/* Vide, la ligne d'aide ne doit pas peindre une pastille blanche. */
+.tuto__aide:empty {
+  display: none;
+}
+
+.tuto__aide.is-bien,
+.tuto__aide.is-piege {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--encre);
+  padding: 6px 22px;
+  border-radius: 999px;
+  animation: tuto-retour 220ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.tuto__aide.is-bien {
+  background: var(--menthe);
+}
+
+.tuto__aide.is-piege {
+  background: var(--lilas);
+}
+
+/* Le slogan, une fois, sous PIÈGE DÉJOUÉ : c'est le moment où il est vrai. */
+.tuto__aide[data-sous]:not([data-sous=""])::after {
+  content: attr(data-sous);
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+@keyframes tuto-retour {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+.tuto__note:has(.tuto__pastille) {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: 999px;
+}
+
+.tuto__echauffement {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-right: 2px;
+}
+
+.tuto__pastille {
+  display: block;
+  width: 13px;
+  height: 13px;
+  border: var(--trait) solid var(--encre);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.tuto__pastille.is-faite {
+  background: var(--signal);
+}
+
+/* La courante à demi-teinte : du lilas pur ne se distinguait pas du blanc
+   (mesuré à l'écran, 390 × 844). */
+.tuto__pastille.is-courante {
+  background: color-mix(in srgb, var(--signal) 45%, var(--surface));
+}
+
+/* ---- RATÉ (2.4) : une phrase, la consigne, ce qu'il fallait faire ---- */
+.tutorate {
+  /* PLEIN ÉCRAN, bandeau et pied compris : la partie est SUSPENDUE, et au
+     bureau `#stage` commence sous la consigne — un calque limité à lui
+     laissait une bande de terrain vide au-dessus (vu à 1440 × 900). */
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  padding: 16px;
+  overflow-y: auto;
+  background-color: var(--rouge);
+  background-image: radial-gradient(color-mix(in srgb, var(--ombre-c) 16%, transparent) 1.4px, transparent 1.7px);
+  background-size: 22px 22px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tutorate.hidden {
+  display: none;
+}
+
+.tutorate__carte {
+  /* centré par la marge, jamais par `justify-content` (n°6) */
+  margin: auto;
+  width: min(100%, 460px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--pancarte-encre);
+  animation: relance-entre 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.tutorate__eyebrow {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 0.04em;
+}
+
+.tutorate__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(28px, 8vw, 40px);
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.tutorate__preuve {
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre);
+}
+
+.tutorate__quoi {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+.tutorate__val {
+  margin: 2px 0 10px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.1;
+}
+
+.tutorate__val:last-child {
+  margin-bottom: 0;
+}
+
+.tutorate__btn {
+  width: 100%;
+  min-height: 60px;
+  font-size: 20px;
+}
+
+/* ---- ÉCHAUFFEMENT TERMINÉ (2.6) — entre deux manches ---- */
+.annonce {
+  /* PLEIN ÉCRAN, bandeau et pied compris : la partie est SUSPENDUE, et au
+     bureau `#stage` commence sous la consigne — un calque limité à lui
+     laissait une bande de terrain vide au-dessus (vu à 1440 × 900). */
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 28px;
+  overflow-y: auto;
+  text-align: center;
+  color: var(--pancarte-encre);
+  background: var(--pancarte);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: annonce-entre 200ms ease-out both;
+}
+
+.annonce.hidden {
+  display: none;
+}
+
+/* centré par les marges du premier et du dernier enfant (n°6) */
+.annonce > :first-child {
+  margin-top: auto;
+}
+
+.annonce > :last-child {
+  margin-bottom: auto;
+}
+
+.annonce__barres {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 64px;
+}
+
+.annonce__barres i {
+  display: block;
+  width: 16px;
+  border-radius: 5px;
+  background: var(--pancarte-encre);
+}
+
+.annonce__barres i:nth-child(1) { height: 20%; }
+.annonce__barres i:nth-child(2) { height: 40%; }
+.annonce__barres i:nth-child(3) { height: 60%; }
+
+.annonce__barres i:nth-child(4),
+.annonce__barres i:nth-child(5) {
+  background: var(--pancarte-clair);
+  border: 3px solid var(--pancarte-encre);
+}
+
+.annonce__barres i:nth-child(4) { height: 80%; }
+.annonce__barres i:nth-child(5) { height: 100%; }
+
+.annonce__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(30px, 9vw, 44px);
+  line-height: 1;
+  text-wrap: balance;
+}
+
+.annonce__quoi {
+  margin: 0;
+  max-width: 520px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: clamp(18px, 5vw, 24px);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.annonce__suite {
+  margin: 8px 0 0;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+@keyframes annonce-entre {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tuto__aide.is-bien,
+  .tuto__aide.is-piege,
+  .tutorate__carte,
+  .annonce {
+    animation: none;
+    opacity: 1;
   }
 }

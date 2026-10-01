@@ -302,6 +302,23 @@ export class Session {
     this.roundStart = now;
   }
 
+  /**
+   * UNE PAUSE HORS MANCHE — l'écran « Échauffement terminé » (maquette 2.6).
+   *
+   * Le run est décalé de `ms` : le DÉBUT du run et celui de la manche bougent
+   * ENSEMBLE, donc la manche ouverte reprend avec tout son temps, et le journal
+   * — mesuré depuis `runStart` — ne voit aucun trou. `verifyRun` rejoue donc
+   * exactement la partie qu'on aurait jouée sans pause (testé).
+   *
+   * ⚠️ Seulement entre deux manches, jamais pendant : Pierre avait fait
+   * retirer un plein cadre qui tombait PENDANT une manche.
+   */
+  decale(ms: number): void {
+    if (!(ms > 0)) return;
+    this.runStart += ms;
+    this.roundStart += ms;
+  }
+
   /** Temps écoulé depuis le début du run — repère du duel asynchrone. */
   runTime(now: number): number {
     return now - this.runStart;

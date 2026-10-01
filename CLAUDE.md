@@ -775,6 +775,50 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### LOT A de la maquette : l'arrivée 1a, le tutoriel sans indice, l'échauffement annoncé (01/10/2026)
+
+Maquette de Claude Design rapportée par Pierre, lots A à D proposés et
+acceptés. Ses arbitrages, mot pour mot résumés : arrivée **1a** ; l'indice de
+piège de la maquette (hachures autour du terrain) est **trop voyant, non
+gardé** ; nos propres solutions gardées là où elles existaient.
+
+- **LA VITRINE** (`render/vitrine.ts`, pure, testée) remplace le mode attract,
+  qui faisait tourner une vraie `Session` sous une règle TIRÉE AU SORT —
+  mesuré : LA POINTE, sans piège, consigne peinte sur les pièces. C'est une
+  chronologie écrite de 8 s : « CLIQUE LE BLEU » → BIEN, puis « CLIQUE LE
+  ROUGE », la main s'approche, renonce → PIÈGE DÉJOUÉ. Un test exige que la
+  main ne POSE jamais le doigt près du rouge. Peinte par la boucle de jeu
+  (une seule boucle), en DOM + `transform` seulement, figée sous mouvement
+  réduit sur l'instant qui dit tout. Ne paraît qu'à un nouveau venu
+  (`estNouveau`) — la barre du bas reste là, rien n'est verrouillé.
+  ⚠️ Spécificité payée : `#home .home__centre.bienvenue` (1,2,0) battait
+  `#home .bienvenue` et imposait ses rangées `300px 0 0 0 300px` — la vitrine
+  passait sous la barre haute. Les nouvelles règles reprennent le MÊME
+  sélecteur.
+- **LE TUTORIEL** ne donne plus aucune aide écrite : trois pastilles
+  d'ÉCHAUFFEMENT, la manche 1 a un chrono de 9 s (`CHRONO_OBEIS_MS` — la
+  moitié des morts d'une 1re partie sont au temps, le cadre qui se vide se
+  rencontre ici sans danger), BIEN / PIÈGE DÉJOUÉ en pastille, le slogan sous
+  le premier piège déjoué. Une faute ouvre la carte CRAQUÉ (`#tutoRate`) :
+  une phrase, la consigne, ce qu'il fallait, un appui rejoue LA MÊME manche.
+  Les textes écrits par le code vivent dans `ECRITS` (`i18n-parcours.ts`),
+  typés par `CleEcrite` — le dictionnaire statique exige qu'une clé soit
+  posée par `data-i18n`, et c'est un filet qu'on garde.
+- **« ÉCHAUFFEMENT TERMINÉ »** (`#annonce`) remplace le toast « À TOI DE
+  JOUER » : un plein écran ENTRE deux manches, partie SUSPENDUE —
+  `Session.decale(ms)` décale `runStart` ET `roundStart`, donc le journal
+  rejoué par `verifyRun` est identique avec ou sans pause
+  (`tests/pause-echauffement.test.ts`, éprouvé). Ferme au toucher ou à
+  ENTRÉE, jamais à ESPACE (une règle à maintien la tient enfoncée). Aussi
+  servie à la sortie du tutoriel. ⚠️ **Ne pas tiquer ne suffisait pas** : la
+  barre et le seuil critique lisaient l'horloge réelle, la barre se vidait
+  derrière l'annonce (0,94 → 0,05 en 3 s) — tout le bloc de session lit
+  maintenant l'instant de la pause. ⚠️ Les deux calques sont en `position:
+  fixed` : au bureau `#stage` commence sous la consigne, un calque limité à
+  lui laissait une bande de terrain vide au-dessus.
+- `tests/smoke.test.ts` touche l'annonce quand elle paraît et EXIGE qu'elle
+  ait paru pendant le run du jour (éprouvé en la coupant).
+
 ### Les salons plantaient en boucle, et la session durait un jour (30/09/2026)
 
 Rapporté par Pierre : « impossible de créer un salon pendant plusieurs

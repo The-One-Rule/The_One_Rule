@@ -8,7 +8,7 @@
  * maintenant EN UNE LIGNE, sous le terrain, au moment où le joueur en a besoin.
  * Trois temps, tous sur le vrai terrain :
  *
- *   1. OBÉIR — une consigne compatible, sans chrono ;
+ *   1. OBÉIR — une consigne compatible, chrono large (9 s) ;
  *   2. RÉSISTER — un piège, qu'on gagne en laissant passer le temps ;
  *   3. RÉSISTER ENCORE — un second piège, sous une consigne qui a l'air plus
  *      légitime, qu'on gagne de la même façon : en ne faisant rien.
@@ -79,6 +79,15 @@ export const TEMPS_JOUES: readonly Temps[] = [1, 2, 3];
  */
 export const CHRONO_PIEGE_MS = 3000;
 
+/**
+ * Le chrono de la PREMIÈRE manche : neuf secondes (maquette 2.1).
+ *
+ * Elle était sans chrono. Mais la moitié des morts d'une première partie sont
+ * des dépassements de temps : le cadre qui se vide doit être rencontré ICI,
+ * sans danger, avec tout le temps de comprendre ce qu'il veut dire.
+ */
+export const CHRONO_OBEIS_MS = 9000;
+
 const COLS = 5;
 const ROWS = 3;
 const CELL_W = FIELD_W / COLS;
@@ -132,15 +141,15 @@ export interface MancheTuto {
 }
 
 /**
- * TEMPS 3 — la première action, sans aucun chrono.
+ * TEMPS 1 — la première action, sous un chrono LARGE (9 s).
  *
  * Trois pièces seulement : la cible, une pièce interdite par la règle, et une
  * neutre. La pièce rouge est là exprès alors qu'on ne la demande pas — elle
  * rend la règle VIVANTE avant de la mettre en conflit, et si le joueur clique
  * dessus on peut lui expliquer sa propre erreur plutôt que de compter un raté.
  *
- * `durationMs` est infini : la barre de temps ne descend pas, et rien ne peut
- * conclure la manche à la place du joueur.
+ * Si le cadre se vide, rien ne tue : la carte « Raté » nomme l'horloge et la
+ * manche se rejoue.
  */
 export function mancheDecouverte(): MancheTuto {
   const ents = [
@@ -157,7 +166,7 @@ export function mancheDecouverte(): MancheTuto {
       ents,
       steps: [{ kind: "click", idx: 0 }],
       trap: false,
-      durationMs: Number.POSITIVE_INFINITY,
+      durationMs: CHRONO_OBEIS_MS,
     },
     cible: 0,
     interdite: 1,

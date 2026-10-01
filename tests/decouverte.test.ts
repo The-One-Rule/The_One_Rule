@@ -33,9 +33,12 @@ describe("tout est ouvert dès l'arrivée", () => {
     expect(fn.indexOf("DECOUVERTE_LIBRE")).toBeLessThan(fn.indexOf("chapitresBoucles"));
   });
 
-  it("l'accueil ne se réduit plus à un bouton pour un nouveau venu", () => {
+  it("la vitrine d'un nouveau venu ne masque pas la navigation", () => {
     const fn = corps("function renderHome");
-    expect(fn).toMatch(/const neuf = false;/);
+    expect(fn).toMatch(/const neuf = estNouveau\(\);/);
+    // aucune règle de feuille ne cache la barre du bas sur l'accueil neuf
+    const theme = readFileSync("src/theme.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(theme).not.toMatch(/is-neuf[^{]*\.nav[^{]*\{[^}]*display:\s*none/);
   });
 });
 
@@ -49,9 +52,10 @@ describe("le tutoriel est la première partie, puis la partie choisie", () => {
 
   it("à la sortie — terminé OU passé — on y conduit le joueur", () => {
     const fn = corps("function finitOnboarding");
-    const voulu = fn.indexOf("openBrief(voulu)");
-    expect(voulu).toBeGreaterThan(-1);
-    // avant la branche PASSER : sauter le tutoriel ne coûte pas la partie voulue
-    expect(voulu).toBeLessThan(fn.indexOf("if (passe)"));
+    // terminé : l'annonce de fin d'échauffement, puis la partie voulue
+    expect(fn).toContain("montreAnnonce(() => suiteDuTutoriel(voulu))");
+    expect(corps("function suiteDuTutoriel")).toContain("openBrief(voulu)");
+    // passé : sauter le tutoriel ne coûte pas la partie voulue
+    expect(fn).toMatch(/if \(voulu\) \{[\s\S]*?openBrief\(voulu\)/);
   });
 });

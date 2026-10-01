@@ -116,9 +116,22 @@ function pump(ms: number, step = 16): void {
  * CONDITION ne l'encode pas — et le plafond, très large, ne sert qu'à ne pas
  * boucler indéfiniment si le run ne se termine jamais.
  */
+let annoncesVues = 0;
+
 function pumpJusqua(pret: () => boolean, quoi: string, maxMs = 120000): void {
   for (let t = 0; t < maxMs; t += 16) {
     if (pret()) return;
+    /*
+     * L'annonce de FIN D'ÉCHAUFFEMENT suspend la partie jusqu'à un appui
+     * (maquette 2.6) : un joueur la touche, on la touche. Sans ça la boucle
+     * tournerait à vide jusqu'au plafond — c'est d'ailleurs la panne qu'on
+     * obtiendrait si l'annonce ne se refermait plus.
+     */
+    const annonce = document.getElementById("annonce");
+    if (annonce && !annonce.classList.contains("hidden")) {
+      annoncesVues++;
+      annonce.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+    }
     pump(16);
   }
   throw new Error(`la boucle n'a jamais atteint : ${quoi} (après ${maxMs} ms simulées)`);
@@ -178,10 +191,13 @@ describe("application", () => {
       document.getElementById("brief")!.classList.contains("hidden"),
       "…et pas directement sur l'annonce de la règle",
     ).toBe(true);
-    // Le premier temps dit la RÈGLE en jouant : elle est au bandeau, et la
-    // ligne d'aide la rappelle.
+    // Le premier temps dit la RÈGLE en jouant : elle est au bandeau. Aucune
+    // ligne d'aide (maquette 2.1 : pas d'indice), mais l'échauffement se VOIT
+    // — trois pastilles, la première en cours.
     expect(document.getElementById("bandRule")!.textContent!.length).toBeGreaterThan(2);
-    expect(document.getElementById("tutoAide")!.textContent!.length).toBeGreaterThan(8);
+    expect(document.getElementById("tutoAide")!.textContent).toBe("");
+    expect(document.querySelectorAll("#tutoNote .tuto__pastille").length).toBe(3);
+    expect(document.querySelectorAll("#tutoNote .tuto__pastille.is-courante").length).toBe(1);
 
     // PASSER remet le joueur sur l'accueil sans rien casser, et le marque comme
     // ayant vu l'arrivée : le reste du parcours redevient celui d'un habitué.
@@ -267,6 +283,7 @@ describe("application", () => {
     // brûler un des trois essais. L'annonce vient ensuite.
     document.getElementById("profJour")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     document.getElementById("btnDaily")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    annoncesVues = 0;
     window.dispatchEvent(new KeyboardEvent("keydown", { key: " " }));
     document.getElementById("btnGo")!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     // Le battement de lecture d'abord, le run ensuite — et là encore on attend
@@ -277,6 +294,8 @@ describe("application", () => {
         !document.getElementById("relance")!.classList.contains("hidden"),
       "la fin du run du jour",
     );
+    // Le run du jour a trois manches d'échauffement : leur fin s'est ANNONCÉE.
+    expect(annoncesVues, "l'annonce de fin d'échauffement n'a jamais paru").toBeGreaterThan(0);
     /*
      * LA CARTE DE RELANCE passe devant l'écran de fin quand il n'a rien à
      * donner (`render/relance.ts`) : il reste deux essais, donc elle y a droit.

@@ -11,8 +11,17 @@ import type { NiveauId } from "./game/parcours";
 
 export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
   fr: {
-    "bienvenue.eyebrow": "UN JEU DE RÉFLEXES, AVEC UN PIÈGE",
     "bienvenue.jouer": "JOUER",
+    "tuto.consigne": "LA CONSIGNE",
+    "tuto.fallait": "IL FALLAIT",
+    "tuto.rejouer": "REJOUER LA MANCHE",
+    "annonce.titre": "Échauffement terminé",
+    "annonce.quoi": "À partir de maintenant, le cadre se vide plus vite.",
+    "annonce.suite": "TOUCHE POUR CONTINUER",
+    "vitrine.regle": "TA RÈGLE",
+    "vitrine.jamais": "JAMAIS DE ROUGE",
+    "vitrine.titre": "Parfois, obéir est l'erreur.",
+    "vitrine.code": "J'ai un code de salon",
     "prof.libre": "LIBRE",
     "prof.libreNom": "Sans fin, à ton rythme",
     "prof.libreNote": "CHOISIS UNE CARTE · BATS TON RECORD",
@@ -30,8 +39,17 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "boutique.retour": "RETOUR",
   },
   en: {
-    "bienvenue.eyebrow": "A REFLEX GAME WITH A TWIST",
     "bienvenue.jouer": "PLAY",
+    "tuto.consigne": "THE ORDER",
+    "tuto.fallait": "YOU HAD TO",
+    "tuto.rejouer": "PLAY THE ROUND AGAIN",
+    "annonce.titre": "Warm-up over",
+    "annonce.quoi": "From now on, the frame empties faster.",
+    "annonce.suite": "TAP TO CONTINUE",
+    "vitrine.regle": "YOUR RULE",
+    "vitrine.jamais": "NEVER RED",
+    "vitrine.titre": "Sometimes, obeying is the mistake.",
+    "vitrine.code": "I have a room code",
     "prof.libre": "FREE PLAY",
     "prof.libreNom": "Endless, your pace",
     "prof.libreNote": "PICK A CARD · BEAT YOUR RECORD",
@@ -275,5 +293,62 @@ export const PARCOURS: Record<Lang, TextesParcours> = {
     ficheJouer: (c, n) => `PLAY THE CHAPTER · ${c}-${n}`,
     ficheLibre: "FREE PLAY",
     ficheHorsParcours: "This chapter isn't open in your path yet.",
+  },
+};
+
+/**
+ * Les textes que le CODE écrit (tutoriel, vitrine), jamais posés par
+ * `data-i18n`. À part du dictionnaire statique : celui-ci exige que chaque clé
+ * soit posée dans le document, et c'est un bon filet — ici, c'est le TYPE qui
+ * garantit qu'aucune clé ne manque dans une langue.
+ */
+export type CleEcrite =
+  | "tuto.craque"
+  | "tuto.titreInterdit"
+  | "tuto.titreAilleurs"
+  | "tuto.titreTemps"
+  | "tuto.fallaitRien"
+  | "tuto.fallaitBleu"
+  | "tuto.bien"
+  | "tuto.piegeDejoue"
+  | "tuto.slogan"
+  | "tuto.echauffement"
+  | "vitrine.bleu"
+  | "vitrine.rouge"
+  | "vitrine.bien"
+  | "vitrine.piege";
+
+export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
+  fr: {
+    "tuto.craque": "CRAQUÉ · MANCHE",
+    "tuto.titreInterdit": "Ta règle interdit le rouge.",
+    "tuto.titreAilleurs": "Pas celle-là.",
+    "tuto.titreTemps": "Le cadre s'est vidé.",
+    "tuto.fallaitRien": "Ne rien faire : la consigne était un piège.",
+    "tuto.fallaitBleu": "Toucher le bleu, avant que le cadre se vide.",
+    "tuto.bien": "BIEN",
+    "tuto.piegeDejoue": "PIÈGE DÉJOUÉ",
+    "tuto.slogan": "Parfois, obéir est l'erreur.",
+    "tuto.echauffement": "ÉCHAUFFEMENT",
+    "vitrine.bleu": "CLIQUE LE BLEU",
+    "vitrine.rouge": "CLIQUE LE ROUGE",
+    "vitrine.bien": "BIEN",
+    "vitrine.piege": "PIÈGE DÉJOUÉ",
+  },
+  en: {
+    "tuto.craque": "CRACKED · ROUND",
+    "tuto.titreInterdit": "Your rule forbids red.",
+    "tuto.titreAilleurs": "Not that one.",
+    "tuto.titreTemps": "The frame ran out.",
+    "tuto.fallaitRien": "Do nothing: the order was a trap.",
+    "tuto.fallaitBleu": "Touch the blue, before the frame runs out.",
+    "tuto.bien": "NICE",
+    "tuto.piegeDejoue": "TRAP DODGED",
+    "tuto.slogan": "Sometimes, obeying is the mistake.",
+    "tuto.echauffement": "WARM-UP",
+    "vitrine.bleu": "CLICK THE BLUE",
+    "vitrine.rouge": "CLICK THE RED",
+    "vitrine.bien": "NICE",
+    "vitrine.piege": "TRAP DODGED",
   },
 };

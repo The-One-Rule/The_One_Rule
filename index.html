@@ -276,6 +276,34 @@
           <button type="button" class="tuto__passer" id="btnTutoPasser" data-i18n="tuto.passer">SKIP</button>
         </div>
 
+        <!-- RATÉ, PENDANT LE TUTORIEL (maquette 2.4). Une phrase, la consigne,
+             ce qu'il fallait faire ; un appui n'importe où rejoue la MÊME
+             manche. Rien ne tue : on apprend sa règle au moment où elle vient
+             de servir. Hors flux dans `#stage`, comme la carte de relance. -->
+        <div id="tutoRate" class="tutorate hidden" aria-live="assertive">
+          <div class="tutorate__carte">
+            <p class="tutorate__eyebrow" id="tutoRateEyebrow"></p>
+            <p class="tutorate__titre" id="tutoRateTitre"></p>
+            <div class="tutorate__preuve">
+              <p class="tutorate__quoi" data-i18n="tuto.consigne">THE ORDER</p>
+              <p class="tutorate__val" id="tutoRateConsigne"></p>
+              <p class="tutorate__quoi" data-i18n="tuto.fallait">YOU HAD TO</p>
+              <p class="tutorate__val" id="tutoRateFallait"></p>
+            </div>
+            <button type="button" class="btn btn--primary tutorate__btn" id="btnTutoRejouer" data-i18n="tuto.rejouer">PLAY THE ROUND AGAIN</button>
+          </div>
+        </div>
+
+        <!-- ÉCHAUFFEMENT TERMINÉ (maquette 2.6). ENTRE deux manches, partie
+             suspendue (`Session.decale`) — jamais pendant : Pierre avait fait
+             retirer un plein cadre qui tombait en pleine manche. -->
+        <div id="annonce" class="annonce hidden" aria-live="assertive">
+          <span class="annonce__barres" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <p class="annonce__titre" data-i18n="annonce.titre">Warm-up over</p>
+          <p class="annonce__quoi" data-i18n="annonce.quoi">From now on, the frame empties faster.</p>
+          <p class="annonce__suite" data-i18n="annonce.suite">TAP TO CONTINUE</p>
+        </div>
+
         <!-- LA CARTE DE RELANCE, HORS FLUX (voir `render/relance.ts`).
              Paraît à la mort, sur le terrain figé : le score, l'écart au
              record, et un appui N'IMPORTE OÙ relance. BILAN ouvre l'écran de
@@ -518,10 +546,37 @@
                Un visiteur neuf voit la démo qui tourne derrière et UN geste :
                JOUER, qui ouvre le tutoriel joué. Rien d'autre à choisir. -->
           <div class="home__centre bienvenue" id="bienvenue">
-            <p class="bienvenue__eyebrow" data-i18n="bienvenue.eyebrow">A REFLEX GAME WITH A TWIST</p>
-            <h1 class="bienvenue__titre" id="ledeHome">One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em></h1>
-            <button class="btn play" id="btnPlay" data-i18n="bienvenue.jouer">PLAY</button>
-            <p class="fineprint home__second" id="homeFineprint">2 MINUTES TO LEARN · NO ACCOUNT</p>
+            <!-- LA VITRINE (maquette 1a) : une démo ÉCRITE de 8 s, la même pour
+                 tout le monde — obéir au bleu, puis renoncer au rouge. Voir
+                 `render/vitrine.ts`. Décorative : tout ce qu'elle montre, le
+                 titre le dit. -->
+            <div class="vitrine" id="vitrine" aria-hidden="true">
+              <div class="vitrine__regle">
+                <span class="vitrine__interdit"></span>
+                <span class="vitrine__regletxt">
+                  <small data-i18n="vitrine.regle">YOUR RULE</small>
+                  <b data-i18n="vitrine.jamais">NEVER RED</b>
+                </span>
+              </div>
+              <div class="vitrine__haut">
+                <p class="vitrine__consigne" id="vitConsigne"></p>
+                <p class="vitrine__badge" id="vitBadge"></p>
+              </div>
+              <div class="vitrine__terrain" id="vitTerrain">
+                <span class="vitrine__chrono" id="vitChrono"></span>
+                <span class="vitrine__piece vitrine__piece--bleu" id="vitBleu"></span>
+                <span class="vitrine__piece vitrine__piece--vert"></span>
+                <span class="vitrine__piece vitrine__piece--rouge"></span>
+                <span class="vitrine__main" id="vitMain">
+                  <svg viewBox="0 0 24 28"><path d="M8 2a2 2 0 0 1 4 0v9l1-.2a2 2 0 0 1 2.4 1.9l1.6-.2a2 2 0 0 1 2.3 2l.7-.1A2 2 0 0 1 22 16.4V20a7 7 0 0 1-7 7h-2.5a7 7 0 0 1-5.6-2.8L3 19.2a2 2 0 0 1 3-2.6l2 2.1z" /></svg>
+                </span>
+              </div>
+            </div>
+            <div class="vitrine__appel">
+              <h1 class="bienvenue__titre" id="ledeHome" data-i18n="vitrine.titre">Sometimes, obeying is the mistake.</h1>
+              <button class="btn play" id="btnPlay" data-i18n="bienvenue.jouer">PLAY</button>
+              <button type="button" class="vitrine__code" id="btnArriveeCode" data-i18n="vitrine.code">I have a room code</button>
+            </div>
           </div>
 
           <!-- ░ LE PARCOURS ░

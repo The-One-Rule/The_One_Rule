@@ -81,11 +81,13 @@ describe("les deux manches jouées", () => {
     expect(r.forbids(m.round.originalWant!, m.round.ents), "la consigne doit enfreindre LE SANG").toBe(true);
   });
 
-  it("⚠️ le temps 3 n'a AUCUN chrono", () => {
-    // C'est ce qu'on promet à l'écran — « le chrono est désactivé ». Une durée
-    // finie ferait conclure la manche à la place du joueur, au moment précis
-    // où on lui dit de prendre son temps.
-    expect(mancheDecouverte().round.durationMs).toBe(Number.POSITIVE_INFINITY);
+  it("⚠️ la manche d'obéissance a un chrono LARGE, et fini", () => {
+    // Maquette 2.1 : le cadre qui se vide se rencontre ici, sans danger (un
+    // dépassement fait rejouer la manche). Fini, mais trois fois plus long
+    // que la fenêtre la plus large du jeu réel.
+    const d = mancheDecouverte().round.durationMs;
+    expect(Number.isFinite(d)).toBe(true);
+    expect(d).toBeGreaterThanOrEqual(8000);
   });
 
   it("⚠️ le temps 5 EST un piège, et se gagne en ne faisant rien", () => {

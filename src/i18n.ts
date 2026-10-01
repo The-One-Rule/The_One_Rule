@@ -59,11 +59,9 @@ export function langueDuNavigateur(langues: readonly string[] | undefined): Lang
 }
 
 type Textes = {
-  ledeHtml: string;
   failleLabel: string;
   soloDesc: string;
   multiDesc: string;
-  fineprintHtml: string;
   fineprintReglagesHtml: string;
   menu: string;
   reglages: string;
@@ -80,7 +78,6 @@ type Textes = {
 
 export const TEXTES: Record<Lang, Textes> = {
   fr: {
-    ledeHtml: "Une règle.<br>Des ordres.<br><em>Parfois, obéir est la faute.</em>",
     failleLabel: "Modes de jeu",
     soloDesc: "Run du jour, escalade, entraînement.",
     multiDesc: "Ton code, tes potes, une règle chacun.",
@@ -96,7 +93,6 @@ export const TEXTES: Record<Lang, Textes> = {
      * L'écran des RÉGLAGES garde l'ancienne, qui y est à sa place — d'où deux
      * clés au lieu d'une.
      */
-    fineprintHtml: "2 MINUTES POUR APPRENDRE · SANS COMPTE",
     fineprintReglagesHtml:
       "SOURIS ET CLAVIER · <b>R</b> POUR RELANCER · <b>ÉCHAP</b> POUR LE MENU",
     menu: "MENU",
@@ -111,11 +107,9 @@ export const TEXTES: Record<Lang, Textes> = {
     titre: "THE ONE RULE — parfois, obéir est la faute",
   },
   en: {
-    ledeHtml: "One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em>",
     failleLabel: "Game modes",
     soloDesc: "Daily run, climb, training.",
     multiDesc: "Your code, your friends, one rule each.",
-    fineprintHtml: "2 MINUTES TO LEARN · NO ACCOUNT",
     fineprintReglagesHtml:
       "MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU",
     menu: "MENU",
@@ -2478,8 +2472,8 @@ export function appliqueLangue(doc: Document, lang: Lang): void {
     if (valeur !== undefined) el.setAttribute("aria-label", valeur);
   }
 
-  poseHtml(doc.getElementById("ledeHome"), t.ledeHtml);
-  poseHtml(doc.getElementById("homeFineprint"), t.fineprintHtml);
+  // L'accroche de l'arrivée est une phrase (`data-i18n="vitrine.titre"`) :
+  // la maquette 1a a remplacé les trois lignes HTML d'avant.
   poseHtml(doc.getElementById("reglagesFineprint"), t.fineprintReglagesHtml);
   /*
    * ⚠️ LA FAILLE A QUITTÉ L'ACCUEIL, ET SES TROIS LIGNES AVEC.

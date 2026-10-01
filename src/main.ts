@@ -1,5 +1,6 @@
 import "./style.css";
 import { GROSSI_TACTILE, MARGE_DOIGT_PX } from "./render/toucher";
+import { etatVitrine } from "./render/vitrine";
 import { gardeEcranAllume } from "./eveil";
 import "./theme.css";
 
@@ -71,7 +72,6 @@ import {
   montrePastille,
   montreToast,
 } from "./render/micro";
-import { cibleDe, pilote } from "./game/attract";
 import { ecranAuChargement, ecranDe, estAdressable } from "./route";
 import type { EcranId } from "./route";
 import { pendantRetour, poseAdresse, poseArrivee } from "./histoire";
@@ -84,7 +84,6 @@ import { estPresque, RELANCE_GARDE_MS, relancePossible, vueRelance } from "./ren
 import { adversaires, cibleDuPied, depasses, ligneRival, prochainPalier } from "./game/rival";
 import type { Adversaire } from "./game/rival";
 import {
-  CHRONO_PIEGE_MS,
   REGLE_TUTO,
   TEMPS_JOUES,
   jugeClic,
@@ -119,6 +118,8 @@ import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
 import { composePhrase, poseDebout, tp } from "./i18n";
+import { ECRITS } from "./i18n-parcours";
+import type { CleEcrite } from "./i18n-parcours";
 import {
   RESERVE_AIDE_TUTO,
   RESERVE_CONSIGNE_COUCHE,
@@ -450,291 +451,40 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "reglages",
 ]);
 
-/* ------------------------------------------------------------------ *
- * LE MODE ATTRACT — « LE CHAMP, PLEIN ÉCRAN : LE FOND EST LE JEU »
- *
- * ⚠️ **118 NOUVEAUX VISITEURS SUR 159 — 74 % — REPARTENT SANS LANCER UNE SEULE
- * PARTIE**, médiane 6 secondes. L'accueil ne montrait aucun jeu, et un jeu de
- * réflexes se comprend en deux secondes de vidéo, pas en trois lignes de texte.
- *
- * ⚠️ **CE N'EST PAS UNE IMITATION.** La première tentative dessinait cinq
- * formes à la main dans une bande de 108 px — rapporté : « la démo est mal
- * faite ». Ici tourne une VRAIE `Session`, avec le vrai `buildRound`, dessinée
- * par le vrai `SceneRenderer` sur son propre canvas. Il n'y a plus rien à tenir
- * d'accord avec le jeu, parce que c'est le jeu : le jour où une règle change,
- * la démo change avec, sans qu'on y pense.
- *
- * ⚠️ **ELLE N'ÉCRIT RIEN.** Pas de `finishRun`, pas de carnet, pas de records,
- * aucune analytique. Une partie qui tourne toute seule ne doit rien laisser
- * derrière elle — sinon les compteurs du joueur monteraient pendant qu'il lit
- * la page.
- *
- * ⚠️ **ET ELLE NE COÛTE RIEN EN JEU.** Elle est peinte par la boucle de jeu et
- * seulement quand `screen === "home"`, comme le battement de lecture : une
- * application n'a qu'une horloge, et un décor ne doit jamais pouvoir disputer
- * ses images au jeu.
- * ------------------------------------------------------------------ */
-
-/** L'allure de la démo : la plus lente, pour qu'on ait le temps de LIRE. */
-const ATTRACT_ALLURE = 2;
-
 /**
- * ⚠️ **LA DÉMO NE MONTE PAS EN DIFFICULTÉ, ET C'EST UN RÉGLAGE DE VITESSE.**
+ * LA VITRINE DE L'ARRIVÉE (maquette 1a) — voir `render/vitrine.ts`.
  *
- * Elle tournait jusqu'à la mort. Or c'est une VRAIE `Session` : sa fenêtre
- * rétrécit manche après manche, et la main, qui parcourt son trajet dans une
- * fraction de cette fenêtre, accélère avec elle. Un run qui tient bien finissait
- * donc en curseur qui se téléporte — exactement ce qui a été rapporté.
- *
- * Dix manches gardent la fenêtre entre 8000 et 4400 ms (allure 2), c'est-à-dire
- * lisible d'un bout à l'autre. Et `FORCED_TRAP_ROUNDS` pose ses pièges aux
- * manches 2, 5 et 9 : la borne est APRÈS les trois, donc on ne coupe rien de ce
- * que la démo existe pour montrer. Elle repart alors sur une autre règle, ce
- * qui vaut mieux qu'une onzième manche de la même.
+ * Elle remplace le mode attract à l'écran : une démo ÉCRITE, la même pour
+ * tout le monde, qui montre le piège. Peinte par la boucle de jeu, en
+ * `transform` seulement pour ce qui bouge, et les textes ne sont réécrits que
+ * quand ils changent — une propriété réécrite à l'identique invalide quand même.
  */
-const ATTRACT_MANCHES = 10;
-
-let attract: {
-  session: Session;
-  scene: SceneRenderer;
-  /** D'où vient le curseur — le déplacement doit être continu d'une manche à l'autre. */
-  main: { x: number; y: number } | null;
-  /** La manche a-t-elle déjà reçu son clic ? Une seule action par manche. */
-  agi: boolean;
-  /** Le verdict à afficher, et jusqu'à quand. */
-  verdict: { texte: string; jusqua: number } | null;
-} | null = null;
-
-/**
- * (Re)démarre la partie de démonstration.
- *
- * ⚠️ La graine change à chaque fois : deux visites ne montrent pas la même
- * suite de manches. Une démo identique à chaque chargement se reconnaît, et ce
- * qu'on reconnaît on cesse de le regarder.
- */
-function lanceAttract(): void {
-  const cvs = $<HTMLCanvasElement>("attractCvs");
-  const scene = attract?.scene ?? new SceneRenderer(cvs);
-  const graine = (Math.random() * 2 ** 31) | 0;
-  /*
-   * ⚠️ UNE RÈGLE QUI PIÈGE, TOUJOURS.
-   *
-   * Sept règles sur seize ne posent aucun piège, et la densité du catalogue est
-   * de 5,4 % de manches piégeuses. Tirer au hasard donnerait donc, une fois sur
-   * deux, une démo qui ne montre JAMAIS ce qui distingue ce jeu — c'est-à-dire
-   * une démo pour rien. On tire parmi celles qui piègent, et `FORCED_TRAP_ROUNDS`
-   * garantit un piège dès les premières manches.
-   */
-  const piegeuses = ONE_RULES.filter((r) => r.traps && estJouableIci(r));
-  const regle = piegeuses[Math.abs(graine) % piegeuses.length] ?? ONE_RULES[0]!;
-  attract = {
-    session: new Session({
-      mode: "training",
-      rule: regle,
-      rng: mulberry32(graine),
-      now: performance.now(),
-      seed: graine,
-      touchOnly: TOUCH_ONLY,
-      pace: ATTRACT_ALLURE,
-      longueur: ATTRACT_MANCHES,
-    }),
-    scene,
-    main: null,
-    agi: false,
-    verdict: null,
-  };
-  peintReglAttract(regle);
-}
-
-/** Le coin haut gauche : la carte de la règle, et son nom. */
-function peintReglAttract(regle: OneRule): void {
-  $("attractCarte").innerHTML = carteVignette(regle.id);
-  $("attractRegleLabel").textContent = t("attractRegle");
-  $("attractRegleNom").textContent = nomDeRegle(regle.id, regle.name);
-}
-
-/**
- * Une image de la démo. Appelée par la boucle de jeu, uniquement sur l'accueil.
- */
-function imageAttract(now: number): void {
-  /*
-   * ⚠️ UN ONGLET CACHÉ NE COMPOSE PAS. Peindre quand même ouvrirait une
-   * deuxième horloge (ou ferait tourner une Session pour rien). Au retour,
-   * `tick(now)` expire la manche et `lanceAttract()` reprend.
-   */
+let vitrineDebut = 0;
+let vitrineCle = "";
+function peintVitrine(now: number): void {
   if (document.visibilityState === "hidden") return;
-  if (!attract) return;
-  const { session: sess, scene: sc } = attract;
-
-  /*
-   * ⚠️ ELLE NE MEURT PAS, ELLE RECOMMENCE.
-   *
-   * Un run de démonstration finit toujours par tomber — l'échauffement ne
-   * protège que trois manches. Montrer l'écran de mort n'apprendrait rien de
-   * plus et couperait la seule chose qu'on veut faire voir : que ça tourne.
-   */
-  if (sess.phase !== "playing") {
-    lanceAttract();
-    return;
+  if (!vitrineDebut) vitrineDebut = now;
+  const reduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // Mouvement réduit : la scène se FIGE sur l'instant qui dit tout — la main
+  // au-dessus du rouge, qui n'y touche pas.
+  const e = etatVitrine(reduit ? 4300 : now - vitrineDebut);
+  const ch = ECRITS[langue()];
+  const cle = `${langue()}|${e.manche}|${e.badge}|${e.bleuPris}|${e.appui}`;
+  if (cle !== vitrineCle) {
+    vitrineCle = cle;
+    $("vitConsigne").textContent = ch[e.demande === "bleu" ? "vitrine.bleu" : "vitrine.rouge"];
+    const badge = $("vitBadge");
+    badge.textContent = e.badge === "bien" ? ch["vitrine.bien"] : e.badge === "piege" ? ch["vitrine.piege"] : "";
+    badge.className = `vitrine__badge${e.badge ? ` is-${e.badge}` : ""}`;
+    $("vitBleu").classList.toggle("is-pris", e.bleuPris);
+    $("vitMain").classList.toggle("is-appui", e.appui);
+    $("vitrine").classList.toggle("is-piege", e.manche === 2);
   }
-
-  const ratio = sess.ratio(now);
-
-  // La main.
-  const g = pilote(sess.round, ratio, attract.main);
-  if (g.curseur) attract.main = g.curseur;
-  if (g.clique && !attract.agi) {
-    attract.agi = true;
-    const cible = cibleDe(sess.round);
-    const issue = sess.input(
-      cible
-        ? { kind: "click", ent: cible, x: cible.x, y: cible.y }
-        : { kind: "key", key: "A" },
-      now,
-    );
-    if (issue.kind === "survive") {
-      attract.verdict = { texte: t("attractTenu"), jusqua: now + 700 };
-    }
-  }
-  const avant = sess.round;
-  sess.tick(now);
-  if (sess.round !== avant) {
-    // Manche suivante : la main repart de là où elle était, et le droit d'agir
-    // se rouvre. Sans cette remise à zéro, une seule manche serait jouée.
-    attract.agi = false;
-    if (avant.trap && sess.phase === "playing") {
-      attract.verdict = { texte: t("attractPiege"), jusqua: now + 1100 };
-    }
-  }
-
-  /*
-   * ⚠️ SUR TÉLÉPHONE ON ZOOME, ON N'ÉTEINT PAS.
-   *
-   * Quinze pièces à 375 px font ~13 px : illisibles. Le zoom est indépendant
-   * de `SANS_DEMO` (mouvement réduit) — les deux questions n'ont rien à voir.
-   * `fieldRect()` reste la seule conversion du curseur, donc il suit.
-   */
-  const tel = typeof matchMedia === "function" && matchMedia("(max-width: 899px)").matches;
-  if (tel) {
-    const c = g.cible;
-    sc.cadrer(c ? c.x : FIELD_W / 2, c ? c.y : FIELD_H / 2, 2);
-  } else {
-    sc.cadrer(FIELD_W / 2, FIELD_H / 2, 1);
-  }
-
-  peintAttract(now, ratio, g);
-  sc.draw({ round: sess.round, rule: sess.rule, now, ratio });
+  $("vitChrono").style.transform = `scaleX(${e.chrono.toFixed(3)})`;
+  $("vitMain").style.left = "0";
+  $("vitMain").style.transform = `translate(${(e.main.x * 100).toFixed(2)}cqw, ${(e.main.y * 100).toFixed(2)}cqh)`;
 }
 
-/** Ce que la démo écrit autour du champ. */
-function peintAttract(now: number, ratio: number, g: ReturnType<typeof pilote>): void {
-  if (!attract) return;
-  const sess = attract.session;
-
-  /*
-   * ⚠️ LA CONSIGNE SE COMPOSE, ELLE NE SE LIT PAS.
-   *
-   * `round.text` est le français CANONIQUE — il sert au MENTEUR à emprunter une
-   * phrase plausible, pas à l'affichage. Le rendre tel quel afficherait du
-   * français à un joueur anglais, sur la seule page qu'il lira jamais.
-   * `composePhrase` fait ce que le HUD fait en jeu.
-   */
-  $("attractInstr").textContent = composePhrase(sess.round.phrase, sess.round.text);
-  const barre = $("attractChrono");
-  barre.style.transform = `scaleX(${1 - ratio})`;
-  const chaud = ratio > CRITICAL_RATIO;
-  barre.classList.toggle("est-chaud", chaud);
-
-  const v = attract.verdict && now < attract.verdict.jusqua ? attract.verdict.texte : "";
-  $("attractVerdict").textContent = v;
-
-  /*
-   * « DÉMO · MANCHE 7 » puis « PERSONNE NE JOUE ICI ».
-   *
-   * ⚠️ La seconde ligne compte autant que la première : sans elle, un visiteur
-   * qui bouge sa souris ou son doigt et ne voit rien répondre croit que le
-   * site est cassé. La phrase nomme les deux, pas seulement la souris.
-   */
-  const meta = $("attractMeta");
-  meta.textContent = "";
-  meta.append(
-    t("attractManche")(sess.level),
-    document.createElement("br"),
-    t("attractPersonne"),
-  );
-
-  /*
-   * LE CURSEUR, en pixels d'écran.
-   *
-   * ⚠️ `fieldRect()` est la SEULE source de la conversion, et c'est délibéré :
-   * c'est déjà elle qui décide où le renderer pose les pièces. Refaire le
-   * calcul à partir de la taille du canvas donnerait un curseur décalé dès que
-   * la gouttière change — et un curseur qui ne pointe pas la pièce qu'il vise
-   * enseigne un geste faux.
-   */
-  const cur = $("attractCurseur");
-  if (g.curseur) {
-    const r = attract.scene.fieldRect();
-    const x = r.x + (g.curseur.x / FIELD_W) * r.w;
-    const y = r.y + (g.curseur.y / FIELD_H) * r.h;
-    cur.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
-    cur.classList.remove("hidden");
-  } else {
-    cur.classList.add("hidden");
-  }
-
-  // La chaleur : le cadre bat, et il rougit quand ça tourne mal.
-  const boite = $("attract");
-  boite.style.setProperty("--attract-heat", String(Math.round(ratio * 20) / 20));
-  $("attractChaleur").classList.toggle("est-chaud", chaud);
-}
-
-/** La démo suit l'écran : elle ne tourne QUE sur l'accueil. */
-/*
- * ⚠️ **LE FOND DE NUIT EST LE REPLI DU MOUVEMENT RÉDUIT, PLUS DU TÉLÉPHONE.**
- *
- * Directive récente : l'accueil montre le vrai attract partout, y compris
- * sous 900 px — 74 % des nouveaux repartent sans jouer, et une nuit animée
- * à la place du jeu ne leur dit rien. Quinze pièces illisibles se règlent
- * par un zoom (`cadrer`), pas en éteignant la démo.
- *
- * `prefers-reduced-motion` reste le cas où une `Session` + un canvas qui
- * bougent sont un coût sans bénéfice : on pose alors `.attract--nuit`.
- * L'ancienne justification « fond de nuit sur téléphone » reste vraie pour
- * CE repli-là, et pour lui seulement.
- *
- * ⚠️ Le seuil est décidé **ici et nulle part ailleurs**, et la feuille de
- * style se contente de suivre la classe. Une media query de largeur qui
- * redéciderait la nuit afficherait un fond sous une partie qui tourne, ou
- * l'inverse.
- */
-/*
- * ⚠️ `matchMedia` PEUT MANQUER, ET SON ABSENCE VAUT « GRAND ÉCRAN / DÉMO ON ».
- *
- * Aucun navigateur en service ne s'en passe, mais le harnais de test monte
- * l'application dans un DOM simulé qui, lui, ne l'implémente pas — et un décor
- * n'a jamais le droit d'empêcher le jeu de démarrer. C'est la même doctrine que
- * le moteur sonore, qui reste jouable sur un WebAudio incomplet.
- *
- * Le repli est un objet inerte plutôt qu'un `if` à chaque usage : le reste du
- * code lit `SANS_DEMO.matches` et s'abonne, sans jamais avoir à savoir.
- */
-const SANS_DEMO: Pick<MediaQueryList, "matches" | "addEventListener"> =
-  typeof matchMedia === "function"
-    ? matchMedia("(prefers-reduced-motion: reduce)")
-    : { matches: false, addEventListener: () => {} };
-
-function attractSuitEcran(id: ScreenId): void {
-  $("attract").classList.toggle("attract--nuit", SANS_DEMO.matches);
-  if (id !== "home" || SANS_DEMO.matches) {
-    attract = null;
-    return;
-  }
-  if (!attract) lanceAttract();
-}
-
-// Pivoter le téléphone, ou étirer la fenêtre : on repasse par le même chemin.
-SANS_DEMO.addEventListener("change", () => attractSuitEcran(screen));
 
 /**
  * `day` n'est plus une constante de session.
@@ -800,6 +550,9 @@ function show(id: ScreenId): void {
    * s'y est déjà terminé de lui-même, et `annuleLecture` n'y a rien à faire.
    */
   if (lecture && id !== null) annuleLecture();
+  // Même doctrine pour l'annonce de fin d'échauffement : quitter l'écran de
+  // jeu l'éteint, sans rien enchaîner derrière le dos du joueur.
+  if (id !== null) oublieAnnonce();
   /*
    * Le jour se relit ICI, pas une fois au chargement. Sauf le jeu et
    * l'écran de fin : voir `rafraichitJour`.
@@ -855,7 +608,6 @@ function show(id: ScreenId): void {
     poseBarre();
     majNav();
   }
-  attractSuitEcran(id);
   const hote = barre && id !== null ? $(id) : appEl;
   /*
    * `prepend` et non `appendChild` : depuis que la barre vit DANS le flux de
@@ -1094,8 +846,13 @@ function renderHome(): void {
    * débloquer tout le site, ça les rend très réticents. » Un nouveau venu
    * voit donc tout — parcours, modes, cartes — et le tutoriel se joue au
    * premier lancement d'une partie, quelle qu'elle soit (`openBrief`).
+   *
+   * Puis la maquette 1a (choisie par Pierre, 01/10) : un nouveau venu voit la
+   * VITRINE du piège et un seul gros bouton à la place du parcours — mais la
+   * barre du bas reste là, et avec elle chaque mode, sans verrou. C'est une
+   * affiche, pas une porte.
    */
-  const neuf = false;
+  const neuf = estNouveau();
   accueilNeuf = neuf;
   $("home").classList.toggle("is-neuf", neuf);
   $("bienvenue").classList.toggle("hidden", !neuf);
@@ -1551,7 +1308,6 @@ $("btnNiveauParcours").addEventListener("click", () => {
 /** Pose le style porté sur les deux renderers — le jeu et la démo. */
 function appliqueSkin(id: SkinId): void {
   scene.skin = id;
-  if (attract) attract.scene.skin = id;
   /*
    * LE PLATEAU HABILLE TOUTE LA PAGE DE JEU, pas seulement le terrain.
    * Demandé par Pierre : « que les plateaux de la boutique s'appliquent
@@ -1641,12 +1397,8 @@ function choisitLangue(lang: Lang): void {
   // Le multi ne se repeint pas tout seul : ses ecrans attendent le serveur.
   multi.onLangue();
   if (screen === "codex") renderCodex();
-  /*
-   * Le mode attract non plus : son intitulé et son nom de règle sont posés une
-   * fois au lancement. C'est exactement par là que les six émotes du multi
-   * étaient restées françaises.
-   */
-  if (attract) peintReglAttract(attract.session.rule);
+  // La vitrine relit la langue à chaque changement de texte (`vitrineCle`).
+  vitrineCle = "";
 }
 
 /**
@@ -3807,6 +3559,10 @@ let avanceDuRun = 0;
  * est un écran de menu, `fieldRect()` n'est pas touché (décision n°10).
  */
 let lecture: { jusqua: number; maintien: boolean; libelle: string } | null = null;
+/** ÉCHAUFFEMENT TERMINÉ : la suite à l'appui, et l'instant de la pause (voir `montreAnnonce`). */
+let annonceSuite: (() => void) | null = null;
+/** L'instant où une partie a été suspendue par l'annonce, ou `null`. */
+let annoncePause: number | null = null;
 
 /**
  * @param avecLecture Faux pour une REVANCHE de duel, qui repart de l'écran de
@@ -4737,6 +4493,10 @@ let tuto: {
   manche: MancheTuto | null;
   debut: number;
   suite: { a: number; faire: () => void } | null;
+  /** La carte « Raté » est ouverte : la manche est suspendue jusqu'à l'appui. */
+  rate: boolean;
+  /** L'instant où la carte « Raté » a figé l'horloge. */
+  gel: number;
 } | null = null;
 
 /** La respiration entre deux temps : assez pour lire une ligne, pas plus. */
@@ -4749,88 +4509,122 @@ function regleTuto(): OneRule {
   return ONE_RULES.find((r) => r.id === REGLE_TUTO) ?? ONE_RULES[0]!;
 }
 
+const chTuto = (cle: CleEcrite): string => ECRITS[langue()][cle];
+
+/**
+ * Les pastilles d'ÉCHAUFFEMENT (maquette 2.1) : trois points, un par manche
+ * du tutoriel, pleins pour celles qui sont faites. C'est tout ce qui est écrit
+ * sous le terrain — plus aucun indice (directive de Pierre : « l'indice du
+ * piège est trop voyant, ne le garde pas »).
+ */
+function poseEchauffement(n: Temps): void {
+  const note = $("tutoNote");
+  note.textContent = "";
+  const mot = document.createElement("span");
+  mot.className = "tuto__echauffement";
+  mot.textContent = chTuto("tuto.echauffement");
+  note.appendChild(mot);
+  for (let i = 1; i <= TEMPS_JOUES.length; i++) {
+    const p = document.createElement("i");
+    p.className = "tuto__pastille" + (i < n ? " is-faite" : i === n ? " is-courante" : "");
+    note.appendChild(p);
+  }
+}
+
+/** Le retour d'une manche réussie, dans la zone de la consigne : BIEN ou PIÈGE DÉJOUÉ. */
+function poseRetourTuto(kind: "bien" | "piege" | null, sous = ""): void {
+  const aide = $("tutoAide");
+  aide.className = "tuto__aide" + (kind ? ` is-${kind}` : "");
+  aide.textContent = kind === "bien" ? chTuto("tuto.bien") : kind === "piege" ? chTuto("tuto.piegeDejoue") : "";
+  aide.dataset.sous = sous;
+}
+
 /** Ouvre un temps : on est sur le vrai terrain, avec la vraie règle au bandeau. */
 function joueTemps(n: Temps): void {
   const m = mancheDe(n);
-  tuto = { temps: n, manche: m, debut: performance.now(), suite: null };
+  tuto = { temps: n, manche: m, debut: performance.now(), suite: null, rate: false, gel: 0 };
   hud.setRule(regleTuto());
   hud.hideStamp();
   hud.clearRound();
-  hud.setMeta(t("tutoEtape")(n, TEMPS_JOUES.length));
+  hud.setMeta("");
   hud.setFooter(0, 0, "—");
   $("tuto").classList.remove("hidden");
-  if (n === 1) poseAideTuto(t("tutoObeis"), t("tutoSansChrono"));
-  else if (n === 2) poseAideTuto(t("tutoRelis"), t("tutoRalenti"));
-  else poseAideTuto(t("tutoSecondPiege"), t("tutoRienFaire"));
+  $("tutoRate").classList.add("hidden");
+  poseRetourTuto(null);
+  poseEchauffement(n);
   show(null);
 }
 
-function poseAideTuto(aide: string, note: string): void {
-  $("tutoAide").textContent = aide;
-  $("tutoNote").textContent = note;
-}
-
-/** Un temps est gagné : on dit pourquoi, le terrain se vide, puis on enchaîne. */
-function reussitTemps(aide: string, note: string, faire: () => void): void {
+/** Un temps est gagné : le retour s'affiche, le terrain se vide, puis on enchaîne. */
+function reussitTemps(kind: "bien" | "piege", faire: () => void): void {
   if (!tuto) return;
   tuto.manche = null;
   tuto.suite = { a: performance.now() + TUTO_RESPIRE_MS, faire };
   hud.clearRound();
-  poseAideTuto(aide, note);
+  poseRetourTuto(kind, kind === "piege" ? chTuto("tuto.slogan") : "");
+  poseEchauffement(((tuto.temps + 1) as Temps));
 }
+
+/**
+ * RATÉ (maquette 2.4) : une phrase, la consigne, ce qu'il fallait faire. Un
+ * appui rejoue la MÊME manche. Rien ne tue — un tutoriel qui punit renvoie le
+ * joueur au menu avec la même incompréhension.
+ */
+function rateTuto(pourquoi: "interdit" | "ailleurs" | "temps"): void {
+  if (!tuto?.manche) return;
+  const m = tuto.manche;
+  tuto.rate = true;
+  tuto.gel = performance.now();
+  $("tutoRateEyebrow").textContent = `${chTuto("tuto.craque")} ${tuto.temps}`;
+  $("tutoRateTitre").textContent = chTuto(
+    pourquoi === "interdit" ? "tuto.titreInterdit" : pourquoi === "temps" ? "tuto.titreTemps" : "tuto.titreAilleurs",
+  );
+  $("tutoRateConsigne").textContent = composePhrase(m.round.phrase, m.round.text);
+  $("tutoRateFallait").textContent = chTuto(m.cible === null ? "tuto.fallaitRien" : "tuto.fallaitBleu");
+  $("tutoRate").classList.remove("hidden");
+  track("onb_rate", { temps: tuto.temps, pourquoi });
+}
+
+function rejoueTempsTuto(): void {
+  if (!tuto?.rate) return;
+  sfx.ui();
+  joueTemps(tuto.temps);
+}
+
+$("tutoRate").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
+  rejoueTempsTuto();
+});
 
 function fermeTuto(): void {
   tuto = null;
   $("tuto").classList.add("hidden");
+  $("tutoRate").classList.add("hidden");
   hud.setRule(null);
   hud.setMeta("");
   hud.clearRound();
 }
 
-/** Après le temps 2 : la règle entre au carnet. */
-function apresPiege(): void {
-  // La première carte se GAGNE au bout du niveau 1-1, avec sa révélation :
-  // l'écrire ici la donnait sans moment.
-  //
-  // Le temps 3 est un SECOND piège, tenu jusqu'au bout du chrono comme le
-  // premier. Il enseignait DÉJOUER (la touche F) ; le raccourci est retiré —
-  // il remplaçait « ne rien faire » par « appuie sur F », c'est-à-dire la
-  // retenue, seule mécanique non copiable du jeu, par un réflexe de plus.
-  joueTemps(3);
-}
-
 /**
  * Un clic pendant un temps.
  *
- * ⚠️ Rien ne TUE ici, et c'est le sujet : une erreur est NOMMÉE et la manche
- * reprend. Un tutoriel qui punit renvoie le joueur au menu avec la même
- * incompréhension.
+ * Temps 1 : seul le bleu est juste. Temps 2 et 3 : la consigne est un piège,
+ * donc TOUT clic est une faute — y compris celui qu'elle demande.
  */
 function tutoClic(idx: number | null): void {
-  if (!tuto?.manche) return;
+  if (!tuto?.manche || tuto.rate) return;
   const m = tuto.manche;
   const verdict = jugeClic(m, idx);
-
-  if (tuto.temps === 1) {
-    if (verdict === "juste") {
-      sfx.success(1);
-      reussitTemps(t("tutoOui"), t("tutoOuiNote"), () => joueTemps(2));
-      return;
-    }
-    // « Raté » n'apprend rien ; « ta règle interdit le rouge » apprend la
-    // règle au moment exact où elle vient de servir.
-    sfx.fail();
-    poseAideTuto(verdict === "interdit" ? t("tutoInterdit") : t("tutoPasCelleLa"), t("tutoSansChrono"));
+  if (tuto.temps === 1 && verdict === "juste") {
+    sfx.success(1);
+    reussitTemps("bien", () => joueTemps(2));
     return;
   }
-
-  // Temps 2 et 3 : TOUT clic est une faute, y compris celui que la consigne demande.
   sfx.fail();
-  poseAideTuto(t("tutoInterdit"), t("tutoRienFaire"));
-  tuto.debut = performance.now();
+  rateTuto(verdict === "interdit" ? "interdit" : m.cible === null ? "interdit" : "ailleurs");
 }
 
-/** Le piège se gagne aussi en LAISSANT le chrono s'écouler. */
+/** Le temps s'écoule : il valide un piège, il fait rater l'obéissance. */
 function majTuto(now: number): void {
   if (!tuto) return;
   if (tuto.suite) {
@@ -4841,15 +4635,19 @@ function majTuto(now: number): void {
     }
     return;
   }
-  if (!tuto.manche || tuto.temps === 1) return;
-  if (now - tuto.debut < CHRONO_PIEGE_MS) return;
+  if (!tuto.manche || tuto.rate) return;
+  if (now - tuto.debut < tuto.manche.round.durationMs) return;
+  if (tuto.temps === 1) {
+    // La moitié des morts réelles sont des dépassements de temps : la première
+    // rencontre avec l'horloge se fait ici, et elle la NOMME.
+    sfx.fail();
+    rateTuto("temps");
+    return;
+  }
   // Le son du piège DÉJOUÉ, pas celui d'une manche réussie.
   sfx.trapAvoided();
-  if (tuto.temps === 2) {
-    reussitTemps(t("tutoRienFaitBravo"), t("tutoRienFaitNote"), apresPiege);
-  } else {
-    reussitTemps(t("tutoRienFaitBravo"), t("tutoPret"), () => finitOnboarding(false));
-  }
+  if (tuto.temps === 2) reussitTemps("piege", () => joueTemps(3));
+  else reussitTemps("piege", () => finitOnboarding(false));
 }
 
 /**
@@ -4877,6 +4675,44 @@ function ouvreOnboarding(): void {
  * vient de jouer trois manches sous LE SANG, il sait ce qu'il fait. Le
  * battement de lecture du brief lui laisse quand même voir sa règle.
  */
+/**
+ * ÉCHAUFFEMENT TERMINÉ (maquette 2.6) — un plein cadre ENTRE deux manches.
+ *
+ * Deux usages : au sortir du tutoriel, et à la fin des manches d'échauffement
+ * d'une vraie partie, qui est alors SUSPENDUE (`annoncePause`) puis décalée
+ * d'autant (`Session.decale`) — la manche ouverte reprend avec tout son temps
+ * et le journal rejoué ne voit aucun trou (`tests/pause-echauffement`).
+ * C'est le moment précis où l'on mourait sans prévenir : 76 morts à la
+ * manche 3 sur 572 runs.
+ */
+
+function montreAnnonce(suite: () => void): void {
+  annonceSuite = suite;
+  $("annonce").classList.remove("hidden");
+  sfx.palier(1);
+}
+
+function fermeAnnonce(): void {
+  if (!annonceSuite) return;
+  const suite = annonceSuite;
+  annonceSuite = null;
+  $("annonce").classList.add("hidden");
+  sfx.ui();
+  suite();
+}
+
+/** Quitter l'écran pendant l'annonce l'éteint sans rien enchaîner. */
+function oublieAnnonce(): void {
+  annonceSuite = null;
+  annoncePause = null;
+  $("annonce").classList.add("hidden");
+}
+
+$("annonce").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault();
+  fermeAnnonce();
+});
+
 /** La partie que le joueur avait choisie quand le tutoriel l'a précédée. */
 let modeApresTuto: Mode | null = null;
 
@@ -4888,14 +4724,27 @@ function finitOnboarding(passe: boolean): void {
   track(passe ? "onb_skip" : "onb_done", {});
   const voulu = modeApresTuto;
   modeApresTuto = null;
+  if (!passe) {
+    // Les trois manches du tutoriel ÉTAIENT l'échauffement (maquette 2.6) :
+    // on le dit, entre deux manches, puis la vraie partie.
+    // `fermeTuto` a vidé le bandeau : sans la règle, l'annonce se peignait
+    // sous un tiret orphelin (vu à 390 × 844).
+    hud.setRule(regleTuto());
+    montreAnnonce(() => suiteDuTutoriel(voulu));
+    return;
+  }
   if (voulu) {
     // Le joueur avait choisi une partie : on l'y conduit, par son brief.
     openBrief(voulu);
     return;
   }
-  if (passe) {
-    renderHome();
-    show("home");
+  renderHome();
+  show("home");
+}
+
+function suiteDuTutoriel(voulu: Mode | null): void {
+  if (voulu) {
+    openBrief(voulu);
     return;
   }
   /*
@@ -6152,7 +6001,7 @@ function gesteAffiche(): GesteAffiche | null {
 }
 
 function send(action: Action): void {
-  if (!session || session.phase !== "playing") return;
+  if (!session || session.phase !== "playing" || annoncePause !== null) return;
   const combo = session.level;
   // Même capture que dans la boucle : `input` peut conclure la manche, et
   // `survive()` ouvre la suivante avant de rendre son verdict.
@@ -6291,6 +6140,17 @@ window.addEventListener("keydown", (e) => {
     spaceDown = true;
   }
   unlock();
+
+  // L'annonce de fin d'échauffement se referme aussi à ENTRÉE — jamais à
+  // ESPACE, qu'une règle à maintien fait tenir enfoncée et dont la répétition
+  // la refermerait sans qu'on l'ait lue.
+  if (annonceSuite) {
+    if (e.key === "Enter" && !e.repeat) {
+      e.preventDefault();
+      fermeAnnonce();
+    }
+    return;
+  }
 
   if (screen === "brief") {
     // Le clavier respecte l'état du bouton, comme R le fait pour `btnAgain` :
@@ -6772,6 +6632,16 @@ $("home").addEventListener(
   },
   true,
 );
+
+/*
+ * « J'AI UN CODE DE SALON » — on arrive souvent sur le site parce qu'un ami
+ * vient de dicter son code. Le lien mène droit à la saisie, sans tutoriel :
+ * le multi n'a jamais été verrouillé, et on y joue avec quelqu'un qui explique.
+ */
+$("btnArriveeCode").addEventListener("click", () => {
+  sfx.ui();
+  $("btnMulti").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
 
 $("btnPlay").addEventListener("click", () => {
   sfx.ui();
@@ -7362,7 +7232,7 @@ function loop(now: number): void {
    */
   // Seulement sur l'accueil NEUF : sur le parcours, la démo est masquée, et un
   // décor qu'on ne voit pas n'a pas à coûter une image.
-  if (screen === "home" && accueilNeuf) imageAttract(now);
+  if (screen === "home" && accueilNeuf) peintVitrine(now);
 
   /*
    * TOUT CE QUI N'EST PAS UNE PARTIE SOLO RÉSERVE UNE BANDE BASSE : les plaques
@@ -7407,7 +7277,16 @@ function loop(now: number): void {
   // branche, une seule fois par image.
   let tension: { manche: number; grace: number; enManche: boolean; critique: boolean } | null = null;
 
+  const tempsReel = now;
   if (session) {
+    /*
+     * ⚠️ SUSPENDUE PAR « ÉCHAUFFEMENT TERMINÉ », LA PARTIE EST FIGÉE ENTIÈRE.
+     * Ne pas tiquer ne suffisait pas : la barre de temps et le seuil critique
+     * lisaient l'horloge réelle, donc la barre se vidait derrière l'annonce
+     * (0,94 → 0,05 en 3 s, mesuré) et l'alerte sonore pouvait partir pendant
+     * la pause. Tout ce bloc lit l'instant où la pause a commencé.
+     */
+    const now = annoncePause ?? tempsReel;
     const combo = session.level;
     /*
      * ⚠️ ON CAPTURE LA MANCHE AVANT LE `tick`.
@@ -7418,7 +7297,8 @@ function loop(now: number): void {
      * suivante — « la consigne demandait NE FAIS RIEN », vu à l'écran.
      */
     const manche = session.round;
-    const outcome = session.tick(now);
+    // Suspendue par « Échauffement terminé » : le temps ne court pas.
+    const outcome = annoncePause === null ? session.tick(now) : null;
     if (outcome) react(outcome, combo, manche);
 
     if (session.phase === "over") {
@@ -7503,7 +7383,17 @@ function loop(now: number): void {
          * et `pointer-events: none` — il ne peut ni cacher le terrain ni
          * intercepter un clic.
          */
-        montreToast(t("echauffementFini"), t("microEchauffementQuoi"), 2000);
+        /*
+         * ⚠️ ET MAINTENANT UN PLEIN CADRE — mais ENTRE deux manches (maquette
+         * 2.6). Le toast ci-dessus remplaçait un plein cadre qui tombait
+         * PENDANT une manche ; celui-ci SUSPEND la partie, qui reprend avec
+         * tout son temps à l'appui.
+         */
+        annoncePause = now;
+        montreAnnonce(() => {
+          if (session && annoncePause !== null) session.decale(performance.now() - annoncePause);
+          annoncePause = null;
+        });
       }
       // L'urgence s'entend avant d'être lue : on ne quitte pas la consigne
       // des yeux pour vérifier une barre.
@@ -7763,14 +7653,11 @@ function loop(now: number): void {
      * valide en arrivant au bout.
      */
     const m = tuto.manche;
-    const chrono = tuto.temps !== 1;
-    hud.updateRound(m.round, now - tuto.debut, chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : 0);
-    scene.draw({
-      round: m.round,
-      rule: regleTuto(),
-      now,
-      ratio: chrono ? Math.min(1, (now - tuto.debut) / CHRONO_PIEGE_MS) : undefined,
-    });
+    // Carte « Raté » ouverte : l'horloge se fige là où elle s'est arrêtée.
+    const ecoule = (tuto.rate ? tuto.gel : now) - tuto.debut;
+    const ratio = Math.min(1, ecoule / m.round.durationMs);
+    hud.updateRound(m.round, ecoule, ratio);
+    scene.draw({ round: m.round, rule: regleTuto(), now, ratio });
   } else if (tuto) {
     // La respiration entre deux temps : le terrain reste, vide.
     scene.draw({ round: null, rule: regleTuto(), now });
@@ -8265,6 +8152,16 @@ if (import.meta.env.DEV) {
       return "played";
     },
     /** Le champ en coordonnées de PAGE — pour mesurer un recouvrement. */
+    /** Les pièces du tutoriel en coordonnées de PAGE, et laquelle est la cible. */
+    tutoPieces(): { x: number; y: number; color: string; cible: boolean }[] {
+      const m = tuto?.manche;
+      if (!m) return [];
+      const r = cv.getBoundingClientRect();
+      return m.round.ents.map((e) => {
+        const p = scene.versEcran(e.x, e.y);
+        return { x: r.x + p.x, y: r.y + p.y, color: e.color, cible: m.cible !== null && m.round.ents[m.cible] === e };
+      });
+    },
     champ(): { x: number; y: number; w: number; h: number } {
       const f = scene.fieldRect();
       const r = cv.getBoundingClientRect();
