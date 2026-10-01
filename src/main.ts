@@ -435,9 +435,16 @@ let bootCompte: Promise<void> | null = null;
 /**
  * Les ecrans qui portent la barre haute.
  *
- * Pas ceux du multijoueur : ils ont leur propre navigation, et un MENU global
- * y ferait quitter un salon d'un clic — depuis un ecran ou l'on est en train
- * de s'installer avec des amis. C'est un chemin qu'on ne coupe pas.
+ * Pas le SALON ni la partie à plusieurs : la barre y ferait quitter une table
+ * d'un clic, depuis un écran où l'on s'installe avec des amis. Mais l'ENTRÉE
+ * du multi (`multi-join`) en porte une depuis le 01/10 : on n'y est encore
+ * assis nulle part, et sans elle c'était le seul écran de menu sans
+ * navigation — il fallait trouver RETOUR en bas de page.
+ *
+ * MENU a quitté la barre le même jour : l'enseigne et PARCOURS ramènent déjà
+ * à l'accueil, et ce troisième chemin, absent de l'accueil seulement,
+ * décalait toute la navigation du bureau d'un écran à l'autre (x = 675 sur
+ * l'accueil, 589 ailleurs, mesuré à 1440).
  */
 const AVEC_BARRE: ReadonlySet<string> = new Set([
   "home",
@@ -452,6 +459,7 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
   "classement",
   "amis",
   "reglages",
+  "multi-join",
 ]);
 
 /**
@@ -618,8 +626,6 @@ function show(id: ScreenId): void {
    * y=788 sur un ecran de 812 avant correction.
    */
   if (bar.parentElement !== hote) hote.prepend(bar);
-  // Sur l'accueil, MENU n'a nulle part ou aller.
-  $("btnTopMenu").classList.toggle("hidden", id === "home");
   multi.onScreen(id);
   // `null` est l'écran de PARTIE : il a une adresse lui aussi, sans quoi le
   // bouton précédent sauterait par-dessus la partie comme si elle n'avait pas
@@ -6991,10 +6997,6 @@ $("btnCodexBack").addEventListener("click", () => {
 $("btnTopCompte").addEventListener("click", () => {
   sfx.ui();
   void ouvreCompte();
-});
-$("btnTopMenu").addEventListener("click", () => {
-  sfx.ui();
-  backHome();
 });
 $("btnTopBrand").addEventListener("click", () => {
   if (screen === "home") return;

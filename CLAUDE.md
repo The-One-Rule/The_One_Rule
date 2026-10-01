@@ -775,6 +775,39 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### La navigation aux places habituelles, et trois écrans réparés (01/10/2026)
+
+Dernière passe de la directive : le style de la maquette sur le reste du site,
+la navigation aux emplacements habituels, la chasse aux bugs d'affichage.
+Relevé de neuf écrans, téléphone et bureau, par `getBoundingClientRect` et
+`elementFromPoint`. Les écrans de service (solo, cartes, classement, amis,
+profil, boutique) portaient déjà l'autocollant : on n'a touché qu'à ce que la
+mesure montrait.
+
+- **MENU a quitté la barre haute.** L'enseigne et PARCOURS ramènent déjà à
+  l'accueil ; ce troisième chemin, absent de l'accueil seulement, décalait
+  toute la navigation du bureau (x = 675 sur l'accueil, 589 ailleurs). Et
+  PROFIL suivait la longueur du nom (124 / 115 px) : largeur fixe, nom en
+  ellipse. Mesuré après : x = 649 sur les neuf écrans.
+- **L'entrée MULTI porte la barre haute et la barre du bas** (`AVEC_BARRE`).
+  C'était le seul écran de menu sans navigation. Le SALON, lui, reste sans :
+  la barre y ferait quitter une table d'un clic.
+- ⚠️ **La barre du bas était INERTE sur l'entrée MULTI** : écrans et barre à
+  `z-index: 10`, donc l'ordre du document tranchait, et les écrans du multi
+  sont déclarés après elle. `#app > .nav` passe à 11. Vérifié : les cinq
+  boutons répondent à `elementFromPoint` sur les neuf écrans.
+- ⚠️ **Le champ REJOINDRE était une boîte vide** depuis STICKER : le
+  `<input>` transparent posé sur les quatre cases recevait le fond et le
+  cadre de `.field` (même spécificité, `theme.css` chargée après).
+  `.field.codein__champ` lui rend sa transparence.
+- RÉGLAGES : un filet d'1 px, l'ancien séparateur de liste, flottait seul
+  entre APPARENCE et sa barre ; LANGUE était restée en aplat sombre — passée
+  en barre segmentée comme APPARENCE.
+- **Pas touché, délibérément** : le choix actif des options (`.opt.is-on`)
+  reste prune, alors que les barres segmentées des réglages sont violettes.
+  C'est la règle générique du brief et du salon ; la changer est un parti
+  pris visuel, pas un bug.
+
 ### LOT D : le salon — QR, tuiles, « X A CRAQUÉ », et deux pavés trouvés en jouant (01/10/2026)
 
 - **Le QR du salon** (`render/qr.ts`, pur ; encodeur `qrcode-generator`,
@@ -2018,8 +2051,8 @@ Demandé par Pierre : réglages à gauche, compte à droite, signe au centre.
 
 `.topbar__row` est passée de `space-between` à une **grille `1fr auto 1fr`**,
 et ce n'est pas cosmétique : COMPTE est masqué tant que le déploiement n'est
-pas configuré, MENU l'est sur l'accueil, et en flex chaque disparition
-déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
+pas configuré, MENU l'était sur l'accueil (retiré depuis, 01/10), et en flex
+chaque disparition déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
 CSS décrivait (« deux bords occupés valent mieux qu'un centre exact »). La
 grille rend la question sans objet.
 

@@ -2441,7 +2441,6 @@ export function appliqueLangue(doc: Document, lang: Lang): void {
   const langBox = doc.getElementById("lang");
   if (langBox) langBox.setAttribute("aria-label", t.langAria);
 
-  poseTexte(doc.getElementById("btnTopMenu"), t.menu);
   poseTexte(doc.getElementById("btnTopReglages"), t.reglages);
   // PROFIL n'est pas posé ici : le bouton porte un visage et un nom
   // (`peintBoutonProfil`), et un `textContent` les détruirait.

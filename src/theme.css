@@ -511,8 +511,7 @@ body {
    ------------------------------------------------------------------ */
 .topbar button,
 #btnTopReglages,
-#btnTopCompte,
-#btnTopMenu {
+#btnTopCompte {
   border-radius: 999px;
 }
 
@@ -2137,6 +2136,19 @@ body {
 .field:focus {
   border-color: var(--signal);
   box-shadow: 0 4px 0 var(--signal);
+}
+
+/* ⚠️ Le champ du code de salon est TRANSPARENT par conception : il couvre
+   les quatre cases, qui sont le reflet de ce qu'on tape (§12, « le code de
+   salon en quatre cases »). `.field` (même spécificité, chargé après
+   `style.css`) lui peignait un fond crème et un cadre : l'écran REJOINDRE
+   montrait une boîte vide, sans ses cases (vu à 390 et 1440). */
+.field.codein__champ,
+.field.codein__champ:focus {
+  color: transparent;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .glyphpick__opt {
@@ -5647,4 +5659,70 @@ body {
     font-size: 12px;
     border-width: 2px;
   }
+}
+
+/* ---- LA BARRE DU BUREAU NE BOUGE PLUS D'UN ÉCRAN À L'AUTRE ----
+   Le groupe de droite pousse la navigation, et PROFIL suivait la longueur du
+   nom affiché (124 px pour « PROFIL », 115 pour « ALICE ») : la navigation
+   glissait de 9 px selon l'écran (mesuré à 1440). Largeur fixe, le nom en
+   ellipse. */
+@media (min-width: 900px) {
+  #app.barre-haute #btnTopCompte {
+    width: 150px;
+    justify-content: flex-start;
+  }
+
+  #app.barre-haute #btnTopCompte .topprofil__nom {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* Les réglages sont des CARTES depuis la refonte : le filet haut des barres
+   segmentées (APPARENCE, ALLURE) était l'ancien séparateur de liste, et il
+   flottait seul entre l'intitulé et sa barre (vu à 390). */
+#reglages .settings--seg {
+  border-top: 0;
+}
+
+/* LA LANGUE, en barre segmentée autocollant comme APPARENCE juste au-dessus :
+   elle était restée dans l'ancien style (aplat sombre, sans cadre). `#lang`
+   par son identifiant : `#reglages .lang` de `style.css` gagnait sur une
+   classe (déjà payé, §12). */
+#reglages #lang {
+  gap: 2px;
+  padding: 0;
+  background: var(--encre);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+  overflow: hidden;
+}
+
+#reglages #lang .lang__btn {
+  min-height: var(--tap);
+  font-size: 13px;
+  border: 0;
+  border-radius: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--encre);
+  background: var(--surface);
+}
+
+#reglages #lang .lang__btn.is-on {
+  color: #fff;
+  background: var(--signal);
+}
+
+/* ⚠️ LA BARRE DU BAS AU-DESSUS DE TOUT ÉCRAN DE MENU. Écrans et barre
+   partagent `z-index: 10`, donc l'ordre du DOCUMENT tranchait : les écrans
+   du multi, déclarés APRÈS la barre, passaient devant elle — sur l'entrée
+   MULTI, la barre était visible mais inerte (un `<p>` du panneau recevait
+   l'appui à sa place, vu en jouant à 390 × 844). */
+#app > .nav {
+  z-index: 11;
 }
