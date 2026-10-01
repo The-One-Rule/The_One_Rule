@@ -328,6 +328,17 @@
         <div id="relance" class="relance hidden" aria-live="polite">
           <div class="relance__carte">
             <p class="relance__motif" id="relanceMotif"></p>
+            <!-- LA PREUVE (maquette 4.3) : la manche fatale en miniature, la
+                 pièce fautive entourée, puis ce qu'il fallait faire. -->
+            <div class="relance__preuve hidden" id="relancePreuve">
+              <div class="relance__mini" id="relanceMini" aria-hidden="true"></div>
+              <div class="relance__dit">
+                <p class="relance__quoi" data-i18n="tuto.consigne">THE ORDER</p>
+                <p class="relance__val" id="relanceConsigne"></p>
+                <p class="relance__quoi" data-i18n="tuto.fallait">YOU HAD TO</p>
+                <p class="relance__val" id="relanceFallait"></p>
+              </div>
+            </div>
             <p class="relance__score" id="relanceScore">0</p>
             <p class="relance__unite" id="relanceUnite"></p>
             <p class="relance__ecart" id="relanceEcart"></p>

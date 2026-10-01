@@ -775,6 +775,31 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### LOT C : la consigne dessinée, et la preuve de la mort (01/10/2026)
+
+- **La consigne dessinée** (`render/pictogramme.ts`, pur) : sur la ligne des
+  gestes, la pièce désignée dans ses forme et teinte de terrain, et le geste
+  (deux pièces pour le double appui, anneau pour MAINTIENS, flèche pour
+  GLISSE, chevron pour « puis »). Muet sur les négations, l'intrus, les
+  lettres. ⚠️ **Trois règles se jouent du texte, et un dessin les rendrait
+  inertes (n°1)** : LE MENTEUR (le dessin dénoncerait le mensonge), LE
+  DALTONIEN (il trancherait le mot contre l'encre), L'ÉCLAIR (il resterait
+  quand la consigne s'efface). Sur ces manches, rien n'est dessiné ; trois
+  tests, éprouvés un par un. ⚠️ Le dessin vit sur une ligne qui existait
+  déjà, en marges négatives : `#head` mesuré identique avec et sans (106 px
+  à 1280, terrain inchangé à 390, 1280 et 812 × 375 — n°17).
+- **La preuve** (`render/preuve.ts`, pur) dans la carte de relance : la
+  manche fatale en miniature, la pièce visée entourée (ou une croix dans le
+  vide), LA CONSIGNE et IL FALLAIT (ne rien faire / plus vite / sans
+  enfreindre ta règle / la consigne). Un appui de plus de 4 s n'entoure
+  rien : il viendrait d'une autre manche. ⚠️ **Au téléphone, une miniature
+  couchée ne ressemblait pas au terrain debout** qu'on venait de quitter :
+  elle passe par `scene.versEcran` (n°16), bornée à 112 px de haut. Sous
+  520 px de haut, la miniature part, la phrase reste.
+- Trouvé en chemin, antérieur : `finishRun` vidait le bandeau avant de
+  poser la carte sur le terrain figé — un tiret orphelin à la place de la
+  règle. Il la garde quand la carte paraît.
+
 ### LOT B : l'accueil met le MULTI d'abord, et l'invitation après la 1re partie (01/10/2026)
 
 - **Accueil d'un joueur qui revient** (maquette 7.1) : bloc MULTI en tête

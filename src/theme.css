@@ -5366,3 +5366,99 @@ body {
     opacity: 1;
   }
 }
+
+/* ---- LA CONSIGNE DESSINÉE (lot C) ----
+   Sur la ligne des gestes, qui existe déjà : le dessin ne doit JAMAIS la
+   faire grandir (n°17). Ses marges négatives le tiennent dans la hauteur de
+   ligne — mesuré, `#head` identique avec et sans. */
+.sub__picto {
+  display: inline-block;
+  height: 1em;
+  margin-right: 8px;
+  line-height: 0;
+  vertical-align: middle;
+  color: var(--encre);
+}
+
+.sub__picto svg {
+  height: 2em;
+  width: auto;
+  margin-top: -0.5em;
+  overflow: visible;
+}
+
+/* ---- LA PREUVE DE LA MORT (lot C, maquette 4.3) ---- */
+.relance__preuve {
+  display: grid;
+  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0 4px;
+  padding: 8px;
+  text-align: left;
+  background: var(--creme);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-m);
+}
+
+.relance__preuve.hidden {
+  display: none;
+}
+
+.relance__mini {
+  color: var(--encre);
+  background: var(--ink);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  line-height: 0;
+}
+
+.relance__mini svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Debout, la miniature est un portrait : bornée en HAUTEUR, sinon elle
+   allongerait la carte de 200 px. */
+.relance__preuve.is-debout {
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.relance__preuve.is-debout .relance__mini svg {
+  width: auto;
+  height: 112px;
+}
+
+.relance__quoi {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--paper-dim);
+}
+
+.relance__val {
+  margin: 1px 0 6px;
+  font-family: var(--display);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--encre);
+}
+
+.relance__val:last-child {
+  margin-bottom: 0;
+}
+
+/* Téléphone couché : la carte doit tenir dans 375 px de haut. La phrase
+   reste, la miniature part — le terrain figé est juste derrière. */
+@media (max-height: 520px) {
+  .relance__preuve {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .relance__mini {
+    display: none;
+  }
+}

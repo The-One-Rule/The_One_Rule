@@ -1,8 +1,52 @@
 import { colorHex } from "./scene";
 import { briefCourtDeRegle, CHAINES, composePhrase, composeSous, langue, nomDeRegle, t } from "../i18n";
 import type { OneRule, Round } from "../engine/types";
+import { pictogramme } from "./pictogramme";
+import type { PieceDessinee, Pictogramme } from "./pictogramme";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/**
+ * Le SVG d'une consigne dessinée : le geste, puis la ou les pièces, dans les
+ * formes et les teintes du terrain. Une pièce sans couleur nommée est
+ * dessinée en creux ; une pièce sans forme nommée est un rond plein.
+ */
+function pieceSvg(p: PieceDessinee, x: number): string {
+  const fill = p.couleur ? colorHex(p.couleur) : "var(--surface)";
+  const trait = `stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"`;
+  switch (p.forme) {
+    case "carre":
+      return `<rect x="${x + 2}" y="2" width="16" height="16" rx="3.5" fill="${fill}" ${trait}/>`;
+    case "triangle":
+      return `<path d="M${x + 10} 2.5 L${x + 18.5} 17.5 L${x + 1.5} 17.5 Z" fill="${fill}" ${trait}/>`;
+    default:
+      return `<circle cx="${x + 10}" cy="10" r="8" fill="${fill}" ${trait}/>`;
+  }
+}
+
+function dessinePicto(p: Pictogramme): string {
+  const [a, b] = p.pieces;
+  let corps = "";
+  let w = 20;
+  if (!a) return "";
+  if (p.geste === "double") {
+    corps = pieceSvg(a, 0) + pieceSvg(a, 22);
+    w = 42;
+  } else if ((p.geste === "glisse" || p.geste === "suite") && b) {
+    const fleche =
+      p.geste === "glisse"
+        ? `<path d="M23 10 H35 M31 6 L35 10 L31 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<path d="M25 6 L31 10 L25 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
+    corps = pieceSvg(a, 0) + fleche + pieceSvg(b, 38);
+    w = 58;
+  } else if (p.geste === "tiens") {
+    // L'anneau qu'on remplit en tenant — celui que le terrain dessine.
+    corps = pieceSvg(a, 0).replace(/r="8"/, 'r="6"') + `<circle cx="10" cy="10" r="9.2" fill="none" stroke="var(--signal)" stroke-width="2"/>`;
+  } else {
+    corps = pieceSvg(a, 0);
+  }
+  return `<svg viewBox="-1 -1 ${w + 2} 22" width="${w + 2}" height="22">${corps}</svg>`;
+}
 
 export function livesDots(n: number, max: number): string {
   let html = "";
@@ -379,10 +423,14 @@ export class Hud {
      * consigne d'agir sur la seule manche où il faut s'abstenir.
      */
     const comptePeint = n > 0 ? compte : "";
-    const ligne = hidden ? "" : [subText, comptePeint, puces.join("|"), vite].join("\0");
+    // Le dessin de la consigne (lot C) — jamais sur une manche piégée : il
+    // suivrait la consigne, et la ligne n'y dit déjà rien du nombre de gestes.
+    const picto = hidden ? null : pictogramme(round);
+    const pictoCle = picto ? `${picto.geste}:${picto.pieces.map((x) => `${x.forme ?? ""}/${x.couleur ?? ""}`).join(">")}` : "";
+    const ligne = hidden ? "" : [pictoCle, subText, comptePeint, puces.join("|"), vite].join("\0");
     if (ligne !== this.lastLigne) {
       this.lastLigne = ligne;
-      this.peintSub(hidden, subText, comptePeint, vite, puces);
+      this.peintSub(hidden, subText, comptePeint, vite, puces, picto);
     }
 
     /*
@@ -412,11 +460,21 @@ export class Hud {
     compte: string,
     vite: string,
     puces: string[],
+    picto: Pictogramme | null = null,
   ): void {
     this.sub.replaceChildren();
     if (hidden) return;
+    if (picto) {
+      const span = document.createElement("span");
+      span.className = "sub__picto";
+      span.setAttribute("aria-hidden", "true");
+      span.innerHTML = dessinePicto(picto);
+      this.sub.append(span);
+    }
+    // Le dessin n'est pas un texte : il ne réclame pas de « · » après lui.
     const sep = () => {
-      if (this.sub.childNodes.length) this.sub.append(" · ");
+      const n = this.sub.childNodes.length - (picto ? 1 : 0);
+      if (n > 0) this.sub.append(" · ");
     };
     if (subText) {
       sep();

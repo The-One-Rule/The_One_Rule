@@ -117,8 +117,10 @@ import type { Resultat } from "./compte/file";
 import type { RetourConnexion } from "./compte";
 import { revendiqueSiNecessaire, signeAffiche, synchronise } from "./compte/revendication";
 import { glyphFromIndex, glyphSvg } from "./net/glyph";
-import { composePhrase, poseDebout, tp } from "./i18n";
+import { briefCourtDeRegle, composePhrase, poseDebout, tp } from "./i18n";
 import { CATALOGUE_SOLO } from "./engine/instructions";
+import { MOTIFS, MOTIFS_REGLE } from "./engine/motifs";
+import { miniatureSvg, preuveDeMort } from "./render/preuve";
 import { ECRITS } from "./i18n-parcours";
 import type { CleEcrite } from "./i18n-parcours";
 import {
@@ -4936,6 +4938,8 @@ function finishRun(): void {
   piegeAffiche = false;
   appEl.classList.remove("piege-annonce");
   const { end, rule, mode } = session;
+  // La manche fatale, pour la PREUVE de la carte de relance (lot C).
+  const mortRound = session.round;
   const pace = session.pace;
   lastRun = { end, rule, mode, seed: session.seed };
   // Les VRAIES règles de la pile, avant que la session ne soit libérée.
@@ -5544,6 +5548,9 @@ function finishRun(): void {
     aDonner,
   };
   if (relancePossible(etatMort)) {
+    // La carte se pose sur le terrain FIGÉ, bandeau compris : sans la règle,
+    // il n'y restait qu'un tiret orphelin (vu à 390 × 844).
+    hud.setRule(rule);
     montreRelance({
       score: mode === "escalade" ? paliers : end.score,
       ancien: mode === "escalade" ? pileAvant : recordAvantRun,
@@ -5551,6 +5558,7 @@ function finishRun(): void {
       jour: mode === "daily",
       essaisRestants,
       motif: traduisMotif(end.reason),
+      preuve: { round: mortRound, ruleId: rule.id, reason: end.reason },
     });
     inviteSiPremiere(end.score);
     return;
@@ -6523,7 +6531,10 @@ function montreRelance(o: {
   jour: boolean;
   essaisRestants: number;
   motif: string;
+  /** La manche fatale — absente, la carte reste celle d'avant. */
+  preuve?: { round: Round; ruleId: string; reason: string };
 }): void {
+  peintPreuve(o.preuve);
   const v = vueRelance(o.score, o.ancien);
   const boite = $("relance");
   // La carte ne passe pas par `show` : ce qu'il nettoie à chaque changement
@@ -6564,6 +6575,51 @@ function montreRelance(o: {
     if (relanceDepuis) boite.classList.remove("is-garde");
   }, RELANCE_GARDE_MS);
   if (v.id === "record") sfx.win();
+}
+
+/**
+ * LA PREUVE (lot C) : la manche fatale en miniature, la pièce fautive
+ * entourée, la consigne, et ce qu'il fallait faire — une phrase.
+ */
+function peintPreuve(p: { round: Round; ruleId: string; reason: string } | undefined): void {
+  const boite = $("relancePreuve");
+  if (!p || p.round.ents.length === 0) {
+    boite.classList.add("hidden");
+    return;
+  }
+  const ch = ECRITS[langue()];
+  const pr = preuveDeMort(
+    p.round,
+    { x: lastClick.x, y: lastClick.y, frais: performance.now() - lastClick.t < 4000 },
+    {
+      temps: p.reason === MOTIFS.temps || p.reason === MOTIFS.sequence,
+      regle: MOTIFS_REGLE.includes(p.reason),
+    },
+  );
+  // Vue comme À L'ÉCRAN : debout au téléphone, couchée ailleurs (n°16).
+  const f = scene.fieldRect();
+  const vue = {
+    w: f.w,
+    h: f.h,
+    k: Math.max(f.w, f.h) / FIELD_W,
+    ou: (x: number, y: number) => {
+      const e = scene.versEcran(x, y);
+      return { x: e.x - f.x, y: e.y - f.y };
+    },
+  };
+  $("relanceMini").innerHTML = miniatureSvg(p.round.ents, pr, colorHex, f.w > 0 && f.h > 0 ? vue : undefined);
+  $("relancePreuve").classList.toggle("is-debout", f.debout);
+  const consigne = composePhrase(p.round.phrase, p.round.text);
+  $("relanceConsigne").textContent = consigne;
+  $("relanceFallait").textContent =
+    pr.fallait === "rien"
+      ? ch["preuve.rien"]
+      : pr.fallait === "plusVite"
+        ? ch["preuve.plusVite"].replace("{c}", consigne)
+        : pr.fallait === "sansTaRegle"
+          ? ch["preuve.sansTaRegle"].replace("{r}", briefCourtDeRegle(p.ruleId, "").replace(/[.\s]+$/, ""))
+          : consigne;
+  boite.classList.remove("hidden");
 }
 
 function cacheRelance(): void {

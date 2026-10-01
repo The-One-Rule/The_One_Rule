@@ -354,6 +354,9 @@ export type CleEcrite =
   | "acc.jourEpuise"
   | "acc.code4"
   | "invite.eyebrow"
+  | "preuve.rien"
+  | "preuve.plusVite"
+  | "preuve.sansTaRegle"
 
 export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
   fr: {
@@ -378,6 +381,9 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "acc.jourEpuise": "REVIENS DEMAIN",
     "acc.code4": "Un code de salon fait 4 lettres.",
     "invite.eyebrow": "PREMIÈRE PARTIE · MANCHE {n}",
+    "preuve.rien": "Ne rien faire : la consigne était un piège.",
+    "preuve.plusVite": "{c}, plus vite.",
+    "preuve.sansTaRegle": "Obéir, sans enfreindre ta règle : {r}.",
   },
   en: {
     "tuto.craque": "CRACKED · ROUND",
@@ -401,5 +407,8 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "acc.jourEpuise": "COME BACK TOMORROW",
     "acc.code4": "A room code is 4 letters.",
     "invite.eyebrow": "FIRST GAME · ROUND {n}",
+    "preuve.rien": "Do nothing: the order was a trap.",
+    "preuve.plusVite": "{c}, faster.",
+    "preuve.sansTaRegle": "Obey without breaking your rule: {r}.",
   },
 };
