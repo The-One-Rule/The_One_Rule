@@ -59,6 +59,8 @@ export const EVENT_NAMES = [
   "onb_done",
   "onb_skip",
   "onb_rate",
+  "invite_vue",
+  "invite_salon",
   /*
    * Le compte, mesuré en trois points.
    *

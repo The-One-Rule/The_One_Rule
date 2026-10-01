@@ -4336,11 +4336,16 @@ body {
     grid-column: 1;
   }
 
+  /*
+   * Maquette 7.1 bureau : le MULTI à gauche, en grand ; à droite le jour puis
+   * le parcours. Le jour couvre les deux premières rangées, pour ne pas
+   * étirer la rangée des pastilles.
+   */
   #home .parcours > .pstats {
     grid-row: 1;
   }
 
-  #home .parcours > .hero {
+  #home .parcours > .accmulti {
     grid-row: 2;
   }
 
@@ -4352,16 +4357,29 @@ body {
     grid-row: 4;
   }
 
+  /*
+   * La colonne de droite couvre CINQ rangées, dont une cinquième en `1fr` qui
+   * absorbe sa hauteur en trop : sans elle, l'excédent se répartissait entre
+   * les rangées de gauche et ouvrait des trous entre le multi et les modes.
+   */
+  #home .parcours:not(.hidden) {
+    grid-template-rows: auto auto auto auto 1fr;
+  }
+
+  #home .parcours > .acc__droite {
+    grid-column: 2;
+    grid-row: 1 / span 5;
+  }
+
   #home .parcours > .parcours__titre {
     grid-column: 2;
-    grid-row: 1;
-    margin: 0 0 14px;
-    align-self: end;
+    grid-row: 6;
+    margin: 18px 0 14px;
   }
 
   #home .parcours > .chemin {
     grid-column: 2;
-    grid-row: 2 / span 99;
+    grid-row: 7 / span 99;
   }
 }
 
@@ -5064,6 +5082,286 @@ body {
   .tuto__aide.is-piege,
   .tutorate__carte,
   .annonce {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ==================================================================
+   L'ACCUEIL D'UN JOUEUR QUI REVIENT — maquette 7.1 (lot B)
+
+   Le MULTI d'abord : TOR est un jeu de soirée. Puis le jour, puis le
+   parcours. Les deux portes qui faisaient doublon dans « autres façons de
+   jouer » (DU JOUR, MULTI) se taisent — elles restent dans le DOM : le
+   bloc du jour délègue à `#profJour`, et `multi.ts` tient `#btnMulti`.
+   ================================================================== */
+#home .profondeur > #profJour,
+#home .profondeur > #btnMulti {
+  display: none;
+}
+
+.accmulti,
+.accjour {
+  text-align: left;
+  margin: 0 0 16px;
+  padding: 14px 14px 16px;
+  color: var(--encre);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-haute);
+}
+
+.accmulti {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--lilas);
+}
+
+.accmulti.hidden,
+.accmulti__err.hidden {
+  display: none;
+}
+
+.accjour {
+  background: var(--surface);
+}
+
+.acc__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.acc__ico--amis {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Ccircle cx='17' cy='9.5' r='2.8'/%3E%3Cpath d='M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M15.5 14.6c2.9 0 5 1.6 5.6 5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Ccircle cx='17' cy='9.5' r='2.8'/%3E%3Cpath d='M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M15.5 14.6c2.9 0 5 1.6 5.6 5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.acc__titre {
+  margin: 2px 0 2px;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 24px;
+  line-height: 1.05;
+  letter-spacing: 0;
+  text-transform: none;
+  text-shadow: none;
+}
+
+.acc__titre--petit {
+  margin-bottom: 10px;
+  font-size: 18px;
+}
+
+.accmulti__creer {
+  width: 100%;
+}
+
+.accmulti__rejoindre {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.accmulti__code {
+  min-width: 0;
+  height: var(--tap);
+  min-height: 48px;
+  padding: 0 10px;
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--encre);
+  background: var(--surface);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  box-shadow: var(--ombre);
+}
+
+.accmulti__code::placeholder {
+  color: var(--paper-dim);
+  opacity: 0.7;
+}
+
+.accmulti__code.is-faux {
+  border-color: var(--rouge);
+  animation: acc-tremble 260ms ease-in-out;
+}
+
+@keyframes acc-tremble {
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+.accmulti__rejoindreBtn {
+  min-width: 0;
+  min-height: 48px;
+}
+
+.accmulti__err {
+  margin: -2px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dead);
+}
+
+.accmulti__rapide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+}
+
+.accmulti__rapide small {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  opacity: 0.75;
+}
+
+.accjour .acc__eyebrow {
+  justify-content: space-between;
+}
+
+.accjour__essais {
+  display: flex;
+  gap: 4px;
+}
+
+.accjour__essais i {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--encre);
+  border-radius: 999px;
+}
+
+.accjour__essais i.is-on {
+  background: var(--signal);
+}
+
+.accjour__jouer {
+  width: 100%;
+  min-height: 48px;
+}
+
+.acc__section {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--paper-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accmulti__code.is-faux {
+    animation: none;
+  }
+}
+
+/* ---- L'INVITATION APRÈS LA PREMIÈRE PARTIE ---- */
+.invite {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  padding: 16px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--ink) 82%, transparent);
+}
+
+.invite.hidden {
+  display: none;
+}
+
+.invite__carte {
+  /* centrée par la marge (n°6) */
+  margin: auto;
+  width: min(100%, 440px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  text-align: center;
+  color: var(--encre);
+  background: var(--lilas);
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-l);
+  box-shadow: var(--ombre-haute);
+  animation: relance-entre 260ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+
+.invite__eyebrow {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.invite__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 600 / 432;
+  max-height: 34vh;
+  object-fit: cover;
+  border: var(--trait) solid var(--encre);
+  border-radius: var(--r-m);
+  image-rendering: pixelated;
+}
+
+.invite__titre {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(24px, 7vw, 30px);
+  line-height: 1.05;
+  text-wrap: balance;
+}
+
+.invite__quoi {
+  margin: 0 0 4px;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.invite__creer,
+.invite__seul {
+  width: 100%;
+  min-height: 52px;
+}
+
+.invite__modes {
+  align-self: center;
+  min-height: var(--tap);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--encre);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invite__carte {
     animation: none;
     opacity: 1;
   }

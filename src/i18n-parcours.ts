@@ -15,6 +15,21 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "tuto.consigne": "LA CONSIGNE",
     "tuto.fallait": "IL FALLAIT",
     "tuto.rejouer": "REJOUER LA MANCHE",
+    "acc.multiEyebrow": "MULTI · JUSQU'À 10",
+    "acc.multiTitre": "Joue avec tes amis",
+    "acc.creer": "CRÉER UN SALON",
+    "acc.code": "CODE",
+    "acc.codeAria": "Code du salon",
+    "acc.rejoindre": "REJOINDRE",
+    "acc.rapide": "PARTIE RAPIDE",
+    "acc.sansCode": "sans code",
+    "acc.jourTitre": "La même partie pour tout le monde",
+    "acc.parcours": "PARCOURS SOLO",
+    "invite.titre": "C'est encore mieux à plusieurs.",
+    "invite.quoi": "Un code de 4 lettres, jusqu'à 10 amis, chacun sa règle.",
+    "invite.creer": "CRÉER UN SALON",
+    "invite.seul": "CONTINUER SEUL",
+    "invite.modes": "Voir tous les modes",
     "annonce.titre": "Échauffement terminé",
     "annonce.quoi": "À partir de maintenant, le cadre se vide plus vite.",
     "annonce.suite": "TOUCHE POUR CONTINUER",
@@ -43,6 +58,21 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "tuto.consigne": "THE ORDER",
     "tuto.fallait": "YOU HAD TO",
     "tuto.rejouer": "PLAY THE ROUND AGAIN",
+    "acc.multiEyebrow": "MULTIPLAYER · UP TO 10",
+    "acc.multiTitre": "Play with your friends",
+    "acc.creer": "CREATE A ROOM",
+    "acc.code": "CODE",
+    "acc.codeAria": "Room code",
+    "acc.rejoindre": "JOIN",
+    "acc.rapide": "QUICK GAME",
+    "acc.sansCode": "no code",
+    "acc.jourTitre": "The same game for everyone",
+    "acc.parcours": "SOLO PATH",
+    "invite.titre": "It's even better together.",
+    "invite.quoi": "A 4-letter code, up to 10 friends, each with their own rule.",
+    "invite.creer": "CREATE A ROOM",
+    "invite.seul": "CONTINUE ALONE",
+    "invite.modes": "See every mode",
     "annonce.titre": "Warm-up over",
     "annonce.quoi": "From now on, the frame empties faster.",
     "annonce.suite": "TAP TO CONTINUE",
@@ -316,7 +346,14 @@ export type CleEcrite =
   | "vitrine.bleu"
   | "vitrine.rouge"
   | "vitrine.bien"
-  | "vitrine.piege";
+  | "vitrine.piege"
+  | "acc.jourEyebrow"
+  | "acc.jourJouer1"
+  | "acc.jourJouerN"
+  | "acc.jourFini"
+  | "acc.jourEpuise"
+  | "acc.code4"
+  | "invite.eyebrow"
 
 export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
   fr: {
@@ -334,6 +371,13 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "vitrine.rouge": "CLIQUE LE ROUGE",
     "vitrine.bien": "BIEN",
     "vitrine.piege": "PIÈGE DÉJOUÉ",
+    "acc.jourEyebrow": "RUN DU JOUR",
+    "acc.jourJouer1": "JOUER · DERNIER ESSAI",
+    "acc.jourJouerN": "JOUER · {n} ESSAIS",
+    "acc.jourFini": "BOUCLÉ · VOIR LE JOUR",
+    "acc.jourEpuise": "REVIENS DEMAIN",
+    "acc.code4": "Un code de salon fait 4 lettres.",
+    "invite.eyebrow": "PREMIÈRE PARTIE · MANCHE {n}",
   },
   en: {
     "tuto.craque": "CRACKED · ROUND",
@@ -350,5 +394,12 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "vitrine.rouge": "CLICK THE RED",
     "vitrine.bien": "NICE",
     "vitrine.piege": "TRAP DODGED",
+    "acc.jourEyebrow": "DAILY RUN",
+    "acc.jourJouer1": "PLAY · LAST TRY",
+    "acc.jourJouerN": "PLAY · {n} TRIES",
+    "acc.jourFini": "DONE · SEE TODAY",
+    "acc.jourEpuise": "COME BACK TOMORROW",
+    "acc.code4": "A room code is 4 letters.",
+    "invite.eyebrow": "FIRST GAME · ROUND {n}",
   },
 };

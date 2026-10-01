@@ -191,6 +191,13 @@ export interface Save {
    */
   onboarded?: boolean;
   /**
+   * L'invitation « c'est encore mieux à plusieurs » a été montrée (maquette,
+   * après la première partie). ABSENT VAUT NON — mais elle ne paraît qu'après
+   * une partie qui vient de finir, donc un habitué la verra une fois, au
+   * prochain run, et plus jamais.
+   */
+  inviteVue?: boolean;
+  /**
    * Joueur d'AVANT le parcours : il avait déjà joué quand les modes ont
    * commencé à s'ouvrir en jouant. Il garde tout ouvert — lui retirer le run du
    * jour qu'il jouait la veille serait une régression, pas un onboarding.
@@ -445,6 +452,7 @@ export function normaliseSave(brut: unknown): Save {
   // Les deux drapeaux « déjà vu » : absent vaut NON, et c'est voulu (voir leur
   // commentaire respectif). On ne les pose que s'ils sont vraiment booléens.
   if (typeof brut.onboarded === "boolean") s.onboarded = brut.onboarded;
+  if (typeof brut.inviteVue === "boolean") s.inviteVue = brut.inviteVue;
   if (typeof brut.avisVu === "boolean") s.avisVu = brut.avisVu;
   if (typeof brut.installVu === "boolean") s.installVu = brut.installVu;
   if (Array.isArray(brut.modesVus)) s.modesVus = brut.modesVus.filter((m: unknown): m is string => typeof m === "string");

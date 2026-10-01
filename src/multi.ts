@@ -174,6 +174,13 @@ export type MultiApi = {
    * rien du tout.
    */
   onIdentite: (cb: (nom: string, glyphe: number) => void) => void;
+  /**
+   * Les trois actions du bloc MULTI de l'accueil (maquette 7.1). Elles
+   * passent par l'écran d'entrée — c'est là que vivent l'identité, les
+   * erreurs de code et leurs issues — puis déclenchent l'action, sans un clic
+   * de plus.
+   */
+  depuisAccueil: (action: "creer" | "rejoindre" | "rapide", code?: string) => void;
 };
 
 type MatchState = {
@@ -1014,6 +1021,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     ouvreIdentite: () => {},
     envoieProfil: () => {},
     onIdentite: () => {},
+    depuisAccueil: () => {},
   };
 
   if (!wsUrl) {
@@ -4192,6 +4200,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     ouvreIdentite: (revenir: () => void) => {
       retourIdentite = revenir;
       openIdentity();
+    },
+    depuisAccueil: (action, code) => {
+      const agir = async (): Promise<void> => {
+        await openJoin(action === "rejoindre" ? code : undefined);
+        if (action === "creer") void ouvreSalon("classique");
+        else if (action === "rapide") void partieRapide();
+        else {
+          peintCases();
+          $("btnMultiJoin").click();
+        }
+      };
+      if (needIdentity(() => void agir())) return;
+      void agir();
     },
     onIdentite: (cb) => {
       surIdentite = cb;

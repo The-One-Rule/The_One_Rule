@@ -980,8 +980,38 @@ let accueilNeuf = true;
 /** Le chapitre que le héros montre. `null` = celui du prochain niveau. */
 let chapitreVu: number | null = null;
 
+/**
+ * Le bloc RUN DU JOUR de l'accueil (maquette 7.1) : la date, les essais
+ * restants en pastilles, un bouton qui dit ce qu'il reste à faire. Il mène à
+ * l'écran SOLO comme `#profJour` — c'est là que vivent la série et les quêtes,
+ * et c'est la seule porte de cet écran (voir son gestionnaire).
+ */
+function peintAccJour(s: ReturnType<typeof P.load>): void {
+  const vj = vueDuJour(s, day);
+  const ch = ECRITS[langue()];
+  const date = new Date().toLocaleDateString(langue() === "fr" ? "fr-FR" : "en-GB", { day: "numeric", month: "short" });
+  $("accJourDate").textContent = `${ch["acc.jourEyebrow"]} · ${date.toUpperCase()}`;
+  const pastilles = $("accJourEssais");
+  pastilles.textContent = "";
+  for (let i = 0; i < DAILY_ESSAIS; i++) {
+    const p = document.createElement("i");
+    if (i < vj.restants) p.className = "is-on";
+    pastilles.appendChild(p);
+  }
+  $("btnAccJour").textContent =
+    vj.etat === "termine"
+      ? ch["acc.jourFini"]
+      : vj.restants === 0
+        ? ch["acc.jourEpuise"]
+        : vj.restants === 1
+          ? ch["acc.jourJouer1"]
+          : ch["acc.jourJouerN"].replace("{n}", String(vj.restants));
+  $("accMulti").classList.toggle("hidden", !multi.available);
+}
+
 function renderParcours(): void {
   const s = P.load();
+  peintAccJour(s);
   const e = etoilesDuCarnet(s);
   const jouables = chapitresJouables();
   /*
@@ -1294,6 +1324,7 @@ function finNiveau(
   if (reussi) sfx.win();
   show("niveau");
   btn.focus({ preventScroll: true });
+  inviteSiPremiere(end.score);
 }
 
 $("btnNiveauParcours").addEventListener("click", () => {
@@ -5521,9 +5552,11 @@ function finishRun(): void {
       essaisRestants,
       motif: traduisMotif(end.reason),
     });
+    inviteSiPremiere(end.score);
     return;
   }
   show("over");
+  inviteSiPremiere(end.score);
   if (avance.franchi) {
     montreMicro({
       kind: "maitrise",
@@ -6152,6 +6185,16 @@ window.addEventListener("keydown", (e) => {
   // L'annonce de fin d'échauffement se referme aussi à ENTRÉE — jamais à
   // ESPACE, qu'une règle à maintien fait tenir enfoncée et dont la répétition
   // la refermerait sans qu'on l'ait lue.
+  // L'invitation ouverte : ÉCHAP la referme, et aucun raccourci n'agit sur
+  // l'écran qu'elle couvre (R relancerait un run derrière elle).
+  if (!$("invite").classList.contains("hidden")) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      fermeInvite();
+    }
+    return;
+  }
+
   if (annonceSuite) {
     if (e.key === "Enter" && !e.repeat) {
       e.preventDefault();
@@ -6546,6 +6589,46 @@ function relanceUnGeste(): void {
   if (screen === "brief" && !$<HTMLButtonElement>("btnGo").disabled) startRun();
 }
 
+/**
+ * L'INVITATION APRÈS LA PREMIÈRE PARTIE (maquette, lot B) : TOR est un jeu de
+ * soirée, et le moment où l'on vient de comprendre est celui où l'on a envie
+ * de le montrer. Une fois, jamais sur un duel ni un classé, jamais sans
+ * serveur de salons — et jamais pour un habitué : le drapeau se pose aussi
+ * quand on décide de ne PAS la montrer.
+ */
+function inviteSiPremiere(manches: number): void {
+  if (challenge || ranked) return;
+  let montrer = false;
+  P.mutate((st) => {
+    if (st.inviteVue) return;
+    st.inviteVue = true;
+    montrer = multi.available && st.recent.length <= 2;
+  });
+  if (!montrer) return;
+  $("inviteEyebrow").textContent = ECRITS[langue()]["invite.eyebrow"].replace("{n}", String(manches));
+  $("invite").classList.remove("hidden");
+  track("invite_vue", { manches });
+  $("btnInviteCreer").focus({ preventScroll: true });
+}
+function fermeInvite(): void {
+  $("invite").classList.add("hidden");
+}
+$("btnInviteCreer").addEventListener("click", () => {
+  sfx.ui();
+  fermeInvite();
+  track("invite_salon", {});
+  multi.depuisAccueil("creer");
+});
+$("btnInviteSeul").addEventListener("click", () => {
+  sfx.ui();
+  fermeInvite();
+});
+$("btnInviteModes").addEventListener("click", () => {
+  sfx.ui();
+  fermeInvite();
+  backHome();
+});
+
 function relanceBilan(): void {
   if (!relanceVisible()) return;
   sfx.ui();
@@ -6730,6 +6813,53 @@ $("profJour").addEventListener("click", () => {
    */
   renderSolo();
   show("solo");
+});
+
+$("btnAccJour").addEventListener("click", () => {
+  $("profJour").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+});
+$("btnAccCreer").addEventListener("click", () => {
+  sfx.ui();
+  multi.depuisAccueil("creer");
+});
+$("btnAccRapide").addEventListener("click", () => {
+  sfx.ui();
+  multi.depuisAccueil("rapide");
+});
+function rejoindreDepuisAccueil(): void {
+  const champ = $<HTMLInputElement>("accCode");
+  const code = champ.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const err = $("accCodeErr");
+  if (code.length !== 4) {
+    // L'erreur qui se voit SANS quitter l'accueil : la seule qu'on sache
+    // juger ici. Un code inconnu se dit sur l'écran d'entrée, avec ses issues.
+    sfx.fail();
+    err.textContent = ECRITS[langue()]["acc.code4"];
+    err.classList.remove("hidden");
+    champ.classList.add("is-faux");
+    champ.focus();
+    return;
+  }
+  sfx.ui();
+  err.classList.add("hidden");
+  champ.classList.remove("is-faux");
+  multi.depuisAccueil("rejoindre", code);
+}
+$("btnAccRejoindre").addEventListener("click", rejoindreDepuisAccueil);
+$<HTMLInputElement>("accCode").addEventListener("input", (ev) => {
+  const champ = ev.target as HTMLInputElement;
+  const net = champ.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 4);
+  if (champ.value !== net) champ.value = net;
+  champ.classList.remove("is-faux");
+  $("accCodeErr").classList.add("hidden");
+  // Le bouton devient l'action évidente dès que le code est complet.
+  $("btnAccRejoindre").classList.toggle("btn--primary", net.length === 4);
+});
+$<HTMLInputElement>("accCode").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter") {
+    ev.preventDefault();
+    rejoindreDepuisAccueil();
+  }
 });
 
 $("profClassement").addEventListener("click", () => {

@@ -304,6 +304,21 @@
           <p class="annonce__suite" data-i18n="annonce.suite">TAP TO CONTINUE</p>
         </div>
 
+        <!-- « C'EST ENCORE MIEUX À PLUSIEURS » (maquette, après la première
+             partie). Un calque posé UNE fois sur l'écran de fin déjà prêt :
+             CONTINUER SEUL le referme et rend cet écran tel quel. -->
+        <div id="invite" class="invite hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitre">
+          <div class="invite__carte">
+            <p class="invite__eyebrow" id="inviteEyebrow"></p>
+            <img class="invite__img" src="/poses/amis.png" alt="" width="600" height="432" loading="lazy">
+            <h2 class="invite__titre" id="inviteTitre" data-i18n="invite.titre">It's even better together.</h2>
+            <p class="invite__quoi" data-i18n="invite.quoi">A 4-letter code, up to 10 friends, each with their own rule.</p>
+            <button type="button" class="btn btn--gros invite__creer" id="btnInviteCreer" data-i18n="invite.creer">CREATE A ROOM</button>
+            <button type="button" class="btn invite__seul" id="btnInviteSeul" data-i18n="invite.seul">CONTINUE ALONE</button>
+            <button type="button" class="invite__modes" id="btnInviteModes" data-i18n="invite.modes">See every mode</button>
+          </div>
+        </div>
+
         <!-- LA CARTE DE RELANCE, HORS FLUX (voir `render/relance.ts`).
              Paraît à la mort, sur le terrain figé : le score, l'écart au
              record, et un appui N'IMPORTE OÙ relance. BILAN ouvre l'écran de
@@ -590,14 +605,42 @@
               <span class="pstat pstat--serie"><i aria-hidden="true">▲</i><b id="pstatSerie">0</b></span>
             </div>
 
-            <div class="hero" id="hero">
-              <div class="hero__carte" id="heroCarte" aria-hidden="true"></div>
-              <div class="hero__corps">
-                <p class="hero__eyebrow" id="heroEyebrow"></p>
-                <h2 class="hero__nom" id="heroNom"></h2>
-                <p class="hero__brief" id="heroBrief"></p>
-                <ol class="piste" id="heroPiste" aria-label="Niveaux"></ol>
-                <button class="btn btn--gros" id="btnHeroJouer"></button>
+            <!-- LE MULTI D'ABORD (maquette 7.1) : TOR est un jeu de soirée. Le
+                 bloc ne fait que DÉLÉGUER à l'écran d'entrée du multi
+                 (`multi.depuisAccueil`), où vivent l'identité et les erreurs
+                 de code avec leurs issues. -->
+            <div class="accmulti" id="accMulti">
+              <p class="acc__eyebrow"><i class="acc__ico acc__ico--amis" aria-hidden="true"></i><span data-i18n="acc.multiEyebrow">MULTIPLAYER · UP TO 10</span></p>
+              <h2 class="acc__titre" data-i18n="acc.multiTitre">Play with your friends</h2>
+              <button type="button" class="btn btn--gros accmulti__creer" id="btnAccCreer" data-i18n="acc.creer">CREATE A ROOM</button>
+              <div class="accmulti__rejoindre">
+                <input class="accmulti__code" id="accCode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="CODE" data-i18n-ph="acc.code" aria-label="Room code" data-i18n-aria="acc.codeAria">
+                <button type="button" class="btn accmulti__rejoindreBtn" id="btnAccRejoindre" data-i18n="acc.rejoindre">JOIN</button>
+              </div>
+              <p class="accmulti__err hidden" id="accCodeErr" role="alert"></p>
+              <button type="button" class="btn accmulti__rapide" id="btnAccRapide"><span data-i18n="acc.rapide">QUICK GAME</span><small data-i18n="acc.sansCode">no code</small></button>
+            </div>
+
+            <!-- Le jour et le parcours forment UNE colonne au bureau : des enfants
+                 de grille séparés couplaient leurs rangées à la hauteur du
+                 bloc multi, et laissaient un trou de 140 px (mesuré à 1440). -->
+            <div class="acc__droite">
+              <div class="accjour" id="accJour">
+                <p class="acc__eyebrow"><span id="accJourDate">DAILY RUN</span><span class="accjour__essais" id="accJourEssais" aria-hidden="true"></span></p>
+                <h3 class="acc__titre acc__titre--petit" data-i18n="acc.jourTitre">The same game for everyone</h3>
+                <button type="button" class="btn accjour__jouer" id="btnAccJour"></button>
+              </div>
+
+              <p class="acc__section" data-i18n="acc.parcours">SOLO PATH</p>
+              <div class="hero" id="hero">
+                <div class="hero__carte" id="heroCarte" aria-hidden="true"></div>
+                <div class="hero__corps">
+                  <p class="hero__eyebrow" id="heroEyebrow"></p>
+                  <h2 class="hero__nom" id="heroNom"></h2>
+                  <p class="hero__brief" id="heroBrief"></p>
+                  <ol class="piste" id="heroPiste" aria-label="Niveaux"></ol>
+                  <button class="btn btn--gros" id="btnHeroJouer"></button>
+                </div>
               </div>
             </div>
 

@@ -775,6 +775,31 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### LOT B : l'accueil met le MULTI d'abord, et l'invitation après la 1re partie (01/10/2026)
+
+- **Accueil d'un joueur qui revient** (maquette 7.1) : bloc MULTI en tête
+  (CRÉER UN SALON, code + REJOINDRE, PARTIE RAPIDE), puis RUN DU JOUR (date,
+  essais en pastilles, « JOUER · 3 ESSAIS »), puis le parcours. DU JOUR et
+  MULTI quittent « autres façons de jouer » — masqués, PAS retirés : le
+  bloc du jour délègue à `#profJour` (seule porte de l'écran SOLO) et
+  `multi.ts` tient `#btnMulti`.
+- **Le bloc ne réimplémente rien** : `multi.depuisAccueil(action, code)`
+  passe par l'écran d'entrée — identité d'abord (`needIdentity`), puis
+  l'action. Seule l'erreur « pas 4 lettres » se dit sur l'accueil ; un code
+  inconnu se dit sur l'écran d'entrée, avec ses issues (RETAPER, OUVRIR LE
+  MIEN). Joué avec un vrai serveur : créer, rejoindre, code inconnu.
+- ⚠️ **Au bureau, le jour et le parcours sont UNE colonne** (`.acc__droite`)
+  : en enfants de grille séparés, leurs rangées suivaient la hauteur du bloc
+  multi et laissaient un trou de 140 px. La colonne couvre cinq rangées dont
+  une `1fr` qui absorbe son excédent.
+- **L'invitation** (`#invite`) : calque posé UNE fois sur l'écran de fin
+  déjà prêt (niveau, relance ou fin), jamais sur un duel ni un classé, ni
+  sans serveur de salons, ni pour un habitué (`recent.length <= 2`) — le
+  drapeau `inviteVue` se pose aussi quand on décide de ne pas la montrer.
+  CONTINUER SEUL la referme ; ÉCHAP aussi, et aucun raccourci n'agit dessous.
+  Image : `public/poses/amis.png`, reprise de la maquette. Mesure :
+  `invite_vue`, `invite_salon` (dans les DEUX listes blanches).
+
 ### « NE FAIS RIEN » retiré, et jamais deux pièges d'affilée (01/10/2026)
 
 Directive de Pierre : « garde la courbe de temps actuelle, supprime les
