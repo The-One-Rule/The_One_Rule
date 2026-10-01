@@ -775,6 +775,43 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### LOT D : le salon — QR, tuiles, « X A CRAQUÉ », et deux pavés trouvés en jouant (01/10/2026)
+
+- **Le QR du salon** (`render/qr.ts`, pur ; encodeur `qrcode-generator`,
+  MIT, sans dépendance — première dépendance de rendu ajoutée au front) : même
+  lien que COPIER LE LIEN, toujours encre foncée sur clair (un QR inversé
+  échoue sur beaucoup de lecteurs), zone de silence de 4 modules. ⚠️ Chargé
+  À LA DEMANDE (`import()` dans `setRoomCode`) : sinon 25 Ko de plus pour
+  chaque visiteur de l'accueil. Le paquet principal est à 333 Ko.
+- **Les tuiles du code** se lisent depuis le canapé : 76 px de haut au
+  téléphone, 80 au bureau.
+- ⚠️ **Le QR poussait LANCER sous la ligne de flottaison au bureau** (881-943
+  pour 900, hôte à 1440 × 900) : QR compacté, et la rangée d'actions colle au
+  bas de l'écran comme au téléphone. Au téléphone, QUITTER touchait LANCER
+  bord à bord sous son ombre, et la rangée collée laissait 22 px de jour où
+  les réglages défilaient à vue — corrigés.
+- **« SAM A CRAQUÉ »** (`#craque`) : la chute d'un AUTRE, en pastille sur le
+  pied, 2,4 s. Ancrée sur `#app`, pas sur `#foot` : poser `position:
+  relative` sur le pied dans `theme.css` (chargée après) écraserait son
+  `absolute` du paysage serré. Couché, le pied fait 30 px : la pastille de 33
+  débordait (377 pour 375), réduite.
+- ⚠️ **LE PANNEAU DUEL ÉTAIT UN PAVÉ PRUNE, en salon réel**, depuis la
+  refonte : `.drama--duel .drama__panel` et `--elim` (0,2,0) réinjectaient
+  les huit dégradés d'équerres de l'identité nocturne, à pleine taille — en
+  STICKER, `--paper` est le prune. Le texte « DUEL » était peint dessous.
+  `tests/drama.test.ts` exige que le thème neutralise toute variante qui
+  peint un fond ; éprouvé.
+- ⚠️ **COLLISION DE CLASSE, la troisième du dépôt, et de mon fait** : le
+  calque d'invitation du lot B s'appelait `.invite`, déjà porté par
+  `#compteInvite` sur l'écran de fin. Ma règle (fixe, plein écran) l'aurait
+  transformé en calque dès sa parution. Renommé `.aplusieurs`. Toutes les
+  classes ajoutées depuis le lot A ont été cherchées dans les deux feuilles :
+  aucune autre.
+- **Pas fait, délibérément** : les plaques EN HAUT au téléphone (maquette
+  9.1). Elles vivent déjà dans leur bande à hauteur fixe sous le terrain, sans
+  le recouvrir ; les déplacer ne rend aucun pixel de terrain et rouvre la
+  mesure de `RESERVE_HUD_MULTI` (n°10). Une direction, pas un correctif.
+
 ### LOT C : la consigne dessinée, et la preuve de la mort (01/10/2026)
 
 - **La consigne dessinée** (`render/pictogramme.ts`, pur) : sur la ligne des

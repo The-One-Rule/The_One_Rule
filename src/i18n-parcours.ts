@@ -30,6 +30,8 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "invite.creer": "CRÉER UN SALON",
     "invite.seul": "CONTINUER SEUL",
     "invite.modes": "Voir tous les modes",
+    "salon.qr": "Dans la même pièce ? Scannez.",
+    "salon.qrAria": "QR code du salon",
     "annonce.titre": "Échauffement terminé",
     "annonce.quoi": "À partir de maintenant, le cadre se vide plus vite.",
     "annonce.suite": "TOUCHE POUR CONTINUER",
@@ -73,6 +75,8 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "invite.creer": "CREATE A ROOM",
     "invite.seul": "CONTINUE ALONE",
     "invite.modes": "See every mode",
+    "salon.qr": "Same room? Scan.",
+    "salon.qrAria": "Room QR code",
     "annonce.titre": "Warm-up over",
     "annonce.quoi": "From now on, the frame empties faster.",
     "annonce.suite": "TAP TO CONTINUE",
@@ -357,6 +361,8 @@ export type CleEcrite =
   | "preuve.rien"
   | "preuve.plusVite"
   | "preuve.sansTaRegle"
+  | "craque.un"
+  | "craque.elim"
 
 export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
   fr: {
@@ -384,6 +390,8 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "preuve.rien": "Ne rien faire : la consigne était un piège.",
     "preuve.plusVite": "{c}, plus vite.",
     "preuve.sansTaRegle": "Obéir, sans enfreindre ta règle : {r}.",
+    "craque.un": "{n} A CRAQUÉ",
+    "craque.elim": "{n} EST ÉLIMINÉ",
   },
   en: {
     "tuto.craque": "CRACKED · ROUND",
@@ -410,5 +418,7 @@ export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
     "preuve.rien": "Do nothing: the order was a trap.",
     "preuve.plusVite": "{c}, faster.",
     "preuve.sansTaRegle": "Obey without breaking your rule: {r}.",
+    "craque.un": "{n} CRACKED",
+    "craque.elim": "{n} IS OUT",
   },
 };

@@ -307,15 +307,15 @@
         <!-- « C'EST ENCORE MIEUX À PLUSIEURS » (maquette, après la première
              partie). Un calque posé UNE fois sur l'écran de fin déjà prêt :
              CONTINUER SEUL le referme et rend cet écran tel quel. -->
-        <div id="invite" class="invite hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitre">
-          <div class="invite__carte">
-            <p class="invite__eyebrow" id="inviteEyebrow"></p>
-            <img class="invite__img" src="/poses/amis.png" alt="" width="600" height="432" loading="lazy">
-            <h2 class="invite__titre" id="inviteTitre" data-i18n="invite.titre">It's even better together.</h2>
-            <p class="invite__quoi" data-i18n="invite.quoi">A 4-letter code, up to 10 friends, each with their own rule.</p>
-            <button type="button" class="btn btn--gros invite__creer" id="btnInviteCreer" data-i18n="invite.creer">CREATE A ROOM</button>
-            <button type="button" class="btn invite__seul" id="btnInviteSeul" data-i18n="invite.seul">CONTINUE ALONE</button>
-            <button type="button" class="invite__modes" id="btnInviteModes" data-i18n="invite.modes">See every mode</button>
+        <div id="invite" class="aplusieurs hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitre">
+          <div class="aplusieurs__carte">
+            <p class="aplusieurs__eyebrow" id="inviteEyebrow"></p>
+            <img class="aplusieurs__img" src="/poses/amis.png" alt="" width="600" height="432" loading="lazy">
+            <h2 class="aplusieurs__titre" id="inviteTitre" data-i18n="invite.titre">It's even better together.</h2>
+            <p class="aplusieurs__quoi" data-i18n="invite.quoi">A 4-letter code, up to 10 friends, each with their own rule.</p>
+            <button type="button" class="btn btn--gros aplusieurs__creer" id="btnInviteCreer" data-i18n="invite.creer">CREATE A ROOM</button>
+            <button type="button" class="btn aplusieurs__seul" id="btnInviteSeul" data-i18n="invite.seul">CONTINUE ALONE</button>
+            <button type="button" class="aplusieurs__modes" id="btnInviteModes" data-i18n="invite.modes">See every mode</button>
           </div>
         </div>
 
@@ -439,6 +439,9 @@
            qu'on consulte d'un coup d'œil sans quitter la scène. La valeur
            domine, l'intitulé la nomme en dessous. -->
       <footer id="foot">
+        <!-- « SAM A CRAQUÉ » (maquette 9.2) : la chute d'un AUTRE, posée sur le
+             pied, hors du terrain. Absolue : le pied ne grandit pas (n°17). -->
+        <p class="craque hidden" id="craque" aria-live="polite"></p>
         <div class="foot__cell">
           <b class="foot__value" id="fScore">0</b>
           <!-- ⚠️ L'INTITULE EST DYNAMIQUE DEPUIS QU'IL Y A LE COOP.
@@ -1969,6 +1972,12 @@
                    toujours. Le filet a accents ne pouvait pas la voir — elle est en
                    ASCII pur. Trouve en JOUANT, comme les quatre autres. -->
               <p class="fineprint" id="multiLobbyCodeHint" data-i18n="salon.dicteCode">SAY IT OUT LOUD, OR SEND THE LINK</p>
+              <!-- Maquette 8.1 : pour qui est dans la même pièce, le QR mène au
+                   même lien que COPIER LE LIEN. Posé par `setRoomCode`. -->
+              <div class="roomqr hidden" id="multiLobbyQrBox">
+                <div class="roomqr__img" id="multiLobbyQr" aria-label="Room QR code" data-i18n-aria="salon.qrAria"></div>
+                <p class="roomqr__quoi" data-i18n="salon.qr">Same room? Scan.</p>
+              </div>
             </div>
 
             <!-- La regle du jeu, rappelee la ou les joueurs attendent le
