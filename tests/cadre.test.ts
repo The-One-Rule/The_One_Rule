@@ -57,17 +57,14 @@ describe("lot C — sources", () => {
   const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   const scene = readFileSync("src/render/scene.ts", "utf8");
 
-  it("SANS_DEMO est le mouvement réduit, plus la largeur", () => {
-    const sans = /const SANS_DEMO[\s\S]*?;/.exec(main)?.[0] ?? "";
-    expect(sans, "SANS_DEMO introuvable").toMatch(
+  it("la vitrine de l'arrivée se fige sous le mouvement réduit", () => {
+    const fn = /function peintVitrine[\s\S]*?\n}/.exec(main)?.[0] ?? "";
+    expect(fn, "peintVitrine introuvable").toMatch(
       /matchMedia\(\s*["']\(prefers-reduced-motion:\s*reduce\)["']\s*\)/,
     );
-    expect(sans).not.toMatch(/max-width:\s*899px/);
   });
 
-  it("le zoom téléphone est indépendant, et ne touche pas le canvas de jeu", () => {
-    expect(main).toMatch(/matchMedia\(\s*["']\(max-width:\s*899px\)["']\s*\)/);
-    expect(main).toMatch(/sc\.cadrer\(/);
+  it("la vitrine ne touche pas le canvas de jeu", () => {
     expect(main).not.toMatch(/\bscene\.cadrer\(/);
     expect(scene).toContain("function poseCadre");
   });

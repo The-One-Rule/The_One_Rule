@@ -52,40 +52,45 @@ describe("la règle qu'on enseigne", () => {
 });
 
 describe("les deux manches jouées", () => {
-  it("⚠️ TOUT se joue : trois temps, obéir, résister, déjouer — aucun écran à lire", () => {
+  it("⚠️ TOUT se joue : trois temps, obéir, résister, reprendre — aucun écran à lire", () => {
     // Retour du jury Ystart : « un tuto qui se passe en jouant, pas un truc
     // ambigu avant de commencer ». Un quatrième temps qui ne serait qu'un écran
     // à lire ferait revenir exactement ce qu'on a retiré.
     expect([...TEMPS_JOUES]).toEqual([1, 2, 3]);
     expect(mancheDe(1).cible, "obéir : il y a une pièce à cliquer").not.toBeNull();
     expect(mancheDe(2).round.trap).toBe(true);
-    expect(mancheDe(3).round.trap).toBe(true);
+    expect(mancheDe(3).round.trap).toBe(false);
   });
 
-  it("les temps 2 et 3 sont des PIÈGES : la bonne réponse est de ne rien faire", () => {
-    // Le temps 3 enseignait la touche F (DÉJOUER), retirée : il se gagne
-    // désormais comme le 2, en laissant passer le chrono.
-    expect(mancheDe(1).cible).not.toBeNull();
-    expect(mancheDe(2).cible).toBeNull();
-    expect(mancheDe(3).cible).toBeNull();
-    expect(mancheDe(3).round.trap).toBe(true);
-    // Sans F, c'est le chrono qui conclut : il lui faut une fin.
-    expect(Number.isFinite(mancheDe(3).round.durationMs)).toBe(true);
+  it("⚠️ JAMAIS DEUX PIÈGES D'AFFILÉE, tutoriel compris (directive du 01/10)", () => {
+    for (let i = 1; i < TEMPS_JOUES.length; i++) {
+      const a = mancheDe(TEMPS_JOUES[i - 1]!).round.trap;
+      const b = mancheDe(TEMPS_JOUES[i]!).round.trap;
+      expect(a && b, `temps ${TEMPS_JOUES[i - 1]} et ${TEMPS_JOUES[i]}`).toBe(false);
+    }
   });
 
-  it("le second piège n'est PAS une copie du premier", () => {
-    // S'il revoyait la même scène, le joueur apprendrait une position.
-    expect(mancheDe(3).round.text).not.toBe(mancheDe(2).round.text);
+  it("la reprise : une consigne légitime, et un leurre rouge de la même forme", () => {
     const r = ONE_RULES.find((x) => x.id === REGLE_TUTO)!;
     const m = mancheDe(3);
-    expect(r.forbids(m.round.originalWant!, m.round.ents), "la consigne doit enfreindre LE SANG").toBe(true);
+    expect(m.cible).not.toBeNull();
+    const cible = m.round.ents[m.cible!]!;
+    const leurre = m.round.ents[m.interdite!]!;
+    expect(r.forbids({ kind: "click", idx: m.cible! }, m.round.ents)).toBe(false);
+    expect(leurre.color).toBe("garance");
+    expect(leurre.shape).toBe(cible.shape);
+    // Le cadre se resserre déjà : entre la découverte et le jeu réel.
+    expect(m.round.durationMs).toBeLessThan(mancheDe(1).round.durationMs);
+    expect(Number.isFinite(m.round.durationMs)).toBe(true);
   });
 
-  it("⚠️ le temps 3 n'a AUCUN chrono", () => {
-    // C'est ce qu'on promet à l'écran — « le chrono est désactivé ». Une durée
-    // finie ferait conclure la manche à la place du joueur, au moment précis
-    // où on lui dit de prendre son temps.
-    expect(mancheDecouverte().round.durationMs).toBe(Number.POSITIVE_INFINITY);
+  it("⚠️ la manche d'obéissance a un chrono LARGE, et fini", () => {
+    // Maquette 2.1 : le cadre qui se vide se rencontre ici, sans danger (un
+    // dépassement fait rejouer la manche). Fini, mais trois fois plus long
+    // que la fenêtre la plus large du jeu réel.
+    const d = mancheDecouverte().round.durationMs;
+    expect(Number.isFinite(d)).toBe(true);
+    expect(d).toBeGreaterThanOrEqual(8000);
   });
 
   it("⚠️ le temps 5 EST un piège, et se gagne en ne faisant rien", () => {

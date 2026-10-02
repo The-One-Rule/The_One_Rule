@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mulberry32 } from "../src/engine/rng";
 import { buildRound } from "../src/engine/round";
 import { ONE_RULES } from "../src/engine/rules";
-import { INSTRUCTIONS_SOLO } from "../src/engine/instructions";
+import { CATALOGUE_SOLO, INSTRUCTIONS_SOLO, INSTRUCTIONS_SOLO_V2 } from "../src/engine/instructions";
 import { verifyRun } from "../src/engine/verify";
 import type { LoggedInput, RunClaim } from "../src/engine/verify";
 import { DAILY_LENGTH } from "../src/engine/difficulty";
@@ -32,9 +32,13 @@ function playPerfectly(
   const inputs: LoggedInput[] = [];
   const stop = opts.stopAt ?? DAILY_LENGTH;
   let t = 0;
+  // Catalogue 3 : enchaîné comme `Session`, jamais deux pièges d'affilée.
+  let avant = false;
 
   for (let level = 0; level < stop; level++) {
-    const round = buildRound(rng, level, rule, opts.catalogue === 2 ? INSTRUCTIONS_SOLO : undefined);
+    const pool = opts.catalogue === 3 ? INSTRUCTIONS_SOLO : opts.catalogue === 2 ? INSTRUCTIONS_SOLO_V2 : undefined;
+    const round = buildRound(rng, level, rule, pool, 1, undefined, opts.catalogue === 3 && avant);
+    avant = round.trap;
     // LA SECONDE interdit d'agir avant 400 ms : un joueur correct attend
     const wait = Math.max(opts.reaction(), rule.id === "seconde" ? 430 : 0);
     const at = t + Math.min(wait, round.durationMs - 40);
@@ -105,7 +109,7 @@ describe("vérification serveur", () => {
     const { Session } = await import("../src/game/session");
     const rule = ONE_RULES.find((r) => r.id === "colosse")!;
     const seed = 4242;
-    const claim = playPerfectly(seed, "colosse", { reaction: () => 240, mode: "ranked", catalogue: 2 });
+    const claim = playPerfectly(seed, "colosse", { reaction: () => 240, mode: "ranked", catalogue: CATALOGUE_SOLO });
 
     const s = new Session({ mode: "ranked", rule, rng: mulberry32(seed), now: 0, seed });
     let cursor = 0;
@@ -355,7 +359,7 @@ describe("navigateur → serveur", () => {
         }
       }
 
-      const server = verifyRun({ seed, ruleId: rule.id, mode: "ranked", inputs: s.log, catalogue: 2 });
+      const server = verifyRun({ seed, ruleId: rule.id, mode: "ranked", inputs: s.log, catalogue: CATALOGUE_SOLO });
       expect(server.ok, `${rule.name} : run honnête rejeté`).toBe(true);
       expect(server.score, `${rule.name} : score divergent`).toBe(s.level);
       // un délai mesuré correspond forcément à une manche franchie

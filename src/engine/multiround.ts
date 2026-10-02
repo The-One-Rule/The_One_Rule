@@ -22,6 +22,7 @@
 import { hashStr, mulberry32 } from "./rng";
 import {
   CONSIGNES_MULTI,
+  CONSIGNES_RIEN,
   INSTRUCTIONS,
   pickInstruction,
   TOUCH_INSTRUCTIONS,
@@ -52,8 +53,14 @@ export interface SharedRound {
   durationMs: number;
 }
 
-/** RNG de la scène partagée : fonction de la graine et de l'index seulement. */
-const sharedRng = (seed: number, idx: number) => mulberry32(hashStr(`${seed}:${idx}`) ^ seed);
+/**
+ * RNG de la scène partagée : fonction de la graine, de l'index — et du
+ * TIRAGE, que le serveur choisit (voir `tirageSansDoublePiege`). Le tirage 0
+ * est exactement le RNG d'avant : un salon qui ne retire rien reconstruit les
+ * manches d'hier à l'identique.
+ */
+const sharedRng = (seed: number, idx: number, tirage = 0) =>
+  tirage === 0 ? mulberry32(hashStr(`${seed}:${idx}`) ^ seed) : mulberry32(hashStr(`${seed}:${idx}:t${tirage}`) ^ seed);
 
 /** RNG des déformations : fonction de la graine, de l'index ET de la règle. */
 const ruleRng = (seed: number, idx: number, ruleId: string) =>
@@ -63,8 +70,9 @@ export function draftShared(
   seed: number,
   idx: number,
   pool?: Instruction[],
+  tirage = 0,
 ): SharedRound {
-  const rng = sharedRng(seed, idx);
+  const rng = sharedRng(seed, idx, tirage);
   /*
    * Le pool par DÉFAUT est le tactile, et ce défaut est une garantie.
    *
@@ -169,13 +177,63 @@ export const poolMulti = (clavier: boolean, consignes = 1): Instruction[] => {
    * se tire que si le serveur ET chaque siège la connaissent.
    */
   if (consignes < 2) return base;
-  return [
+  const pool = [
     ...base,
     ...CONSIGNES_MULTI.filter(
       (i) => (clavier || i.touch) && (VERSION_DE_CONSIGNE[i.id] ?? Infinity) <= consignes,
     ),
   ];
+  // Version 4 : plus de « NE FAIS RIEN » (directive de Pierre, 01/10).
+  return consignes >= 4 ? pool.filter((i) => !CONSIGNES_RIEN.has(i.id)) : pool;
 };
+
+/**
+ * Le nombre de tirages qu'essaie le serveur avant de se résigner.
+ *
+ * Mesuré, six joueurs sous six règles piégeuses, 2400 manches : 8 tirages
+ * laissaient 17 enchaînements, 16 en laissaient 1, 32 aucun. Un tirage coûte
+ * une scène de quinze pièces au plus : 32 restent négligeables pour le serveur.
+ */
+export const TIRAGES_MAX = 32;
+
+/**
+ * LE TIRAGE D'UNE MANCHE MULTI — jamais deux pièges d'affilée pour un même
+ * joueur (directive de Pierre, 01/10 ; salons en version 4).
+ *
+ * La consigne est COMMUNE et la règle PERSONNELLE : on ne peut pas retirer un
+ * piège pour un seul joueur sans changer la manche de tous. C'est donc le
+ * SERVEUR, qui connaît toutes les règles, qui choisit : il essaie les tirages
+ * 0, 1, 2… et garde le premier où aucun joueur sortant d'un piège n'en
+ * reçoit un second. Il transmet le numéro dans le message `round` ; le
+ * client n'a rien à décider, donc rien sur quoi diverger (n°3).
+ *
+ * À `TIRAGES_MAX` sans solution (dix joueurs, dix règles, tous sortant d'un
+ * piège — possible, rare), le tirage qui en piège le MOINS gagne.
+ *
+ * `sortants` : la règle de chaque joueur vivant dont la manche précédente
+ * était un piège, telle qu'il la portera à cette manche.
+ */
+export function tirageSansDoublePiege(
+  seed: number,
+  idx: number,
+  pool: Instruction[] | undefined,
+  sortants: readonly OneRule[],
+): number {
+  if (sortants.length === 0) return 0;
+  let meilleur = 0;
+  let moins = Infinity;
+  for (let t = 0; t < TIRAGES_MAX; t++) {
+    const d = draftShared(seed, idx, pool, t);
+    let n = 0;
+    for (const r of sortants) if (r.forbids(d.want, d.ents)) n++;
+    if (n === 0) return t;
+    if (n < moins) {
+      moins = n;
+      meilleur = t;
+    }
+  }
+  return meilleur;
+}
 
 /** Raccourci : la manche complète d'un joueur donné. */
 export const buildMultiRound = (
@@ -183,4 +241,5 @@ export const buildMultiRound = (
   idx: number,
   rule: OneRule,
   pool?: Instruction[],
-): Round => applyRule(draftShared(seed, idx, pool), rule, seed);
+  tirage = 0,
+): Round => applyRule(draftShared(seed, idx, pool, tirage), rule, seed);

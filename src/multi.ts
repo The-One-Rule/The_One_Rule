@@ -20,6 +20,7 @@ import {
 } from "../shared/protocol";
 import type { Action, OneRule, Outcome, Round, RoundProgress } from "./engine/types";
 import { applyRule, buildMultiRound, draftShared, poolMulti } from "./engine/multiround";
+import { ECRITS } from "./i18n-parcours";
 import { acteDe, draftImposteur, IMPOSTEUR_MANCHES, IMPOSTEUR_MAX_ASIS, IMPOSTEUR_MIN_JOUEURS, peutLancerImposteur, renduObserve, roundObserve, SANS_REGLE } from "./engine/imposteur";
 import { COOP_MAX_ASIS, COOP_MIN_JOUEURS, peutLancerCoop, needsDeVague, roundCoop, viesInitialesCoop } from "./engine/coop";
 import { retour } from "./histoire";
@@ -61,6 +62,7 @@ import {
   statutSiege,
   traduisMotif,
   t as tr,
+  langue,
 } from "./i18n";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -174,6 +176,13 @@ export type MultiApi = {
    * rien du tout.
    */
   onIdentite: (cb: (nom: string, glyphe: number) => void) => void;
+  /**
+   * Les trois actions du bloc MULTI de l'accueil (maquette 7.1). Elles
+   * passent par l'écran d'entrée — c'est là que vivent l'identité, les
+   * erreurs de code et leurs issues — puis déclenchent l'action, sans un clic
+   * de plus.
+   */
+  depuisAccueil: (action: "creer" | "rejoindre" | "rapide", code?: string) => void;
 };
 
 type MatchState = {
@@ -183,6 +192,8 @@ type MatchState = {
   clavier: boolean;
   /** Le jeu de consignes du match, REÇU du serveur. Absent = 1. Voir `poolMulti`. */
   consignes: number;
+  /** Le tirage de la manche en cours, choisi par le serveur (absent = 0). */
+  tirage: number;
   phase: "countdown" | "round" | "frozen" | "observe";
   firstRoundAt: number;
   /** Dernière seconde affichée au décompte — pour ne battre qu'aux secondes. */
@@ -464,6 +475,17 @@ function setRoomCode(code: string): void {
     cell.textContent = c.trim() || "—";
     box.appendChild(cell);
   }
+  // Le QR suit le code : même lien que COPIER LE LIEN, jamais un autre.
+  const complet = /^[A-Z0-9]{4}$/.test(code);
+  $("multiLobbyQrBox").classList.toggle("hidden", !complet);
+  $("multiLobbyQr").innerHTML = "";
+  if (!complet) return;
+  // L'encodeur (~25 Ko) ne sert qu'au salon : chargé à la demande, hors du
+  // paquet que paie chaque visiteur de l'accueil.
+  void import("./render/qr").then(({ qrSvg }) => {
+    // Le code a pu changer pendant le chargement : on ne peint que le bon.
+    if (box.dataset.code === code) $("multiLobbyQr").innerHTML = qrSvg(inviteUrl(code));
+  });
 }
 
 /** L'état d'un siège, tel que `render/seat.ts` l'attend. */
@@ -1012,6 +1034,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     ouvreIdentite: () => {},
     envoieProfil: () => {},
     onIdentite: () => {},
+    depuisAccueil: () => {},
   };
 
   if (!wsUrl) {
@@ -1472,7 +1495,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       return;
     }
     match.rule = rule;
-    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes));
+    match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes), match.tirage);
     hud.setRule(rule);
   }
 
@@ -1525,7 +1548,37 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * s'efface. Trois recouvraient le terrain sur téléphone (70 vw), et le
    * champ EST du gameplay.
    */
+  /**
+   * « SAM A CRAQUÉ » au pied (maquette 9.2) — le fil des chutes est tu au
+   * téléphone, et c'est ici que la salle apprend qui vient de tomber. Une
+   * pastille à la fois, la dernière chute gagne. Jamais la mienne : elle a
+   * son panneau.
+   */
+  let craqueTimer: ReturnType<typeof setTimeout> | null = null;
+  function annonceCraque(nom: string, elim: boolean): void {
+    const el = $("craque");
+    const ch = ECRITS[langue()];
+    el.textContent = (elim ? ch["craque.elim"] : ch["craque.un"]).replace("{n}", nom.toUpperCase());
+    el.classList.toggle("is-elim", elim);
+    el.classList.remove("hidden");
+    // Relancer l'entrée même si une pastille était déjà là.
+    el.classList.remove("is-on");
+    void el.offsetWidth;
+    el.classList.add("is-on");
+    if (craqueTimer) clearTimeout(craqueTimer);
+    craqueTimer = setTimeout(() => {
+      craqueTimer = null;
+      el.classList.add("hidden");
+    }, 2400);
+  }
+  function cacheCraque(): void {
+    if (craqueTimer) clearTimeout(craqueTimer);
+    craqueTimer = null;
+    $("craque").classList.add("hidden");
+  }
+
   function pushFeed(nom: string, motif: string, elim: boolean, moi: boolean): void {
+    if (!moi) annonceCraque(nom, elim);
     const ligne = document.createElement("div");
     ligne.className =
       "feed__line" + (elim ? " is-elim" : "") + (moi ? " is-me" : "");
@@ -1552,6 +1605,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
   }
 
   function clearFeed(): void {
+    cacheCraque();
     for (const t of feedTimers) clearTimeout(t);
     feedTimers.clear();
     feedEl.innerHTML = "";
@@ -2149,6 +2203,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       // Même doctrine : un serveur ancien ne l'envoie pas, et le client
       // retombe sur le catalogue que ce serveur sait juger.
       consignes: typeof msg.consignes === "number" ? msg.consignes : 1,
+      tirage: 0,
       phase: "countdown",
       firstRoundAt: msg.firstRoundAt,
       countSec: -1,
@@ -2235,6 +2290,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
 
     match.idx = msg.idx;
+    // ⚠️ AVANT toute reconstruction : la scène, la fenêtre commune et la
+    // kill-cam de cette manche lisent toutes ce tirage.
+    match.tirage = typeof msg.tirage === "number" && msg.tirage > 0 ? Math.floor(msg.tirage) : 0;
     musicApi.level(msg.idx);
     match.startAt = msg.startAt;
     match.deadline = msg.deadline;
@@ -2278,7 +2336,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * pour fatal (décision n°3). Le serveur, lui, rapporte bien la fenêtre
      * personnelle à la manche COMMUNE ; on lit donc la même chose que lui.
      */
-    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier, match.consignes)).durationMs;
+    const commune = draftShared(match.seed, match.idx, poolMulti(match.clavier, match.consignes), match.tirage).durationMs;
     match.spanFactor = match.round && commune > 0 ? match.round.durationMs / commune : 1;
     renderPlates();
     syncFooter();
@@ -2439,6 +2497,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
           match.idx,
           focusRule,
           poolMulti(match.clavier, match.consignes),
+          match.tirage,
         );
         const elim = pauseMs > 3500;
         showKillCam(victims, focusRule, focusRound, elim, alive.length);
@@ -4185,6 +4244,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     ouvreIdentite: (revenir: () => void) => {
       retourIdentite = revenir;
       openIdentity();
+    },
+    depuisAccueil: (action, code) => {
+      const agir = async (): Promise<void> => {
+        await openJoin(action === "rejoindre" ? code : undefined);
+        if (action === "creer") void ouvreSalon("classique");
+        else if (action === "rapide") void partieRapide();
+        else {
+          peintCases();
+          $("btnMultiJoin").click();
+        }
+      };
+      if (needIdentity(() => void agir())) return;
+      void agir();
     },
     onIdentite: (cb) => {
       surIdentite = cb;

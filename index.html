@@ -276,6 +276,49 @@
           <button type="button" class="tuto__passer" id="btnTutoPasser" data-i18n="tuto.passer">SKIP</button>
         </div>
 
+        <!-- RATÉ, PENDANT LE TUTORIEL (maquette 2.4). Une phrase, la consigne,
+             ce qu'il fallait faire ; un appui n'importe où rejoue la MÊME
+             manche. Rien ne tue : on apprend sa règle au moment où elle vient
+             de servir. Hors flux dans `#stage`, comme la carte de relance. -->
+        <div id="tutoRate" class="tutorate hidden" aria-live="assertive">
+          <div class="tutorate__carte">
+            <p class="tutorate__eyebrow" id="tutoRateEyebrow"></p>
+            <p class="tutorate__titre" id="tutoRateTitre"></p>
+            <div class="tutorate__preuve">
+              <p class="tutorate__quoi" data-i18n="tuto.consigne">THE ORDER</p>
+              <p class="tutorate__val" id="tutoRateConsigne"></p>
+              <p class="tutorate__quoi" data-i18n="tuto.fallait">YOU HAD TO</p>
+              <p class="tutorate__val" id="tutoRateFallait"></p>
+            </div>
+            <button type="button" class="btn btn--primary tutorate__btn" id="btnTutoRejouer" data-i18n="tuto.rejouer">PLAY THE ROUND AGAIN</button>
+          </div>
+        </div>
+
+        <!-- ÉCHAUFFEMENT TERMINÉ (maquette 2.6). ENTRE deux manches, partie
+             suspendue (`Session.decale`) — jamais pendant : Pierre avait fait
+             retirer un plein cadre qui tombait en pleine manche. -->
+        <div id="annonce" class="annonce hidden" aria-live="assertive">
+          <span class="annonce__barres" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+          <p class="annonce__titre" data-i18n="annonce.titre">Warm-up over</p>
+          <p class="annonce__quoi" data-i18n="annonce.quoi">From now on, the frame empties faster.</p>
+          <p class="annonce__suite" data-i18n="annonce.suite">TAP TO CONTINUE</p>
+        </div>
+
+        <!-- « C'EST ENCORE MIEUX À PLUSIEURS » (maquette, après la première
+             partie). Un calque posé UNE fois sur l'écran de fin déjà prêt :
+             CONTINUER SEUL le referme et rend cet écran tel quel. -->
+        <div id="invite" class="aplusieurs hidden" role="dialog" aria-modal="true" aria-labelledby="inviteTitre">
+          <div class="aplusieurs__carte">
+            <p class="aplusieurs__eyebrow" id="inviteEyebrow"></p>
+            <img class="aplusieurs__img" src="/poses/amis.png" alt="" width="600" height="432" loading="lazy">
+            <h2 class="aplusieurs__titre" id="inviteTitre" data-i18n="invite.titre">It's even better together.</h2>
+            <p class="aplusieurs__quoi" data-i18n="invite.quoi">A 4-letter code, up to 10 friends, each with their own rule.</p>
+            <button type="button" class="btn btn--gros aplusieurs__creer" id="btnInviteCreer" data-i18n="invite.creer">CREATE A ROOM</button>
+            <button type="button" class="btn aplusieurs__seul" id="btnInviteSeul" data-i18n="invite.seul">CONTINUE ALONE</button>
+            <button type="button" class="aplusieurs__modes" id="btnInviteModes" data-i18n="invite.modes">See every mode</button>
+          </div>
+        </div>
+
         <!-- LA CARTE DE RELANCE, HORS FLUX (voir `render/relance.ts`).
              Paraît à la mort, sur le terrain figé : le score, l'écart au
              record, et un appui N'IMPORTE OÙ relance. BILAN ouvre l'écran de
@@ -285,6 +328,17 @@
         <div id="relance" class="relance hidden" aria-live="polite">
           <div class="relance__carte">
             <p class="relance__motif" id="relanceMotif"></p>
+            <!-- LA PREUVE (maquette 4.3) : la manche fatale en miniature, la
+                 pièce fautive entourée, puis ce qu'il fallait faire. -->
+            <div class="relance__preuve hidden" id="relancePreuve">
+              <div class="relance__mini" id="relanceMini" aria-hidden="true"></div>
+              <div class="relance__dit">
+                <p class="relance__quoi" data-i18n="tuto.consigne">THE ORDER</p>
+                <p class="relance__val" id="relanceConsigne"></p>
+                <p class="relance__quoi" data-i18n="tuto.fallait">YOU HAD TO</p>
+                <p class="relance__val" id="relanceFallait"></p>
+              </div>
+            </div>
             <p class="relance__score" id="relanceScore">0</p>
             <p class="relance__unite" id="relanceUnite"></p>
             <p class="relance__ecart" id="relanceEcart"></p>
@@ -385,6 +439,9 @@
            qu'on consulte d'un coup d'œil sans quitter la scène. La valeur
            domine, l'intitulé la nomme en dessous. -->
       <footer id="foot">
+        <!-- « SAM A CRAQUÉ » (maquette 9.2) : la chute d'un AUTRE, posée sur le
+             pied, hors du terrain. Absolue : le pied ne grandit pas (n°17). -->
+        <p class="craque hidden" id="craque" aria-live="polite"></p>
         <div class="foot__cell">
           <b class="foot__value" id="fScore">0</b>
           <!-- ⚠️ L'INTITULE EST DYNAMIQUE DEPUIS QU'IL Y A LE COOP.
@@ -518,10 +575,37 @@
                Un visiteur neuf voit la démo qui tourne derrière et UN geste :
                JOUER, qui ouvre le tutoriel joué. Rien d'autre à choisir. -->
           <div class="home__centre bienvenue" id="bienvenue">
-            <p class="bienvenue__eyebrow" data-i18n="bienvenue.eyebrow">A REFLEX GAME WITH A TWIST</p>
-            <h1 class="bienvenue__titre" id="ledeHome">One rule.<br>Orders.<br><em>Sometimes, obeying is the mistake.</em></h1>
-            <button class="btn play" id="btnPlay" data-i18n="bienvenue.jouer">PLAY</button>
-            <p class="fineprint home__second" id="homeFineprint">2 MINUTES TO LEARN · NO ACCOUNT</p>
+            <!-- LA VITRINE (maquette 1a) : une démo ÉCRITE de 8 s, la même pour
+                 tout le monde — obéir au bleu, puis renoncer au rouge. Voir
+                 `render/vitrine.ts`. Décorative : tout ce qu'elle montre, le
+                 titre le dit. -->
+            <div class="vitrine" id="vitrine" aria-hidden="true">
+              <div class="vitrine__regle">
+                <span class="vitrine__interdit"></span>
+                <span class="vitrine__regletxt">
+                  <small data-i18n="vitrine.regle">YOUR RULE</small>
+                  <b data-i18n="vitrine.jamais">NEVER RED</b>
+                </span>
+              </div>
+              <div class="vitrine__haut">
+                <p class="vitrine__consigne" id="vitConsigne"></p>
+                <p class="vitrine__badge" id="vitBadge"></p>
+              </div>
+              <div class="vitrine__terrain" id="vitTerrain">
+                <span class="vitrine__chrono" id="vitChrono"></span>
+                <span class="vitrine__piece vitrine__piece--bleu" id="vitBleu"></span>
+                <span class="vitrine__piece vitrine__piece--vert"></span>
+                <span class="vitrine__piece vitrine__piece--rouge"></span>
+                <span class="vitrine__main" id="vitMain">
+                  <svg viewBox="0 0 24 28"><path d="M8 2a2 2 0 0 1 4 0v9l1-.2a2 2 0 0 1 2.4 1.9l1.6-.2a2 2 0 0 1 2.3 2l.7-.1A2 2 0 0 1 22 16.4V20a7 7 0 0 1-7 7h-2.5a7 7 0 0 1-5.6-2.8L3 19.2a2 2 0 0 1 3-2.6l2 2.1z" /></svg>
+                </span>
+              </div>
+            </div>
+            <div class="vitrine__appel">
+              <h1 class="bienvenue__titre" id="ledeHome" data-i18n="vitrine.titre">Sometimes, obeying is the mistake.</h1>
+              <button class="btn play" id="btnPlay" data-i18n="bienvenue.jouer">PLAY</button>
+              <button type="button" class="vitrine__code" id="btnArriveeCode" data-i18n="vitrine.code">I have a room code</button>
+            </div>
           </div>
 
           <!-- ░ LE PARCOURS ░
@@ -535,14 +619,42 @@
               <span class="pstat pstat--serie"><i aria-hidden="true">▲</i><b id="pstatSerie">0</b></span>
             </div>
 
-            <div class="hero" id="hero">
-              <div class="hero__carte" id="heroCarte" aria-hidden="true"></div>
-              <div class="hero__corps">
-                <p class="hero__eyebrow" id="heroEyebrow"></p>
-                <h2 class="hero__nom" id="heroNom"></h2>
-                <p class="hero__brief" id="heroBrief"></p>
-                <ol class="piste" id="heroPiste" aria-label="Niveaux"></ol>
-                <button class="btn btn--gros" id="btnHeroJouer"></button>
+            <!-- LE MULTI D'ABORD (maquette 7.1) : TOR est un jeu de soirée. Le
+                 bloc ne fait que DÉLÉGUER à l'écran d'entrée du multi
+                 (`multi.depuisAccueil`), où vivent l'identité et les erreurs
+                 de code avec leurs issues. -->
+            <div class="accmulti" id="accMulti">
+              <p class="acc__eyebrow"><i class="acc__ico acc__ico--amis" aria-hidden="true"></i><span data-i18n="acc.multiEyebrow">MULTIPLAYER · UP TO 10</span></p>
+              <h2 class="acc__titre" data-i18n="acc.multiTitre">Play with your friends</h2>
+              <button type="button" class="btn btn--gros accmulti__creer" id="btnAccCreer" data-i18n="acc.creer">CREATE A ROOM</button>
+              <div class="accmulti__rejoindre">
+                <input class="accmulti__code" id="accCode" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="CODE" data-i18n-ph="acc.code" aria-label="Room code" data-i18n-aria="acc.codeAria">
+                <button type="button" class="btn accmulti__rejoindreBtn" id="btnAccRejoindre" data-i18n="acc.rejoindre">JOIN</button>
+              </div>
+              <p class="accmulti__err hidden" id="accCodeErr" role="alert"></p>
+              <button type="button" class="btn accmulti__rapide" id="btnAccRapide"><span data-i18n="acc.rapide">QUICK GAME</span><small data-i18n="acc.sansCode">no code</small></button>
+            </div>
+
+            <!-- Le jour et le parcours forment UNE colonne au bureau : des enfants
+                 de grille séparés couplaient leurs rangées à la hauteur du
+                 bloc multi, et laissaient un trou de 140 px (mesuré à 1440). -->
+            <div class="acc__droite">
+              <div class="accjour" id="accJour">
+                <p class="acc__eyebrow"><span id="accJourDate">DAILY RUN</span><span class="accjour__essais" id="accJourEssais" aria-hidden="true"></span></p>
+                <h3 class="acc__titre acc__titre--petit" data-i18n="acc.jourTitre">The same game for everyone</h3>
+                <button type="button" class="btn accjour__jouer" id="btnAccJour"></button>
+              </div>
+
+              <p class="acc__section" data-i18n="acc.parcours">SOLO PATH</p>
+              <div class="hero" id="hero">
+                <div class="hero__carte" id="heroCarte" aria-hidden="true"></div>
+                <div class="hero__corps">
+                  <p class="hero__eyebrow" id="heroEyebrow"></p>
+                  <h2 class="hero__nom" id="heroNom"></h2>
+                  <p class="hero__brief" id="heroBrief"></p>
+                  <ol class="piste" id="heroPiste" aria-label="Niveaux"></ol>
+                  <button class="btn btn--gros" id="btnHeroJouer"></button>
+                </div>
               </div>
             </div>
 
@@ -1248,7 +1360,6 @@
         <div class="topbar__row">
           <div class="topbar__left">
             <button class="btn btn--ghost btn--top" id="btnTopReglages">SETTINGS</button>
-            <button class="btn btn--ghost btn--top" id="btnTopMenu" data-i18n="commun.menu">MENU</button>
           </div>
           <button type="button" class="topbar__brand" id="btnTopBrand" aria-label="THE ONE RULE, back to home">
             <img class="topbar__mark" src="./favicon.svg" alt="" width="30" height="30" />
@@ -1282,97 +1393,111 @@
                en une phrase, et un interrupteur à deux faces où l'on voit les
                deux états à la fois. Le seul qui gagne un aperçu est MOTIFS :
                c'est le seul dont personne ne peut deviner l'effet. -->
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.son">SOUND</p>
-          <div class="rgl__bloc">
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.musique">MUSIC</p>
-                <p class="rgl__quoi" data-i18n="rgl.musiqueQuoi">The tempo rises with the difficulty.</p>
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.son">SOUND</p>
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.musique">MUSIC</p>
+                  <p class="rgl__quoi" data-i18n="rgl.musiqueQuoi">The tempo rises with the difficulty.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMusic" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
               </div>
-              <button type="button" class="rgl__inter" id="btnMusic" role="switch" aria-checked="true">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
-            </div>
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.effets">EFFECTS</p>
-                <p class="rgl__quoi" data-i18n="rgl.effetsQuoi">Alert on the last quarter of the window.</p>
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.effets">EFFECTS</p>
+                  <p class="rgl__quoi" data-i18n="rgl.effetsQuoi">Alert on the last quarter of the window.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnSound" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
               </div>
-              <button type="button" class="rgl__inter" id="btnSound" role="switch" aria-checked="true">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
             </div>
           </div>
 
-          <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on ne
-               demande à personne de se déclarer daltonien pour trouver un
-               réglage qui rend simplement les pièces plus lisibles. -->
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.lisibilite">READABILITY</p>
-          <div class="rgl__bloc rgl__bloc--vedette">
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.motifs">PATTERNS ON PIECES</p>
-                <p class="rgl__quoi" data-i18n="rgl.motifsQuoi">Every colour also carries a texture.</p>
+          <div class="rgl__section">
+            <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on ne
+                 demande à personne de se déclarer daltonien pour trouver un
+                 réglage qui rend simplement les pièces plus lisibles. -->
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.lisibilite">READABILITY</p>
+            <div class="rgl__bloc rgl__bloc--vedette">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.motifs">PATTERNS ON PIECES</p>
+                  <p class="rgl__quoi" data-i18n="rgl.motifsQuoi">Every colour also carries a texture.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMotifs" role="switch" aria-checked="false">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
               </div>
-              <button type="button" class="rgl__inter" id="btnMotifs" role="switch" aria-checked="false">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
-            </div>
-            <!-- L'APERÇU montre les quatre trames réelles du jeu. Il est
-                 décoratif : ce qu'il dit, la phrase au-dessus le dit aussi. -->
-            <div class="rgl__apercu" aria-hidden="true">
-              <span class="rgl__ech rgl__ech--garance"></span>
-              <span class="rgl__ech rgl__ech--azur"></span>
-              <span class="rgl__ech rgl__ech--jade"></span>
-              <span class="rgl__ech rgl__ech--ambre"></span>
-            </div>
-          </div>
-
-          <!-- L'APPARENCE. Trois crans et non un interrupteur : AUTO suit le
-               système, et c'est la bonne réponse par défaut — un interrupteur
-               CLAIR / SOMBRE forcerait à choisir avant d'avoir eu à le faire. -->
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.apparence">APPEARANCE</p>
-          <div class="settings settings--seg rgl__theme">
-            <div class="settings__opts" id="rglTheme"></div>
-          </div>
-          <p class="rgl__note" data-i18n="rgl.apparenceQuoi">AUTO follows your device. DARK is easier on the eyes at night.</p>
-
-          <!-- LES PHOTOS DES AUTRES. Une photo est un contenu que personne ne
-               modère : on doit pouvoir ne plus les voir sans quitter le salon.
-               Les signes et les cartes de visite restent. -->
-          <div class="rgl__bloc">
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.photos">OTHERS' PHOTOS</p>
-                <p class="rgl__quoi" data-i18n="rgl.photosQuoi">Profile photos of the players in your room.</p>
+              <!-- L'APERÇU montre les quatre trames réelles du jeu. Il est
+                   décoratif : ce qu'il dit, la phrase au-dessus le dit aussi. -->
+              <div class="rgl__apercu" aria-hidden="true">
+                <span class="rgl__ech rgl__ech--garance"></span>
+                <span class="rgl__ech rgl__ech--azur"></span>
+                <span class="rgl__ech rgl__ech--jade"></span>
+                <span class="rgl__ech rgl__ech--ambre"></span>
               </div>
-              <button type="button" class="rgl__inter" id="btnPhotosAutres" role="switch" aria-checked="true">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
             </div>
           </div>
 
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
-          <div class="opts" id="rglAllure"></div>
-          <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
+          <div class="rgl__section">
+            <!-- L'APPARENCE. Trois crans et non un interrupteur : AUTO suit le
+                 système, et c'est la bonne réponse par défaut — un interrupteur
+                 CLAIR / SOMBRE forcerait à choisir avant d'avoir eu à le faire. -->
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.apparence">APPEARANCE</p>
+            <div class="settings settings--seg rgl__theme">
+              <div class="settings__opts" id="rglTheme"></div>
+            </div>
+            <p class="rgl__note" data-i18n="rgl.apparenceQuoi">AUTO follows your device. DARK is easier on the eyes at night.</p>
 
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
-          <div class="lang" id="lang" role="group" aria-label="Language">
-            <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FRANÇAIS</button>
-            <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">ENGLISH</button>
-          </div>
-
-          <p class="eyebrow rgl__groupe" data-i18n="rgl.mesure">METRICS</p>
-          <div class="rgl__bloc">
-            <div class="rgl__ligne">
-              <div class="rgl__txt">
-                <p class="rgl__nom" data-i18n="rgl.compter">COUNT MY GAMES</p>
-                <p class="rgl__quoi" data-i18n="rgl.compterQuoi">A random local id. No account, no cookie, nothing sold.</p>
+            <!-- LES PHOTOS DES AUTRES. Une photo est un contenu que personne ne
+                 modère : on doit pouvoir ne plus les voir sans quitter le salon.
+                 Les signes et les cartes de visite restent. -->
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.photos">OTHERS' PHOTOS</p>
+                  <p class="rgl__quoi" data-i18n="rgl.photosQuoi">Profile photos of the players in your room.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnPhotosAutres" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
               </div>
-              <button type="button" class="rgl__inter" id="btnMetrics" role="switch" aria-checked="true">
-                <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
-              </button>
             </div>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
+            <div class="opts" id="rglAllure"></div>
+            <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
+            <div class="lang" id="lang" role="group" aria-label="Language">
+              <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FRANÇAIS</button>
+              <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">ENGLISH</button>
+            </div>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.mesure">METRICS</p>
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.compter">COUNT MY GAMES</p>
+                  <p class="rgl__quoi" data-i18n="rgl.compterQuoi">A random local id. No account, no cookie, nothing sold.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMetrics" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+            </div>
+
+          
           </div>
 
           <p class="fineprint" id="reglagesFineprint">MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU</p>
@@ -1846,6 +1971,12 @@
                    toujours. Le filet a accents ne pouvait pas la voir — elle est en
                    ASCII pur. Trouve en JOUANT, comme les quatre autres. -->
               <p class="fineprint" id="multiLobbyCodeHint" data-i18n="salon.dicteCode">SAY IT OUT LOUD, OR SEND THE LINK</p>
+              <!-- Maquette 8.1 : pour qui est dans la même pièce, le QR mène au
+                   même lien que COPIER LE LIEN. Posé par `setRoomCode`. -->
+              <div class="roomqr hidden" id="multiLobbyQrBox">
+                <div class="roomqr__img" id="multiLobbyQr" aria-label="Room QR code" data-i18n-aria="salon.qrAria"></div>
+                <p class="roomqr__quoi" data-i18n="salon.qr">Same room? Scan.</p>
+              </div>
             </div>
 
             <!-- La regle du jeu, rappelee la ou les joueurs attendent le

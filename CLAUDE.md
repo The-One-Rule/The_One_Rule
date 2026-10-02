@@ -775,6 +775,211 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### La navigation aux places habituelles, et trois écrans réparés (01/10/2026)
+
+Dernière passe de la directive : le style de la maquette sur le reste du site,
+la navigation aux emplacements habituels, la chasse aux bugs d'affichage.
+Relevé de neuf écrans, téléphone et bureau, par `getBoundingClientRect` et
+`elementFromPoint`. Les écrans de service (solo, cartes, classement, amis,
+profil, boutique) portaient déjà l'autocollant : on n'a touché qu'à ce que la
+mesure montrait.
+
+- **MENU a quitté la barre haute.** L'enseigne et PARCOURS ramènent déjà à
+  l'accueil ; ce troisième chemin, absent de l'accueil seulement, décalait
+  toute la navigation du bureau (x = 675 sur l'accueil, 589 ailleurs). Et
+  PROFIL suivait la longueur du nom (124 / 115 px) : largeur fixe, nom en
+  ellipse. Mesuré après : x = 649 sur les neuf écrans.
+- **L'entrée MULTI porte la barre haute et la barre du bas** (`AVEC_BARRE`).
+  C'était le seul écran de menu sans navigation. Le SALON, lui, reste sans :
+  la barre y ferait quitter une table d'un clic.
+- ⚠️ **La barre du bas était INERTE sur l'entrée MULTI** : écrans et barre à
+  `z-index: 10`, donc l'ordre du document tranchait, et les écrans du multi
+  sont déclarés après elle. `#app > .nav` passe à 11. Vérifié : les cinq
+  boutons répondent à `elementFromPoint` sur les neuf écrans.
+- ⚠️ **Le champ REJOINDRE était une boîte vide** depuis STICKER : le
+  `<input>` transparent posé sur les quatre cases recevait le fond et le
+  cadre de `.field` (même spécificité, `theme.css` chargée après).
+  `.field.codein__champ` lui rend sa transparence.
+- RÉGLAGES : un filet d'1 px, l'ancien séparateur de liste, flottait seul
+  entre APPARENCE et sa barre ; LANGUE était restée en aplat sombre — passée
+  en barre segmentée comme APPARENCE.
+- **Pas touché, délibérément** : le choix actif des options (`.opt.is-on`)
+  reste prune, alors que les barres segmentées des réglages sont violettes.
+  C'est la règle générique du brief et du salon ; la changer est un parti
+  pris visuel, pas un bug.
+
+### LOT D : le salon — QR, tuiles, « X A CRAQUÉ », et deux pavés trouvés en jouant (01/10/2026)
+
+- **Le QR du salon** (`render/qr.ts`, pur ; encodeur `qrcode-generator`,
+  MIT, sans dépendance — première dépendance de rendu ajoutée au front) : même
+  lien que COPIER LE LIEN, toujours encre foncée sur clair (un QR inversé
+  échoue sur beaucoup de lecteurs), zone de silence de 4 modules. ⚠️ Chargé
+  À LA DEMANDE (`import()` dans `setRoomCode`) : sinon 25 Ko de plus pour
+  chaque visiteur de l'accueil. Le paquet principal est à 333 Ko.
+- **Les tuiles du code** se lisent depuis le canapé : 76 px de haut au
+  téléphone, 80 au bureau.
+- ⚠️ **Le QR poussait LANCER sous la ligne de flottaison au bureau** (881-943
+  pour 900, hôte à 1440 × 900) : QR compacté, et la rangée d'actions colle au
+  bas de l'écran comme au téléphone. Au téléphone, QUITTER touchait LANCER
+  bord à bord sous son ombre, et la rangée collée laissait 22 px de jour où
+  les réglages défilaient à vue — corrigés.
+- **« SAM A CRAQUÉ »** (`#craque`) : la chute d'un AUTRE, en pastille sur le
+  pied, 2,4 s. Ancrée sur `#app`, pas sur `#foot` : poser `position:
+  relative` sur le pied dans `theme.css` (chargée après) écraserait son
+  `absolute` du paysage serré. Couché, le pied fait 30 px : la pastille de 33
+  débordait (377 pour 375), réduite.
+- ⚠️ **LE PANNEAU DUEL ÉTAIT UN PAVÉ PRUNE, en salon réel**, depuis la
+  refonte : `.drama--duel .drama__panel` et `--elim` (0,2,0) réinjectaient
+  les huit dégradés d'équerres de l'identité nocturne, à pleine taille — en
+  STICKER, `--paper` est le prune. Le texte « DUEL » était peint dessous.
+  `tests/drama.test.ts` exige que le thème neutralise toute variante qui
+  peint un fond ; éprouvé.
+- ⚠️ **COLLISION DE CLASSE, la troisième du dépôt, et de mon fait** : le
+  calque d'invitation du lot B s'appelait `.invite`, déjà porté par
+  `#compteInvite` sur l'écran de fin. Ma règle (fixe, plein écran) l'aurait
+  transformé en calque dès sa parution. Renommé `.aplusieurs`. Toutes les
+  classes ajoutées depuis le lot A ont été cherchées dans les deux feuilles :
+  aucune autre.
+- **Pas fait, délibérément** : les plaques EN HAUT au téléphone (maquette
+  9.1). Elles vivent déjà dans leur bande à hauteur fixe sous le terrain, sans
+  le recouvrir ; les déplacer ne rend aucun pixel de terrain et rouvre la
+  mesure de `RESERVE_HUD_MULTI` (n°10). Une direction, pas un correctif.
+
+### LOT C : la consigne dessinée, et la preuve de la mort (01/10/2026)
+
+- **La consigne dessinée** (`render/pictogramme.ts`, pur) : sur la ligne des
+  gestes, la pièce désignée dans ses forme et teinte de terrain, et le geste
+  (deux pièces pour le double appui, anneau pour MAINTIENS, flèche pour
+  GLISSE, chevron pour « puis »). Muet sur les négations, l'intrus, les
+  lettres. ⚠️ **Trois règles se jouent du texte, et un dessin les rendrait
+  inertes (n°1)** : LE MENTEUR (le dessin dénoncerait le mensonge), LE
+  DALTONIEN (il trancherait le mot contre l'encre), L'ÉCLAIR (il resterait
+  quand la consigne s'efface). Sur ces manches, rien n'est dessiné ; trois
+  tests, éprouvés un par un. ⚠️ Le dessin vit sur une ligne qui existait
+  déjà, en marges négatives : `#head` mesuré identique avec et sans (106 px
+  à 1280, terrain inchangé à 390, 1280 et 812 × 375 — n°17).
+- **La preuve** (`render/preuve.ts`, pur) dans la carte de relance : la
+  manche fatale en miniature, la pièce visée entourée (ou une croix dans le
+  vide), LA CONSIGNE et IL FALLAIT (ne rien faire / plus vite / sans
+  enfreindre ta règle / la consigne). Un appui de plus de 4 s n'entoure
+  rien : il viendrait d'une autre manche. ⚠️ **Au téléphone, une miniature
+  couchée ne ressemblait pas au terrain debout** qu'on venait de quitter :
+  elle passe par `scene.versEcran` (n°16), bornée à 112 px de haut. Sous
+  520 px de haut, la miniature part, la phrase reste.
+- Trouvé en chemin, antérieur : `finishRun` vidait le bandeau avant de
+  poser la carte sur le terrain figé — un tiret orphelin à la place de la
+  règle. Il la garde quand la carte paraît.
+
+### LOT B : l'accueil met le MULTI d'abord, et l'invitation après la 1re partie (01/10/2026)
+
+- **Accueil d'un joueur qui revient** (maquette 7.1) : bloc MULTI en tête
+  (CRÉER UN SALON, code + REJOINDRE, PARTIE RAPIDE), puis RUN DU JOUR (date,
+  essais en pastilles, « JOUER · 3 ESSAIS »), puis le parcours. DU JOUR et
+  MULTI quittent « autres façons de jouer » — masqués, PAS retirés : le
+  bloc du jour délègue à `#profJour` (seule porte de l'écran SOLO) et
+  `multi.ts` tient `#btnMulti`.
+- **Le bloc ne réimplémente rien** : `multi.depuisAccueil(action, code)`
+  passe par l'écran d'entrée — identité d'abord (`needIdentity`), puis
+  l'action. Seule l'erreur « pas 4 lettres » se dit sur l'accueil ; un code
+  inconnu se dit sur l'écran d'entrée, avec ses issues (RETAPER, OUVRIR LE
+  MIEN). Joué avec un vrai serveur : créer, rejoindre, code inconnu.
+- ⚠️ **Au bureau, le jour et le parcours sont UNE colonne** (`.acc__droite`)
+  : en enfants de grille séparés, leurs rangées suivaient la hauteur du bloc
+  multi et laissaient un trou de 140 px. La colonne couvre cinq rangées dont
+  une `1fr` qui absorbe son excédent.
+- **L'invitation** (`#invite`) : calque posé UNE fois sur l'écran de fin
+  déjà prêt (niveau, relance ou fin), jamais sur un duel ni un classé, ni
+  sans serveur de salons, ni pour un habitué (`recent.length <= 2`) — le
+  drapeau `inviteVue` se pose aussi quand on décide de ne pas la montrer.
+  CONTINUER SEUL la referme ; ÉCHAP aussi, et aucun raccourci n'agit dessous.
+  Image : `public/poses/amis.png`, reprise de la maquette. Mesure :
+  `invite_vue`, `invite_salon` (dans les DEUX listes blanches).
+
+### « NE FAIS RIEN » retiré, et jamais deux pièges d'affilée (01/10/2026)
+
+Directive de Pierre : « garde la courbe de temps actuelle, supprime les
+consignes "ne rien faire" et fais en sorte que deux consignes ne puissent
+jamais demander à la fois de ne rien faire ». La courbe (`windowMs`) n'a pas
+bougé.
+
+- **SOLO — catalogue 3** (`CATALOGUE_SOLO`, annoncé dans chaque
+  revendication) : `INSTRUCTIONS_SOLO` sans `CONSIGNES_RIEN`, et
+  `buildRound(…, apresPiege)` retire la consigne tant qu'elle piège quand la
+  manche d'avant en était un (le piège forcé cède). `Session` passe la manche
+  précédente ; `verifyRun` rejoue chaque run sur SON catalogue (1, 2 =
+  `INSTRUCTIONS_SOLO_V2`, 3). ⚠️ **`VERSION_CONTENU` 1h63n7k → `bi44iq`** :
+  records d'entraînement affichés repartis d'une clé neuve, classement du
+  jour du déploiement coupé en deux. La loi de tirage est NOMMÉE dans
+  `calculeVersion` : elle change les manches sans toucher une consigne.
+- **Le tutoriel** enchaînait deux pièges (temps 2 et 3) : le temps 3 est
+  devenu une REPRISE — obéir de nouveau, un carré rouge à côté du carré bleu
+  demandé, 6 s.
+- **MULTI — version 4** (`CONSIGNES_VERSION`). La consigne est COMMUNE et la
+  règle PERSONNELLE : retirer un piège pour un joueur change la manche de
+  tous. C'est donc le SERVEUR qui choisit : `tirageSansDoublePiege` essaie
+  `draftShared(…, tirage)` 0, 1, 2… et garde le premier où aucun joueur
+  vivant sortant d'un piège n'en reçoit un second ; le numéro voyage dans
+  `round.tirage` (absent = 0 = la manche d'hier). Le client n'a rien à
+  décider, donc rien sur quoi diverger (n°3). `TIRAGES_MAX` = 32, mesuré :
+  à 8, 17 enchaînements sur 2400 manches à six règles piégeuses ; à 32,
+  aucun. L'imposteur n'y entre pas (il force ses pièges). Les quatre
+  combinaisons de déploiement retombent sur la version 3 tant qu'un côté
+  l'ignore — rien n'oblige à déployer Fly d'abord ici, mais rien ne vit
+  avant que les DEUX soient en ligne.
+- ⚠️ **L'e2e n'a vu AUCUN tirage retiré** sur son scénario (0 sur 13
+  manches, 3 pièges) : le trajet du fil avec `tirage > 0` est prouvé par
+  `tests/sans-double-piege.test.ts` (`MatchLogic` → `draftShared`), pas de
+  bout en bout. L'assertion « aucune faute de reconstruction » le verrait.
+- **Taux de pièges** remesurés enchaînés (comme `Session` joue) : tous
+  baissent de 2 à 5 points, LA POINTE 27,2 → 22,6 % (`TAUX_PIEGE`).
+- Deux tests passaient par chance et l'ont montré : `maingauche` laissait
+  expirer une manche HORS échauffement que sa graine rendait sans geste ;
+  `pause-echauffement` ne savait jouer qu'un clic simple.
+
+### LOT A de la maquette : l'arrivée 1a, le tutoriel sans indice, l'échauffement annoncé (01/10/2026)
+
+Maquette de Claude Design rapportée par Pierre, lots A à D proposés et
+acceptés. Ses arbitrages, mot pour mot résumés : arrivée **1a** ; l'indice de
+piège de la maquette (hachures autour du terrain) est **trop voyant, non
+gardé** ; nos propres solutions gardées là où elles existaient.
+
+- **LA VITRINE** (`render/vitrine.ts`, pure, testée) remplace le mode attract,
+  qui faisait tourner une vraie `Session` sous une règle TIRÉE AU SORT —
+  mesuré : LA POINTE, sans piège, consigne peinte sur les pièces. C'est une
+  chronologie écrite de 8 s : « CLIQUE LE BLEU » → BIEN, puis « CLIQUE LE
+  ROUGE », la main s'approche, renonce → PIÈGE DÉJOUÉ. Un test exige que la
+  main ne POSE jamais le doigt près du rouge. Peinte par la boucle de jeu
+  (une seule boucle), en DOM + `transform` seulement, figée sous mouvement
+  réduit sur l'instant qui dit tout. Ne paraît qu'à un nouveau venu
+  (`estNouveau`) — la barre du bas reste là, rien n'est verrouillé.
+  ⚠️ Spécificité payée : `#home .home__centre.bienvenue` (1,2,0) battait
+  `#home .bienvenue` et imposait ses rangées `300px 0 0 0 300px` — la vitrine
+  passait sous la barre haute. Les nouvelles règles reprennent le MÊME
+  sélecteur.
+- **LE TUTORIEL** ne donne plus aucune aide écrite : trois pastilles
+  d'ÉCHAUFFEMENT, la manche 1 a un chrono de 9 s (`CHRONO_OBEIS_MS` — la
+  moitié des morts d'une 1re partie sont au temps, le cadre qui se vide se
+  rencontre ici sans danger), BIEN / PIÈGE DÉJOUÉ en pastille, le slogan sous
+  le premier piège déjoué. Une faute ouvre la carte CRAQUÉ (`#tutoRate`) :
+  une phrase, la consigne, ce qu'il fallait, un appui rejoue LA MÊME manche.
+  Les textes écrits par le code vivent dans `ECRITS` (`i18n-parcours.ts`),
+  typés par `CleEcrite` — le dictionnaire statique exige qu'une clé soit
+  posée par `data-i18n`, et c'est un filet qu'on garde.
+- **« ÉCHAUFFEMENT TERMINÉ »** (`#annonce`) remplace le toast « À TOI DE
+  JOUER » : un plein écran ENTRE deux manches, partie SUSPENDUE —
+  `Session.decale(ms)` décale `runStart` ET `roundStart`, donc le journal
+  rejoué par `verifyRun` est identique avec ou sans pause
+  (`tests/pause-echauffement.test.ts`, éprouvé). Ferme au toucher ou à
+  ENTRÉE, jamais à ESPACE (une règle à maintien la tient enfoncée). Aussi
+  servie à la sortie du tutoriel. ⚠️ **Ne pas tiquer ne suffisait pas** : la
+  barre et le seuil critique lisaient l'horloge réelle, la barre se vidait
+  derrière l'annonce (0,94 → 0,05 en 3 s) — tout le bloc de session lit
+  maintenant l'instant de la pause. ⚠️ Les deux calques sont en `position:
+  fixed` : au bureau `#stage` commence sous la consigne, un calque limité à
+  lui laissait une bande de terrain vide au-dessus.
+- `tests/smoke.test.ts` touche l'annonce quand elle paraît et EXIGE qu'elle
+  ait paru pendant le run du jour (éprouvé en la coupant).
+
 ### Les salons plantaient en boucle, et la session durait un jour (30/09/2026)
 
 Rapporté par Pierre : « impossible de créer un salon pendant plusieurs
@@ -812,6 +1017,42 @@ vérifiée en base, et il n'ouvre ni salon ni classement) ; `compte()` relit
 l'expiration ; renouvellement au retour sur l'onglet, toutes les 30 min, et
 AVANT l'envoi du run du jour ; l'invitation « connecte-toi » se tait quand la
 session est récupérable (`sessionRecuperable`).
+
+### Le site s'ouvre d'emblée, les gros doigts, et les menus en colonnes (30/09/2026)
+
+Trois directives de Pierre, livrées ensemble.
+
+**« Le tuto ne doit plus être la condition pour débloquer le jeu. »** Les
+nouveaux venus devaient faire le tutoriel avant de voir le site (accueil à un
+seul bouton, modes cachés jusqu'au chapitre 1 ou 3), et ça les rendait
+réticents. Désormais :
+- `DECOUVERTE_LIBRE` court-circuite `VERROU_MODES` : RUN DU JOUR, LIBRE et LA
+  PILE sont là dès l'arrivée (sans étiquette NOUVEAU : trois « nouveau » sur un
+  premier écran seraient du bruit) ;
+- l'accueil « neuf » à un bouton n'est plus servi (`const neuf = false`) ;
+- le tutoriel se joue au PREMIER lancement, quel qu'il soit, puis conduit à la
+  partie CHOISIE (`modeApresTuto`), y compris par PASSER. Par JOUER ou un
+  niveau, il mène au 1-1 comme avant. `tests/decouverte.test.ts`.
+- ⚠️ Coût assumé : un nouveau venu peut brûler un essai du run du jour sans
+  connaître le jeu — c'était la raison du verrou.
+
+**Les gros doigts** (`render/toucher.ts`, pur, testé). Au téléphone, une petite
+pièce faisait 34 px de diamètre à l'écran (terrain debout 234 × 558, échelle
+0,557, borné par la HAUTEUR). Au doigt (`TOUCH_ONLY`), les pièces se DESSINENT
+×1,2 (plafond 66 unités : la grande tient dans sa cellule de 140) et se
+TOUCHENT là où on les voit, plus 12 px d'écran de marge : petite pièce ≈ 40 px
+visibles, ≈ 64 px touchables. ⚠️ Rien de jugé ne bouge : le moteur, le serveur
+et `verifyRun` ne reçoivent qu'un INDEX de pièce (n°3). `HIT` reste 1,22 et la
+souris garde exactement l'ancienne zone (testé). Départage par le CENTRE le
+plus proche — par le bord, la grande pièce volait l'appui de la petite (le
+test l'a montré contre mon premier commentaire). Coût : sous « n'importe où »,
+un appui PRÈS d'une pièce interdite la touche désormais.
+
+**Les menus en colonnes, suite.** RÉGLAGES : chaque groupe dans une
+`.rgl__section` en `display: contents` au téléphone (positions identiques au
+pixel, relevé comparé), grille 2 × 3 au bureau. BRIEF (quand il a une allure à
+régler) et FICHE : colonnes CSS avec un saut forcé (`break-before: column`),
+jamais une grille qui alignerait les rangées des deux moitiés.
 
 ### LA SECONDE tuait au lever du doigt, et les menus au bureau (30/09/2026)
 
@@ -1337,8 +1578,9 @@ fin du 1-1 (révélée), plus pendant le tutoriel.
 ⚠️ **`estNouveau()` est gardé dans `openBrief`**, le point de passage commun :
 RUN DU JOUR / ESCALADE ne contournent plus le tutoriel.
 
-**Les modes s'ouvrent en jouant** (`VERROU_MODES` : jour et libre après le
-chapitre 1, LA PILE — ex-escalade — après le 3). Le MULTI n'est jamais
+~~**Les modes s'ouvrent en jouant**~~ — **levé le 30/09 sur directive de
+Pierre** (`DECOUVERTE_LIBRE`, voir plus haut). C'était `VERROU_MODES` : jour et
+libre après le chapitre 1, LA PILE — ex-escalade — après le 3. Le MULTI n'est jamais
 verrouillé. ⚠️ `Save.veteran` : posé UNE fois à la relecture d'une sauvegarde
 qui a un historique mais pas de `boutique` — les joueurs d'avant gardent tout
 ouvert.
@@ -1809,8 +2051,8 @@ Demandé par Pierre : réglages à gauche, compte à droite, signe au centre.
 
 `.topbar__row` est passée de `space-between` à une **grille `1fr auto 1fr`**,
 et ce n'est pas cosmétique : COMPTE est masqué tant que le déploiement n'est
-pas configuré, MENU l'est sur l'accueil, et en flex chaque disparition
-déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
+pas configuré, MENU l'était sur l'accueil (retiré depuis, 01/10), et en flex
+chaque disparition déplaçait l'enseigne. C'est exactement le défaut que l'ancien commentaire du
 CSS décrivait (« deux bords occupés valent mieux qu'un centre exact »). La
 grille rend la question sans objet.
 

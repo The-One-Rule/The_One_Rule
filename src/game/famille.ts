@@ -57,17 +57,19 @@ export function familleDe(r: OneRule): Famille {
  *
  * Remesurés à l'ouverture au solo du double appui, de MAINTIENS et de GLISSE :
  * la table suit le catalogue SOLO (`INSTRUCTIONS_SOLO`), celui qu'on joue.
+ * Remesurés au catalogue 3 (01/10) : sans « NE FAIS RIEN » et sans deux pièges
+ * d'affilée — tous les taux baissent de 2 à 5 points (LA POINTE 27,2 → 22,6).
  */
 export const TAUX_PIEGE: Record<string, number> = {
-  sang: 22.7,
-  azur: 22.4,
-  pointe: 27.2,
-  roue: 27.4,
-  solitaire: 27.4,
-  angles: 24.8,
-  voyelle: 9.6,
-  colosse: 13.6,
-  gaucher: 19.6,
+  sang: 19.9,
+  azur: 19.1,
+  pointe: 22.6,
+  roue: 22.8,
+  solitaire: 21.9,
+  angles: 21.5,
+  voyelle: 9.4,
+  colosse: 11.9,
+  gaucher: 18.0,
   seconde: 0,
   eclair: 0,
   menteur: 0,

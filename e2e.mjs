@@ -97,6 +97,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
     name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {},
     verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
     rounds: [], recus: [], clavierMatch: null, consignesMatch: null, manuel: false,
+    tirages: {}, pieges: {},
     imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
     coopClics: [], cursorsMsgs: [], chargesCoop: [], photos: [], ferme: null,
   };
@@ -132,6 +133,8 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
       // nombre de verdicts recus rendait les tests dependants du minutage.
       c.roundIdx = m.idx;
       if (m.rules) c.rules = m.rules;
+      // Le tirage choisi par le serveur (absent = 0), exactement comme le client.
+      c.tirages[m.idx] = typeof m.tirage === "number" ? m.tirage : 0;
       /*
        * CHLOE ne répond jamais (elle sert aux timeouts), et tout client
        * marqué `manuel` est piloté par son scénario.
@@ -159,7 +162,8 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
         // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
         // exactement ce que fait le vrai client, et c'est ce qui garantit que les
         // deux cotes du fil reconstruisent la meme manche.
-        round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1));
+        round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1), c.tirages[m.idx]);
+        c.pieges[m.idx] = { trap: round.trap, instr: round.instructionId };
       }
       const at = () => Date.now() + c.offset;
       setTimeout(() => {
@@ -583,7 +587,7 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   // Les manches jouées qui étaient un double appui, reconstruites du côté client.
   const doubles = [];
   for (let idx = 0; idx <= Math.max(0, recents[0].roundIdx); idx++) {
-    const id = draftShared(recents[0].seed, idx, poolMulti(false, CONSIGNES_VERSION)).instructionId;
+    const id = draftShared(recents[0].seed, idx, poolMulti(false, CONSIGNES_VERSION), recents[0].tirages[idx] ?? 0).instructionId;
     if (id === "doubleTap" || id === "tiens" || id === "glisse") doubles.push(`${idx}:${id}`);
   }
   /*
@@ -609,6 +613,35 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   );
   if (doubles.length) info(`consignes du multi tirées et jouées : ${doubles.join(", ")}`);
   else info("aucune consigne du multi tirée sur ces manches — leur jugement est couvert par les unitaires");
+
+  /*
+   * VERSION 4 (directive de Pierre, 01/10) : plus de « NE FAIS RIEN », et
+   * jamais deux pièges d'affilée pour un même siège. Lu sur les manches que
+   * chaque pilote a RECONSTRUITES avec le tirage reçu — c'est-à-dire ce que
+   * le joueur a vu. La faute de reconstruction est couverte juste au-dessus.
+   */
+  const rien = recents.flatMap((c) =>
+    Object.entries(c.pieges).filter(([, p]) => p.instr === "nothing" || p.instr === "nothingLure").map(([i]) => `${c.name ?? "?"}@${i}`),
+  );
+  ok(rien.length === 0, `jeu de consignes ${CONSIGNES_VERSION} : aucune manche « NE FAIS RIEN » (${rien.join(", ") || "aucune"})`);
+  // Seulement les manches où le siège JOUAIT (un verdict le nomme) : un
+  // éliminé n'est plus protégé, et n'a pas à l'être.
+  const doublesPieges = recents.flatMap((c) => {
+    const joue = new Set(c.verdicts.filter((v) => v.outcomes?.[c.id]).map((v) => v.idx));
+    return Object.keys(c.pieges)
+      .map(Number)
+      .filter((i) => joue.has(i) && joue.has(i - 1) && c.pieges[i]?.trap && c.pieges[i - 1]?.trap)
+      .map((i) => `${c.name ?? "?"}@${i - 1}-${i}`);
+  });
+  const nPieges = recents.reduce((n, c) => n + Object.values(c.pieges).filter((p) => p.trap).length, 0);
+  ok(
+    // Sans exiger de piège : en onze manches, n'en voir aucun est rare mais
+    // possible, et l'assertion deviendrait intermittente (§2).
+    doublesPieges.length === 0,
+    `jeu de consignes ${CONSIGNES_VERSION} : jamais deux pièges d'affilée pour un même siège (${nPieges} pièges, ${doublesPieges.join(", ") || "aucun enchaînement"})`,
+  );
+  const retires = Object.values(recents[0].tirages).filter((t) => t > 0).length;
+  info(`tirages retirés par le serveur : ${retires} manche(s) sur ${Object.keys(recents[0].tirages).length}`);
 
   // Un seul siège ancien (sans le champ) referme le jeu pour toute la table.
   const mixte = [await client("W1", "cle-W1", false, false, 2), await client("W2", "cle-W2")];

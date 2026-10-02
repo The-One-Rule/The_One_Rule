@@ -194,7 +194,7 @@ export default async function handler(req: Request): Promise<Response> {
         encre: (body.capacites as Record<string, unknown> | undefined)?.encre !== false,
         lettres: (body.capacites as Record<string, unknown> | undefined)?.lettres !== false,
       },
-      catalogue: body.catalogue === 2 ? 2 : undefined,
+      catalogue: body.catalogue === 3 ? 3 : body.catalogue === 2 ? 2 : undefined,
     };
 
     const v = verifyRun(claim);

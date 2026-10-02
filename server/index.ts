@@ -707,7 +707,7 @@ function openRound(room: Room): void {
   const match = room.match;
   if (!match) return;
 
-  const { idx, durationMs } = match.openRound();
+  const { idx, durationMs, tirage } = match.openRound();
   room.roundStartAt = now();
   room.roundDeadline = room.roundStartAt + durationMs;
   room.roundOpen = true;
@@ -718,6 +718,8 @@ function openRound(room: Room): void {
     startAt: room.roundStartAt,
     deadline: room.roundDeadline,
   };
+  // Absent vaut 0 : un salon qui ne retire rien envoie le message d'hier.
+  if (tirage) msg.tirage = tirage;
   if (match.rotationJustHappened(idx)) {
     msg.rules = match.reglesPubliques(idx);
   }

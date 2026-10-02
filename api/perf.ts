@@ -243,8 +243,8 @@ export async function traite(
       encre: cap.encre !== false,
       lettres: cap.lettres !== false,
     },
-    // Seule valeur connue ; tout le reste vaut l'ancien catalogue.
-    catalogue: corps.catalogue === 2 ? 2 : undefined,
+    // Seules valeurs connues ; tout le reste vaut l'ancien catalogue.
+    catalogue: corps.catalogue === 3 ? 3 : corps.catalogue === 2 ? 2 : undefined,
   };
 
   const v = verifyRun(claim);

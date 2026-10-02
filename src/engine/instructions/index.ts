@@ -707,11 +707,28 @@ export const VERSION_DE_CONSIGNE: Readonly<Record<string, number>> = {
  * La version du jeu de consignes que CE code sait reconstruire.
  *
  * 1 = le catalogue d'origine ; 2 = plus le double appui ; 3 = plus MAINTENIR
- * et GLISSER (`VERSION_DE_CONSIGNE`). Un client l'annonce
+ * et GLISSER (`VERSION_DE_CONSIGNE`) ; 4 = sans « NE FAIS RIEN »
+ * (`CONSIGNES_RIEN`), et le serveur peut RETIRER une consigne qui ferait
+ * enchaîner deux pièges à un joueur (`draftShared`, paramètre `tirage`). Un client l'annonce
  * dans son `hello`, le serveur retient le minimum de la table et du sien. On
  * ne la DÉCRÉMENTE jamais, et chaque ajout à `CONSIGNES_MULTI` la fait monter.
  */
-export const CONSIGNES_VERSION = 3;
+export const CONSIGNES_VERSION = 4;
+
+/**
+ * « NE FAIS RIEN » et son appât — RETIRÉES du jeu (directive de Pierre, 01/10).
+ *
+ * Une manche qui demande de ne rien faire ressemble à un piège sans en être
+ * un, et elle pouvait suivre un vrai piège : deux manches d'affilée à ne rien
+ * faire, c'est un temps mort, pas une épreuve. Le piège doit rester le SEUL
+ * moment où la bonne réponse est l'abstention.
+ *
+ * ⚠️ Elles restent DANS `INSTRUCTIONS`, et c'est voulu : c'est la base du
+ * multi version 1 à 3 (un client d'hier les tire encore, le salon doit les
+ * reconstruire pareil) et le réservoir où LE MENTEUR emprunte ses phrases.
+ * On les retire au tirage : catalogue solo 3, salons en version 4.
+ */
+export const CONSIGNES_RIEN: ReadonlySet<string> = new Set(["nothing", "nothingLure"]);
 
 /**
  * LE CATALOGUE DU SOLO — le catalogue d'origine plus les consignes du multi.
@@ -730,7 +747,7 @@ export const CONSIGNES_VERSION = 3;
  * calcule sur lui : les records d'entraînement repartent d'une clé neuve, coût
  * annoncé et accepté.
  */
-export const INSTRUCTIONS_SOLO: Instruction[] = [
+export const INSTRUCTIONS_SOLO_V2: Instruction[] = [
   ...INSTRUCTIONS,
   /*
    * ⚠️ AU POIDS 1, pas 2. Ces trois consignes désignent une pièce UNIQUE —
@@ -749,8 +766,30 @@ export const INSTRUCTIONS_SOLO: Instruction[] = [
   })),
 ];
 
+/** Le catalogue solo 2 au doigt — rejeu des runs d'avant le 01/10. */
+export const TOUCH_INSTRUCTIONS_SOLO_V2: Instruction[] = INSTRUCTIONS_SOLO_V2.filter((i) => i.touch);
+
+/**
+ * LE CATALOGUE DU SOLO, version 3 : le 2 sans « NE FAIS RIEN »
+ * (`CONSIGNES_RIEN`), et tiré sans jamais deux pièges d'affilée
+ * (`buildRound`, paramètre `apresPiege`).
+ *
+ * ⚠️ `VERSION_CONTENU` se calcule sur lui : les records d'entraînement
+ * affichés repartent d'une clé neuve, et le classement du jour du déploiement
+ * se coupe en deux. Coût annoncé à Pierre avec la directive.
+ */
+export const INSTRUCTIONS_SOLO: Instruction[] = INSTRUCTIONS_SOLO_V2.filter((i) => !CONSIGNES_RIEN.has(i.id));
+
 /** Le catalogue du solo au doigt. */
 export const TOUCH_INSTRUCTIONS_SOLO: Instruction[] = INSTRUCTIONS_SOLO.filter((i) => i.touch);
+
+/**
+ * Le numéro du catalogue que joue CE code en solo, annoncé dans chaque
+ * revendication (`RunClaim.catalogue`) : `verifyRun` rejoue un run sur le
+ * catalogue qui l'a produit. 1 (absent) = `INSTRUCTIONS`, 2 =
+ * `INSTRUCTIONS_SOLO_V2`, 3 = celui-ci.
+ */
+export const CATALOGUE_SOLO = 3;
 
 /** Toutes les consignes écrites — pour les tests qui doivent les couvrir toutes. */
 export const TOUTES_LES_CONSIGNES: Instruction[] = [...INSTRUCTIONS, ...CONSIGNES_MULTI];

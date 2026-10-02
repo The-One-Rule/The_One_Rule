@@ -290,6 +290,8 @@ export class Session {
     // sous l'ancienne pile — et le piège annoncé ne serait pas celui posé.
     this.regleAjoutee = this.majRegle();
     if (this.regleAjoutee) this.derniereAjoutee = this.regleAjoutee;
+    // `round` n'existe pas encore à la première manche : rien ne la précède.
+    const apresPiege = (this.round as Round | undefined)?.trap ?? false;
     this.round = buildRound(
       this.rng,
       this.level,
@@ -297,9 +299,27 @@ export class Session {
       this.pool,
       this.pace,
       this.forcePiege,
+      apresPiege,
     );
     this.progress = { step: 0 };
     this.roundStart = now;
+  }
+
+  /**
+   * UNE PAUSE HORS MANCHE — l'écran « Échauffement terminé » (maquette 2.6).
+   *
+   * Le run est décalé de `ms` : le DÉBUT du run et celui de la manche bougent
+   * ENSEMBLE, donc la manche ouverte reprend avec tout son temps, et le journal
+   * — mesuré depuis `runStart` — ne voit aucun trou. `verifyRun` rejoue donc
+   * exactement la partie qu'on aurait jouée sans pause (testé).
+   *
+   * ⚠️ Seulement entre deux manches, jamais pendant : Pierre avait fait
+   * retirer un plein cadre qui tombait PENDANT une manche.
+   */
+  decale(ms: number): void {
+    if (!(ms > 0)) return;
+    this.runStart += ms;
+    this.roundStart += ms;
   }
 
   /** Temps écoulé depuis le début du run — repère du duel asynchrone. */

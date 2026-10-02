@@ -11,8 +11,34 @@ import type { NiveauId } from "./game/parcours";
 
 export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
   fr: {
-    "bienvenue.eyebrow": "UN JEU DE RÉFLEXES, AVEC UN PIÈGE",
     "bienvenue.jouer": "JOUER",
+    "tuto.consigne": "LA CONSIGNE",
+    "tuto.fallait": "IL FALLAIT",
+    "tuto.rejouer": "REJOUER LA MANCHE",
+    "acc.multiEyebrow": "MULTI · JUSQU'À 10",
+    "acc.multiTitre": "Joue avec tes amis",
+    "acc.creer": "CRÉER UN SALON",
+    "acc.code": "CODE",
+    "acc.codeAria": "Code du salon",
+    "acc.rejoindre": "REJOINDRE",
+    "acc.rapide": "PARTIE RAPIDE",
+    "acc.sansCode": "sans code",
+    "acc.jourTitre": "La même partie pour tout le monde",
+    "acc.parcours": "PARCOURS SOLO",
+    "invite.titre": "C'est encore mieux à plusieurs.",
+    "invite.quoi": "Un code de 4 lettres, jusqu'à 10 amis, chacun sa règle.",
+    "invite.creer": "CRÉER UN SALON",
+    "invite.seul": "CONTINUER SEUL",
+    "invite.modes": "Voir tous les modes",
+    "salon.qr": "Dans la même pièce ? Scannez.",
+    "salon.qrAria": "QR code du salon",
+    "annonce.titre": "Échauffement terminé",
+    "annonce.quoi": "À partir de maintenant, le cadre se vide plus vite.",
+    "annonce.suite": "TOUCHE POUR CONTINUER",
+    "vitrine.regle": "TA RÈGLE",
+    "vitrine.jamais": "JAMAIS DE ROUGE",
+    "vitrine.titre": "Parfois, obéir est l'erreur.",
+    "vitrine.code": "J'ai un code de salon",
     "prof.libre": "LIBRE",
     "prof.libreNom": "Sans fin, à ton rythme",
     "prof.libreNote": "CHOISIS UNE CARTE · BATS TON RECORD",
@@ -30,8 +56,34 @@ export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
     "boutique.retour": "RETOUR",
   },
   en: {
-    "bienvenue.eyebrow": "A REFLEX GAME WITH A TWIST",
     "bienvenue.jouer": "PLAY",
+    "tuto.consigne": "THE ORDER",
+    "tuto.fallait": "YOU HAD TO",
+    "tuto.rejouer": "PLAY THE ROUND AGAIN",
+    "acc.multiEyebrow": "MULTIPLAYER · UP TO 10",
+    "acc.multiTitre": "Play with your friends",
+    "acc.creer": "CREATE A ROOM",
+    "acc.code": "CODE",
+    "acc.codeAria": "Room code",
+    "acc.rejoindre": "JOIN",
+    "acc.rapide": "QUICK GAME",
+    "acc.sansCode": "no code",
+    "acc.jourTitre": "The same game for everyone",
+    "acc.parcours": "SOLO PATH",
+    "invite.titre": "It's even better together.",
+    "invite.quoi": "A 4-letter code, up to 10 friends, each with their own rule.",
+    "invite.creer": "CREATE A ROOM",
+    "invite.seul": "CONTINUE ALONE",
+    "invite.modes": "See every mode",
+    "salon.qr": "Same room? Scan.",
+    "salon.qrAria": "Room QR code",
+    "annonce.titre": "Warm-up over",
+    "annonce.quoi": "From now on, the frame empties faster.",
+    "annonce.suite": "TAP TO CONTINUE",
+    "vitrine.regle": "YOUR RULE",
+    "vitrine.jamais": "NEVER RED",
+    "vitrine.titre": "Sometimes, obeying is the mistake.",
+    "vitrine.code": "I have a room code",
     "prof.libre": "FREE PLAY",
     "prof.libreNom": "Endless, your pace",
     "prof.libreNote": "PICK A CARD · BEAT YOUR RECORD",
@@ -275,5 +327,98 @@ export const PARCOURS: Record<Lang, TextesParcours> = {
     ficheJouer: (c, n) => `PLAY THE CHAPTER · ${c}-${n}`,
     ficheLibre: "FREE PLAY",
     ficheHorsParcours: "This chapter isn't open in your path yet.",
+  },
+};
+
+/**
+ * Les textes que le CODE écrit (tutoriel, vitrine), jamais posés par
+ * `data-i18n`. À part du dictionnaire statique : celui-ci exige que chaque clé
+ * soit posée dans le document, et c'est un bon filet — ici, c'est le TYPE qui
+ * garantit qu'aucune clé ne manque dans une langue.
+ */
+export type CleEcrite =
+  | "tuto.craque"
+  | "tuto.titreInterdit"
+  | "tuto.titreAilleurs"
+  | "tuto.titreTemps"
+  | "tuto.fallaitRien"
+  | "tuto.fallaitBleu"
+  | "tuto.bien"
+  | "tuto.piegeDejoue"
+  | "tuto.slogan"
+  | "tuto.echauffement"
+  | "vitrine.bleu"
+  | "vitrine.rouge"
+  | "vitrine.bien"
+  | "vitrine.piege"
+  | "acc.jourEyebrow"
+  | "acc.jourJouer1"
+  | "acc.jourJouerN"
+  | "acc.jourFini"
+  | "acc.jourEpuise"
+  | "acc.code4"
+  | "invite.eyebrow"
+  | "preuve.rien"
+  | "preuve.plusVite"
+  | "preuve.sansTaRegle"
+  | "craque.un"
+  | "craque.elim"
+
+export const ECRITS: Record<Lang, Record<CleEcrite, string>> = {
+  fr: {
+    "tuto.craque": "CRAQUÉ · MANCHE",
+    "tuto.titreInterdit": "Ta règle interdit le rouge.",
+    "tuto.titreAilleurs": "Pas celle-là.",
+    "tuto.titreTemps": "Le cadre s'est vidé.",
+    "tuto.fallaitRien": "Ne rien faire : la consigne était un piège.",
+    "tuto.fallaitBleu": "Toucher le bleu, avant que le cadre se vide.",
+    "tuto.bien": "BIEN",
+    "tuto.piegeDejoue": "PIÈGE DÉJOUÉ",
+    "tuto.slogan": "Parfois, obéir est l'erreur.",
+    "tuto.echauffement": "ÉCHAUFFEMENT",
+    "vitrine.bleu": "CLIQUE LE BLEU",
+    "vitrine.rouge": "CLIQUE LE ROUGE",
+    "vitrine.bien": "BIEN",
+    "vitrine.piege": "PIÈGE DÉJOUÉ",
+    "acc.jourEyebrow": "RUN DU JOUR",
+    "acc.jourJouer1": "JOUER · DERNIER ESSAI",
+    "acc.jourJouerN": "JOUER · {n} ESSAIS",
+    "acc.jourFini": "BOUCLÉ · VOIR LE JOUR",
+    "acc.jourEpuise": "REVIENS DEMAIN",
+    "acc.code4": "Un code de salon fait 4 lettres.",
+    "invite.eyebrow": "PREMIÈRE PARTIE · MANCHE {n}",
+    "preuve.rien": "Ne rien faire : la consigne était un piège.",
+    "preuve.plusVite": "{c}, plus vite.",
+    "preuve.sansTaRegle": "Obéir, sans enfreindre ta règle : {r}.",
+    "craque.un": "{n} A CRAQUÉ",
+    "craque.elim": "{n} EST ÉLIMINÉ",
+  },
+  en: {
+    "tuto.craque": "CRACKED · ROUND",
+    "tuto.titreInterdit": "Your rule forbids red.",
+    "tuto.titreAilleurs": "Not that one.",
+    "tuto.titreTemps": "The frame ran out.",
+    "tuto.fallaitRien": "Do nothing: the order was a trap.",
+    "tuto.fallaitBleu": "Touch the blue, before the frame runs out.",
+    "tuto.bien": "NICE",
+    "tuto.piegeDejoue": "TRAP DODGED",
+    "tuto.slogan": "Sometimes, obeying is the mistake.",
+    "tuto.echauffement": "WARM-UP",
+    "vitrine.bleu": "CLICK THE BLUE",
+    "vitrine.rouge": "CLICK THE RED",
+    "vitrine.bien": "NICE",
+    "vitrine.piege": "TRAP DODGED",
+    "acc.jourEyebrow": "DAILY RUN",
+    "acc.jourJouer1": "PLAY · LAST TRY",
+    "acc.jourJouerN": "PLAY · {n} TRIES",
+    "acc.jourFini": "DONE · SEE TODAY",
+    "acc.jourEpuise": "COME BACK TOMORROW",
+    "acc.code4": "A room code is 4 letters.",
+    "invite.eyebrow": "FIRST GAME · ROUND {n}",
+    "preuve.rien": "Do nothing: the order was a trap.",
+    "preuve.plusVite": "{c}, faster.",
+    "preuve.sansTaRegle": "Obey without breaking your rule: {r}.",
+    "craque.un": "{n} CRACKED",
+    "craque.elim": "{n} IS OUT",
   },
 };
