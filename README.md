@@ -239,7 +239,9 @@ Pas de temps réel : le serveur sert le **run enregistré** d'un joueur de class
 
 ### API
 
-`api/ranked.ts`, fonction edge, stockage derrière une interface `Store`. La version en mémoire fait tourner l'API en local ; pour passer en production on implémente `Store` sur Postgres ou KV — c'est le seul fichier à toucher.
+`api/_ranked.ts`, fonction edge, stockage derrière une interface `Store`. La version en mémoire fait tourner l'API en local ; pour passer en production on implémente `Store` sur Postgres ou KV.
+
+⚠️ Le préfixe `_` exclut le fichier du routage Vercel : tant que le stockage est en mémoire, la route ne répond PAS en production. La rebrancher, c'est le renommer en `api/ranked.ts` — après avoir authentifié `id`, qui n'est aujourd'hui qu'un champ du corps.
 
 ```bash
 VITE_RANKED_URL=/api/ranked   # vide = bouton CLASSÉ masqué, le reste fonctionne

@@ -4900,8 +4900,7 @@ async function sendRanked(seed: number, ruleId: string, log: LoggedInput[]): Pro
     inputs: log,
     capacites: { clavier: !TOUCH_ONLY, maintien: !TOUCH_ONLY, encre: !P.load().daltonien, lettres: !TOUCH_ONLY },
     catalogue: CATALOGUE_SOLO,
-    opponentScore: ranked?.opponent?.score,
-    opponentRating: ranked?.opponent?.rating,
+    opponentRunId: ranked?.opponent?.runId,
   });
 
   if (!res) {
