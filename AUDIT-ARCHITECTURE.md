@@ -5,6 +5,25 @@
 Ce rapport ne suppose rien : chaque point cite le code (`fichier:ligne`) et,
 quand une lecture ne suffisait pas, le résultat d'une exécution.
 
+## Suivi des priorités (§14), même jour
+
+| # | Point | État |
+|---|---|---|
+| 1 | D1 — performances des comptes supprimés | corrigé + migration 0005 (à appliquer) |
+| 2 | S2 — journal de `verifyRun` | corrigé (`entreeValide`) |
+| 3 | S5, P5 — collecte | corrigé (champs réservés, `cleanEnv`) |
+| 4 | D2, D3 — départage, 429 | corrigés |
+| 5 | S1 — mode classé | hors routage (`api/_ranked.ts`), adversaire relu du vivier, plus d'`id` publié. `body.id` reste non authentifié |
+| 6 | C1 — reprise de siège | corrigé (`remplace`, capacité `reprise`) |
+| 7 | C2 — deux onglets | corrigé (événement `storage`) |
+| 8 | C3 — vote imposteur | corrigé (départ d'un votant, borne de 90 s) |
+| 9 | T1 — tests de `DepotSupabase` | contrat des requêtes testé ; pas de vraie base |
+| 10 | R1, R2 — découpage | premier pas (`lancementRefuse`) ; `initMulti` et `finishRun` restent |
+
+Restent ouverts, hors des dix priorités : S3 (catalogue choisi par le
+client, essais non appliqués serveur), S4 (pas de limite sur `join`), S6 à
+S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
+
 ## 0. Méthode et état de départ
 
 **Ce qui a été lancé :**

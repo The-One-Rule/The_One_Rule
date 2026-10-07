@@ -775,6 +775,39 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
 
+### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
+
+Directive de Pierre : auditer tout le dépôt sans rien supposer
+(`AUDIT-ARCHITECTURE.md`, chaque point prouvé), puis « vas-y dans l'ordre ».
+Un commit par priorité. Ce qui ne se déduit pas du code :
+
+- ⚠️ **À faire côté Pierre** : appliquer la migration **0005** (purge des
+  performances des comptes déjà supprimés). Déployer Fly ET Vercel : le
+  `hello` porte `reprise`, et `remplace` est un code d'erreur neuf.
+- **Les tests passaient sur le dépôt qui ne tourne pas.** `DepotMemoire` et
+  `DepotSupabase` divergeaient deux fois (suppression qui laissait les scores
+  au podium ; égalité de score jamais départagée par la durée). Désormais
+  `tests/depot-supabase.test.ts` fige les REQUÊTES émises, `fetch` remplacé
+  par un enregistreur. Ce n'est pas une vraie base : une requête que
+  PostgREST refuserait passerait tant qu'elle ressemble à l'attendu.
+- **`verifyRun` valide chaque entrée** (`entreeValide`) : avant, un `t` en
+  texte était ACCEPTÉ et les échéances ne s'appliquaient plus.
+- **La collecte** ne laisse plus un événement réécrire `id`, `day`, `at`.
+- **Le classé** est sorti du routage (`api/_ranked.ts`), relit l'adversaire
+  dans le vivier (`opponentRunId`) et ne publie plus d'`id`. `body.id` reste
+  non authentifié : ne pas le renommer tel quel (§9).
+- **La reprise de siège** : la CLÉ suffit, même si l'ancienne socket paraît
+  ouverte (coupure à moitié ouverte, 15 à 30 s avant le battement de cœur).
+  La plus récente gagne ; l'ancienne reçoit `remplace` et ne revient pas.
+  ⚠️ Seulement chez un client qui a annoncé `reprise: true` : deux VIEUX
+  onglets ignoreraient `remplace` et se renverraient le siège en boucle.
+- **Deux onglets** : `progress.ts` oublie sa copie sur l'événement `storage`.
+- **Le vote imposteur** se clôt aussi au départ d'un votant (si les présents
+  ont tous voté) et au bout de `OBSERVATION_MAX_MS` (90 s).
+- **Point 10, premier pas seulement** : `lancementRefuse` (render/jour.ts)
+  remplace trois copies du verrou du jour dans main.ts. `initMulti` et
+  `finishRun` restent à découper — une direction.
+
 ### La navigation aux places habituelles, et trois écrans réparés (01/10/2026)
 
 Dernière passe de la directive : le style de la maquette sur le reste du site,
