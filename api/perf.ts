@@ -306,5 +306,17 @@ export async function traite(
   });
 }
 
-export default (req: Request): Promise<Response> =>
-  traite(req, process.env as Record<string, string | undefined>);
+/*
+ * Une panne de la base (`posePerf` et les lectures LÈVENT sur un statut
+ * inattendu) rend une réponse JSON et une ligne de journal, plus une page
+ * d'erreur de la plateforme. Le statut reste 500 : la file du client
+ * (`src/compte/file.ts`) réessaie tout 5xx, c'est le comportement voulu.
+ */
+export default async (req: Request): Promise<Response> => {
+  try {
+    return await traite(req, process.env as Record<string, string | undefined>);
+  } catch (err) {
+    console.error(`perf_erreur ${err instanceof Error ? err.message : String(err)}`);
+    return json({ error: "interne" }, 500);
+  }
+};
