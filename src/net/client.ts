@@ -158,6 +158,8 @@ export class NetClient {
           // Ce que CE bundle sait reconstruire. Le serveur retient le minimum
           // de la table : voir `poolMulti`.
           consignes: CONSIGNES_VERSION,
+          // Ce bundle sait céder sa place sans la reprendre (`remplace`).
+          reprise: true,
         });
         // rafale initiale : l'horloge doit être prête avant la première manche
         for (let i = 0; i < 5; i++) setTimeout(() => this.ping(), i * 120);

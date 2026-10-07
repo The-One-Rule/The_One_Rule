@@ -431,6 +431,13 @@ export type ClientMsg =
        * sa table retombe sur ce qu'il sait jouer.
        */
       consignes?: number;
+      /**
+       * Ce client comprend `remplace` et ne reprend PAS sa place tout seul
+       * après l'avoir reçu. Absent vaut non : le serveur ne remplace alors
+       * jamais une connexion encore ouverte, sinon deux vieux onglets du même
+       * navigateur se renverraient le siège en boucle.
+       */
+      reprise?: boolean;
     }
   | { t: "create" }
   | { t: "join"; code: string }
@@ -517,6 +524,12 @@ export type ServerMsg =
         | "not_host"
         | "in_match"
         | "kicked"
+        /**
+         * Ce siège vient d'être repris par une connexion plus récente de la même
+         * clé (un réseau qui change, un second onglet). Absent des clients
+         * anciens, qui l'ignorent : leur socket se ferme quand même.
+         */
+        | "remplace"
         /** Imposteur [4, 8] ou coop [4, 6] : l'effectif assis n'y est pas. Absent des clients anciens. */
         | "need_players";
       detail?: string;

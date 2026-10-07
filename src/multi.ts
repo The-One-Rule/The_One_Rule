@@ -1059,6 +1059,14 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    */
   let lastRoomCode = "";
   let rejoining = false;
+  /**
+   * Un départ SUBI vient d'être annoncé (`kicked`, `remplace`). Le serveur
+   * ferme la socket juste après, et `NetClient` traduit cette fermeture en
+   * `room_unknown` « déconnecté » : sans ce drapeau, ce second message
+   * écrasait le premier par « DÉCONNECTÉ » — et, pour `remplace`, relançait
+   * une reprise qui volait le siège en retour, en boucle entre deux écrans.
+   */
+  let departSubi = false;
   let unsub: (() => void) | null = null;
   let match: MatchState | null = null;
   const curseursCible = new Map<string, { x: number; y: number }>();
@@ -3036,6 +3044,11 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       errFromServer = true;
       if (msg.code === "room_unknown") {
         const coupe = msg.detail === "déconnecté";
+        // La fermeture qui suit un départ subi : le message est déjà dit.
+        if (coupe && departSubi) {
+          departSubi = false;
+          return;
+        }
         /*
          * Coupure : on ne démonte RIEN et on tente de revenir seul.
          *
@@ -3078,8 +3091,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         setJoinErr(tr("errVersion"), [
           { quoi: tr("sortieRecharger"), fait: () => location.reload() },
         ]);
-      } else if (msg.code === "kicked") {
-        setJoinErr(tr("errExclu"), [sortieOuvrir()]);
+      } else if (msg.code === "kicked" || msg.code === "remplace") {
+        departSubi = true;
+        setJoinErr(msg.code === "kicked" ? tr("errExclu") : tr("errRemplace"), [sortieOuvrir()]);
         // Départ subi mais définitif : surtout ne pas revenir tout seul.
         lastRoomCode = "";
         roomCode = "";
@@ -3369,6 +3383,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         // doit rien ajouter au chemin « code/lien → rejoindre → jouer ».
         jetonPourSalon(),
       );
+      // Une connexion neuve : le départ subi de la précédente est réglé.
+      departSubi = false;
       return net;
     } catch {
       if (!errFromServer) {

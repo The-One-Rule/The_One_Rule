@@ -129,6 +129,8 @@ interface Client {
    * défaut — le catalogue d'origine —, bornée par celle du serveur.
    */
   consignes: number;
+  /** Il comprend `remplace` (voir le `hello`) — absent vaut non. */
+  reprise: boolean;
   /**
    * Identifiant de compte TOR, si le `hello` portait un jeton valide.
    *
@@ -907,6 +909,7 @@ wss.on("connection", (ws) => {
     rookie: false,
     clavier: false,
     consignes: 1,
+    reprise: false,
     compte: null,
   };
   client.glyph = glyphFor(client.id);
@@ -951,6 +954,7 @@ wss.on("connection", (ws) => {
             ? Math.min(msg.consignes as number, CONSIGNES_VERSION)
             : 1;
         client.glyph = parseGlyph(msg.glyph, client.id);
+        client.reprise = msg.reprise === true;
 
         /*
          * Le compte, s'il y en a un.
@@ -1378,9 +1382,9 @@ function rejoindre(client: Client, room: Room): void {
    * locale, il REPREND son identifiant — donc son siège, ses vies et
    * son score — au lieu d'entrer en spectateur avec une identité neuve.
    *
-   * On n'accepte la reprise que si l'ancienne socket est effectivement
-   * fermée : sinon deux onglets du même navigateur, qui partagent la
-   * clé, se voleraient mutuellement leur place.
+   * Deux onglets du même navigateur partagent la clé : le plus récent
+   * prend la place, l'ancien est prévenu et ne la reprend pas tout seul
+   * (voir `remplace` plus bas).
    */
   /*
    * Déjà dans ce salon : rejoindre à nouveau ne doit RIEN casser.
@@ -1402,12 +1406,33 @@ function rejoindre(client: Client, room: Room): void {
   // le salon précédent, introuvable et jamais nettoyée.
   leaveRoom(client);
 
+  /*
+   * ⚠️ LA CLÉ SUFFIT, même si l'ancienne socket paraît encore OUVERTE.
+   *
+   * La reprise exigeait une socket déjà fermée côté serveur. Or une coupure
+   * réseau « à moitié ouverte » (le téléphone passe du Wi-Fi à la 4G) ne se
+   * voit qu'au battement de cœur, 15 à 30 s plus tard, alors que le client
+   * revient en moins d'une seconde. Il entrait donc comme un INCONNU,
+   * spectateur, et son siège tombait en forfait 25 s après la fermeture
+   * enfin constatée : la décision n°4 trahie par le cas le plus courant sur
+   * téléphone (audit C1).
+   *
+   * La connexion la plus récente gagne. L'ancienne est prévenue (`remplace`)
+   * puis fermée ; le client ne tente pas de revenir après ce message, donc
+   * deux onglets du même navigateur ne se renvoient pas le siège en boucle.
+   */
   const fantome = client.key
     ? [...room.clients.values()].find(
-        (c) => c.key === client.key && c.ws.readyState !== WebSocket.OPEN,
+        // Une socket ouverte ne se remplace que chez un client qui saura
+        // céder sans revenir : sinon deux vieux onglets se battraient.
+        (c) => c.key === client.key && (c.ws.readyState !== WebSocket.OPEN || c.reprise),
       )
     : undefined;
   if (fantome) {
+    if (fantome.ws.readyState === WebSocket.OPEN) {
+      send(fantome, { t: "error", code: "remplace" });
+      fantome.ws.close(4001, "remplace");
+    }
     if (fantome.graceTimer) clearTimeout(fantome.graceTimer);
     fantome.graceTimer = null;
     fantome.room = null;

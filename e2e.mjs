@@ -228,7 +228,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
     if (m.t === "error") c.errors.push(m);
   });
   ws.on("close", (code) => { c.ferme = code; });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, reprise: true, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -1079,13 +1079,35 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
     `REJOINDRE ne déclare pas forfait (vies ${doraAvant?.lives} → ${doraApres?.lives}, spectateur ${doraApres?.spectator})`,
   );
 
+  /*
+   * ⚠️ COUPURE À MOITIÉ OUVERTE (audit C1). Le téléphone change de réseau :
+   * il revient par une socket NEUVE alors que le serveur croit l'ancienne
+   * toujours ouverte — il ne s'en apercevra qu'au battement de cœur, 15 à
+   * 30 s plus tard. On simule exactement ça : emil2 n'est PAS fermé.
+   * Avant le correctif, EMIL entrait en inconnu, spectateur, et perdait son
+   * siège en forfait une fois l'ancienne socket enfin tombée.
+   */
+  const emil3 = await client("EMIL", "cle-stable-emil");
+  emil3.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(500);
+  ok(emil3.id === idAvant, `demi-coupure : la socket neuve reprend le siège (${idAvant} → ${emil3.id})`);
+  ok(
+    emil2.errors.some((e) => e.code === "remplace") && emil2.ferme !== null,
+    `demi-coupure : l'ancienne socket est prévenue puis fermée (code ${emil2.ferme})`,
+  );
+  const emils = emil3.room?.players?.filter((p) => p.name === "EMIL") ?? [];
+  ok(
+    emils.length === 1 && emils[0].spectator === false,
+    `demi-coupure : un seul EMIL, et il joue (${emils.length} ligne(s))`,
+  );
+
   // Une clé différente ne doit RIEN pouvoir reprendre.
   const voleur = await client("VOLEUR", "cle-inconnue");
   voleur.ws.send(JSON.stringify({ t: "join", code }));
   await sleep(300);
   ok(voleur.id !== idAvant, "une autre clé ne reprend pas le siège d'EMIL");
 
-  for (const c of [dora, emil2, voleur]) c.ws.close();
+  for (const c of [dora, emil2, emil3, voleur]) c.ws.close();
   await sleep(200);
 }
 

@@ -989,6 +989,7 @@ type Dyn = {
   errEnMatch: string;
   errVersion: string;
   errExclu: string;
+  errRemplace: string;
   errInjoignable: string;
   errReconnexion: string;
   errCode4: string;
@@ -1645,6 +1646,7 @@ const DYN: Record<Lang, Dyn> = {
     errEnMatch: "MATCH EN COURS — TU ENTRES À LA PROCHAINE PARTIE",
     errVersion: "VERSION INCOMPATIBLE — RECHARGE LA PAGE",
     errExclu: "TU AS ÉTÉ SORTI DU SALON — TU PEUX EN CRÉER UN À TOI",
+    errRemplace: "TA PLACE A ÉTÉ REPRISE SUR UN AUTRE ÉCRAN",
     errInjoignable: "SERVEUR INJOIGNABLE — VÉRIFIE TA CONNEXION, PUIS RÉESSAIE",
     errReconnexion: "RECONNEXION IMPOSSIBLE — RÉESSAIE",
     errCode4: "UN CODE DE SALON FAIT EXACTEMENT 4 CARACTÈRES",
@@ -2155,6 +2157,7 @@ const DYN: Record<Lang, Dyn> = {
     errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
     errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",
     errExclu: "YOU WERE REMOVED FROM THE ROOM — YOU CAN CREATE ONE OF YOUR OWN",
+    errRemplace: "YOUR SEAT WAS TAKEN OVER ON ANOTHER SCREEN",
     errInjoignable: "SERVER UNREACHABLE — CHECK YOUR CONNECTION, THEN TRY AGAIN",
     errReconnexion: "CANNOT RECONNECT — TRY AGAIN",
     errCode4: "A ROOM CODE IS EXACTLY 4 CHARACTERS",
