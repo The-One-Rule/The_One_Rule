@@ -461,6 +461,31 @@ export function normaliseSave(brut: unknown): Save {
   return s;
 }
 
+/*
+ * ⚠️ UN AUTRE ONGLET A ÉCRIT : la copie en mémoire est périmée (audit C2).
+ *
+ * `load` lit le stockage UNE fois, puis sert sa copie ; `mutate` réécrit la
+ * sauvegarde ENTIÈRE depuis elle. Deux onglets s'écrasaient donc l'un
+ * l'autre — le dernier à écrire effaçait pièces, étoiles et carnet gagnés
+ * dans l'autre — et un onglet ouvert AVANT trois essais du jour gardait
+ * « 0 essai consommé » : il en rendait trois de plus.
+ *
+ * Le navigateur prévient les AUTRES onglets de chaque écriture (`storage`,
+ * jamais l'onglet qui écrit). On oublie alors la copie, et la prochaine
+ * lecture reprend l'état réel. Dans un onglet seul, rien ne change : même
+ * objet, mêmes références.
+ */
+if (typeof window !== "undefined") {
+  try {
+    window.addEventListener("storage", (e) => {
+      // `key === null` : `localStorage.clear()` dans un autre onglet.
+      if (e.key === KEY || e.key === null) cache = null;
+    });
+  } catch {
+    /* environnement sans fenêtre réelle : un seul onglet, rien à suivre */
+  }
+}
+
 export function load(): Save {
   if (cache) return cache;
   try {
