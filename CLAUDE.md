@@ -3499,6 +3499,30 @@ désormais au-dessus du pied.
 2. ~~**Salons publics**~~ — **faits** sous la forme d'une PARTIE RAPIDE (lot
    « addiction », §12) : pas de liste de salons, qui dirait « personne ne
    joue », mais une porte qui range à une table.
+3. **Le curseur du trailer comme VRAI curseur** (idée de Pierre, 07/10, « un
+   gadget sympa sans plus ») — le personnage-curseur de
+   `The_One_Rule_Trailer_v3` devient le pointeur du site ; ses formes et
+   styles s'achètent à la boutique ; en multi, il RÉAGIT quand un joueur
+   meurt. Pas commencé. Ce qu'il faudra régler avant :
+   - ⚠️ **le point chaud doit tomber EXACTEMENT là où le clic est jugé** :
+     `cursor: url(…) x y` décale l'image, pas le clic. Un personnage dont la
+     « pointe » visible n'est pas le point chaud fait cliquer à côté, c'est
+     « le jeu triche » (n°3). Sur le terrain, garder le point chaud au pixel
+     près, ou ne pas l'y montrer ;
+   - **au doigt, il n'y a pas de curseur** (`TOUCH_ONLY`) : sur téléphone, la
+     moitié des joueurs ne le verraient jamais. Une réaction à la mort devra
+     donc vivre aussi sur la plaque ou l'avatar ;
+   - les navigateurs plafonnent une image de curseur (≈ 128 px, 32 conseillé)
+     et la réduisent sans prévenir sur un écran dense ;
+   - en multi CLASSIQUE, les curseurs des autres ne voyagent PAS — seul le
+     coop envoie `{ t: "cursor" }`. Voir le curseur d'un autre mourir demande
+     de les transporter (trafic, et ce n'est pas un verdict : hors n°3,
+     comme le coop) ; réagir à SA propre mort ne demande rien ;
+   - les styles achetés vivent en local comme ceux des pièces
+     (`game/boutique.ts`), et ne changent QUE le dessin.
+   À penser avec les « autres mondes » et les modificateurs de partie, en
+   réflexion côté Pierre : un curseur qui réagit est un levier de PRÉSENCE,
+   pas de variété — il ne répond pas au retour « on fait vite le tour ».
 
 ### Ce qui a été écarté avec des chiffres
 
