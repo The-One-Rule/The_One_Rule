@@ -37,6 +37,32 @@ afterEach(() => vi.unstubAllGlobals());
 
 const depot = () => new DepotSupabase("https://base.test", "cle");
 
+describe("DepotSupabase.posePerf", () => {
+  const perf = {
+    utilisateurId: "u1",
+    mode: "daily",
+    cle: "jour:280:v",
+    versionContenu: "v",
+    jour: 280,
+    graine: 1,
+    regle: "sang",
+    valeur: 14,
+    valeur2: 30_000,
+    verdictBot: "humain",
+    creeLe: 0,
+  };
+
+  it("⚠️ à score égal, une durée plus courte remplace — l'ordre de DepotMemoire", async () => {
+    // L'insertion bute sur l'unicité (409), puis la mise à jour conditionnelle.
+    const appels = enregistre((a) =>
+      a.methode === "POST" ? new Response("", { status: 409 }) : new Response("[{}]", { status: 200 }),
+    );
+    expect(await depot().posePerf(perf)).toBe(true);
+    const maj = appels.find((a) => a.methode === "PATCH")!;
+    expect(maj.chemin).toContain("or=(valeur.lt.14,and(valeur.eq.14,valeur2.gt.30000))");
+  });
+});
+
 describe("DepotSupabase.supprime", () => {
   it("⚠️ retire les performances : la cascade ne joue pas sur une suppression logique", async () => {
     const appels = enregistre();

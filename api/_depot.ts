@@ -715,7 +715,12 @@ export class DepotSupabase implements Depot {
     // marcher dessus.
     const maj = await this.req(
       `performance?utilisateur_id=eq.${encodeURIComponent(p.utilisateurId)}` +
-        `&cle=eq.${encodeURIComponent(p.cle)}&valeur=lt.${p.valeur}`,
+        `&cle=eq.${encodeURIComponent(p.cle)}` +
+        // ⚠️ Le même ordre que l'index de classement ET que `DepotMemoire` :
+        // valeur décroissante, PUIS durée croissante. Le filtre ne gardait que
+        // `valeur=lt.` — une égalité plus rapide n'était jamais retenue en
+        // production, alors que les tests (sur la mémoire) disaient l'inverse.
+        `&or=(valeur.lt.${p.valeur},and(valeur.eq.${p.valeur},valeur2.gt.${p.valeur2}))`,
       { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(ligne) },
     );
     if (!maj.ok) throw new Error(`supabase perf maj ${maj.status}`);

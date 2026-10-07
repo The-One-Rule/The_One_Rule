@@ -267,6 +267,19 @@ describe("enregistre: false n'est un refus que s'il y a refus", () => {
     expect(file.enAttente(), "un 4xx doit quitter la file").toBe(0);
   });
 
+  it("⚠️ un 429 n'est PAS un refus : le run reste dans la file (audit D3)", async () => {
+    // `api/perf.ts` répond 429 quand le quota horaire est atteint. Le classer
+    // avec les 4xx jetait le score pour toujours.
+    const { file, compte } = await charge();
+    file.enfile(envoi({ inputs: journal(1), valeur: 1, pose: 1 }));
+    expect(compte.poseJeton(jeton())).toBe(true);
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ error: "trop de requetes" }), { status: 429 }));
+
+    const r = await file.vide();
+    expect(r).toHaveLength(0);
+    expect(file.enAttente(), "le run limité en débit a été jeté").toBe(1);
+  });
+
   it("estRefusReel : seulement si refus est porté", async () => {
     const { file } = await charge();
     expect(file.estRefusReel(ok({}))).toBe(false);
