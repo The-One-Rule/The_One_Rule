@@ -11,6 +11,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DepotSupabase } from "../api/_depot";
+import { codeAmiValide } from "../shared/amis";
 
 interface Appel {
   methode: string;
@@ -79,5 +80,97 @@ describe("DepotSupabase.supprime", () => {
         : new Response("[]", { status: 200 }),
     );
     await expect(depot().supprime("u1")).rejects.toThrow(/code/);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Le contrat PostgREST des autres méthodes (audit T1).
+ *
+ * Ce que ces tests figent, c'est la REQUÊTE : un filtre oublié ici — le
+ * `verdict_bot` du classement, la révision de la fusion — ne casse rien de
+ * visible et ne se voit qu'en production.
+ * ------------------------------------------------------------------ */
+
+describe("DepotSupabase — classement", () => {
+  it("ne sert que du vérifié et de l'humain, dans l'ordre de l'index", async () => {
+    const appels = enregistre(() =>
+      new Response(
+        JSON.stringify([
+          { valeur: 30, valeur2: 9000, utilisateur_id: "u1", utilisateur: { pseudo: "LEA", apparence: { glyphe: 7 } } },
+          { valeur: 30, valeur2: 9500, utilisateur_id: "u2", utilisateur: { pseudo: "SAM", apparence: {} } },
+        ]),
+        { status: 200 },
+      ),
+    );
+    const top = await depot().classement("jour:280:v", 3, "u2");
+    const q = appels[0]!.chemin;
+    expect(q).toContain("cle=eq.jour:280:v");
+    expect(q).toContain("verifiee=is.true");
+    expect(q).toContain("verdict_bot=eq.humain");
+    expect(q).toContain("order=valeur.desc,valeur2.asc");
+    expect(top.map((e) => [e.rang, e.pseudo, e.glyphe, e.moi])).toEqual([
+      [1, "LEA", 7, false],
+      [2, "SAM", 0, true],
+    ]);
+  });
+});
+
+describe("DepotSupabase — fusion des agrégats", () => {
+  it("écrit SOUS CONDITION de révision, et dit quand un autre a écrit avant", async () => {
+    let lignes = "[{}]";
+    const appels = enregistre(() => new Response(lignes, { status: 200 }));
+    expect(await depot().majAgregats("u1", 4, { carnet: {}, serie: { count: 0, lastDay: -99 }, records: {} })).toBe(true);
+    expect(appels[0]!.methode).toBe("PATCH");
+    expect(appels[0]!.chemin).toBe("utilisateur?id=eq.u1&revision=eq.4");
+    expect(JSON.parse(appels[0]!.corps!).revision).toBe(5);
+    lignes = "[]"; // la révision a bougé entre-temps : aucune ligne touchée
+    expect(await depot().majAgregats("u1", 4, { carnet: {}, serie: { count: 0, lastDay: -99 }, records: {} })).toBe(false);
+  });
+});
+
+describe("DepotSupabase — code ami", () => {
+  it("rend le code déjà posé sans en écrire un autre", async () => {
+    const appels = enregistre(() => new Response(JSON.stringify([{ code_ami: "BCDFGH" }]), { status: 200 }));
+    expect(await depot().codeAmi("u1", () => 0.5)).toBe("BCDFGH");
+    expect(appels.filter((a) => a.methode === "PATCH")).toHaveLength(0);
+  });
+
+  it("une collision sur l'index unique (409) fait tirer un autre code", async () => {
+    let patchs = 0;
+    enregistre((a) => {
+      if (a.methode === "GET") return new Response(JSON.stringify([{ code_ami: null }]), { status: 200 });
+      patchs++;
+      return patchs === 1 ? new Response("", { status: 409 }) : new Response("[{}]", { status: 200 });
+    });
+    let n = 0;
+    const code = await depot().codeAmi("u1", () => ((n++ * 0.37) % 1));
+    expect(patchs).toBe(2);
+    expect(codeAmiValide(code), `code mal formé : ${code}`).toBe(code);
+  });
+});
+
+describe("DepotSupabase — amitiés et comptes", () => {
+  it("lie dans les DEUX sens, en une seule requête", async () => {
+    const appels = enregistre();
+    await depot().lie("a", "b");
+    const p = appels[0]!;
+    expect(p.methode).toBe("POST");
+    expect(JSON.parse(p.corps!)).toEqual([
+      { utilisateur_id: "a", ami_id: "b" },
+      { utilisateur_id: "b", ami_id: "a" },
+    ]);
+  });
+
+  it("un lien de plateforme refusé fait échouer la création — pas de session sans lien", async () => {
+    enregistre((a) =>
+      a.chemin.startsWith("lien_plateforme")
+        ? new Response("", { status: 409 })
+        : new Response("[]", { status: 201 }),
+    );
+    const neuf = {
+      id: "u9", pseudo: "", apparence: {}, agregats: { carnet: {}, serie: { count: 0, lastDay: -99 }, records: {} },
+      revision: 0, versionJeton: 0, drapeaux: 0, creeLe: 0, banniLe: null, supprimeLe: null,
+    };
+    await expect(depot().cree(neuf as never, { fournisseur: "google", idExterne: "x" })).rejects.toThrow(/lien/);
   });
 });
