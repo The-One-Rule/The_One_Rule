@@ -1284,7 +1284,7 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
     return pred();
   };
 
-  const jouerUnMatch = async (joueurs, accusateur) => {
+  const jouerUnMatch = async (joueurs, accusateur, voter = null) => {
     for (const c of joueurs) raz(c);
     joueurs[0].ws.send(JSON.stringify({ t: "start" }));
     const dix = await attendre(() => joueurs[0].verdicts.length >= 10, 90000, "10 verdicts");
@@ -1329,8 +1329,11 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
         : joueurs[0].acted.length > 0,
       `imposteur : un t:acted d'un villageois (${joueurs[0].acted.length} acted, aAgitVillage=${villageAAgi})`,
     );
-    const cible = accusateur(joueurs);
-    for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
+    if (voter) voter(joueurs, village);
+    else {
+      const cible = accusateur(joueurs);
+      for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
+    }
     const vote = await attendre(() => joueurs[0].voteResults.length >= 1, 4000, "vote_result");
     ok(vote, "imposteur : vote_result reçu");
     const fin = await attendre(() => !!joueurs[0].ended, 4000, "match_end");
@@ -1368,8 +1371,32 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   const r2 = await jouerUnMatch(imp, (js) => js.find((c) => !c.imposteur).id);
   ok(r2?.vainqueur === "imposteur", `imposteur : 3 voix sur un villageois → imposteur (got ${r2?.vainqueur})`);
 
+  /*
+   * ⚠️ UN VOTANT QUI PART NE BLOQUE PLUS LE SALON (audit C3). Trois voix
+   * partagées, sans majorité ; le seul siège qui n'a pas voté quitte la
+   * table. Avant le correctif, plus aucune voix n'arrivait, donc rien ne
+   * clôturait : le match restait posé pour toujours et le salon répondait
+   * `in_match` à tout. Le vote doit se clore AUSSITÔT — pas au bout de la
+   * borne de 90 s, que l'attente de 4 s ne laisserait pas atteindre.
+   */
+  await sleep(500);
+  let partant = null;
+  const r3 = await jouerUnMatch(imp, null, (js, village) => {
+    const imposteur = js.find((c) => c.imposteur);
+    // Celui qui part n'est jamais js[0] : c'est lui qu'on écoute.
+    partant = village.find((c) => c !== js[0]);
+    const votants = js.filter((c) => c !== partant);
+    // Chacun accuse quelqu'un de différent : aucune majorité possible.
+    votants.forEach((v, i) => v.ws.send(JSON.stringify({ t: "vote", playerId: votants[(i + 1) % votants.length].id })));
+    void imposteur;
+    setTimeout(() => partant.ws.send(JSON.stringify({ t: "leave" })), 300);
+  });
+  ok(!!r3, "imposteur : un votant qui part après un vote partagé clôt le vote (pas de salon bloqué)");
+  ok(r3?.vainqueur === "imposteur", `imposteur : sans majorité, l'imposteur l'emporte (got ${r3?.vainqueur})`);
+
   for (const c of imp) c.ws.close();
   await sleep(220);
+  void partant;
 }
 
 /* ------------------------------------------------------------------ *

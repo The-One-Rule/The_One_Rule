@@ -790,6 +790,27 @@ export class MatchLogic {
   }
 
   /**
+   * ⚠️ LE VOTE NE DOIT JAMAIS POUVOIR RESTER OUVERT (audit C3).
+   *
+   * `poserVote` est le seul chemin qui le clôt, et il ne tourne qu'à
+   * l'arrivée d'une voix. Un votant qui ne vote pas, ou qui part après un
+   * vote partagé, laissait donc le match posé pour toujours : le salon
+   * répondait `in_match` à tout, plus personne ne pouvait relancer.
+   *
+   * `presents` : les sièges encore DANS le salon — le serveur seul le sait.
+   * Rend l'issue quand tous ceux-là ont voté, ou quand `force` (délai écoulé),
+   * sinon `null`. Ne clôt qu'une fois.
+   */
+  clotureSansAttendre(presents: readonly string[], force = false): IssueVote | null {
+    if (!this.enObservation() || !this.imposteurId) return null;
+    const restants = presents.filter((id) => this.seats.some((s) => s.id === id));
+    const tous = restants.length > 0 && restants.every((id) => this.voix.has(id));
+    if (!force && !tous) return null;
+    this.voteClos = true;
+    return issueDuVote(this.voix, this.seats.map((s) => s.id), this.imposteurId);
+  }
+
+  /**
    * Tempo entre manches — chiffres calés sur les seuils kill-cam client
    * (>3500 / >1800 / ≤800). Le client ne lit que nextRoundAt.
    */

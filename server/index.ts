@@ -62,6 +62,8 @@ import { glyphFor, glyphFromIndex, PATTERN_COUNT } from "../src/net/glyph";
 const PORT = Number(process.env.PORT) || 8787;
 /** Écart minimal entre deux changements de photo d'un même joueur. */
 const PROFIL_PHOTO_COOLDOWN_MS = 1500;
+/** L'observation de l'imposteur se clôt seule au bout de ce délai. */
+const OBSERVATION_MAX_MS = 90_000;
 const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
 const PRODUCTION = process.env.NODE_ENV === "production";
 /**
@@ -783,6 +785,16 @@ function closeRound(room: Room): void {
      */
     broadcast(room, { t: "journal", tours: match.journalPublic() });
     broadcast(room, { t: "observe" });
+    /*
+     * Une borne : le vote se clôt avec les voix posées si personne ne l'a
+     * fait avant (audit C3). Sans elle, un seul votant silencieux bloquait le
+     * salon pour toujours.
+     */
+    room.timer = plusTard(() => {
+      if (room.match !== match) return;
+      const issue = match.clotureSansAttendre([...room.clients.keys()], true);
+      if (issue) clotureVote(room, issue);
+    }, OBSERVATION_MAX_MS);
     return;
   }
 
@@ -811,6 +823,9 @@ function clotureVote(room: Room, issue: IssueVote): void {
   const match = room.match;
   if (!match || !match.imposteurId) return;
   const imposteurId = match.imposteurId;
+  // La borne de l'observation n'a plus rien à clore.
+  if (room.timer) clearTimeout(room.timer);
+  room.timer = null;
   broadcast(room, {
     t: "vote_result",
     accuseId: issue.accuseId,
@@ -1551,6 +1566,13 @@ function leaveRoom(client: Client): void {
   }
   if (client.id === room.hostId) {
     room.hostId = [...room.clients.keys()][0]!;
+  }
+  // Un votant qui part : ceux qui restent ont peut-être déjà tous voté.
+  // `clotureVote` diffuse la fin et l'état du salon lui-même.
+  const issue = room.match?.clotureSansAttendre([...room.clients.keys()]) ?? null;
+  if (issue) {
+    clotureVote(room, issue);
+    return;
   }
   planifieDepart(room);
   broadcast(room, roomState(room));
