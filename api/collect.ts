@@ -14,6 +14,8 @@
  * Ne journalise jamais d'IP, d'en-tête d'identification ni de user-agent.
  */
 
+import { cleanEnv } from "../src/env";
+
 interface TrackedEvent {
   ev: string;
   ts: number;
@@ -93,6 +95,9 @@ const TEXTE_LONG: Record<string, { cle: string; max: number }> = {
 
 /** Garde-fous : un endpoint public doit refuser tout ce qu'il n'attend pas. */
 const MAX_BATCH = 50;
+
+/** Les clés que le serveur pose lui-même, et qu'un événement ne réécrit pas. */
+const RESERVES = new Set(["ev", "ts", "id", "day", "at"]);
 const MAX_BODY = 16_000;
 
 /* ------------------------------------------------------------------ *
@@ -127,8 +132,12 @@ export async function sink(lines: string[], at: number): Promise<void> {
   // N'en lire qu'un seul était une panne muette de plus : sans correspondance,
   // on retombe sur console.log, la fonction répond 204, et il n'y a jamais de
   // D7 — ce qui ne se découvre qu'une semaine trop tard.
-  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
+  //
+  // ⚠️ Par `cleanEnv`, comme `_debit.ts` : un BOM ou un blanc collé devant la
+  // valeur (CLAUDE.md §3) faisait tout tomber dans le journal de la fonction,
+  // en silence — exactement la panne décrite juste au-dessus.
+  const url = cleanEnv(process.env.UPSTASH_REDIS_REST_URL) ?? cleanEnv(process.env.KV_REST_API_URL);
+  const token = cleanEnv(process.env.UPSTASH_REDIS_REST_TOKEN) ?? cleanEnv(process.env.KV_REST_API_TOKEN);
   if (!url || !token) {
     for (const line of lines) console.log(line);
     return;
@@ -192,7 +201,10 @@ export default async function handler(req: Request): Promise<Response> {
     if (!e || typeof e.ev !== "string" || !ALLOWED.has(e.ev)) continue;
     const out: Record<string, unknown> = { id, day, ev: e.ev, at: received };
     for (const [k, v] of Object.entries(e)) {
-      if (k === "ev" || k === "ts") continue;
+      // `id`, `day` et `at` appartiennent à la LIGNE, pas à l'événement : les
+      // laisser passer permettait à un client de signer ses mesures du nom
+      // d'un autre, d'un autre jour et d'une autre heure (audit S5, mesuré).
+      if (RESERVES.has(k)) continue;
       const c = clean(v, e.ev, k);
       if (c !== undefined) out[k] = c;
     }
