@@ -65,6 +65,27 @@ export function vueDuJour(s: Save, jour: number): VueJour {
 }
 
 /**
+ * Le lancement d'un run est-il refusé parce que la journée est close ?
+ *
+ * ⚠️ UN SEUL JUGEMENT. Il était écrit trois fois dans `main.ts` — le brief
+ * (`closeJour`), le lancement (`lanceRun`) et la garde de `startRun`
+ * (`jourDuRunClos`) —, chacune à sa façon : le brief ne regardait pas le
+ * mode classé. Trois copies d'une règle finissent par dire trois choses, et
+ * c'est exactement la famille du REJOUER muet (playtest 247).
+ *
+ * Un défi et un match classé rejouent une graine imposée : ils ne consomment
+ * pas d'essai du jour, donc la journée close ne les arrête pas.
+ */
+export function lancementRefuse(o: {
+  mode: string;
+  defi: boolean;
+  classe: boolean;
+  vue: Pick<VueJour, "verrouille">;
+}): boolean {
+  return o.mode === "daily" && !o.defi && !o.classe && o.vue.verrouille;
+}
+
+/**
  * Le score LOCAL du jour demandé, ou `null`.
  *
  * ⚠️ CE N'EST PAS `s.daily.score`. Un onglet resté ouvert, une synchro qui

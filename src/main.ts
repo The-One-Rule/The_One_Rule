@@ -62,7 +62,7 @@ import { colorHex, SceneRenderer } from "./render/scene";
 import type { GesteAffiche } from "./render/scene";
 import { dessineApercu } from "./render/skins";
 import { stableGutter, wantsColumns } from "./render/layout";
-import { scoreDuJour, vueDuJour } from "./render/jour";
+import { lancementRefuse, scoreDuJour, vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueBut } from "./render/but";
 import {
   cacheMicro,
@@ -524,9 +524,9 @@ function rafraichitJour(): void {
  * sync qui n'a pas encore recollé les essais : le quatrième run partait.
  */
 function jourDuRunClos(): boolean {
-  if (pendingMode !== "daily" || challenge || ranked) return false;
+  if (pendingMode !== "daily") return false;
   rafraichitJour();
-  return vueDuJour(P.load(), day).verrouille;
+  return lancementRefuse({ mode: pendingMode, defi: !!challenge, classe: !!ranked, vue: vueDuJour(P.load(), day) });
 }
 
 /**
@@ -3555,7 +3555,7 @@ function openBrief(mode: Mode): void {
    * et non à chacune des portes qui y mènent, dont la prochaine oubliera de le
    * poser.
    */
-  const closeJour = mode === "daily" && !challenge && vueDuJour(s, day).verrouille;
+  const closeJour = lancementRefuse({ mode, defi: !!challenge, classe: !!ranked, vue: vueDuJour(s, day) });
   const go = $<HTMLButtonElement>("btnGo");
   go.disabled = closeJour;
   if (closeJour) go.textContent = t("goReviensDemain");
@@ -3759,7 +3759,7 @@ function lanceRun(): void {
      * avant le battement ; on refuse encore ICI, parce que la REVANCHE
      * et la fin du rebours arrivent sans y repasser.
      */
-    if (vueDuJour(P.load(), day).verrouille) {
+    if (lancementRefuse({ mode: pendingMode, defi: !!challenge, classe: !!ranked, vue: vueDuJour(P.load(), day) })) {
       openBrief("daily");
       return;
     }

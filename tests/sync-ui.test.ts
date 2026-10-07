@@ -199,7 +199,9 @@ describe("le lancement du jour refuse un compteur à zéro", () => {
      * garde-fou appartient au point de passage commun.
      */
     expect(corps(main, "function startRun")).toMatch(/jourDuRunClos/);
-    expect(corps(main, "function lanceRun")).toMatch(/verrouille/);
+    // Le jugement vit dans `lancementRefuse` (render/jour.ts, testé par son
+    // comportement dans playtest-247) : lanceRun doit le consulter.
+    expect(corps(main, "function lanceRun")).toMatch(/lancementRefuse\(/);
   });
 
   it("un navigateur neuf connecté attend la sync avant de lancer le daily", () => {
