@@ -638,6 +638,22 @@ export class DepotSupabase implements Depot {
     );
     if (!liens.ok) throw new Error(`supabase liens ${liens.status}`);
 
+    /*
+     * ⚠️ LES PERFORMANCES, À LA MAIN, comme les amitiés plus bas.
+     *
+     * `performance.utilisateur_id` est bien `on delete cascade` (0002), mais
+     * la suppression est LOGIQUE : la ligne `utilisateur` reste, donc la
+     * cascade ne joue jamais. Les scores d'un compte supprimé restaient sur
+     * le podium, sous un pseudo vide — alors que `DepotMemoire`, le seul que
+     * les tests exercent, les retirait. Une donnée personnelle publiée après
+     * une demande de suppression.
+     */
+    const perfs = await this.req(
+      `performance?utilisateur_id=eq.${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!perfs.ok) throw new Error(`supabase performances ${perfs.status}`);
+
     const res = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -654,7 +670,10 @@ export class DepotSupabase implements Depot {
     if (!amis.ok) throw new Error(`supabase amities ${amis.status}`);
     const dem = await this.req(`demande_ami?or=(de_id.eq.${e},a_id.eq.${e})`, { method: "DELETE" });
     if (!dem.ok) throw new Error(`supabase demandes ${dem.status}`);
-    await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
+    // Vérifié comme les autres : un code resté posé ouvrirait encore une
+    // demande d'ami vers un compte supprimé.
+    const code = await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
+    if (!code.ok) throw new Error(`supabase code ${code.status}`);
     await this.revoque(id);
   }
 
