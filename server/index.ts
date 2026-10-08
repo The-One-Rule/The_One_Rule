@@ -18,6 +18,7 @@
  */
 
 import { choisitTable, echeanceDepart, RAPIDE_MIN } from "./rapide";
+import { adresseDe, EchecsParAdresse, REFUS_AVANT_COUPURE, SEAU_CAPACITE, SEAU_PAR_SECONDE, Seau } from "./debit";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
@@ -148,6 +149,12 @@ interface Client {
    * déclarer.
    */
   compte: string | null;
+  /** Adresse du joueur (`fly-client-ip` derrière Fly) : voir `debit.ts`. */
+  adresse: string;
+  /** Tous messages confondus : voir `debit.ts`. */
+  seau: Seau;
+  /** Messages refusés d'affilée par le seau. */
+  refus: number;
   /** Carte de visite et photo (`shared/profil.ts`). Absent vaut non. */
   carte?: string;
   photo?: string;
@@ -180,6 +187,8 @@ interface Room {
   /** L'échéance du départ automatique, heure serveur. */
   autoAt: number | null;
   autoTimer: ReturnType<typeof setTimeout> | null;
+  /** Une diffusion de l'état est déjà prévue (regroupement des `profil`). */
+  etatPrevu: ReturnType<typeof setTimeout> | null;
 }
 
 const rooms = new Map<string, Room>();
@@ -447,6 +456,7 @@ function nouveauSalon(client: Client, publique: boolean): Room {
     public: publique,
     autoAt: null,
     autoTimer: null,
+    etatPrevu: null,
   };
   rooms.set(room.code, room);
   client.room = room;
@@ -884,6 +894,26 @@ const httpServer = createServer((req, res) => {
   );
 });
 
+/** Les échecs de `join` par adresse : voir `debit.ts`. */
+const echecsJoin = new EchecsParAdresse();
+
+/**
+ * L'état du salon, regroupé : au plus une diffusion toutes les
+ * `REGROUPEMENT_ETAT_MS` par salon. Un `profil` rediffusait l'état complet
+ * (2,7 Ko × neuf) à CHAQUE message ; le seau le borne à 40/s par socket, ce
+ * qui laissait encore 1 Mo/s par salon pour un seul client qui alterne sa
+ * carte. Le dernier choix gagne toujours : la diffusion lit l'état à son
+ * heure, pas à celle de la demande.
+ */
+const REGROUPEMENT_ETAT_MS = 150;
+function diffuseEtatBientot(room: Room): void {
+  if (room.etatPrevu) return;
+  room.etatPrevu = plusTard(() => {
+    room.etatPrevu = null;
+    if (rooms.get(room.code) === room) broadcast(room, roomState(room));
+  }, REGROUPEMENT_ETAT_MS, "etat");
+}
+
 const wss = new WebSocketServer({
   server: httpServer,
   // Le refus se fait à la poignée de main, pas après : une socket acceptée
@@ -906,7 +936,7 @@ const wss = new WebSocketServer({
   maxPayload: PHOTO_MAX + 1024,
 });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   const client: Client = {
     id: uid(),
     name: "ANONYME",
@@ -926,6 +956,9 @@ wss.on("connection", (ws) => {
     consignes: 1,
     reprise: false,
     compte: null,
+    adresse: adresseDe(req.headers, req.socket.remoteAddress),
+    seau: new Seau(SEAU_CAPACITE, SEAU_PAR_SECONDE, Date.now()),
+    refus: 0,
   };
   client.glyph = glyphFor(client.id);
 
@@ -947,6 +980,13 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("message", guarded((raw: RawData) => {
+    // Le seau AVANT le décodage : un message en trop ne doit rien coûter.
+    if (!client.seau.prend(Date.now())) {
+      client.refus += 1;
+      if (client.refus === REFUS_AVANT_COUPURE) ws.close(1008, "debit");
+      return;
+    }
+    client.refus = 0;
     const msg = decodeClient(raw.toString());
     if (!msg) return;
 
@@ -1034,7 +1074,7 @@ wss.on("connection", (ws) => {
         client.photo = photo;
         const room = client.room;
         if (room) {
-          broadcast(room, roomState(room));
+          diffuseEtatBientot(room);
           if (photo !== photoAvant) {
             broadcast(room, { t: "photos", photos: { [client.id]: photo ?? "" } });
           }
@@ -1080,8 +1120,28 @@ wss.on("connection", (ws) => {
       }
 
       case "join": {
-        const room = rooms.get(String(msg.code ?? "").toUpperCase());
+        /*
+         * Au-delà de `ECHECS_JOIN_MAX` codes inconnus par minute, la même
+         * réponse part SANS regarder la table : celui qui balaie les codes
+         * n'apprend plus rien. Voir `debit.ts`.
+         */
+        const t = Date.now();
+        const code = String(msg.code ?? "").toUpperCase();
+        /*
+         * Un code MAL FORMÉ ne désigne aucun salon : il ne révèle rien, donc
+         * il ne compte pas comme un essai. Seuls les codes qui POURRAIENT
+         * exister usent le crédit de l'adresse — sinon une faute de frappe
+         * hostile (le corpus de l'e2e, un client bricolé) bloquerait le vrai
+         * code tapé juste après par quelqu'un du même réseau.
+         */
+        const bienForme = code.length === 4 && [...code].every((ch) => CODE_ALPHABET.includes(ch));
+        if (!bienForme || echecsJoin.bloquee(client.adresse, t)) {
+          send(client, { t: "error", code: "room_unknown" });
+          return;
+        }
+        const room = rooms.get(code);
         if (!room) {
+          echecsJoin.note(client.adresse, t);
           send(client, { t: "error", code: "room_unknown" });
           return;
         }

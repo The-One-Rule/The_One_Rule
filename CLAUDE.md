@@ -845,6 +845,21 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   en comptant les `clearRect` de `#cv` : 60/s avant, 0 après, 61/s en match.
   Et `peintVitrine` créait un `matchMedia` par image (`MOUVEMENT_REDUIT`).
   `syncField` force deux mises en page au démarrage, pas plus : laissé.
+- **23 — Backend.** Charge : 20 salons × 10 joueurs = 4,3 % d'un cœur,
+  retard de boucle p99 11 ms, 104 Mo RSS. Le serveur n'est PAS un goulot.
+  ⚠️ **Mais il n'avait AUCUNE limite de débit**, et un seul client suffisait
+  à le saturer : `profil` en rafale → 60 Mo/s émis, 96 % d'un cœur (la
+  machine Fly porte TOUS les salons) ; `join` en rafale → 34 000 codes/s,
+  l'espace entier (31⁴) balayé en 27 s. `server/debit.ts` (pur, testé) :
+  un SEAU par socket (40/s, réserve 80 ; le plus haut débit légitime est
+  20/s, les curseurs du coop), coupure 1008 après 200 refus d'affilée ; et
+  au-delà de 20 codes inconnus BIEN FORMÉS par minute et par ADRESSE
+  (`fly-client-ip` derrière Fly), `room_unknown` sans regarder la table.
+  Le `profil` regroupe sa diffusion (`diffuseEtatBientot`, 150 ms) : ÷5,5.
+  ⚠️ **Le scénario de débit est le DERNIER de l'e2e** : il bloque
+  127.0.0.1 une minute, et tous ses clients partagent cette adresse. Et le
+  corpus FUZZ est CADENCÉ (30/s), sinon le seau le coupe avant la fin.
+  À déployer côté Fly seulement ; aucun client à changer.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

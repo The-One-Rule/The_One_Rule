@@ -30,6 +30,7 @@ const { HOLD_MS } = await import("./src/engine/difficulty.ts");
 const { ONE_RULES } = await import("./src/engine/rules/index.ts");
 const { MOTIFS } = await import("./src/engine/motifs.ts");
 const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
+const { ECHECS_JOIN_MAX } = await import("./server/debit.ts");
 
 /*
  * Attendre le DÉPART d'un match, pas une durée devinée.
@@ -1178,15 +1179,32 @@ for (const [t, champs] of Object.entries(CHAMPS)) {
 for (const t of ["inconnu", "", "__proto__", "constructor", "start", "quick", "create", "leave"]) malformes.push({ t });
 // Le `hello` en dernier : il change l'identité d'ALICE, on la rétablit après.
 const crus = ["", "{", "null", "[]", "42", '"x"', '{"t":null}', '{"t":42}', '{"t":{}}', "\u0000\u0001"];
+/*
+ * ⚠️ CADENCÉ, depuis les limites de débit (`server/debit.ts`) : envoyé d'un
+ * bloc, le corpus bute sur le seau de sa socket, qui le coupe (1008). C'est le
+ * bon comportement — et il est éprouvé plus bas, à part — mais ce scénario-ci
+ * veut éprouver le DÉCODAGE de chaque message : 30 par seconde, sous les 40
+ * accordés.
+ */
+let envoyesFuzz = 0;
+const cadence = async () => {
+  envoyesFuzz += 1;
+  if (envoyesFuzz % 30 === 0) await sleep(1000);
+};
 for (const m of malformes) {
   fuzz.ws.send(JSON.stringify(m));
+  await cadence();
   if (m.t === "leave" || m.t === "create" || m.t === "quick") {
     // On remet FUZZ dans une partie ouverte pour que `input` atteigne son code.
     fuzz.ws.send(JSON.stringify({ t: "create" }));
     fuzz.ws.send(JSON.stringify({ t: "start" }));
+    envoyesFuzz += 2;
   }
 }
-for (const c of crus) fuzz.ws.send(c);
+for (const c of crus) {
+  fuzz.ws.send(c);
+  await cadence();
+}
 fuzz.ws.send(Buffer.from([0xff, 0xfe, 0x00]));
 await sleep(400);
 ok(fuzz.ferme === null, `le corpus est allé jusqu'au bout sur une socket ouverte (fermée : ${fuzz.ferme})`);
@@ -1471,7 +1489,8 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   p1.ws.send(JSON.stringify({ t: "create" }));
   await sleep(150);
   p1.ws.send(JSON.stringify({ t: "profil", carte: "sang", photo: lourde }));
-  await sleep(150);
+  // 150 ms de regroupement de l'état du salon (`diffuseEtatBientot`), plus la marge.
+  await sleep(400);
   ok(p1.ferme === null, `profil : une photo de 13 Ko ne ferme pas la socket (code ${p1.ferme})`);
   const moi1 = p1.room?.players.find((x) => x.id === p1.id);
   ok(moi1?.carte === "sang", `profil : la carte est publiée dans le salon (${moi1?.carte})`);
@@ -1657,6 +1676,44 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
 
   const inattendues = match1.errors.filter((e) => e.code !== "not_host");
   ok(inattendues.length === 0, `aucune erreur inattendue chez ALICE (${inattendues.map((e) => e.code).join(",") || "aucune"})`);
+}
+
+/* ------------------------------------------------------------------ *
+ * LES LIMITES DE DÉBIT (`server/debit.ts`) — phase 4, point 23.
+ *
+ * ⚠️ TOUJOURS EN DERNIER : le balayage de codes BLOQUE l'adresse pendant une
+ * minute, et tous les clients de ce fichier partagent 127.0.0.1. Placé plus
+ * haut, il ferait refuser les `join` de tous les scénarios suivants.
+ * ------------------------------------------------------------------ */
+{
+  const [hote, flot, balai] = await Promise.all([client("HOTEDEBIT", "hdeb"), client("FLOT", "flot"), client("BALAI", "balai")]);
+  for (const c of [hote, flot, balai]) c.manuel = true;
+  hote.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(150);
+  const code = hote.room?.code;
+  const avant = (await lisErreurs())?.erreurs;
+  // Une rafale de 2000 messages : 80 passent, puis le seau refuse, et coupe.
+  for (let i = 0; i < 2000; i++) flot.ws.send(JSON.stringify({ t: "ping", sent: i }));
+  await sleep(400);
+  ok(flot.ferme === 1008, `débit : une rafale fait couper la socket fautive (code ${flot.ferme})`);
+  ok(hote.ws.readyState === WebSocket.OPEN, "débit : les autres sockets restent ouvertes");
+  const apres = await lisErreurs();
+  ok(apres?.ok === true && apres?.erreurs === avant, `débit : serveur vivant, aucune exception (erreurs ${avant} → ${apres?.erreurs})`);
+
+  // Le balayage : ECHECS_JOIN_MAX codes inconnus, puis le VRAI code est refusé.
+  const faux = [];
+  for (const a of "ABCDEFGHJK") for (const b of "MNPQ") if (faux.length < ECHECS_JOIN_MAX) faux.push(`Z${a}${b}9`);
+  for (const f of faux.filter((f) => f !== code)) {
+    balai.ws.send(JSON.stringify({ t: "join", code: f }));
+    await sleep(40);
+  }
+  balai.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(300);
+  ok(
+    balai.room?.code !== code && balai.errors.filter((e) => e.code === "room_unknown").length === faux.length + 1,
+    `débit : après ${faux.length} codes inconnus, même le vrai est refusé (${balai.room?.code ?? "hors salon"})`,
+  );
+  ok(balai.ferme === null, "débit : le balayeur n'est pas coupé — il n'apprend simplement plus rien");
 }
 
 /* ------------------------------------------------------------------ *

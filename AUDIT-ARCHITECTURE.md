@@ -21,7 +21,7 @@ quand une lecture ne suffisait pas, le résultat d'une exécution.
 | 10 | R1, R2 — découpage | premier pas (`lancementRefuse`) ; `initMulti` et `finishRun` restent |
 
 Restent ouverts, hors des dix priorités : S3 (catalogue choisi par le
-client, essais non appliqués serveur), S4 (pas de limite sur `join`), S6 à
+client, essais non appliqués serveur), S4 (pas de limite sur `join` — traité en phase 4, point 23), S6 à
 S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 
 ## Suivi de la phase 3 (tests), 08/10/2026
@@ -40,6 +40,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | # | Point | État |
 |---|---|---|
 | 22 | front | terrain caché plus repeint (60 → 0 image/s sur les menus) ; `matchMedia` hors de la boucle |
+| 23 | backend (et S4) | seau par socket, échecs de `join` par adresse, `profil` regroupé ; un client hostile ne sature plus le serveur |
 
 ## 0. Méthode et état de départ
 
