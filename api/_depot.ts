@@ -827,10 +827,13 @@ export class DepotSupabase implements Depot {
     const u = await this.parId(id);
     if (!u) return 0;
     const suivant = u.drapeaux + 1;
-    await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
+    // Lu comme les autres écritures : un drapeau qui échoue en silence
+    // laisserait croire à `api/perf.ts` qu'un run douteux a été signalé.
+    const res = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ drapeaux: suivant }),
     });
+    if (!res.ok) throw new Error(`supabase drapeau ${res.status}`);
     return suivant;
   }
 

@@ -290,7 +290,9 @@ export async function traite(
    * en regardant des chiffres plutôt qu'en devinant.
    */
   if (bot.verdict !== "humain") {
-    await depot.leveDrapeau(u.id).catch(() => undefined);
+    // Ne bloque pas l'enregistrement, mais ne se tait pas : un drapeau perdu
+    // laisse un compte douteux sans trace.
+    await depot.leveDrapeau(u.id).catch((e) => console.error(`perf_drapeau ${String(e)}`));
   }
 
   const ecrit = await depot.posePerf(perf);
