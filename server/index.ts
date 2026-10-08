@@ -934,6 +934,25 @@ const wss = new WebSocketServer({
   // (code 1009) au moment où il choisit sa photo — une coupure sans message,
   // pas un refus. L'e2e envoie une photo de 13 Ko pour le garder.
   maxPayload: PHOTO_MAX + 1024,
+  /*
+   * LA COMPRESSION, négociée par le navigateur lui-même : rien ne change au
+   * protocole, et un client qui ne la propose pas reçoit du texte brut.
+   *
+   * Mesuré à 20 salons × 10 (phase 4, point 24) : un `verdict` pèse 3,2 Ko
+   * de JSON très répétitif (la liste des joueurs à chaque manche), soit 72 %
+   * des octets. Sur le fil, par client : 0,92 Ko/s sans compression,
+   * 0,22 Ko/s ainsi (÷4), pour ~2 points de processeur. Un verdict tient
+   * alors dans UN paquet au lieu de trois — ce qui compte sur un réseau
+   * mobile qui perd des paquets.
+   *
+   * ⚠️ SANS CONTEXTE PARTAGÉ, délibérément. Avec, le fil tombait à
+   * 0,07 Ko/s (÷13), mais chaque connexion garde une fenêtre zlib en
+   * mémoire : ~100 Ko × 400 connexions (`hard_limit` de fly.toml) sur une
+   * machine de 512 Mo qui porte TOUS les salons. Sans contexte, la mémoire
+   * ne dépend plus du nombre de joueurs. Le seuil épargne les petits
+   * messages (`round`, `pong`, émotes), que zlib grossirait.
+   */
+  perMessageDeflate: { threshold: 256, serverNoContextTakeover: true, clientNoContextTakeover: true },
 });
 
 wss.on("connection", (ws, req) => {

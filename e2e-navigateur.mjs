@@ -310,6 +310,17 @@ console.log("\n22 · le terrain caché ne coûte rien");
       return clear.apply(this, a);
     };
   });
+  // Point 24 : les extensions NÉGOCIÉES par le navigateur, socket par socket.
+  await ctx.addInitScript(() => {
+    window.__extensions = [];
+    const W = window.WebSocket;
+    window.WebSocket = class extends W {
+      constructor(...a) {
+        super(...a);
+        this.addEventListener("open", () => window.__extensions.push(this.extensions));
+      }
+    };
+  });
   const page = await ctx.newPage();
   for (const chemin of ["/", "/solo", "/reglages"]) {
     await page.goto(`${SITE}${chemin}`);
@@ -329,6 +340,11 @@ console.log("\n22 · le terrain caché ne coûte rien");
   await page.waitForTimeout(1000);
   const n = (await page.evaluate(() => window.__peintures)) - avant;
   ok(n >= 20, `en match, le terrain se peint (${n} images en 1 s)`);
+  const ext = await page.evaluate(() => window.__extensions.filter((e) => e !== undefined));
+  ok(
+    ext.some((e) => e.includes("permessage-deflate")),
+    `24 · Chromium négocie la compression avec le serveur de salons (${JSON.stringify(ext)})`,
+  );
   ok(erreurs.length === 0, `aucune erreur de page (${erreurs.join(" | ") || "—"})`);
   h.ws.close();
   await ctx.close();
