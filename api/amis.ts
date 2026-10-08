@@ -169,6 +169,18 @@ export async function traite(
     if ((await depot.amisDe(u.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
     if ((await depot.amisDe(x.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
     await depot.lie(u.id, x.id);
+    /*
+     * ⚠️ Vérifier PUIS écrire laisse une fenêtre (audit C4) : deux
+     * acceptations simultanées passaient toutes deux le contrôle et
+     * dépassaient `MAX_AMIS`. On recompte APRÈS avoir lié, et on défait si
+     * la limite est franchie. Deux requêtes qui se croisent peuvent alors
+     * TOUTES DEUX défaire : c'est un refus de trop, jamais une liste trop
+     * longue — le seul sens acceptable pour une limite.
+     */
+    if ((await depot.amisDe(u.id)).length > MAX_AMIS || (await depot.amisDe(x.id)).length > MAX_AMIS) {
+      await depot.delie(u.id, x.id);
+      return json({ error: "plein" }, 400);
+    }
     await depot.retireDemande(u.id, x.id);
     await depot.retireDemande(x.id, u.id);
     return null;
@@ -193,6 +205,16 @@ export async function traite(
       if (envoyees.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
       if ((await depot.demandesVers(autre.id)).length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
       await depot.demande(u.id, autre.id);
+    }
+    /*
+     * ⚠️ DEUX DEMANDES CROISÉES ET SIMULTANÉES (audit C4). Chacun a vu
+     * « aucune demande reçue » avant que l'autre n'écrive la sienne : sans ce
+     * second regard, elles restaient toutes deux en attente, alors que la
+     * règle dit que deux demandes croisées valent accord.
+     */
+    if ((await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
+      const refus = await lieSiPlace(autre);
+      return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
     }
     return json(await etat(depot, u, monCode, jour, "demande"));
   }
