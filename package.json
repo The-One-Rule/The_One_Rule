@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "taille": "node scripts/taille-paquet.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "coverage": "vitest run --coverage",

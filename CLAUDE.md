@@ -886,6 +886,15 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   `tests/amis-profondeur.test.ts` mesure la profondeur SANS HORLOGE : un
   proxy libère les appels par vagues, le nombre de vagues est la profondeur.
   Ce qui reste en série a sa raison : `codeAmi` ÉCRIT, donc attend `parId`.
+- **26 — Paquet.** 334 Ko, 113 Ko gzip, et AUCUNE bibliothèque tierce
+  (mesuré par la carte de source : main 83 Ko, i18n 70, multi 47, rendu
+  43). Le seul tiers, l'encodeur QR, est à la demande. Pas découpé plus :
+  séparer les deux langues gagnerait ~10 Ko gzip contre une attente avant
+  le premier affichage, et sortir le multi EST le découpage R1/R2 de
+  l'audit — une direction. Ce qui manquait est un GARDE-FOU :
+  `npm run taille` (en CI après le build) plafonne chaque morceau en gzip
+  et refuse l'encodeur QR dans le paquet principal. Éprouvé avec un
+  `import` statique de `render/qr.ts`. Un plafond se relève, avec sa raison.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

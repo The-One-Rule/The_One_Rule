@@ -43,6 +43,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 23 | backend (et S4) | seau par socket, échecs de `join` par adresse, `profil` regroupé ; un client hostile ne sature plus le serveur |
 | 24 | réseau | `permessage-deflate` sans contexte : ÷4 sur le fil, mémoire indépendante du nombre de joueurs |
 | 25 | Redis, base | Redis à un aller-retour, index suffisants ; routes d'amis 11/13/4 → 7/9/3 allers-retours en série |
+| 26 | paquet | aucune dépendance tierce dans le paquet ; cliquet gzip et QR à la demande gardés en CI |
 
 ## 0. Méthode et état de départ
 

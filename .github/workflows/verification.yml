@@ -39,6 +39,9 @@ jobs:
       # bundle livré (bloc `import.meta.env.DEV`).
       - name: aucun crochet de dev dans le bundle
         run: "! grep -rq __tor dist"
+      # Plafonds gzip et encodeur QR hors du paquet principal (phase 4, point 26).
+      - name: taille du paquet
+        run: node scripts/taille-paquet.mjs
 
   e2e:
     name: e2e (salons réels)
