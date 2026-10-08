@@ -46,6 +46,7 @@ import { consomme } from "./_debit";
 import { depotConfigure } from "./_depot";
 import type { Ami, Depot, Perf, Utilisateur } from "./_depot";
 import { jetonDeLaRequete, verifieJeton } from "./_jeton";
+import { litObjet } from "./_corps";
 
 export const config = { runtime: "edge" };
 
@@ -153,12 +154,8 @@ export async function traite(
 
   const brut = await req.text();
   if (brut.length > 1000) return json({ error: "too large" }, 413);
-  let corps: Record<string, unknown>;
-  try {
-    corps = JSON.parse(brut) as Record<string, unknown>;
-  } catch {
-    return json({ error: "bad json" }, 400);
-  }
+  const corps = litObjet(brut);
+  if (!corps) return json({ error: "bad json" }, 400);
   const code = codeAmiValide(corps.code);
   if (!code) return json({ error: "code" }, 400);
 

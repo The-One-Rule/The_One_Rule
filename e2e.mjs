@@ -1118,35 +1118,91 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 // capturée dans un écouteur Node tue le processus — donc TOUS les salons de
 // l'instance, depuis une seule socket. Ce test est la régression : si le
 // serveur meurt ici, plus rien ne répond ensuite et /health tombe avec.
-alice.ws.send(JSON.stringify({ t: "create" }));
+/*
+ * Un client DÉDIÉ : le corpus change son identité et finit par faire fermer
+ * sa socket (un `hello` de mauvaise version), ce qu'aucun autre scénario ne
+ * doit subir.
+ */
+const fuzz = await client("FUZZ", "cle-fuzz");
+fuzz.manuel = true;
+fuzz.ws.send(JSON.stringify({ t: "create" }));
 await sleep(150);
-alice.ws.send(JSON.stringify({ t: "start" }));
+fuzz.ws.send(JSON.stringify({ t: "start" }));
 await sleep(APRES_DEPART); // COUNTDOWN_MS + marge : il faut une manche OUVERTE pour atteindre le code fautif
+/*
+ * ⚠️ « Le serveur répond encore » ne prouve plus rien : depuis `guarded` et le
+ * filet `uncaughtException`, il survit à TOUTE exception. Le critère qui a des
+ * dents est le compteur `erreurs` de /health — chaque exception rattrapée
+ * l'incrémente. Un message malformé doit être REFUSÉ en silence, pas
+ * rattrapé après avoir levé (phase 3, point 17).
+ *
+ * Le corpus croise CHAQUE type de message du protocole avec des valeurs
+ * hostiles pour chacun de ses champs, plus des trames qui ne sont pas du JSON.
+ */
+const lisErreurs = () =>
+  fetch(`http://127.0.0.1:${process.env.PORT}/health`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const erreursAvant = (await lisErreurs())?.erreurs;
+const HOSTILES = [null, undefined, true, -1, 1e308, Number.NaN, "", "__proto__", "x".repeat(2000), [], {}, [null], { __proto__: { x: 1 } }];
+const CHAMPS = {
+  hello: ["v", "name", "key", "glyph", "tok", "rookie", "clavier", "consignes", "reprise"],
+  ping: ["sent"],
+  profil: ["carte", "photo"],
+  join: ["code"],
+  settings: ["settings"],
+  watch: ["playerId"],
+  input: ["round", "at", "action"],
+  vote: ["playerId"],
+  cursor: ["x", "y"],
+  emote: ["k"],
+  chat: ["text"],
+  kick: ["playerId"],
+};
 const malformes = [
-  { t: "input", round: 0, at: 0 },                          // action absente : le crasheur
-  { t: "input", round: 0, at: 0, action: null },
-  { t: "input", round: 0, at: 0, action: {} },
+  { t: "input", round: 0, at: 0 },
   { t: "input", round: 0, at: 0, action: { k: "c", i: "__proto__" } },
   { t: "input", round: 0, at: 0, action: { k: "c", i: 1e9 } },
   { t: "input", round: 0, at: 0, action: { k: "k" } },
-  { t: "settings", settings: "pas un objet" },
-  { t: "emote", k: "beaucoup" },
-  { t: "watch" },
-  { t: "join" },
-  { t: "kick" },
-  { t: "hello", v: 1, glyph: { shape: "banane", color: 999, pattern: -1 } },
-  { t: "cursor" },
-  { t: "cursor", x: "nope", y: 1 },
+  { t: "input", round: 0, at: 0, action: { k: "l", i: -3 } },
+  { t: "input", round: 0, at: 0, action: { k: "r", key: { length: 1e9 } } },
 ];
-for (const m of malformes) {
-  alice.ws.send(JSON.stringify(m));
-  await sleep(20);
+for (const [t, champs] of Object.entries(CHAMPS)) {
+  for (const champ of champs) {
+    // Un `hello` garde une version valide : sinon le serveur FERME la socket
+    // (`bad_version`, c'est sa règle) et la suite du corpus n'arrive jamais —
+    // le premier passage l'a montré, « 0 exception » ne prouvait alors rien.
+    if (t === "hello" && champ === "v") continue;
+    for (const v of HOSTILES) malformes.push(t === "hello" ? { t, v: 1, [champ]: v } : { t, [champ]: v });
+  }
 }
+// Les types qu'on ne connaît pas, ou qu'on n'attend pas en premier.
+for (const t of ["inconnu", "", "__proto__", "constructor", "start", "quick", "create", "leave"]) malformes.push({ t });
+// Le `hello` en dernier : il change l'identité d'ALICE, on la rétablit après.
+const crus = ["", "{", "null", "[]", "42", '"x"', '{"t":null}', '{"t":42}', '{"t":{}}', "\u0000\u0001"];
+for (const m of malformes) {
+  fuzz.ws.send(JSON.stringify(m));
+  if (m.t === "leave" || m.t === "create" || m.t === "quick") {
+    // On remet FUZZ dans une partie ouverte pour que `input` atteigne son code.
+    fuzz.ws.send(JSON.stringify({ t: "create" }));
+    fuzz.ws.send(JSON.stringify({ t: "start" }));
+  }
+}
+for (const c of crus) fuzz.ws.send(c);
+fuzz.ws.send(Buffer.from([0xff, 0xfe, 0x00]));
+await sleep(400);
+ok(fuzz.ferme === null, `le corpus est allé jusqu'au bout sur une socket ouverte (fermée : ${fuzz.ferme})`);
+const surviving = await lisErreurs();
+ok(surviving?.ok === true, `serveur vivant après ${malformes.length + crus.length + 1} messages malformés`);
+ok(
+  typeof erreursAvant === "number" && surviving?.erreurs === erreursAvant,
+  `aucune exception rattrapée sur le corpus malformé (erreurs ${erreursAvant} → ${surviving?.erreurs})`,
+);
+// Et la version hostile en DERNIER : le serveur doit refuser puis fermer.
+fuzz.ws.send(JSON.stringify({ t: "hello", v: "x" }));
 await sleep(200);
-const surviving = await fetch(`http://127.0.0.1:${process.env.PORT}/health`)
-  .then((r) => (r.ok ? r.json() : null))
-  .catch(() => null);
-ok(surviving?.ok === true, `serveur vivant après ${malformes.length} messages malformés`);
+ok(
+  fuzz.errors.some((e) => e.code === "bad_version") && fuzz.ferme !== null,
+  `un hello de mauvaise version est refusé puis fermé (code ${fuzz.ferme})`,
+);
 ok(alice.ws.readyState === WebSocket.OPEN, "socket d'ALICE toujours ouverte après les malformés");
 alice.ws.send(JSON.stringify({ t: "leave" }));
 await sleep(150);

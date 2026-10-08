@@ -15,6 +15,7 @@
  */
 
 import { cleanEnv } from "../src/env";
+import { litObjet } from "./_corps";
 
 interface TrackedEvent {
   ev: string;
@@ -182,12 +183,9 @@ export default async function handler(req: Request): Promise<Response> {
   const raw = await req.text();
   if (raw.length > MAX_BODY) return new Response("too large", { status: 413 });
 
-  let payload: Payload;
-  try {
-    payload = JSON.parse(raw) as Payload;
-  } catch {
-    return new Response("bad json", { status: 400 });
-  }
+  const lu = litObjet(raw);
+  if (!lu) return new Response("bad json", { status: 400 });
+  const payload = lu as unknown as Payload;
 
   const id = typeof payload.id === "string" ? payload.id.slice(0, 16) : null;
   const day = Number.isInteger(payload.day) ? payload.day : null;

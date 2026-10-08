@@ -35,6 +35,7 @@ import type { Depot, Utilisateur } from "./_depot";
 import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton";
 import { GLYPH_COUNT } from "../src/net/glyph";
 import { cleanEnv } from "../src/env";
+import { litObjet } from "./_corps";
 
 /**
  * Nettoie `parAllure` : des clés d'allure connues, des entiers bornés.
@@ -310,12 +311,8 @@ export async function traite(
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const brut = await req.text();
   if (brut.length > MAX_BODY) return json({ error: "too large" }, 413);
-  let corps: Record<string, unknown>;
-  try {
-    corps = JSON.parse(brut || "{}") as Record<string, unknown>;
-  } catch {
-    return json({ error: "bad json" }, 400);
-  }
+  const corps = litObjet(brut || "{}");
+  if (!corps) return json({ error: "bad json" }, 400);
 
   // Seules les ÉCRITURES sont limitées, et le sujet est le compte — jamais une
   // IP : ces routes exigent déjà un jeton, donc le compte est un sujet plus

@@ -48,6 +48,7 @@ import { depotConfigure } from "./_depot";
 import type { Depot, Perf } from "./_depot";
 import { jetonDeLaRequete, verifieJeton } from "./_jeton";
 import { cleanEnv } from "../src/env";
+import { litObjet } from "./_corps";
 
 export const config = { runtime: "edge" };
 
@@ -198,12 +199,8 @@ export async function traite(
 
   const brut = await req.text();
   if (brut.length > MAX_BODY) return json({ error: "too large" }, 413);
-  let corps: Record<string, unknown>;
-  try {
-    corps = JSON.parse(brut) as Record<string, unknown>;
-  } catch {
-    return json({ error: "bad json" }, 400);
-  }
+  const corps = litObjet(brut);
+  if (!corps) return json({ error: "bad json" }, 400);
 
   if (corps.mode !== "daily") return json({ error: "mode non enregistrable" }, 400);
 
