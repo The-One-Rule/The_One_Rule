@@ -41,6 +41,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 |---|---|---|
 | 22 | front | terrain caché plus repeint (60 → 0 image/s sur les menus) ; `matchMedia` hors de la boucle |
 | 23 | backend (et S4) | seau par socket, échecs de `join` par adresse, `profil` regroupé ; un client hostile ne sature plus le serveur |
+| 24 | réseau | `permessage-deflate` sans contexte : ÷4 sur le fil, mémoire indépendante du nombre de joueurs |
 
 ## 0. Méthode et état de départ
 

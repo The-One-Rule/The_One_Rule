@@ -867,6 +867,15 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   du serveur de salons vit dans `tests/debit-salons.test.ts`. **Avant de
   créer un fichier, `ls` le chemin** ; l'outil Write refuse d'écraser un
   fichier non lu, un `cat >` ne refuse rien.
+- **24 — Réseau.** Par client en match : 0,92 Ko/s sur le fil, dont 72 %
+  de `verdict` (3,2 Ko : la liste des joueurs à chaque manche). Compression
+  `permessage-deflate` SANS contexte partagé : 0,22 Ko/s (÷4), ~2 points de
+  processeur, et la mémoire ne dépend pas du nombre de joueurs. Avec
+  contexte : ÷13, mais ~100 Ko × 400 connexions sur une machine de 512 Mo.
+  Négociée par le navigateur, aucun changement de protocole ; l'e2e
+  navigateur vérifie que Chromium l'obtient. **Direction, pas faite** :
+  alléger `verdict` (ne renvoyer que ce qui change) toucherait le protocole,
+  donc les deux déploiements.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
