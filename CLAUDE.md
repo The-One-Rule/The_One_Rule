@@ -860,6 +860,13 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   127.0.0.1 une minute, et tous ses clients partagent cette adresse. Et le
   corpus FUZZ est CADENCÉ (30/s), sinon le seau le coupe avant la fin.
   À déployer côté Fly seulement ; aucun client à changer.
+  ⚠️ **Collision de NOM DE FICHIER, la même famille que les classes CSS** :
+  `tests/debit.test.ts` existait déjà (10 tests du limiteur EDGE,
+  `api/_debit.ts`) et je l'ai écrasé par un `cat >` sans le regarder — vu
+  au décompte (1339 au lieu de 1349), restauré au commit suivant. Le test
+  du serveur de salons vit dans `tests/debit-salons.test.ts`. **Avant de
+  créer un fichier, `ls` le chemin** ; l'outil Write refuse d'écraser un
+  fichier non lu, un `cat >` ne refuse rien.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
