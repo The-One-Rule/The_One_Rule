@@ -1,5 +1,5 @@
 /**
- * BOUT EN BOUT, AVEC UN VRAI NAVIGATEUR — phase 3, point 19.
+ * BOUT EN BOUT, AVEC UN VRAI NAVIGATEUR — phase 3, points 19 et 20.
  *
  * `e2e.mjs` pilote des sockets BRUTES : il prouve ce que fait le SERVEUR, et
  * rien de ce que fait le client. Or les deux correctifs de l'audit sur la
@@ -238,6 +238,54 @@ console.log("\n19 · coupure réseau, client réel");
   ok(duree >= FENETRE_REPRISE_MS, `il a essayé tout le calendrier (${duree} ms ≥ ${FENETRE_REPRISE_MS})`);
   ok(duree < RECONNECT_GRACE_MS + 5000, `et pas au-delà du sursis (${duree} ms < ${RECONNECT_GRACE_MS + 5000})`);
   relais.retablit();
+  ok(erreurs.length === 0, `aucune erreur de page (${erreurs.join(" | ") || "—"})`);
+
+  h.ws.close();
+  await ctx.close();
+}
+
+/* ================================================================== *
+ * 20 — DEUX ONGLETS DU MÊME APPAREIL.
+ * ================================================================== */
+console.log("\n20 · deux onglets, un appareil");
+{
+  // (a) La sauvegarde : chaque onglet garde une copie en mémoire. Sans
+  // l'écouteur `storage`, l'onglet A réécrivait SA copie périmée et effaçait
+  // en silence ce que B venait d'écrire.
+  const { ctx, erreurs } = await appareil();
+  const a = await ctx.newPage();
+  const b = await ctx.newPage();
+  await a.goto(`${SITE}/reglages`);
+  await b.goto(`${SITE}/reglages`);
+  await a.waitForSelector("#btnPhotosAutres", { state: "visible" });
+  await b.waitForSelector("#rglTheme [data-value='sombre']", { state: "visible" });
+  await b.click("#rglTheme [data-value='sombre']", { force: true });
+  await a.click("#btnPhotosAutres", { force: true });
+  const save = await a.evaluate(() => JSON.parse(localStorage.getItem("oneRule.save.v1") ?? "{}"));
+  ok(save.theme === "sombre", `l'écriture de l'onglet B survit à celle de A (thème « ${save.theme} »)`);
+  ok(save.photosAutres === false, "et celle de A est bien écrite aussi");
+
+  // (b) Le même salon ouvert deux fois : la plus récente garde le siège, la
+  // plus ancienne le DIT et ne revient pas — sinon les deux se renverraient
+  // la place en boucle.
+  const h = await salonOuvert("HOTE20");
+  await a.goto(`${SITE}/#j=${h.room.code}`);
+  ok(await attends(() => !!invite(h)?.connected, 8000), "l'onglet A s'assoit");
+  const idA = invite(h)?.id;
+  await b.goto(`${SITE}/#j=${h.room.code}`);
+  ok(
+    await attends(async () => /REPRISE SUR UN AUTRE ÉCRAN/.test((await etat(a)).erreur), 8000),
+    "l'onglet A apprend que sa place est reprise ailleurs",
+  );
+  ok(await attends(async () => (await etat(b)).ecrans.includes("multi-lobby"), 5000), "l'onglet B est au salon");
+  ok(invite(h)?.id === idA && invite(h)?.connected === true, "même siège, connecté, tenu par B");
+  // Le ping-pong se verrait dans le flux de l'hôte : le siège basculerait.
+  const n = h.rooms.length;
+  await sleep(6000);
+  const bascules = h.rooms.slice(n).filter((r) => r.players.some((p) => p.id === idA && !p.connected)).length;
+  ok(bascules === 0, `aucun ping-pong sur 6 s (${bascules} bascule(s))`);
+  ok(h.room.players.length === 2, "toujours deux sièges");
+  ok(!(await etat(a)).ecrans.includes("multi-lobby"), "l'onglet A ne s'est pas rassis tout seul");
   ok(erreurs.length === 0, `aucune erreur de page (${erreurs.join(" | ") || "—"})`);
 
   h.ws.close();

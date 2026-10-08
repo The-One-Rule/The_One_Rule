@@ -808,6 +808,14 @@ Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
   - **le client abandonnait à 1,6 s** (3 essais × 800 ms) pour un siège
     gardé 25 s. Le calendrier (`net/reprise.ts`) couvre maintenant 20 s.
   Chacune éprouvée seule : 4 assertions tombent.
+- **20 — Deux onglets, un appareil** (même fichier). Une écriture de
+  réglage dans l'onglet B survit à celle de A (écouteur `storage`) ; le
+  même salon ouvert deux fois : B garde le siège, A affiche « TA PLACE A
+  ÉTÉ REPRISE », aucun ping-pong sur 6 s. Rien de neuf à corriger : les
+  correctifs C1 et C2 de l'audit tenaient. Dents : sans l'écouteur, [017]
+  tombe ; serveur sans `reprise`, trois tombent ; sans `departSubi`, le
+  motif est écrasé par « DÉCONNECTÉ » ([020]) — le ping-pong, lui, est
+  déjà tenu par `lastRoomCode = ""`.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

@@ -32,6 +32,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 17 | T5 — entrées malformées | corpus sur chaque fonction edge et sur le serveur de salons ; `litObjet` |
 | 18 | C4 — concurrence | demandes croisées et `MAX_AMIS` corrigés, prouvés avec un dépôt lent |
 | 19 | T6 — coupure réseau | `e2e-navigateur.mjs` ; reprise anonyme et calendrier de reprise corrigés |
+| 20 | C1, C2 — deux onglets | même fichier : sauvegarde partagée, siège repris sans ping-pong |
 
 ## 0. Méthode et état de départ
 
