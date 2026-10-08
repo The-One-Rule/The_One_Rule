@@ -826,6 +826,26 @@ Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
   baisse y veut dire « de la logique sans test ». Trouvé : `api/authcb.ts`,
   le retour OAuth RÉEL en production, n'était appelé par aucun test.
 
+### Phase 4 de l'audit : la performance, mesurée d'abord (08/10/2026)
+
+Méthode commune : build de production servi par `vite preview`, Chromium,
+processeur ralenti ×4 par CDP (`Emulation.setCPUThrottlingRate`) pour
+approcher un téléphone moyen, profil par `Profiler` résolu par la carte de
+source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
+
+- **22 — Front.** Relevé au téléphone ×4 : premier affichage 336-480 ms,
+  LCP ≤ 960 ms, accueil à 60 i/s, tas 2 Mo, ~500 ms de tâches longues au
+  démarrage — dont 609 ms de `(program)` natif (analyse, styles, mise en
+  page de 3 465 nœuds et 232 Ko de CSS : points 26 et 27). ⚠️ **Le terrain se
+  repeignait à 60 i/s derrière TOUS les menus**, invisibles sous leur fond
+  sable (0 point sur 49, cinq écrans, deux formats) : `draw` était la
+  première fonction du profil de l'accueil. `show()` lit maintenant le fond
+  CALCULÉ de l'écran (`terrainMasque`) — lu et non supposé, un écran rendu
+  translucide un jour se repeindra seul. Prouvé dans `e2e-navigateur.mjs`
+  en comptant les `clearRect` de `#cv` : 60/s avant, 0 après, 61/s en match.
+  Et `peintVitrine` créait un `matchMedia` par image (`MOUVEMENT_REDUIT`).
+  `syncField` force deux mises en page au démarrage, pas plus : laissé.
+
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
 Directive de Pierre : auditer tout le dépôt sans rien supposer

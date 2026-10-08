@@ -35,6 +35,12 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 20 | C1, C2 — deux onglets | même fichier : sauvegarde partagée, siège repris sans ping-pong |
 | 21 | T4 — couverture | `npm run coverage`, cliquet sur les couches pures ; serveur 92 % sous l'e2e |
 
+## Suivi de la phase 4 (performance), 08/10/2026
+
+| # | Point | État |
+|---|---|---|
+| 22 | front | terrain caché plus repeint (60 → 0 image/s sur les menus) ; `matchMedia` hors de la boucle |
+
 ## 0. Méthode et état de départ
 
 **Ce qui a été lancé :**

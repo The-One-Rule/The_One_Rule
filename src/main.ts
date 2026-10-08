@@ -356,6 +356,20 @@ const SCREENS = [
 type ScreenId = (typeof SCREENS)[number] | null;
 
 let screen: ScreenId = "home";
+/**
+ * L'ÉCRAN AFFICHÉ CACHE-T-IL LE TERRAIN ? Décidé à chaque `show()`.
+ *
+ * ⚠️ La boucle repeignait le terrain à 60 images par seconde sur TOUS les
+ * écrans de menu, derrière leur fond sable opaque : mesuré, 0 point sur 49
+ * du canvas visible sur l'accueil, SOLO, RÉGLAGES, CARTES et MULTI, au
+ * téléphone comme au bureau — et `draw` en tête du profil de l'accueil
+ * (209 ms de temps propre sur 1,5 s, processeur ×4). De la batterie brûlée
+ * pour une image que personne ne voit.
+ *
+ * Le fond est LU, pas supposé : un écran rendu translucide un jour (une carte
+ * posée sur le terrain figé) laisse le terrain se peindre sans qu'on y pense.
+ */
+let terrainMasque = false;
 let session: Session | null = null;
 let pendingRule: OneRule | null = null;
 let pendingMode: Mode = "daily";
@@ -472,10 +486,17 @@ const AVEC_BARRE: ReadonlySet<string> = new Set([
  */
 let vitrineDebut = 0;
 let vitrineCle = "";
+/*
+ * Créée UNE fois : une `MediaQueryList` est vivante, `.matches` suit le
+ * réglage du système. L'appeler à chaque image allouait un objet et
+ * réévaluait la requête 60 fois par seconde — `matchMedia` ressortait au
+ * profil de l'accueil (23 ms sur 1,5 s, processeur ×4).
+ */
+const MOUVEMENT_REDUIT = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
 function peintVitrine(now: number): void {
   if (document.visibilityState === "hidden") return;
   if (!vitrineDebut) vitrineDebut = now;
-  const reduit = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const reduit = MOUVEMENT_REDUIT?.matches ?? false;
   // Mouvement réduit : la scène se FIGE sur l'instant qui dit tout — la main
   // au-dessus du rouge, qui n'y touche pas.
   const e = etatVitrine(reduit ? 4300 : now - vitrineDebut);
@@ -575,6 +596,7 @@ function show(id: ScreenId): void {
   cacheRelance();
   screen = id;
   for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
+  terrainMasque = id !== null && fondOpaque($(id));
   // La partie et le salon gardent l'écran allumé : voir `eveil.ts`.
   gardeEcranAllume(id === null || id === "multi-lobby" || id === "multi-end");
   /*
@@ -7877,9 +7899,18 @@ function loop(now: number): void {
       geste: gesteCourant,
     });
     multi.paintCursors(now, scene.fieldRect());
-  } else {
+  } else if (!terrainMasque) {
     scene.draw({ round: null, rule: null, now });
   }
+}
+
+/** Un fond calculé sans transparence : `rgb(…)`, ou `rgba(…, 1)`. */
+function fondOpaque(el: HTMLElement): boolean {
+  const fond = getComputedStyle(el).backgroundColor;
+  const m = /^rgba?\(([^)]+)\)$/.exec(fond);
+  if (!m) return false;
+  const parts = m[1]!.split(",");
+  return parts.length === 3 || Number(parts[3]) >= 1;
 }
 
 /* ------------------------------------------------------------------ *

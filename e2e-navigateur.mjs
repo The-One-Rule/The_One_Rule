@@ -1,5 +1,5 @@
 /**
- * BOUT EN BOUT, AVEC UN VRAI NAVIGATEUR — phase 3, points 19 et 20.
+ * BOUT EN BOUT, AVEC UN VRAI NAVIGATEUR — phase 3, points 19 et 20 ; phase 4, point 22.
  *
  * `e2e.mjs` pilote des sockets BRUTES : il prouve ce que fait le SERVEUR, et
  * rien de ce que fait le client. Or les deux correctifs de l'audit sur la
@@ -288,6 +288,48 @@ console.log("\n20 · deux onglets, un appareil");
   ok(!(await etat(a)).ecrans.includes("multi-lobby"), "l'onglet A ne s'est pas rassis tout seul");
   ok(erreurs.length === 0, `aucune erreur de page (${erreurs.join(" | ") || "—"})`);
 
+  h.ws.close();
+  await ctx.close();
+}
+
+/* ================================================================== *
+ * 22 — LE TERRAIN NE SE PEINT PAS DERRIÈRE UN MENU.
+ *
+ * Le fond sable des menus recouvre tout le canvas (0 point sur 49 visible,
+ * mesuré) ; la boucle le repeignait pourtant 60 fois par seconde. On compte
+ * les `clearRect` du canvas de jeu — chaque image en commence une.
+ * ================================================================== */
+console.log("\n22 · le terrain caché ne coûte rien");
+{
+  const { ctx, erreurs } = await appareil();
+  await ctx.addInitScript(() => {
+    window.__peintures = 0;
+    const clear = CanvasRenderingContext2D.prototype.clearRect;
+    CanvasRenderingContext2D.prototype.clearRect = function (...a) {
+      if (this.canvas.id === "cv") window.__peintures++;
+      return clear.apply(this, a);
+    };
+  });
+  const page = await ctx.newPage();
+  for (const chemin of ["/", "/solo", "/reglages"]) {
+    await page.goto(`${SITE}${chemin}`);
+    await page.waitForTimeout(400);
+    const avant = await page.evaluate(() => window.__peintures);
+    await page.waitForTimeout(1000);
+    const n = (await page.evaluate(() => window.__peintures)) - avant;
+    ok(n === 0, `${chemin} : ${n} peinture(s) du terrain caché en 1 s`);
+  }
+  // Et il se peint dès qu'on joue : le salon puis le match.
+  const h = await salonOuvert("HOTE22");
+  await page.goto(`${SITE}/#j=${h.room.code}`);
+  await attends(() => !!invite(h)?.connected, 8000);
+  h.envoie({ t: "start" });
+  ok(await attends(async () => (await etat(page)).enJeu, 15_000), "le match démarre");
+  const avant = await page.evaluate(() => window.__peintures);
+  await page.waitForTimeout(1000);
+  const n = (await page.evaluate(() => window.__peintures)) - avant;
+  ok(n >= 20, `en match, le terrain se peint (${n} images en 1 s)`);
+  ok(erreurs.length === 0, `aucune erreur de page (${erreurs.join(" | ") || "—"})`);
   h.ws.close();
   await ctx.close();
 }
