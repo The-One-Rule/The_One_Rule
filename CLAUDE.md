@@ -75,6 +75,7 @@ trouvés en mesurant, aucun en relisant.
 npx tsc --noEmit
 npx vitest run
 npx tsx e2e.mjs
+npx tsx e2e-navigateur.mjs   # le VRAI client dans Chromium (Vite en dev)
 npx vite build
 ```
 
@@ -243,7 +244,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | Réglages hôte | vitesse `[1.7 … 0.65]` · vies `[1,3,5]` · rotation `[4,8,16,999]` |
 | Allure solo | `PACE_CHOICES [2, 1.5, 1, 0.8]`, `PACE_DEFAULT 1`, défaut du joueur **2** |
 | Solo | `DAILY_LENGTH 40`, `DAILY_ESSAIS 3`, `GRACE_ROUNDS 3`, `FORCED_TRAP_ROUNDS {2,5,9}` |
-| Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
+| Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` · client : `ATTENTES_REPRISE_MS` couvre 20 s du sursis (`net/reprise.ts`) |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
 
 **`MULTI_RULES` = 14, ou 15 en salon clavier** (`multiRulesFor`) :
@@ -774,6 +775,39 @@ Deux façons propres de s'en passer, toutes deux en place :
 ## 12. Où en est le travail
 
 **Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+
+### Phase 3 de l'audit : les tests (08/10/2026)
+
+Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
+3 à 7 dans l'ordre, un commit par point. Ce qui ne se déduit pas du code :
+
+- **16 — `DepotSupabase`** : 44 tests figent les requêtes des 24 méthodes
+  (`fetch` remplacé par un enregistreur). Trouvé : `leveDrapeau` ignorait la
+  réponse du PATCH — un drapeau d'anti-triche perdu en silence.
+- **17 — Entrées malformées** (`tests/entrees-malformees.test.ts`, et un
+  client FUZZ dans l'e2e). Trouvé : un corps `null` faisait LEVER perf, moi,
+  amis et collect (500). `api/_corps.ts` (`litObjet`) ne rend qu'un objet.
+  ⚠️ Dans l'e2e, le corpus commençait par des `hello` de mauvaise version :
+  la socket se fermait et le reste n'arrivait jamais — « 0 erreur » ne
+  prouvait rien. Version fausse envoyée EN DERNIER.
+- **18 — Concurrence** (`tests/concurrence.test.ts`). ⚠️ Le dépôt en mémoire
+  répond sans attendre : le premier jet passait AUSSI sur l'ancien code. Le
+  proxy `lent` fait attendre chaque appel d'un tour de boucle, et les deux
+  requêtes s'entrelacent comme en production. Trouvé : deux demandes
+  croisées restaient en attente (C4), deux acceptations dépassaient
+  `MAX_AMIS`.
+- **19 — Coupure réseau, VRAI client** (`e2e-navigateur.mjs`). ⚠️
+  `context.setOffline` ne coupe pas une socket déjà ouverte (mesuré : 10 s
+  hors ligne, siège toujours `connected`). Le navigateur passe donc par un
+  RELAIS TCP qu'on tranche. **Deux pannes trouvées, aucune visible à la
+  lecture :**
+  - **l'ami arrivé par un LIEN ne revenait JAMAIS seul.** Il est anonyme, et
+    `attemptRejoin` appelait `ensureConnected()` sans `anonyme` : rendu
+    `null` à chaque essai, sans ouvrir une socket. Le cas le plus courant
+    du jeu (« code/lien → rejoindre → jouer ») ;
+  - **le client abandonnait à 1,6 s** (3 essais × 800 ms) pour un siège
+    gardé 25 s. Le calendrier (`net/reprise.ts`) couvre maintenant 20 s.
+  Chacune éprouvée seule : 4 assertions tombent.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

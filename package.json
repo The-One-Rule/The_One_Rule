@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts",
+    "e2e": "tsx e2e.mjs",
+    "e2e:navigateur": "tsx e2e-navigateur.mjs"
   },
   "keywords": [],
   "author": "",
@@ -21,6 +23,7 @@
     "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
     "jsdom": "^30.0.1",
+    "playwright-core": "^1.56.1",
     "typescript": "5.9",
     "vite": "^8.2.1",
     "vitest": "^4.1.10"

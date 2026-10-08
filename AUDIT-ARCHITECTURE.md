@@ -24,6 +24,15 @@ Restent ouverts, hors des dix priorités : S3 (catalogue choisi par le
 client, essais non appliqués serveur), S4 (pas de limite sur `join`), S6 à
 S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 
+## Suivi de la phase 3 (tests), 08/10/2026
+
+| # | Point | État |
+|---|---|---|
+| 16 | T1 — `DepotSupabase` | 44 tests sur les 24 méthodes ; `leveDrapeau` vérifie sa réponse |
+| 17 | T5 — entrées malformées | corpus sur chaque fonction edge et sur le serveur de salons ; `litObjet` |
+| 18 | C4 — concurrence | demandes croisées et `MAX_AMIS` corrigés, prouvés avec un dépôt lent |
+| 19 | T6 — coupure réseau | `e2e-navigateur.mjs` ; reprise anonyme et calendrier de reprise corrigés |
+
 ## 0. Méthode et état de départ
 
 **Ce qui a été lancé :**

@@ -46,6 +46,7 @@ import type { PlateActe, PlateFlash } from "./render/plate";
 import { paintCursors } from "./render/cursors";
 import type { CurseurAffiche } from "./render/cursors";
 import { seatClasses, seatStatus } from "./render/seat";
+import { ATTENTES_REPRISE_MS, ESSAIS_REPRISE } from "./net/reprise";
 import { musicApi, sfx, unlock } from "./audio";
 /*
  * Importee sous un autre nom : `multi.ts` a deja plusieurs `t` locaux — un
@@ -398,15 +399,6 @@ const ROTATION_LABEL: Record<number, string> = { 4: "4", 8: "8", 16: "16" };
  */
 const MANCHE_TEMOIN = 20;
 
-/*
- * Combien de fois on retente avant de rendre la main.
- *
- * Hissé en constante parce que le panneau de coupure l'ANNONCE (« ESSAI 2 SUR
- * 3 ») : un chiffre écrit deux fois — une dans la boucle, une dans le texte —
- * finit par diverger, et le symptôme serait un compteur qui ment au moment le
- * plus inquiétant de la partie.
- */
-const ESSAIS_REPRISE = 3;
 
 function playerGlyph(p: PlayerPublic) {
   return p.glyph ?? glyphFor(p.id);
@@ -3223,9 +3215,10 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
    * retente donc en silence, et on ne rend la main à l'utilisateur que si ça
    * échoue vraiment.
    *
-   * Trois essais espacés : le sursis serveur dure 25 s, il n'y a aucune raison
-   * de marteler, et une boucle sans fin sur un serveur éteint serait pire que
-   * le problème d'origine.
+   * Le calendrier (`net/reprise.ts`) couvre le SURSIS serveur, pas davantage :
+   * rapproché au début, espacé ensuite. Il en couvrait 1,6 s sur 25 — une
+   * coupure de deux secondes perdait le salon. Et jamais de boucle sans fin :
+   * une fois le sursis passé, le siège n'est plus là.
    */
   /**
    * LE PANNEAU DE COUPURE — décision n°4, rendue visible.
@@ -3276,12 +3269,22 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     try {
       for (let essai = 0; essai < ESSAIS_REPRISE; essai++) {
         peintCoupure(essai + 1);
-        const client = await ensureConnected();
+        /*
+         * ⚠️ `anonyme: true`, et c'était la panne : l'ami arrivé par un LIEN
+         * n'a pas de nom enregistré, et `ensureConnected()` refuse alors
+         * d'ouvrir une socket — sans rien tenter, à chaque essai. Mesuré dans
+         * un vrai navigateur : aucune socket ouverte après la coupure, quelle
+         * qu'en soit la durée. Le verrou du nom vaut pour une ENTRÉE délibérée
+         * ; ici on reprend un siège qu'on tient déjà.
+         */
+        const client = await ensureConnected({ anonyme: true });
         if (client) {
           client.joinRoom(lastRoomCode);
           return;
         }
-        await new Promise((r) => setTimeout(r, 800));
+        const attente = ATTENTES_REPRISE_MS[essai];
+        if (attente === undefined) break;
+        await new Promise((r) => setTimeout(r, attente));
       }
       // Échec : on rend la main, code déjà saisi pour que ce soit un geste.
       $<HTMLInputElement>("multiCode").value = lastRoomCode;
