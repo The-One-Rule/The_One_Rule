@@ -876,6 +876,16 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   navigateur vérifie que Chromium l'obtient. **Direction, pas faite** :
   alléger `verdict` (ne renvoyer que ce qui change) toucherait le protocole,
   donc les deux déploiements.
+- **25 — Redis et base.** Redis est déjà sobre : un aller-retour par appel
+  (`RPUSH`+`EXPIRE`, `INCR`+`EXPIRE` par le pipeline). Les index couvrent les
+  lectures des amis (lu dans les migrations, pas d'`EXPLAIN` sans base). Pas
+  de N+1. ⚠️ **Mais la latence suit la PROFONDEUR, pas le nombre** : AJOUTER
+  enchaînait 11 allers-retours vers Supabase, ACCEPTER 13, LIRE 4 — des
+  lectures indépendantes faites l'une après l'autre. Parallélisées, mêmes
+  décisions dans le même ordre : 7, 9, 3 (−30 % environ à 25 ms par appel).
+  `tests/amis-profondeur.test.ts` mesure la profondeur SANS HORLOGE : un
+  proxy libère les appels par vagues, le nombre de vagues est la profondeur.
+  Ce qui reste en série a sa raison : `codeAmi` ÉCRIT, donc attend `parId`.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

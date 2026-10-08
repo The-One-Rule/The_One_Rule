@@ -98,9 +98,10 @@ const demandeur = (a: Ami): Demandeur => ({
 });
 
 /** L'état complet de l'écran des amis. */
-async function etat(depot: Depot, u: Utilisateur, code: string, jour: number, issue?: "demande" | "lie") {
-  const [amis, recues, envoyees] = await Promise.all([
-    cercle(depot, u, code, jour),
+async function etat(depot: Depot, u: Utilisateur, codeP: string | Promise<string>, jour: number, issue?: "demande" | "lie") {
+  const [code, amis, recues, envoyees] = await Promise.all([
+    codeP,
+    cercle(depot, u, codeP, jour),
     depot.demandesVers(u.id),
     depot.demandesDe(u.id),
   ]);
@@ -114,9 +115,13 @@ async function etat(depot: Depot, u: Utilisateur, code: string, jour: number, is
   };
 }
 
-async function cercle(depot: Depot, u: Utilisateur, code: string, jour: number): Promise<LigneAmi[]> {
+async function cercle(depot: Depot, u: Utilisateur, codeP: string | Promise<string>, jour: number): Promise<LigneAmi[]> {
+  // Le code ne sert qu'à MA ligne : la lecture des amis ne l'attend pas.
   const amis: Ami[] = await depot.amisDe(u.id);
-  const perfs = await depot.perfsDepuis([u.id, ...amis.map((a) => a.id)], jour - FENETRE_JOURS + 1);
+  const [perfs, code] = await Promise.all([
+    depot.perfsDepuis([u.id, ...amis.map((a) => a.id)], jour - FENETRE_JOURS + 1),
+    codeP,
+  ]);
   return classementDesAmis([
     participant({ id: u.id, code, pseudo: u.pseudo, apparence: u.apparence }, perfs, jour, true),
     ...amis.map((a) => participant(a, perfs, jour, false)),
@@ -142,10 +147,21 @@ export async function traite(
   if (u.versionJeton !== r.vj) return json({ error: "revoque" }, 401);
 
   const jour = jourDe(maintenant);
-  const monCode = await depot.codeAmi(u.id, hasard);
+  /*
+   * ⚠️ LA LATENCE SUIT LA PROFONDEUR, PAS LE NOMBRE. Chaque appel au dépôt
+   * est un aller-retour vers Supabase ; mesuré avec 25 ms par appel, AJOUTER
+   * en enchaînait 11 en série et ACCEPTER 13, alors que la plupart sont des
+   * lectures indépendantes. Elles partent ensemble : mêmes lectures, mêmes
+   * décisions, mêmes écritures dans le même ordre (phase 4, point 25).
+   *
+   * `codeAmi` part tout de suite ; le `catch` vide marque seulement la
+   * promesse comme suivie, pour une route qui répondrait avant de l'attendre.
+   */
+  const monCodeP = depot.codeAmi(u.id, hasard);
+  monCodeP.catch(() => undefined);
 
   if (req.method === "GET") {
-    return json(await etat(depot, u, monCode, jour));
+    return json(await etat(depot, u, monCodeP, jour));
   }
   if (req.method !== "POST") return json({ error: "method" }, 405);
 
@@ -160,14 +176,14 @@ export async function traite(
   if (!code) return json({ error: "code" }, 400);
 
   const action = new URL(req.url).searchParams.get("a");
-  const autre = await depot.parCodeAmi(code);
+  const [monCode, autre] = await Promise.all([monCodeP, depot.parCodeAmi(code)]);
 
   /** Lie deux comptes, plafond vérifié DES DEUX CÔTÉS, et range les demandes. */
   const lieSiPlace = async (x: Utilisateur): Promise<Response | null> => {
     // Le plafond vaut aussi pour L'AUTRE : sinon n'importe qui pourrait
     // gonfler la liste d'un inconnu au-delà de ce qu'elle sait afficher.
-    if ((await depot.amisDe(u.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
-    if ((await depot.amisDe(x.id)).length >= MAX_AMIS) return json({ error: "plein" }, 400);
+    const [miens, siens] = await Promise.all([depot.amisDe(u.id), depot.amisDe(x.id)]);
+    if (miens.length >= MAX_AMIS || siens.length >= MAX_AMIS) return json({ error: "plein" }, 400);
     await depot.lie(u.id, x.id);
     /*
      * ⚠️ Vérifier PUIS écrire laisse une fenêtre (audit C4) : deux
@@ -177,12 +193,12 @@ export async function traite(
      * TOUTES DEUX défaire : c'est un refus de trop, jamais une liste trop
      * longue — le seul sens acceptable pour une limite.
      */
-    if ((await depot.amisDe(u.id)).length > MAX_AMIS || (await depot.amisDe(x.id)).length > MAX_AMIS) {
+    const [miensApres, siensApres] = await Promise.all([depot.amisDe(u.id), depot.amisDe(x.id)]);
+    if (miensApres.length > MAX_AMIS || siensApres.length > MAX_AMIS) {
       await depot.delie(u.id, x.id);
       return json({ error: "plein" }, 400);
     }
-    await depot.retireDemande(u.id, x.id);
-    await depot.retireDemande(x.id, u.id);
+    await Promise.all([depot.retireDemande(u.id, x.id), depot.retireDemande(x.id, u.id)]);
     return null;
   };
 
@@ -191,19 +207,25 @@ export async function traite(
     // Un code inconnu et un compte banni répondent PAREIL : sinon la route
     // dirait à qui essaie des codes lesquels appartiennent à un banni.
     if (!autre || autre.banniLe) return json({ error: "inconnu" }, 404);
-    if ((await depot.amisDe(u.id)).some((a) => a.id === autre.id)) {
+    // Les quatre lectures de contrôle, ensemble ; les décisions, dans le même ordre.
+    const [miens, recues, envoyees, sesRecues] = await Promise.all([
+      depot.amisDe(u.id),
+      depot.demandesVers(u.id),
+      depot.demandesDe(u.id),
+      depot.demandesVers(autre.id),
+    ]);
+    if (miens.some((a) => a.id === autre.id)) {
       return json(await etat(depot, u, monCode, jour, "lie"));
     }
     // DEUX DEMANDES CROISÉES VALENT ACCORD : l'autre m'a déjà demandé, je
     // tape son code — nous voulons la même chose, inutile d'attendre.
-    if ((await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
+    if (recues.some((a) => a.id === autre.id)) {
       const refus = await lieSiPlace(autre);
       return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
     }
-    const envoyees = await depot.demandesDe(u.id);
     if (!envoyees.some((a) => a.id === autre.id)) {
       if (envoyees.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
-      if ((await depot.demandesVers(autre.id)).length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
+      if (sesRecues.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
       await depot.demande(u.id, autre.id);
     }
     /*
