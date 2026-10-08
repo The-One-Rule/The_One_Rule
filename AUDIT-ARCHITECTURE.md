@@ -33,6 +33,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 18 | C4 — concurrence | demandes croisées et `MAX_AMIS` corrigés, prouvés avec un dépôt lent |
 | 19 | T6 — coupure réseau | `e2e-navigateur.mjs` ; reprise anonyme et calendrier de reprise corrigés |
 | 20 | C1, C2 — deux onglets | même fichier : sauvegarde partagée, siège repris sans ping-pong |
+| 21 | T4 — couverture | `npm run coverage`, cliquet sur les couches pures ; serveur 92 % sous l'e2e |
 
 ## 0. Méthode et état de départ
 

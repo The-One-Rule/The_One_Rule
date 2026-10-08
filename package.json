@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "server": "tsx server/index.ts",
     "e2e": "tsx e2e.mjs",
@@ -22,6 +23,7 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.10",
     "jsdom": "^30.0.1",
     "playwright-core": "^1.56.1",
     "typescript": "5.9",

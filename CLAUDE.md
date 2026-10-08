@@ -76,6 +76,7 @@ npx tsc --noEmit
 npx vitest run
 npx tsx e2e.mjs
 npx tsx e2e-navigateur.mjs   # le VRAI client dans Chromium (Vite en dev)
+npm run coverage             # cliquet sur engine, game, shared, api
 npx vite build
 ```
 
@@ -816,6 +817,14 @@ Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
   tombe ; serveur sans `reprise`, trois tombent ; sans `departSubi`, le
   motif est écrasé par « DÉCONNECTÉ » ([020]) — le ping-pong, lui, est
   déjà tenu par `lastRoomCode = ""`.
+- **21 — Couverture** (`npm run coverage`, v8). 51 % au total, et la
+  moyenne ne dit rien : moteur 98 %, jeu 95 %, `shared` 95 %, `api` 86 % ;
+  `main.ts` 45 %, `multi.ts` 7 %. ⚠️ `server/index.ts` lit **0 % sous
+  vitest et 92 % sous l'e2e** (mesuré une fois avec `npx c8`, sans
+  dépendance) : ne pas conclure qu'il est intesté. Les seuils sont un
+  CLIQUET posé sous la mesure, et seulement sur les couches pures — une
+  baisse y veut dire « de la logique sans test ». Trouvé : `api/authcb.ts`,
+  le retour OAuth RÉEL en production, n'était appelé par aucun test.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
