@@ -118,6 +118,18 @@ Deux services, déployés **par Pierre** :
 - le **front** (Vercel) — `vercel --prod`, retour arrière par *Promote to
   Production* sur le déploiement précédent.
 
+Chaque mise en production reçoit une **étiquette datée** sur le commit de
+`master` déployé, et une ligne dans [`CHANGELOG.md`](CHANGELOG.md) :
+
+```bash
+git tag -a 2026.10.12 -m "salons et front : <titre de la PR>" <sha déployé>
+git push origin 2026.10.12
+```
+
+(Une seconde mise en production le même jour : `2026.10.12.2`.) C'est ce qui
+répond à « qu'est-ce qui tourne en production ? » — ADR
+[0009](docs/adr/0009-historique-publie-non-reecrit.md).
+
 **Fly d'abord, Vercel ensuite** dès que le protocole bouge : un client plus
 récent que son serveur a déjà planté la production (30/09/2026). Procédure
 complète : [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md).

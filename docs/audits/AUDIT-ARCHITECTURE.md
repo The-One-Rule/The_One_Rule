@@ -73,6 +73,14 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 43 | conventions | `CONTRIBUTING.md`, gabarit de PR, `.editorconfig`, `.gitattributes` ; fusion par commit de fusion |
 | 44 | architecture finale | `docs/ARCHITECTURE.md`, huit ADR ; la pureté du moteur enfin gardée par un test (`tests/architecture.test.ts`) |
 
+## Suivi de la phase 7 (git), 09/10/2026
+
+| Point | État |
+|---|---|
+| historique | NON réécrit, décision écrite (ADR 0009) : SHA cités, clones, `push --force` sur `master`, corps de commit perdus — pour 0 octet gagné |
+| lisibilité | `CHANGELOG.md` par PR, conventions de `CONTRIBUTING.md`, étiquettes datées à chaque mise en production |
+| branches | trois branches fusionnées à supprimer, listées pour Pierre |
+
 ## 0. Méthode et état de départ
 
 **Ce qui a été lancé :**

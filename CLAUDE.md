@@ -1113,6 +1113,34 @@ tel en entreprise ». Un commit par point.
   d'`utilisateur`, pas une table ; `lien_plateforme` porte les comptes
   OAuth liés.
 
+### Phase 7 de l'audit : l'historique git (09/10/2026)
+
+Directive : « reconstruire proprement l'historique si tu veux vraiment le
+faire ». **Décision : ne PAS le réécrire** — ADR 0009. Relevé : 166 commits
+sur `master` depuis le 04/09 (rien d'importé avant), 18 fusions, 17 PR
+fusionnées, 1,7 Mo, aucune étiquette. Réécrire aurait changé tous les SHA
+cités (ici, dans les commits, dans 17 PR), forcé un `push --force` sur une
+branche partagée, obligé à réinitialiser chaque clone, et — en regroupant —
+PERDU des corps de commit, c'est-à-dire des mesures. Pour 0 octet gagné.
+
+Ce qui rend l'historique lisible à la place, par le haut :
+- `CONTRIBUTING.md` pour tout commit à venir (branches, sujets, fusion par
+  commit de fusion) ;
+- `CHANGELOG.md` : le projet raconté PR par PR (#1 à #18) ;
+- des ÉTIQUETTES DATÉES `AAAA.MM.JJ` sur chaque commit mis en production —
+  à poser par Pierre au déploiement (commande dans `CONTRIBUTING.md` §6) ;
+  elles ne se rattrapent pas pour le passé : le commit déployé à une date
+  ancienne n'est connu que des journaux Vercel et Fly ;
+- ⚠️ **à supprimer par Pierre** (fusionnées dans `master`, vérifié par
+  `git merge-base --is-ancestor`) : `audit/ux-onboarding-recompenses`,
+  `claude/bugs-playtest-247`, `claude/chasse-bugs-0912` —
+  `git push origin --delete <branche>`, ou le réglage GitHub
+  « Automatically delete head branches », qui le fera seul ensuite. Pas
+  fait ici : c'est une écriture sur le dépôt partagé, hors de ma branche.
+- Écart connu à la convention : `claude/modest-bell-9vp1ds` porte les PR
+  #8 à #18 — la branche de session est imposée par l'outil et réutilisée
+  après chaque fusion. Elle se supprime une fois #18 fusionnée.
+
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
 Directive de Pierre : auditer tout le dépôt sans rien supposer

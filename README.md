@@ -92,6 +92,7 @@ Deux services, déployés séparément — **Fly d'abord, Vercel ensuite** dès 
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branches, commits, PR, revue,
   déploiement : comment le travail entre dans le dépôt.
+- [`CHANGELOG.md`](CHANGELOG.md) — ce qui a changé, PR par PR.
 - [`CLAUDE.md`](CLAUDE.md) — la mémoire de travail du projet : décisions à ne
   pas défaire, pièges déjà payés, état du travail. **À lire avant de toucher au
   code.**

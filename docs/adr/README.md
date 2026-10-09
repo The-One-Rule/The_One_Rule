@@ -24,3 +24,4 @@ Les ADR 0002 à 0008 sont **rétro-documentées** (phase 6 de l'audit,
 | [0006](0006-opposable-signifie-rejoue.md) | Ce qui est opposable à autrui est rejoué | Acceptée |
 | [0007](0007-deux-hmac-synchrone-et-asynchrone.md) | Deux implémentations HMAC, un seul noyau | Acceptée |
 | [0008](0008-negociation-sur-le-fil-et-ordre-de-deploiement.md) | Tout ce qui voyage est négocié ; Fly d'abord | Acceptée |
+| [0009](0009-historique-publie-non-reecrit.md) | L'historique publié ne se réécrit pas | Acceptée |
