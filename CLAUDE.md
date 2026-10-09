@@ -951,6 +951,13 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   donc chaînes et commentaires. Un `_` en tête marque un inutilisé assumé.
   Trouvé : l'e2e recevait un libellé d'attente (`quoi`) et l'ignorait — une
   attente épuisée le dit maintenant au journal.
+- **30 — Typecheck.** `tsc` couvre aussi `vite.config.ts`, typé par
+  `vitest/config` : une faute sur `thresholds` y désactivait EN SILENCE le
+  cliquet de couverture (vitest ignore une clé inconnue). Les scripts JS
+  (`e2e*.mjs`, `scripts/*.mjs`) restent HORS du typage, décision mesurée :
+  `checkJs` y rend 41 erreurs, toutes des artefacts d'inférence (objet figé
+  par sa première affectation, globales posées par l'e2e) — aucune n'est un
+  bug, et les rendre propres demanderait du JSDoc sur des milliers de lignes.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

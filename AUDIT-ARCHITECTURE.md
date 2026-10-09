@@ -52,6 +52,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | # | Point | État |
 |---|---|---|
 | 29 | lint | ESLint (justesse, pas de style) en CI ; 15 signalements, dont 9 BOM voulus |
+| 30 | typecheck | `vite.config.ts` typé (le cliquet de couverture pouvait se taire) ; scripts JS hors typage, 41 artefacts et 0 bug |
 
 ## 0. Méthode et état de départ
 
