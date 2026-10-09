@@ -59,6 +59,26 @@ jobs:
       - run: npm ci
       - run: npx tsx e2e.mjs
 
+  # LE VRAI CLIENT DANS UN NAVIGATEUR (phase 5, point 33). `e2e.mjs` pilote
+  # des sockets nues : il ne voit ni la reprise après une coupure, ni deux
+  # onglets d'un même appareil, ni un terrain qui se repeint derrière un menu.
+  # Deux pannes de reprise n'ont été trouvées QUE par ce scénario (§12, point
+  # 19). Les runners Ubuntu portent Google Chrome : pas de téléchargement.
+  e2e-navigateur:
+    name: e2e navigateur (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHROMIUM_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsx e2e-navigateur.mjs
+
   # L'IMAGE FLY, CONSTRUITE ET LANCÉE (phase 5, point 32). Un import vers un
   # fichier absent des COPY du Dockerfile passe tout le reste et tue
   # l'instance au démarrage (30/08/2026). Ici l'image démarre en production,

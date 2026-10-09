@@ -970,6 +970,13 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   image. Éprouvé en retirant `COPY src/env.ts` : la panne du 30/08 revient,
   et le journal la NOMME (`Cannot find module …/src/env`). Pas de démon
   Docker dans les sessions cloud : le mode sans Docker est celui-là.
+- **33 — E2E.** L'e2e des salons tournait déjà en CI ; `e2e-navigateur.mjs`,
+  le seul qui pilote le VRAI client (reprise après coupure, deux onglets,
+  terrain qui ne se repeint pas derrière un menu, compression négociée),
+  n'y était pas — alors que les deux pannes de reprise du point 19 n'ont été
+  trouvées QUE par lui. Job à part, `CHROMIUM_PATH=/usr/bin/google-chrome` :
+  le runner Ubuntu porte Chrome, `playwright-core` ne télécharge rien.
+  Vérifié en local avec un chemin explicite : 33/33.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
