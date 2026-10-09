@@ -914,6 +914,28 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   sont des SOUS-SUITES exactes des anciennes : rien d'ajouté.
   ⚠️ Les §7 « La faille » et « La couche pixel » décrivent des composants
   dont les règles sont parties : à corriger en phase 6 (docs).
+- **28 — Boucle de jeu.** Mesuré en partie solo jouée juste, téléphone ×4
+  (serveur de dev, `__tor.joue()`) : **30 images/s**, et le premier poste
+  n'était PAS le script mais le calcul des styles (2 057 ms sur 12 s), avec
+  un recalcul ET une mise en page complète à CHAQUE image (370 et 369). Un
+  `MutationObserver` a nommé la cause : le pied et le bandeau RÉÉCRIVAIENT à
+  chaque image cinq textes et trois classes identiques — réécrire un
+  `textContent` à l'identique remplace le nœud, un `classList.add` d'une
+  classe présente repose l'attribut. `hud.ts` n'écrit plus que ce qui change
+  (`ecrisTexte`, `ecrisClasse`, `bascule`). Après : 463-502 images, p50
+  16,7 ms, styles 95-346 ms, 11-23 mises en page en 12 s. Au bureau ×4 :
+  504 → 675 images, mise en page 1 001 → 31-44 ms. Ne reste à chaque image
+  que la barre de temps, un `transform`. `tests/hud-ecritures.test.ts`
+  l'exige d'un `MutationObserver` jsdom ; éprouvé sur l'ancien HUD, trois
+  tombent. **Même doctrine que `--heat` : jamais deux fois à l'identique.**
+
+**Deux bombes de calendrier trouvées en route** (09/10) : mes tests des
+points 17 et 18 signaient un jeton au 07/10 et `moi` le jugeait à
+`Date.now()` — il reçoit maintenant `maintenant`, comme `amis` et `perf`.
+Et `smoke` tirait le run du jour du calendrier : il tombait 3 jours sur 10
+(date figée au 08/10). Toute la suite repasse au 15/11/2026 et au
+02/03/2027. ⚠️ **vitest ne vérifie pas les types** : le premier correctif a
+ajouté un argument de trop à `auth` sans qu'un test rougisse ; `tsc` l'a vu.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
