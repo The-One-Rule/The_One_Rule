@@ -123,7 +123,6 @@ describe("l'authentification refuse sans lever", () => {
         new Request(`https://www.theonerule.party/api/auth?a=callback&code=c&state=${encodeURIComponent(etat)}`),
         ENV,
         depot,
-        MAINTENANT,
       );
       expect(res.status).toBe(302);
       expect(res.headers.get("Location")).toContain("#compte=etat_invalide");
@@ -136,7 +135,6 @@ describe("l'authentification refuse sans lever", () => {
         new Request("https://www.theonerule.party/api/auth?a=refresh", { method: "POST", headers: { Authorization: entete } }),
         ENV,
         depot,
-        MAINTENANT,
       );
       expect(res.status).toBe(401);
     });
