@@ -71,6 +71,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 41 | fichiers hérités | v1 autonome et son script retirés (P7) ; deux plans réalisés archivés ; 16 classes CSS mortes de plus (−14,5 Ko), styles identiques sur 8 878 éléments |
 | 42 | scripts | aucun obsolète, tous lancés ; en-tête de `pull.mjs` corrigé (il affirmait le piège inverse) ; e2e rangés dans `tests/e2e/` |
 | 43 | conventions | `CONTRIBUTING.md`, gabarit de PR, `.editorconfig`, `.gitattributes` ; fusion par commit de fusion |
+| 44 | architecture finale | `docs/ARCHITECTURE.md`, huit ADR ; la pureté du moteur enfin gardée par un test (`tests/architecture.test.ts`) |
 
 ## 0. Méthode et état de départ
 

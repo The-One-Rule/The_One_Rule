@@ -34,7 +34,7 @@ Les mêmes commandes que la CI (`.github/workflows/verification.yml`) :
 |---|---|
 | `npm run lint` | ESLint, réglé sur la justesse (pas de style) |
 | `npm run typecheck` | `tsc --noEmit`, strict |
-| `npm run coverage` | 1 355 tests vitest + seuils de couverture des couches pures |
+| `npm run coverage` | ≈ 1 360 tests vitest + seuils de couverture des couches pures |
 | `npm run e2e` | serveur de salons réel, clients WebSocket réels (≈ 165 assertions) |
 | `npm run e2e:navigateur` | le vrai client dans Chromium : coupure réseau, deux onglets (33 assertions) |
 | `npm run integration` | l'image Fly reconstituée, lancée et sondée |
@@ -61,7 +61,8 @@ docs/      déploiement, audits, archives
 La contrainte qui structure tout : **`src/engine/` est pur**. C'est ce qui
 permet au serveur de rejouer un run pour le vérifier (`verifyRun`) et au
 multijoueur de reconstruire chaque manche à partir d'une graine, sans jamais
-transmettre de scène.
+transmettre de scène. Elle est tenue par `tests/architecture.test.ts`. Vue
+d'ensemble : [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Configuration
 
@@ -94,6 +95,10 @@ Deux services, déployés séparément — **Fly d'abord, Vercel ensuite** dès 
 - [`CLAUDE.md`](CLAUDE.md) — la mémoire de travail du projet : décisions à ne
   pas défaire, pièges déjà payés, état du travail. **À lire avant de toucher au
   code.**
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — les trois déploiements,
+  les couches et la frontière qui tient tout, le fil, les données.
+- [`docs/adr/`](docs/adr/README.md) — les décisions d'architecture, une par
+  fichier, avec ce qu'elles coûtent et ce qui les fait respecter.
 - [`docs/DEPLOIEMENT.md`](docs/DEPLOIEMENT.md) — Vercel, Fly, comptes, mesure.
 - [`docs/audits/`](docs/audits/) — l'audit d'architecture et son suivi point par
   point, l'audit UX.

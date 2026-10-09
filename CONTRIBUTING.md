@@ -87,6 +87,10 @@ commite avec `git commit -F fichier`.
 - **Commit de fusion, pas de squash.** Les commits de ce dépôt portent chacun
   un point documenté et ses chiffres : les écraser en un seul perdrait
   exactement ce qui fait la valeur de l'historique.
+- Une PR qui prend une **décision d'architecture** — une frontière entre
+  couches, un choix d'hébergement, une règle sur ce qui voyage — l'écrit dans
+  une ADR (`docs/adr/`, gabarit `0000-gabarit.md`) dans la même PR. Une ADR
+  acceptée ne se réécrit pas : une nouvelle la remplace.
 - Une PR qui touche le **protocole** (`shared/protocol.ts`, ce que se disent
   client et serveur) le dit en titre de section « Déploiement », avec l'ordre
   à suivre.

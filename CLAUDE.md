@@ -176,6 +176,12 @@ Get-ChildItem -Recurse -Include *.ts,*.mjs,*.css,*.html -Path src,server,shared,
 
 ## 4. Architecture
 
+Vue d'ensemble pour un nouveau venu : `docs/ARCHITECTURE.md`. Les décisions
+structurantes ont chacune leur ADR dans `docs/adr/` (0002 moteur pur, 0003
+fil, 0004 instance unique, 0005 comptes, 0006 rejoué, 0007 HMAC, 0008
+négociation). Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
+pas dans une ADR.
+
 ```
 shared/
   protocol.ts  protocole typé unique, importé des deux côtés
@@ -1079,6 +1085,21 @@ tel en entreprise ». Un commit par point.
   c'est structurel, pas un goût : écraser une PR de dix points en un commit
   perdrait les dix messages qui portent les mesures. `git add --renormalize`
   ne change rien : les 272 fichiers texte étaient déjà en LF.
+- **44 — Architecture finale.** `docs/ARCHITECTURE.md` (trois déploiements,
+  couches, fil, données, livraison, ce que l'architecture NE SAIT PAS faire)
+  et huit ADR dans `docs/adr/`, RÉTRO-documentées : chacune dit d'où vient
+  la décision, aucune n'en invente. ⚠️ **La pureté du moteur — la promesse
+  qui porte le rejeu serveur et tout le multi — n'était gardée par AUCUN
+  test** : seul l'import des comptes l'était. `tests/architecture.test.ts`
+  refuse désormais, dans `src/engine/`, `shared/` et la logique de match, un
+  import hors de sa couche et toute horloge, tout hasard non seedé, toute API
+  de navigateur, tout `fetch`. Vrai dans le code avant lui (0 violation).
+  Éprouvé : un `Date.now()` dans `rng.ts` le fait tomber ; un `import
+  "../i18n"` PASSAIT la première version (import d'effet de bord, sans
+  `from`) — corrigé, rééprouvé, il tombe. Deux faits vérifiés en écrivant
+  la doc plutôt que supposés : le code d'ami est une colonne
+  d'`utilisateur`, pas une table ; `lien_plateforme` porte les comptes
+  OAuth liés.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
