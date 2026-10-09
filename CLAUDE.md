@@ -985,6 +985,18 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   servi par `vite preview`. Éprouvé : sans `VITE_COLLECT_URL`, le
   vérificateur sort en 1. ⚠️ Il ne fait qu'AVERTIR sur un `wss://` absent
   (normal pour un solo seul) : la CI l'exige par un `grep` à part.
+- **35 — Sécurité.** Production : 0 avis. Outils : `undici` (via jsdom, 11
+  avis dont 2 « high »), `source-map-js` (high), `@vitest/mocker`. ⚠️ **Le
+  verrou faisait PLANTER npm 10** (`Cannot read properties of null (reading
+  'edgesOut')`, dans `#loadPeerSet`) — `audit fix`, `update`, `install` :
+  tout. Résolu une fois par npm 11, après quoi npm 10 (celui de la CI)
+  repasse en `ci` comme en `install`. Correctifs : vitest 4.1.11 (même
+  mineure), `overrides` sur `undici` et `source-map-js`. En CI, l'audit de
+  PRODUCTION bloque dès « high » ; celui des outils n'avertit que — un avis
+  neuf peut tomber un matin sans rapport avec la PR. Éprouvé avec `ws@8.17.0`
+  posé dans une copie : code 1. Dependabot hebdomadaire, REGROUPÉ (un seul
+  relecteur). Historique git balayé : aucun motif de secret, aucun `.env`
+  jamais commité hors `.env.example`.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

@@ -32,6 +32,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # SÉCURITÉ (phase 5, point 35). Ce que reçoivent les joueurs et la machine
+      # Fly — les dépendances de production — BLOQUE dès un avis « high ». Les
+      # outils de développement ne tournent jamais en production : un avis neuf
+      # sur l'un d'eux peut tomber un matin sans aucun rapport avec la PR, donc
+      # il est AFFICHÉ, pas bloquant ; Dependabot ouvre la mise à jour.
+      - name: audit des dépendances de production
+        run: npm audit --omit=dev --audit-level=high
+      - name: audit des outils de développement (informatif)
+        run: npm audit --audit-level=high || echo "::warning::avis de sécurité sur un outil de développement — voir la sortie ci-dessus"
       - run: npm run lint
       - run: npx tsc --noEmit
       # Les tests ET le cliquet de couverture (point 21) : un seuil manqué rend 1.

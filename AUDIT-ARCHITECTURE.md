@@ -57,6 +57,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 32 | intégration | l'image Fly construite, lancée et sondée (santé, salon, origine, arrêt propre) |
 | 33 | E2E | l'e2e navigateur (vrai client, Chromium) rejoint l'e2e des salons en CI |
 | 34 | build | le build de PRODUCTION (variables posées, commande de `vercel.json`) passé au vérificateur de déploiement |
+| 35 | sécurité | 14 avis des outils corrigés, verrou qui plantait npm réparé ; audit de production bloquant en CI, Dependabot |
 
 ## 0. Méthode et état de départ
 
