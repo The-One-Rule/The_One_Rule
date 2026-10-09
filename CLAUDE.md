@@ -997,6 +997,16 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   posé dans une copie : code 1. Dependabot hebdomadaire, REGROUPÉ (un seul
   relecteur). Historique git balayé : aucun motif de secret, aucun `.env`
   jamais commité hors `.env.example`.
+- **36 — Préversion** (`.github/workflows/preversion.yml`). Sur chaque
+  `deployment_status` réussi hors production, la préversion VERCEL — le
+  paquet construit avec SES variables — passe à `check-deploy.mjs`. Une
+  préversion protégée répond 401 : le secret de dépôt
+  `VERCEL_AUTOMATION_BYPASS_SECRET` passe la porte (éprouvé sur un serveur
+  qui exige l'en-tête). ⚠️ **Le MULTI ne s'y joue pas, délibérément** : la
+  liste blanche refuse une adresse qui change à chaque commit, et un joker
+  `*.vercel.app` ouvrirait nos salons à N'IMPORTE QUEL projet Vercel. ⚠️ Non
+  vu tourner : cette session ne lit pas les déploiements du dépôt (403).
+  Sans l'intégration GitHub de Vercel, le flux ne se déclenche jamais.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
