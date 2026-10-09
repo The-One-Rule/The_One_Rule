@@ -24,7 +24,8 @@ import { join } from "node:path";
 const DOSSIER = "dist/assets";
 const PLAFONDS_GZIP = {
   index: 120 * 1024,
-  style: 45 * 1024,
+  // 41,3 → 36,6 Ko après le retrait des règles mortes (phase 4, point 27).
+  style: 39 * 1024,
   qr: 9 * 1024,
 };
 

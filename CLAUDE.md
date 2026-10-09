@@ -895,6 +895,25 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   `npm run taille` (en CI après le build) plafonne chaque morceau en gzip
   et refuse l'encodeur QR dans le paquet principal. Éprouvé avec un
   `import` statique de `render/qr.ts`. Un plafond se relève, avec sa raison.
+- **27 — CSS.** 100 classes que ni le HTML ni le code ne nomment, reliques
+  d'écrans retirés (`onb`, `faille`, `fissure`, `codexrow`, `but__`,
+  `etat__`, `mur__`…) : 238 règles, 49 Ko (41,3 → 36,6 Ko gzip, 1 867 →
+  1 682 règles). Le temps de calcul des styles ne bouge PAS de façon
+  mesurable (dans le bruit au ×4) : le gain est en octets et en lecture.
+  ⚠️ **Le premier scan était faux** : `carte is-${etat}` fabrique
+  `is-maitrisee`, et un motif qui ne voyait que les gabarits en début de
+  chaîne l'aurait supprimée. Le scan relève désormais chaque fragment avant
+  un `${`. ⚠️ **La preuve n'est PAS une capture d'écran** : deux passages
+  du même code différaient sur 80 captures sur 80 (hasard, canvas). Elle
+  est une EMPREINTE des styles calculés de chaque élément visible, 80
+  écrans (10 routes dont le salon, 375 et 1280, clair et sombre, nouveau
+  venu et vétéran), avec hasard figé et SANS les propriétés `--*` —
+  `--field-top` et `--or` varient au minutage, et par héritage elles
+  faisaient diverger tous les éléments. Stable 8 878/8 878 d'un passage à
+  l'autre, puis 8 878/8 878 identiques après le retrait. Les deux feuilles
+  sont des SOUS-SUITES exactes des anciennes : rien d'ajouté.
+  ⚠️ Les §7 « La faille » et « La couche pixel » décrivent des composants
+  dont les règles sont parties : à corriger en phase 6 (docs).
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

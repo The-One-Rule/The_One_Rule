@@ -607,20 +607,6 @@ body {
   text-align: center;
 }
 
-.bienvenue__eyebrow {
-  margin: 0;
-  align-self: end;
-  font-family: var(--mono);
-  font-weight: 800;
-  font-size: var(--t-petit);
-  letter-spacing: 0.14em;
-  color: var(--signal);
-  background: var(--surface);
-  border: 2px solid var(--encre);
-  border-radius: 999px;
-  padding: 6px 14px;
-}
-
 .bienvenue__titre {
   margin: 0;
   font-family: var(--display);
@@ -2169,39 +2155,6 @@ body {
   box-shadow: 0 3px 0 var(--signal);
 }
 
-/* ---- Le mur des records ---- */
-.mur__cible,
-.mur__moi {
-  background: var(--surface);
-  border: var(--trait) solid var(--encre);
-  border-radius: var(--r-m);
-  box-shadow: var(--ombre);
-}
-
-.mur__cible {
-  background: var(--miel);
-}
-
-.mur__cible .mur__kicker {
-  color: var(--or);
-  font-weight: 800;
-}
-
-.mur__gros {
-  color: var(--encre);
-  font-weight: 700;
-}
-
-.mur__jauge {
-  height: 10px;
-  border-radius: 999px;
-  border: 2px solid var(--encre);
-  background: var(--surface);
-}
-
-.mur__jauge i {
-  border-radius: 999px;
-}
 
 /* ---- Le compte ---- */
 .cpt__cel,
@@ -3021,28 +2974,6 @@ body {
   gap: 8px;
 }
 
-.amis__code {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin: 6px 0 10px;
-}
-
-.amis__codequoi {
-  font-size: var(--t-micro);
-  letter-spacing: 0.12em;
-  color: var(--paper-dim);
-}
-
-.amis__codeval {
-  font-family: var(--display);
-  font-size: 22px;
-  letter-spacing: 0.16em;
-  color: var(--encre);
-}
-
 .amis__ajout {
   display: flex;
   flex-direction: column;
@@ -3469,10 +3400,6 @@ body {
 }
 
 /* La première ligne est le run du jour quand il existe : l'épreuve commune. */
-.records__ligne--jour .records__quoi {
-  color: var(--signal-pale);
-}
-
 #classement .mur__tete {
   text-align: center;
 }

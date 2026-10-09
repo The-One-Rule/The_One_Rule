@@ -2558,13 +2558,6 @@ body {
   font-size: var(--t-petit);
 }
 
-.lobbyrow__acts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
-}
-
 .screen__scroll {
   width: 100%;
   max-width: 560px;
@@ -3946,13 +3939,6 @@ body {
   flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-}
-
-.btn--pref {
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
-  color: var(--paper-dim);
-  opacity: 0.85;
 }
 
 /* Puces d'état */
@@ -5366,24 +5352,12 @@ button.chip:active:not(:disabled) {
   image-rendering: pixelated;
 }
 
-.carte__corps {
-  flex: 1 1 auto;
-  padding: var(--sp-2) var(--sp-2) 0;
-}
-
 .carte__nom {
   margin: 0;
   font-family: var(--display);
   font-size: var(--t-base);
   letter-spacing: var(--ls-base, 0.04em);
   color: var(--paper);
-}
-
-.carte__brief {
-  margin: 6px 0 0;
-  font-size: var(--t-micro);
-  line-height: 1.45;
-  color: var(--paper-dim);
 }
 
 .carte__etat {
@@ -5426,101 +5400,6 @@ button.chip:active:not(:disabled) {
 .carte.is-maitrisee .carte__etat {
   color: var(--signal-pale);
   border-top-color: var(--signal);
-}
-
-
-
-.codexrow {
-  display: block;
-  padding: var(--sp-2) var(--sp-3);
-  background: var(--ink-2);
-  border: var(--bd-hair) solid var(--line);
-  border-left: var(--bd-frame) solid var(--line);
-  text-align: left;
-  transition: border-color var(--d-fast) linear;
-}
-
-/* Jamais rencontrée : la fiche est vide, et elle en a l'air. */
-.codexrow.is-locked {
-  background: none;
-  border-left-color: var(--line);
-  border-style: dashed;
-}
-
-/* Rencontrée : elle existe. */
-.codexrow:not(.is-locked) {
-  border-left-color: var(--paper-dim);
-}
-
-/* Tenue jusqu'au bout : c'est le seul trophée du jeu solo. */
-.codexrow.is-cleared {
-  border-left-color: var(--ok);
-}
-
-.codexrow__head {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.codexrow__brief {
-  display: block;
-  font-family: var(--display);
-  font-weight: 500;
-  font-size: var(--t-lire);
-  line-height: 1.5;
-  letter-spacing: var(--ls-lire);
-  color: var(--paper-dim);
-  max-width: 62ch;
-}
-
-.codexrow__brief:not(:empty) {
-  margin-top: 5px;
-}
-
-.codexrow__name {
-  flex: 1 1 auto;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.02em;
-}
-
-.codexrow__score {
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  color: var(--paper-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * Règle jamais rencontrée : le nom est MASQUÉ, pas écrit en gris.
- *
- * Les tirets étaient du texte en `--line` sur `--ink`, soit 1,46:1. Cacher
- * une information en la rendant illisible fonctionne, mais c'est du texte
- * invisible : n'importe quel audit le signale à juste titre, et rien ne dit
- * que c'est délibéré. Une barre de censure le dit — elle se voit, elle
- * s'explique toute seule, et il n'y a plus de contraste à mesurer puisqu'il
- * n'y a plus de texte affiché. Les tirets restent dans le document pour les
- * lecteurs d'écran, à côté du « JAMAIS RENCONTRÉE » qui, lui, est lisible.
- */
-.codexrow.is-locked .codexrow__name {
-  color: transparent;
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--line) 0 5px,
-    transparent 5px 10px
-  );
-  border: var(--bd-hair) solid var(--line);
-  padding: 2px var(--sp-2);
-}
-
-.codexrow.is-locked .codexrow__score {
-  color: var(--paper-dim);
-}
-
-.codexrow.is-cleared .codexrow__score {
-  color: var(--signal-pale);
 }
 
 /* Annonce de palier — jalon de progression dans un run */
@@ -5906,14 +5785,6 @@ button.chip:active:not(:disabled) {
     0 calc(var(--px) * -1) 0 0 var(--ink-2);
 }
 
-.marches--signal {
-  box-shadow:
-    var(--px) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    calc(var(--px) * -1) 0 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    0 var(--px) 0 0 color-mix(in srgb, var(--signal) 30%, transparent),
-    0 calc(var(--px) * -1) 0 0 color-mix(in srgb, var(--signal) 30%, transparent);
-}
-
 /*
  * Le rendu net des images et des SVG d'interface.
  *
@@ -5942,62 +5813,6 @@ button.chip:active:not(:disabled) {
   /* Rien à neutraliser ici : la couche est entièrement statique. C'est
      délibéré — un grain qui bouge devient du bruit, et le jeu se joue en
      200 ms de lecture. */
-}
-
-/* ==================================================================
- * JOUER — la reponse par defaut
- *
- * Mesure : 92 % des nouveaux joueurs n'ont jamais atteint une manche, et il
- * fallait TROIS gestes pour y arriver. Ce bouton en retire un et donne a
- * l'ecran une action evidente.
- *
- * Il domine la faille SANS la remplacer : la hierarchie se lit « on joue, ou
- * on choisit ». Un troisieme bouton de meme poids aurait casse la
- * composition a deux faces, qui est l'identite de l'accueil.
- * ================================================================== */
-.btnrow--play {
-  justify-content: center;
-  margin-bottom: var(--sp-3);
-}
-
-/*
- * LANCEMENT — cadre d'accent, jamais un aplat.
- *
- * C'est la variante la plus forte du systeme, et elle se distingue du primaire
- * autrement que par la taille : le primaire est un APLAT de papier, celui-ci
- * est un CADRE. Deux objets qu'on ne confond pas d'un coup d'oeil, meme
- * cote a cote.
- *
- * Il surcharge `.btn--primary` que porte le meme bouton : l'aplat papier
- * cederait sinon au cadre et on aurait les deux a moitie.
- */
-.btn--play,
-.btn--primary.btn--play {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(20px, 4vw, 28px);
-  letter-spacing: 0.04em;
-  padding: var(--sp-3) clamp(40px, 12vw, 96px);
-  min-height: 60px;
-  background: color-mix(in srgb, var(--signal) 12%, transparent);
-  border: 4px solid var(--signal);
-  color: var(--paper);
-  box-shadow: 4px 4px 0 color-mix(in srgb, var(--signal) 45%, transparent);
-}
-
-.btn--play:hover,
-.btn--primary.btn--play:hover,
-.btn--play:focus-visible,
-.btn--primary.btn--play:focus-visible {
-  background: color-mix(in srgb, var(--signal) 24%, transparent);
-  border-color: var(--signal-pale);
-  color: var(--paper);
-}
-
-.btn--play:active,
-.btn--primary.btn--play:active {
-  box-shadow: none;
-  transform: translate(4px, 4px);
 }
 
 /* ==================================================================
@@ -6255,156 +6070,6 @@ button.chip:active:not(:disabled) {
     0 0 0 calc(var(--px) * 2) color-mix(in srgb, var(--ink) 90%, transparent);
 }
 
-.faille__zone {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: block;
-  border: 0;
-  padding: clamp(20px, 4vw, 44px);
-  background-color: var(--ink-2);
-  color: var(--paper);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  background-image:
-    repeating-linear-gradient(
-      45deg,
-      var(--grain) 0,
-      var(--grain) 1px,
-      transparent 1px,
-      transparent var(--px)
-    ),
-    repeating-linear-gradient(
-      -45deg,
-      var(--grain) 0,
-      var(--grain) 1px,
-      transparent 1px,
-      transparent var(--px)
-    );
-  transition:
-    clip-path 320ms cubic-bezier(0.2, 0.9, 0.3, 1),
-    background-color 200ms ease-out,
-    filter 220ms ease-out;
-}
-
-/*
- * LA DÉCHIRURE.
- *
- * Horizontale à toutes les tailles : c'est elle l'identité, et une forme qui
- * change d'axe selon l'écran n'en est pas une.
- *
- * Ce n'est PAS un zigzag. Le relevé de la version précédente le montrait :
- * une amplitude constante d'un cran à l'autre se lit comme une frise
- * décorative, jamais comme une cassure. Ici les segments sont presque plats
- * et coupés de MARCHES verticales franches — deux points à la même abscisse —
- * et la fente s'ouvre jusqu'à 5,6 % de la hauteur pour se refermer à 2 %. Une
- * fente de largeur constante est une bordure ; une fente qui respire est une
- * cassure.
- *
- * Repos et poussées portent le MÊME nombre de points, dans le même ordre :
- * c'est la condition pour que `clip-path` s'interpole. Un point de plus et la
- * transition devient une bascule sèche.
- */
-.faille__zone--solo {
-  clip-path: polygon(
-    0% 0%, 100% 0%, 100% 47.5%, 95% 45.5%,
-    90% 46.2%, 90% 53%, 86% 54.5%, 81% 48.2%,
-    76% 49%, 76% 57%, 71% 52%, 66% 53.5%,
-    66% 45.8%, 62% 44.5%, 57% 50.4%, 52% 52%,
-    52% 47.2%, 48% 46.5%, 43% 55%, 38% 56.5%,
-    38% 48.8%, 34% 47.5%, 29% 54.2%, 24% 55.8%,
-    24% 51.5%, 19% 46%, 14% 46.8%, 14% 54%,
-    9% 48.2%, 4% 49.5%, 4% 45%, 0% 45%
-  );
-}
-
-.faille__zone--multi {
-  clip-path: polygon(
-    0% 49.2%, 4% 49.2%, 4% 51.9%, 9% 51.2%,
-    14% 59.6%, 14% 49%, 19% 48.6%, 24% 56.3%,
-    24% 57.8%, 29% 57.6%, 34% 52.7%, 38% 51.1%,
-    38% 60.3%, 43% 60%, 48% 49%, 52% 51.6%,
-    52% 54.1%, 57% 53.6%, 62% 49.9%, 66% 48%,
-    66% 57.5%, 71% 54.6%, 76% 61.6%, 76% 51.3%,
-    81% 51.8%, 86% 59.7%, 90% 55.4%, 90% 49.2%,
-    95% 50.3%, 100% 51.5%, 100% 100%, 0% 100%
-  );
-  background-color: color-mix(in srgb, var(--ink-2) 62%, var(--ink) 38%);
-}
-
-/*
- * L'ARÊTE DE LA CASSURE.
- *
- * `drop-shadow` et non un dégradé, et c'est un choix mesuré. Premier essai :
- * un dégradé peint DANS la face, éteint au loin et vif près de la fente.
- * Résultat à 1440 × 900 — une nappe lavande de 250 px de haut sur toute la
- * largeur, c'est-à-dire un dégradé mou, exactement ce que l'identité
- * refuse. Le dégradé est vertical dans une boîte de 470 px, alors que
- * l'arête à éclairer, elle, serpente : aucun réglage de stops ne pouvait
- * donner un liseré fin qui SUIT la découpe.
- *
- * `drop-shadow`, lui, suit le `clip-path`. Décalé d'un module vers la fente
- * et sans flou, il dessine une arête vive le long de la déchirure — du verre
- * cassé, pas une jointure éclairée. Il porte aussi sur le pourtour
- * extérieur, ce qui donne au composant son liseré de cadre sans un nœud de
- * plus.
- */
-.faille__zone--solo {
-  filter: drop-shadow(0 2px 0 color-mix(in srgb, var(--signal-pale) 70%, transparent));
-}
-
-.faille__zone--multi {
-  filter: drop-shadow(0 -2px 0 color-mix(in srgb, var(--signal-pale) 62%, transparent));
-}
-
-/* Un voile très léger reste utile : il donne du volume aux deux faces, qui
-   sans lui sont deux aplats. Assez faible pour ne pas se lire comme un
-   dégradé — c'est de l'ombre, pas de la couleur. */
-.faille__zone::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.8;
-  transition: opacity 220ms ease-out;
-}
-
-/*
- * Le voile, plus les HACHURES du coin opposé au texte.
- *
- * Chaque face avait un côté entièrement vide : le texte de SOLO est en haut à
- * gauche, celui de MULTI en bas à droite, donc la moitié de chaque surface ne
- * portait rien. Les hachures y posent la même signature que le filet du logo,
- * et l'axe qu'elles dessinent traverse la composition en diagonale au lieu de
- * la laisser tomber d'un seul côté.
- */
-.faille__zone--solo::after {
-  background:
-    repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px)
-      right calc(var(--px) * 5) top 0 / 6px 46% no-repeat,
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, #000 46%, transparent) 0%,
-      transparent 40%,
-      transparent 82%,
-      color-mix(in srgb, var(--signal) 14%, transparent) 100%
-    );
-}
-
-.faille__zone--multi::after {
-  background:
-    repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px)
-      left calc(var(--px) * 5) bottom 0 / 6px 42% no-repeat,
-    linear-gradient(
-      to top,
-      color-mix(in srgb, #000 32%, transparent) 0%,
-      transparent 38%,
-      transparent 84%,
-      color-mix(in srgb, var(--signal) 12%, transparent) 100%
-    );
-}
-
 /*
  * LA MATIÈRE DES FACES.
  *
@@ -6413,29 +6078,6 @@ button.chip:active:not(:disabled) {
  * ce qui empêche les deux faces de ressembler à deux aplats : on doit sentir
  * que ce sont deux MONDES, pas deux rectangles de couleurs voisines.
  */
-.faille__zone::before {
-  content: "";
-  position: absolute;
-  inset: -20%;
-  pointer-events: none;
-  opacity: 0.75;
-  background-image: repeating-linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--paper) 8%, transparent) 0,
-    color-mix(in srgb, var(--paper) 8%, transparent) 1px,
-    transparent 1px,
-    transparent calc(var(--px) * 3)
-  );
-}
-
-.faille__zone--solo::before {
-  animation: faille-scan-bas 9000ms linear infinite;
-}
-
-.faille__zone--multi::before {
-  animation: faille-scan-haut 11000ms linear infinite;
-}
-
 @keyframes faille-scan-bas {
   from {
     transform: translateY(0);
@@ -6454,198 +6096,7 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* ---- le contenu, ancré dans sa bande ---- */
-
-.faille__corps {
-  position: absolute;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  /* `86 %` autant que `44ch` : le corps est en position absolue, donc rien
-     ne le retient au bord opposé. Mesuré sur 390 × 844, la description de
-     SOLO touchait le bord droit de la face. */
-  max-width: min(44ch, 86%);
-}
-
-.faille__zone--solo .faille__corps {
-  left: clamp(20px, 4vw, 44px);
-  top: clamp(20px, 4vw, 44px);
-}
-
-.faille__zone--multi .faille__corps {
-  right: clamp(20px, 4vw, 44px);
-  bottom: clamp(20px, 4vw, 44px);
-  align-items: flex-end;
-  text-align: right;
-}
-
-.faille__titre {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(38px, 8.5vw, 76px);
-  letter-spacing: -0.035em;
-  line-height: 0.9;
-  /* L'ombre d'un module, sans flou : celle d'un titre d'écran-titre. */
-  text-shadow:
-    var(--px) var(--px) 0 color-mix(in srgb, var(--ink) 85%, transparent),
-    0 0 38px color-mix(in srgb, var(--signal) 30%, transparent);
-  transition: color 200ms ease-out;
-}
-
-.faille__desc {
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base, 0.04em);
-  /* Plus clair que `--paper-dim` : sur la face SOLO survolée, dont le fond
-     monte à #3F4167, la couleur de texte secondaire tombait à 2,9:1. Ici,
-     7:1 — et c'est la première phrase que lit quelqu'un qui arrive. */
-  color: color-mix(in srgb, var(--paper) 72%, var(--paper-dim));
-  max-width: 42ch;
-}
-
-.faille__etat {
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  color: var(--paper-dim);
-}
-
-/* L'état porte la marque dentelée des intitulés : c'est la même famille
-   d'information, et ça relie la vitrine au reste du site. */
-.faille__etat:not(:empty)::before {
-  content: "";
-  display: inline-block;
-  width: var(--px);
-  height: 0.85em;
-  margin-right: calc(var(--px) * 2);
-  vertical-align: -0.08em;
-  background: var(--signal);
-  mask-image: repeating-linear-gradient(
-    to bottom,
-    #000 0,
-    #000 2px,
-    transparent 2px,
-    transparent 4px
-  );
-}
-
 /* ---- survol : le monde touché POUSSE l'autre ---- */
-
-/*
- * La cassure se déplace vers la face qu'on ne survole pas.
- *
- * C'est le geste central du composant : on ne se contente pas d'éclairer la
- * moitié touchée, elle GAGNE du terrain. Les deux découpes se décalent de 4,5
- * points dans le même sens, et le calque de la fissure suit d'autant — d'où
- * la translation exprimée en pourcentage de la faille, et non en pixels.
- */
-.faille__zone:hover,
-.faille__zone:focus-visible {
-  outline: none;
-  z-index: 2;
-}
-
-.faille__zone:hover::after,
-.faille__zone:focus-visible::after {
-  opacity: 1;
-}
-
-/* 32 %, et pas moins : SOLO porte déjà `--primary` à 22 % quand c'est la
-   porte évidente du moment. Un survol à 16 % la DÉCOLORAIT — mesuré à
-   l'écran, la face pâlissait sous le curseur au lieu de chauffer. */
-.faille:has(.faille__zone--solo:hover) .faille__zone--solo,
-.faille:has(.faille__zone--solo:focus-visible) .faille__zone--solo {
-  background-color: color-mix(in srgb, var(--ink-2) 66%, var(--signal) 34%);
-  filter: drop-shadow(0 2px 0 var(--signal-pale))
-    drop-shadow(0 6px 10px color-mix(in srgb, var(--signal) 45%, transparent));
-  clip-path: polygon(
-    0% 0%, 100% 0%, 100% 52%, 95% 50%,
-    90% 50.7%, 90% 57.5%, 86% 59%, 81% 52.7%,
-    76% 53.5%, 76% 61.5%, 71% 56.5%, 66% 58%,
-    66% 50.3%, 62% 49%, 57% 54.9%, 52% 56.5%,
-    52% 51.7%, 48% 51%, 43% 59.5%, 38% 61%,
-    38% 53.3%, 34% 52%, 29% 58.7%, 24% 60.3%,
-    24% 56%, 19% 50.5%, 14% 51.3%, 14% 58.5%,
-    9% 52.7%, 4% 54%, 4% 49.5%, 0% 49.5%
-  );
-}
-
-.faille:has(.faille__zone--solo:hover) .faille__zone--multi,
-.faille:has(.faille__zone--solo:focus-visible) .faille__zone--multi {
-  clip-path: polygon(
-    0% 53.7%, 4% 53.7%, 4% 56.4%, 9% 55.7%,
-    14% 64.1%, 14% 53.5%, 19% 53.1%, 24% 60.8%,
-    24% 62.3%, 29% 62.1%, 34% 57.2%, 38% 55.6%,
-    38% 64.8%, 43% 64.5%, 48% 53.5%, 52% 56.1%,
-    52% 58.6%, 57% 58.1%, 62% 54.4%, 66% 52.5%,
-    66% 62%, 71% 59.1%, 76% 66.1%, 76% 55.8%,
-    81% 56.3%, 86% 64.2%, 90% 59.9%, 90% 53.7%,
-    95% 54.8%, 100% 56%, 100% 100%, 0% 100%
-  );
-}
-
-/*
- * MULTI s'ENFONCE, quand SOLO s'éclaire.
- *
- * Premier essai : les deux faces s'éclaircissaient au survol. Résultat à
- * l'écran — SOLO porte déjà `--primary`, donc les deux devenaient le même
- * lavande et les « deux mondes » se confondaient précisément au moment où on
- * les regarde. Ils réagissent maintenant en sens inverse : l'un monte vers
- * la lumière, l'autre descend vers l'ombre, et c'est l'arête qui porte la
- * chaleur de ce côté-là.
- */
-.faille:has(.faille__zone--multi:hover) .faille__zone--multi,
-.faille:has(.faille__zone--multi:focus-visible) .faille__zone--multi {
-  background-color: #090d16;
-  filter: drop-shadow(0 -2px 0 var(--signal-pale))
-    drop-shadow(0 -6px 10px color-mix(in srgb, var(--signal) 55%, transparent));
-  clip-path: polygon(
-    0% 44.7%, 4% 44.7%, 4% 47.4%, 9% 46.7%,
-    14% 55.1%, 14% 44.5%, 19% 44.1%, 24% 51.8%,
-    24% 53.3%, 29% 53.1%, 34% 48.2%, 38% 46.6%,
-    38% 55.8%, 43% 55.5%, 48% 44.5%, 52% 47.1%,
-    52% 49.6%, 57% 49.1%, 62% 45.4%, 66% 43.5%,
-    66% 53%, 71% 50.1%, 76% 57.1%, 76% 46.8%,
-    81% 47.3%, 86% 55.2%, 90% 50.9%, 90% 44.7%,
-    95% 45.8%, 100% 47%, 100% 100%, 0% 100%
-  );
-}
-
-.faille:has(.faille__zone--multi:hover) .faille__zone--solo,
-.faille:has(.faille__zone--multi:focus-visible) .faille__zone--solo {
-  clip-path: polygon(
-    0% 0%, 100% 0%, 100% 43%, 95% 41%,
-    90% 41.7%, 90% 48.5%, 86% 50%, 81% 43.7%,
-    76% 44.5%, 76% 52.5%, 71% 47.5%, 66% 49%,
-    66% 41.3%, 62% 40%, 57% 45.9%, 52% 47.5%,
-    52% 42.7%, 48% 42%, 43% 50.5%, 38% 52%,
-    38% 44.3%, 34% 43%, 29% 49.7%, 24% 51.3%,
-    24% 47%, 19% 41.5%, 14% 42.3%, 14% 49.5%,
-    9% 43.7%, 4% 45%, 4% 40.5%, 0% 40.5%
-  );
-}
-
-.faille__zone:hover .faille__titre,
-.faille__zone:focus-visible .faille__titre {
-  color: var(--signal-pale);
-}
-
-.faille__zone:hover .faille__etat,
-.faille__zone:focus-visible .faille__etat {
-  color: var(--signal-pale);
-}
-
-.faille__zone--primary {
-  background-color: color-mix(in srgb, var(--ink-2) 78%, var(--signal) 22%);
-}
-
-.faille__zone:disabled {
-  cursor: not-allowed;
-  filter: grayscale(0.65) brightness(0.65);
-}
-
-.faille__zone:disabled:hover {
-  filter: grayscale(0.65) brightness(0.65);
-}
 
 /* ==================================================================
  * LA FISSURE — la vitrine
@@ -6683,58 +6134,6 @@ button.chip:active:not(:disabled) {
 
 /* ---- l'abime : le vide, et ce qu'on voit au fond ---- */
 
-/*
- * Le ruban est le COMPLEMENT exact des deux faces : sa levre haute est la
- * ligne basse de SOLO, sa levre basse la ligne haute de MULTI. Ce qu'on
- * voit a travers n'est donc ni SOLO ni MULTI — c'est ce qui se trouve
- * derriere l'objet, et c'est ce qui fait lire une cassure plutot qu'une
- * jointure.
- *
- * Le degrade est HORIZONTAL, pas vertical : la fente serpente entre 44 et
- * 61 % de la hauteur, donc un degrade vertical donnerait une couleur qui
- * depend de l'altitude du cran — clair en bas, sombre en haut, sans aucun
- * sens. Sur l'axe long, les zones chaudes et froides se lisent au contraire
- * comme de la matiere en fusion inegale.
- */
-.fissure__abime {
-  position: absolute;
-  inset: 0;
-  clip-path: var(--ruban);
-  /*
-   * NOIR DOMINANT, poches chaudes localisées.
-   *
-   * Premier essai : chaud et sombre à parts égales. Le ruban se lisait comme
-   * un ruban CLAIR posé sur l'objet — l'inverse d'un vide. Un abîme est noir
-   * d'abord ; la lumière n'y est que par endroits, et c'est ce contraste qui
-   * donne la profondeur. Les stops sont rapprochés : des poches franches, pas
-   * un dégradé qui fond de l'une à l'autre.
-   */
-  background:
-    linear-gradient(
-      90deg,
-      #07040f 0%,
-      color-mix(in srgb, var(--signal) 88%, #fff) 7%,
-      var(--signal-pale) 10%,
-      #07040f 16%,
-      #07040f 22%,
-      var(--signal) 28%,
-      color-mix(in srgb, var(--signal-pale) 90%, #fff) 31%,
-      #07040f 36%,
-      #07040f 44%,
-      color-mix(in srgb, var(--signal-pale) 80%, #fff) 50%,
-      var(--signal) 53%,
-      #07040f 58%,
-      #07040f 66%,
-      var(--signal-pale) 72%,
-      color-mix(in srgb, var(--signal) 70%, #000) 76%,
-      #07040f 81%,
-      #07040f 88%,
-      color-mix(in srgb, var(--signal-pale) 95%, #fff) 93%,
-      var(--signal) 96%,
-      #07040f 100%
-    );
-}
-
 /* ---- le balayage : une lumiere qui parcourt la fente ---- */
 
 /*
@@ -6745,24 +6144,6 @@ button.chip:active:not(:disabled) {
  * milieu du fond. Clippe au ruban, il ne peut plus exister que dans la
  * fente — ce qui est aussi la seule place qui ait un sens.
  */
-.fissure__fenetre {
-  position: absolute;
-  inset: 0;
-  clip-path: var(--ruban);
-}
-
-.fissure__balayage {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    transparent 38%,
-    color-mix(in srgb, var(--paper) 82%, transparent) 50%,
-    transparent 62%
-  );
-  animation: fissure-balaye 4800ms linear infinite;
-}
-
 @keyframes fissure-balaye {
   0% {
     transform: translateX(-75%);
@@ -6770,57 +6151,6 @@ button.chip:active:not(:disabled) {
   100% {
     transform: translateX(75%);
   }
-}
-
-/* ---- les particules ---- */
-
-.fissure__arcs,
-.fissure__braises,
-.fissure__debris,
-.fissure__eclats,
-.fissure__traverse,
-.fissure__sortie {
-  position: absolute;
-  inset: 0;
-}
-
-/*
- * Chaque particule porte SON abscisse et SON ordonnee, posees sur la ligne
- * de cassure. Un `top: 50%` uniforme en aurait fait naitre la moitie au
- * milieu d'une face, a vingt pixels de la fente : la cassure serpente entre
- * 44 et 61 %, elle n'a pas d'altitude unique.
- */
-.fissure__arcs i,
-.fissure__braises i,
-.fissure__debris i,
-.fissure__eclats i,
-.fissure__traverse i,
-.fissure__sortie i {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  opacity: 0;
-}
-
-/* Les arcs : un eclair court en travers de la cassure. `steps()` donne le
-   flash franc — un fondu ferait « lampe », pas « decharge ». */
-.fissure__arcs i {
-  width: clamp(28px, 4vw, 58px);
-  height: 2px;
-  margin-left: -14px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--paper) 45%,
-    var(--signal-pale) 55%,
-    transparent
-  );
-  animation: arc 4200ms steps(4, end) infinite;
-  animation-delay: calc(var(--i) * -830ms);
-}
-
-.fissure__arcs i:nth-child(even) {
-  animation-duration: 5600ms;
 }
 
 /*
@@ -6855,36 +6185,8 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* Les braises. Le fond visuel de la fente : nombreuses, et jamais
-   synchronisees — le delai negatif les prend chacune en cours de route. */
-.fissure__braises i {
-  width: calc(var(--px) * 1.5);
-  height: calc(var(--px) * 1.5);
-  background: var(--signal-pale);
-  box-shadow: 0 0 6px color-mix(in srgb, var(--signal-pale) 80%, transparent);
-  animation: braise-haut 2200ms steps(7, end) infinite;
-  animation-delay: calc(var(--i) * -173ms);
-}
-
-/* Une braise sur trois tombe : une cassure emet des deux cotes. */
-.fissure__braises i:nth-child(3n) {
-  animation-name: braise-bas;
-  background: var(--signal);
-}
-
 /* Une sur quatre est plus grosse et plus lente : c'est ce qui donne de la
    profondeur a un nuage de points tous identiques. */
-.fissure__braises i:nth-child(4n) {
-  width: calc(var(--px) * 2.5);
-  height: calc(var(--px) * 2.5);
-  animation-duration: 3600ms;
-}
-
-.fissure__braises i:nth-child(5n) {
-  background: var(--paper);
-  animation-duration: 3600ms;
-}
-
 @keyframes braise-haut {
   0% {
     transform: translate(0, 0) scale(1);
@@ -6918,20 +6220,6 @@ button.chip:active:not(:disabled) {
  * cernes plutot que pleins, ils tournent en tombant — c'est ce qui donne
  * l'idee que la cassure DETACHE des morceaux de l'objet.
  */
-.fissure__debris i {
-  width: calc(var(--px) * 3);
-  height: calc(var(--px) * 3);
-  border: 1px solid color-mix(in srgb, var(--signal-pale) 90%, transparent);
-  background: color-mix(in srgb, var(--signal) 18%, transparent);
-  animation: debris 5200ms cubic-bezier(0.3, 0, 0.7, 1) infinite;
-  animation-delay: calc(var(--i) * -775ms);
-}
-
-.fissure__debris i:nth-child(odd) {
-  animation-name: debris-haut;
-  animation-duration: 7400ms;
-}
-
 @keyframes debris {
   0% {
     transform: translate(0, 0) rotate(0deg);
@@ -6968,21 +6256,6 @@ button.chip:active:not(:disabled) {
 
 /* Les eclats : une etincelle qui claque, en croix. `steps()` pour le
    flash franc — un fondu ferait une lampe, pas une etincelle. */
-.fissure__eclats i {
-  width: 10px;
-  height: 10px;
-  margin: -5px 0 0 -5px;
-  background:
-    linear-gradient(var(--paper), var(--paper)) center / 10px 2px no-repeat,
-    linear-gradient(var(--signal-pale), var(--signal-pale)) center / 2px 10px no-repeat;
-  animation: eclat 2400ms steps(3, end) infinite;
-  animation-delay: calc(var(--i) * -310ms);
-}
-
-.fissure__eclats i:nth-child(odd) {
-  animation-duration: 3100ms;
-}
-
 @keyframes eclat {
   0%,
   100% {
@@ -7000,26 +6273,6 @@ button.chip:active:not(:disabled) {
 }
 
 /* Un eclat qui parcourt la fente : quelque chose court DERRIERE. */
-.fissure__traverse i {
-  width: 18px;
-  height: 3px;
-  margin-left: -9px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    var(--paper) 40%,
-    var(--signal-pale) 70%,
-    transparent
-  );
-  animation: traverse 3800ms linear infinite;
-  animation-delay: calc(var(--i) * -760ms);
-}
-
-.fissure__traverse i:nth-child(even) {
-  animation-name: traverse-retour;
-  animation-duration: 4600ms;
-}
-
 @keyframes traverse {
   0% {
     opacity: 0;
@@ -7048,65 +6301,7 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* ==================================================================
- * CE QUI SORT DE LA FISSURE — un monde par moitie
- *
- * Deux familles, et c'est tout l'interet : au survol de SOLO ce sont des
- * chevrons qui MONTENT — la progression, l'escalade, le record a battre
- * seul. Au survol de MULTI ce sont des lames qui TOMBENT — l'affrontement.
- * On doit sentir que les deux mondes derriere la cassure ne sont pas le
- * meme.
- *
- * Les pictogrammes sont des SVG en `data:` : aucun fichier, aucune requete,
- * et `crispEdges` les garde nets a n'importe quelle taille — le vocabulaire
- * pixel jusqu'au bout. Pas d'emoji : leur rendu change d'un systeme a
- * l'autre, et une epee qui devient un carre blanc chez un joueur sur trois
- * n'est pas un effet, c'est un bug.
- * ================================================================== */
-
-.fissure__sortie i {
-  width: 22px;
-  height: 28px;
-  margin-left: -11px;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  image-rendering: pixelated;
-}
-
-.fissure__sortie--solo i {
-  /* Un double chevron qui monte : la progression, l'escalade. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14' shape-rendering='crispEdges'%3E%3Cpath fill='%23cfc9f2' d='M6 0l6 6h-3v2H3V6H0z'/%3E%3Cpath fill='%239184d9' d='M6 7l6 6h-3v1H3v-1H0z'/%3E%3C/svg%3E");
-}
-
-.fissure__sortie--solo i:nth-child(3n) {
-  /* Une marche : le record a battre, un cran a la fois. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 14' shape-rendering='crispEdges'%3E%3Cpath fill='%23efeae0' d='M0 10h4v4H0z'/%3E%3Cpath fill='%23cfc9f2' d='M4 6h4v8H4z'/%3E%3Cpath fill='%239184d9' d='M8 2h4v12H8z'/%3E%3C/svg%3E");
-}
-
-.fissure__sortie--multi i {
-  /* Une lame, pointe en bas : elle tombe de la cassure. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23cfc9f2' d='M5 0h2v3H5z'/%3E%3Cpath fill='%239184d9' d='M2 3h8v2H2z'/%3E%3Cpath fill='%23efeae0' d='M5 5h2v8H5z'/%3E%3Cpath fill='%23cfc9f2' d='M5 13h2v3H6z'/%3E%3C/svg%3E");
-}
-
-.fissure__sortie--multi i:nth-child(3n) {
-  /* Deux lames croisees : ce n'est plus un duel, c'est une melee. */
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 16' shape-rendering='crispEdges'%3E%3Cpath fill='%23cfc9f2' d='M1 0h2v4H1zM11 0h2v4h-2z'/%3E%3Cpath fill='%239184d9' d='M0 4h4v2H0zM10 4h4v2h-4z'/%3E%3Cpath fill='%23efeae0' d='M5 6h2v8H5zM7 6h2v8H7z'/%3E%3C/svg%3E");
-}
-
 /* Elles ne s'allument qu'au survol de LEUR moitie. */
-.faille:has(.faille__zone--solo:hover) .fissure__sortie--solo i,
-.faille:has(.faille__zone--solo:focus-visible) .fissure__sortie--solo i {
-  animation: sortie-haut 1100ms ease-out infinite;
-  animation-delay: calc(var(--i) * -140ms);
-}
-
-.faille:has(.faille__zone--multi:hover) .fissure__sortie--multi i,
-.faille:has(.faille__zone--multi:focus-visible) .fissure__sortie--multi i {
-  animation: sortie-bas 1200ms ease-in infinite;
-  animation-delay: calc(var(--i) * -150ms);
-}
-
 @keyframes sortie-haut {
   0% {
     transform: translateY(8px) rotate(0deg) scale(0.4);
@@ -7133,109 +6328,6 @@ button.chip:active:not(:disabled) {
     transform: translateY(148px) rotate(32deg) scale(1.15);
     opacity: 0;
   }
-}
-
-/* ==================================================================
- * LA REACTION AU SURVOL
- *
- * La cassure se DEPLACE vers la face qu'on ne survole pas : le monde touche
- * pousse l'autre. C'est ce qui fait du survol un evenement plutot qu'un
- * changement de couleur, et c'est la meme translation que celle des deux
- * decoupes — sinon le vide ne coinciderait plus avec les levres.
- * ================================================================== */
-
-.faille:has(.faille__zone--solo:hover) .fissure,
-.faille:has(.faille__zone--solo:focus-visible) .fissure {
-  transform: translateY(4.5%);
-}
-
-.faille:has(.faille__zone--multi:hover) .fissure,
-.faille:has(.faille__zone--multi:focus-visible) .fissure {
-  transform: translateY(-4.5%);
-}
-
-/* Tout s'active : la lumiere passe plus souvent, les braises s'emballent.
-   Aucune duree n'est partagee entre les deux moities — c'est ce qui fait
-   sentir deux mondes distincts et pas un seul effet. */
-.faille:has(.faille__zone--solo:hover) .fissure__balayage {
-  animation-duration: 2600ms;
-}
-
-.faille:has(.faille__zone--multi:hover) .fissure__balayage {
-  animation-duration: 1900ms;
-}
-
-.faille:has(.faille__zone:hover) .fissure__braises i {
-  animation-duration: 1400ms;
-}
-
-.faille:has(.faille__zone:hover) .fissure__arcs i {
-  animation-duration: 1800ms;
-}
-
-.faille:has(.faille__zone:hover) .fissure__eclats i {
-  animation-duration: 900ms;
-}
-
-.faille:has(.faille__zone:hover) .fissure__traverse i {
-  animation-duration: 1600ms;
-}
-
-.faille:has(.faille__zone:hover) .fissure__debris i {
-  animation-duration: 2800ms;
-}
-
-/*
- * Deux mondes, deux lumieres.
- *
- * Au repos la fente est la meme. Au survol elle PREND parti : SOLO
- * blanchit — c'est l'escalade, la clarte d'un record. MULTI s'embrase
- * — plus de pale, plus de vif, le violet tient tout le ruban.
- */
-.faille:has(.faille__zone--solo:hover) .fissure__abime,
-.faille:has(.faille__zone--solo:focus-visible) .fissure__abime {
-  background:
-    linear-gradient(
-      90deg,
-      #0a0c14 0%,
-      var(--paper) 8%,
-      var(--signal-pale) 12%,
-      #0a0c14 18%,
-      #0a0c14 30%,
-      var(--paper) 38%,
-      var(--signal-pale) 42%,
-      #0a0c14 50%,
-      #0a0c14 62%,
-      var(--signal-pale) 70%,
-      var(--paper) 74%,
-      #0a0c14 82%,
-      #0a0c14 90%,
-      var(--paper) 96%,
-      #0a0c14 100%
-    );
-}
-
-.faille:has(.faille__zone--multi:hover) .fissure__abime,
-.faille:has(.faille__zone--multi:focus-visible) .fissure__abime {
-  background:
-    linear-gradient(
-      90deg,
-      #05030c 0%,
-      var(--signal) 6%,
-      var(--signal-pale) 10%,
-      #05030c 16%,
-      #05030c 24%,
-      var(--signal) 32%,
-      #efeae0 36%,
-      #05030c 42%,
-      #05030c 54%,
-      var(--signal-pale) 62%,
-      var(--signal) 66%,
-      #05030c 74%,
-      #05030c 84%,
-      var(--signal) 92%,
-      #05030c 100%
-    );
 }
 
 /* ==================================================================
@@ -7267,30 +6359,6 @@ button.chip:active:not(:disabled) {
   .faille::before,
   .fissure__abime {
     opacity: 1;
-  }
-
-  .fissure__balayage {
-    opacity: 0.18;
-  }
-
-  .fissure__arcs i {
-    opacity: 0.5;
-  }
-
-  .fissure__braises i {
-    opacity: 0.85;
-  }
-
-  .fissure__debris i {
-    opacity: 0.7;
-  }
-
-  .fissure__eclats i {
-    opacity: 0.65;
-  }
-
-  .fissure__traverse i {
-    opacity: 0.4;
   }
 
   /* Les faces gardent leur reaction de couleur : ce n'est pas du mouvement,
@@ -7329,13 +6397,6 @@ button.chip:active:not(:disabled) {
       transparent 1px,
       transparent var(--px)
     );
-}
-
-/* Une ligne, pas un paragraphe : l'ancienne faisait 39 mots et 262 px. */
-.lede--court {
-  max-width: 34ch;
-  margin-left: auto;
-  margin-right: auto;
 }
 
 /* ==================================================================
@@ -8231,18 +7292,6 @@ button.chip:active:not(:disabled) {
  * interrupteurs. Ils gardent leur discrétion — c'est une affaire de
  * contraste, jamais de cible — mais ils redeviennent des OBJETS.
  */
-.btn--pref {
-  background: color-mix(in srgb, var(--ink-2) 60%, transparent);
-  border-color: var(--line);
-}
-
-.btn--pref:hover,
-.btn--pref:focus-visible {
-  background: var(--paper);
-  border-color: var(--paper);
-  color: var(--ink);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .btn--primary,
   .btn--launch {
@@ -8551,179 +7600,6 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-.onb {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-/* Chaque temps est un bloc, un seul visible a la fois. */
-.onb__temps {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.onb__temps.hidden {
-  display: none;
-}
-
-.onb__titre {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 21px;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
-  color: var(--paper);
-}
-
-/* Le grand OUI / TU N'AS RIEN FAIT : le verdict avant l'explication. */
-.onb__oui {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  color: var(--signal-pale);
-}
-
-.onb__kicker {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--paper-dim);
-}
-
-/* Le cadre de la regle : le meme objet aux temps 1 et 4. */
-.onb__regle,
-.onb__carte {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
-  background: var(--ink-2);
-  border: 1px solid var(--line);
-  /* Le filet d'accent a GAUCHE : --signal est reserve a la regle unique et a
-     l'action evidente, et ici c'est bien la regle unique. */
-  border-left: 3px solid var(--signal);
-}
-
-.onb__nom {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 26px;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-}
-
-.onb__brief {
-  margin: 0;
-  font-size: var(--t-lire);
-  letter-spacing: var(--ls-lire);
-  line-height: 1.5;
-  color: var(--paper-dim);
-}
-
-/* Les deux cas, cote a cote quand la place le permet. */
-.onb__cas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.onb__cas1,
-.onb__cas2 {
-  /* Base nulle pour la part egale, plancher max-content pour ne jamais
-     ecraser un mot. La meme regle que la barre des allures. */
-  flex: 1 1 0;
-  min-width: max-content;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 14px;
-  background: var(--ink-2);
-  border: 1px solid var(--line);
-}
-
-.onb__cas2 {
-  border-color: var(--signal);
-}
-
-.onb__consigne {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 17px;
-  letter-spacing: 0.01em;
-  color: var(--paper);
-}
-
-.onb__consigne--piege {
-  color: var(--signal-pale);
-}
-
-.onb__verdict {
-  margin: 0;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
-  line-height: 1.45;
-  color: var(--paper-dim);
-}
-
-.onb__pied {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
-  line-height: 1.5;
-  color: var(--paper-dim);
-}
-
-/* L'embleme de la premiere carte, au temps 6. */
-.onb__embleme {
-  width: 96px;
-  height: 96px;
-}
-
-.onb__embleme svg,
-.onb__carte {
-  width: 100%;
-  height: 100%;
-  display: block;
-  /* La meme trame que partout ailleurs : une carte de 64 px agrandie doit
-     garder ses pixels francs, jamais un lissage. */
-  image-rendering: pixelated;
-}
-
-/* Le cadre de la carte, comme dans la collection : elle est un OBJET. */
-.onb__carte {
-  border: var(--bd-hair) solid var(--line);
-  background: var(--ink);
-}
-
-.onb__demo {
-  display: block;
-  width: 100%;
-  max-width: 200px;
-  height: 46px;
-  margin: 8px 0 0;
-}
-
-.onb__compte {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
-  color: var(--signal-pale);
-  font-variant-numeric: tabular-nums;
-}
-
 /* ------------------------------------------------------------------
    L'AIDE POSEE SUR LE TERRAIN — temps 3 et 5
 
@@ -8948,147 +7824,12 @@ button.chip:active:not(:disabled) {
     width: 100%;
   }
 
-  #home .but__chiffre {
-    font-size: 56px;
-    line-height: 1;
   }
-
-  #home .but__premier {
-    font-size: 30px;
-  }
-
-  /* La ligne qui pousse et le chiffre du joueur se rangent sur une meme
-     rangee : le premier interpelle, le second situe. */
-  #home .but__pousse {
-    margin-top: 10px;
-    font-size: var(--t-lire);
-  }
-
-  #home .but__sien {
-    margin-top: 6px;
-  }
-}
 
 /* Il occupe le CRENEAU du chapo : les deux ne paraissent jamais ensemble. */
 .but.hidden,
 #ledeHome.hidden {
   display: none;
-}
-
-/*
- * LES DEUX ETATS DE LA CARTE, et un seul a la fois.
- *
- * ⚠️ Chaque composant declare son propre masquage : il n'y a PAS de `.hidden`
- * generique dans cette feuille, et c'est delibere — une regle unique perdrait
- * la cascade contre les `display: flex` des composants.
- */
-.but__plein,
-.but__vide {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-}
-
-.but__plein.hidden,
-.but__vide.hidden {
-  display: none;
-}
-
-/*
- * LE BOUTON DE LA PLAQUE — sous les deux etats, jamais a cote.
- *
- * `margin-top: auto` le colle au bas de la plaque quel que soit l'etat affiche
- * au-dessus : l'etat plein et l'etat vide n'ont pas la meme hauteur, et un
- * bouton qui remonte d'une dizaine de pixels selon qu'un record existe ou non
- * se lit comme un defaut.
- */
-.but__go {
-  margin-top: 10px;
-  align-self: stretch;
-  justify-content: center;
-}
-
-/*
- * L'ETAT VIDE est une INVITATION, pas un trou.
- *
- * Il n'y a rien a battre aujourd'hui, donc il y a une place a prendre : le
- * bouton est la seule chose accentuee de la carte.
- */
-.but__premier {
-  margin: 4px 0 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 22px;
-  line-height: 1.1;
-  color: var(--paper);
-}
-
-.but__vide .btn {
-  margin-top: 12px;
-}
-
-.but__quoi {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--paper-dim);
-}
-
-/* Le chiffre est le sujet : c'est lui qu'on regarde, pas son etiquette. */
-.but__chiffre {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 30px;
-  line-height: 1.05;
-  letter-spacing: -0.02em;
-  color: var(--paper);
-  font-variant-numeric: tabular-nums;
-}
-
-/*
- * ⚠️ LE MODE, TOUJOURS SOUS LE CHIFFRE.
- *
- * Le run du jour et l'entrainement ne sont pas la meme epreuve : meme graine et
- * meme regle pour tout le monde d'un cote, regle choisie et allure reglable de
- * l'autre. C'est ce que la cle de comparabilite separe cote serveur, et l'ecran
- * ne doit pas defaire ce que le stockage protege.
- */
-.but__mode {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--signal-pale);
-}
-
-/* Son propre chiffre A COTE de la cible, jamais a la place : c'est ce qui rend
-   la cible comparable au lieu de l'opposer. */
-.but__sien {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  color: var(--paper-dim);
-  font-variant-numeric: tabular-nums;
-}
-
-.but__sien:empty {
-  display: none;
-}
-
-.but__pousse {
-  margin: 0;
-  font-size: var(--t-petit);
-  letter-spacing: var(--ls-petit);
-  line-height: 1.4;
-  color: var(--signal-pale);
-  /* La ligne porte deux informations separees par un point median — elle doit
-     pouvoir se casser proprement sur un telephone plutot que deborder. */
-  max-width: 34ch;
-  text-wrap: balance;
 }
 
 /* ==================================================================
@@ -9281,37 +8022,6 @@ button.chip:active:not(:disabled) {
   );
 }
 
-/* ------------------------------------------------------------------
-   LA JAUGE — six pastilles, jamais un pourcentage
-
-   « 72 % » ne se joue pas ; « il te manque 4 manches pour la case suivante »
-   se joue. Un pourcentage est un thermometre, six cases sont une liste de
-   courses.
-   ------------------------------------------------------------------ */
-
-.carte__jauge {
-  display: flex;
-  gap: 3px;
-  padding: 0 var(--sp-2) var(--sp-2);
-}
-
-.carte__jauge i {
-  flex: 1 1 0;
-  height: 4px;
-  background: var(--line);
-}
-
-.carte__jauge i.is-on {
-  background: var(--signal);
-}
-
-/* Une carte verrouillee ne montre AUCUNE case : le nombre d'etapes deja
-   franchies sur une regle jamais rencontree serait toujours zero, et six
-   segments eteints se lisent comme une fonctionnalite cassee. */
-.carte.is-verrouillee .carte__jauge {
-  visibility: hidden;
-}
-
 /* PARFAITE — les six cases. Le seul etat qui gagne un cadre d'accent plein :
    il doit se voir de loin dans une grille de seize. */
 .carte.is-parfaite {
@@ -9321,10 +8031,6 @@ button.chip:active:not(:disabled) {
 
 .carte.is-parfaite .carte__etat {
   color: var(--signal-pale);
-}
-
-.carte.is-parfaite .carte__jauge i {
-  background: var(--signal);
 }
 
 /* ==================================================================
@@ -9891,16 +8597,6 @@ button.chip:active:not(:disabled) {
   position: relative;
 }
 
-.nav__item.a-faire::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  right: 22%;
-  width: 6px;
-  height: 6px;
-  background: var(--ambre);
-}
-
 /*
  * LA PLACE QU'ELLE OCCUPE, RENDUE AU CONTENU.
  *
@@ -9925,10 +8621,6 @@ button.chip:active:not(:disabled) {
  * fiche et les reglages. Sa disparition rend en prime 74 px de hauteur a
  * l'accueil, qui en manquait.
  */
-#home .btnrow--play {
-  display: none;
-}
-
 @media (min-width: 900px) {
   /* En large, la barre reste centree sur la colonne du contenu plutot que de
      s'etirer sur toute la fenetre : cinq destinations etalees sur 1280 px
@@ -9942,7 +8634,6 @@ button.chip:active:not(:disabled) {
     border-right: var(--bd-hair) solid var(--line);
   }
 }
-
 
 /* ==================================================================
    CE QUE CE RUN A FAIT AVANCER
@@ -10513,11 +9204,6 @@ button.chip:active:not(:disabled) {
 .account__on > .eyebrow {
   margin: 8px 0 0;
 }
-
-
-
-
-
 
 /* Quatre chiffres, et aucun n'est un jugement. */
 .cpt__grille {
@@ -11119,51 +9805,6 @@ button.chip:active:not(:disabled) {
   text-align: left;
 }
 
-.mur__cible {
-  margin-top: 14px;
-  padding: 16px;
-  border: 2px solid var(--ambre);
-  background: color-mix(in srgb, var(--ambre) 8%, var(--ink-2));
-}
-
-.mur__kicker {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: var(--t-intitule);
-  letter-spacing: var(--ls-intitule);
-  color: var(--ambre);
-}
-
-.mur__gros {
-  margin: 6px 0 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 52px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: var(--paper);
-  font-variant-numeric: tabular-nums;
-}
-
-.mur__note {
-  margin: 8px 0 0;
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  line-height: 1.5;
-  color: var(--paper-dim);
-}
-
-.mur__moi {
-  margin-top: 10px;
-  padding: 14px 16px;
-  border: var(--bd-hair) solid var(--line);
-  background: var(--ink-2);
-}
-
-.mur__moi .mur__kicker {
-  color: var(--paper-dim);
-}
-
 .mur__mien {
   margin: 4px 0 0;
   font-family: var(--display);
@@ -11176,28 +9817,6 @@ button.chip:active:not(:disabled) {
 
 /* La jauge est DECORATIVE : la phrase dit le meme fait en chiffres, donc rien
    ne se perd quand le mouvement est coupe. Seul `transform` est anime. */
-.mur__jauge {
-  margin-top: 10px;
-  height: 6px;
-  background: var(--line);
-  overflow: hidden;
-}
-
-.mur__jauge i {
-  display: block;
-  height: 100%;
-  background: var(--signal);
-  transform-origin: left center;
-}
-
-.mur__ecart {
-  margin: 8px 0 0;
-  font-size: var(--t-base);
-  letter-spacing: var(--ls-base);
-  line-height: 1.5;
-  color: var(--paper);
-}
-
 #murPodium {
   margin-top: 14px;
 }
@@ -11373,10 +9992,6 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-.etat__bloc.hidden {
-  display: none;
-}
-
 @media (min-width: 900px) {
   /*
    * ⚠️ DEUX COLONNES, ET DES RANGEES EXPLICITES.
@@ -11462,55 +10077,6 @@ button.chip:active:not(:disabled) {
     margin-top: 26px;
   }
 
-  /*
-   * ⚠️ LES DEUX FACES SE RECALENT SUR LA FAILLE COURTE.
-   *
-   * Mesure a 1280 x 860, faille de 215 px : le ruban serpente entre 44 et
-   * 61 %, soit 95 a 131 px du haut. Le corps de SOLO commencait a 44 px et
-   * mesurait 119 — il traversait donc le ruban, et le mot SOLO se retrouvait
-   * coupe en deux par la cassure. Ce n'est pas l'effet voulu : la fissure doit
-   * passer ENTRE les deux mondes, pas au milieu d'un mot.
-   *
-   * Retrait a 16 px, titre a 40 : SOLO tient dans les 88 premiers pixels, et
-   * MULTI dans les 55 derniers — l'un au-dessus du ruban, l'autre en dessous.
-   */
-  #home .faille__corps {
-    gap: 4px;
-  }
-
-  #home .faille__zone--solo .faille__corps,
-  #home .faille__zone--multi .faille__corps {
-    left: auto;
-    right: auto;
-    top: auto;
-    bottom: auto;
-  }
-
-  #home .faille__zone--solo .faille__corps {
-    left: 25px;
-    top: 16px;
-  }
-
-  #home .faille__zone--multi .faille__corps {
-    right: 25px;
-    bottom: 16px;
-  }
-
-  #home .faille__titre {
-    font-size: 40px;
-  }
-
-  /*
-   * L'ETAT quitte la vitrine — il n'est pas perdu, il a DEMENAGE.
-   *
-   * « RUN DU JOUR FAIT » est desormais dans la colonne de droite, dans le bloc
-   * RUN DU JOUR, qui existe pour ca. Le garder ici le dirait deux fois, et
-   * c'est exactement la ligne qui faisait deborder SOLO sur le ruban.
-   */
-  #home .faille__etat {
-    display: none;
-  }
-
   /* La colonne s'aligne a gauche. (L'enseigne a quitte l'accueil : elle
      tient la barre du haut, et l'ecrire deux fois sur le meme ecran prenait
      la place du champ qui tourne derriere.) */
@@ -11521,128 +10087,7 @@ button.chip:active:not(:disabled) {
     text-align: left;
   }
 
-  #home .but__vide .btn {
-    align-self: flex-start;
   }
-
-  /* Le chapo revient sur large : la colonne a la place, et il dit ce que la
-     carte ne dit pas — ce QU'EST le jeu. */
-  #home .lede--court {
-    max-width: 26ch;
-    margin-left: 0;
-    margin-right: 0;
-    text-align: left;
-    font-size: 20px;
-    line-height: 1.35;
-  }
-}
-
-/* --- Les blocs de la colonne d'etat ------------------------------------ */
-
-.etat__bloc {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  /*
-   * ⚠️ 10 px et non 13 : le budget vertical du bureau se joue a la trentaine
-   * pres. Quatre blocs a 6 px de moins rendent 24 px, et ces 24 px vont a la
-   * VITRINE — a 181 px de haut, le mot SOLO etait coupe par son propre cadre.
-   */
-  padding: 10px 13px;
-  background: var(--ink-2);
-  border: var(--bd-hair) solid var(--line);
-  text-align: left;
-  width: 100%;
-  font: inherit;
-  color: inherit;
-}
-
-/* A MATER est un BOUTON : c'est la seule ligne de la colonne qui mene
-   quelque part, et elle prend l'accent pour le dire. Deux accents dans une
-   colonne ne designeraient plus rien. */
-.etat__bloc--vedette {
-  border-color: var(--signal);
-  background: color-mix(in srgb, var(--signal) 8%, var(--ink-2));
-  cursor: pointer;
-}
-
-.etat__bloc--vedette:hover,
-.etat__bloc--vedette:focus-visible {
-  background: color-mix(in srgb, var(--signal) 14%, var(--ink-2));
-}
-
-.etat__tete {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 0;
-}
-
-.etat__compte {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--paper);
-  font-variant-numeric: tabular-nums;
-}
-
-.etat__note {
-  margin: 0;
-  font-size: var(--t-micro);
-  letter-spacing: var(--ls-micro);
-  line-height: 1.45;
-  color: var(--paper-dim);
-}
-
-.etat__mater {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.etat__img {
-  flex: none;
-  width: 56px;
-  height: 56px;
-  object-fit: contain;
-  /* Du pixel art se rend AU PIXEL : lisse, il devient une bouillie. */
-  image-rendering: pixelated;
-}
-
-.etat__materTxt {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-}
-
-.etat__materNom {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 15px;
-  line-height: 1.1;
-  color: var(--paper);
-}
-
-.etat__paire {
-  display: flex;
-  gap: 10px;
-}
-
-.etat__paire .etat__bloc {
-  flex: 1 1 0;
-  min-width: 0;
-}
-
-.etat__gros {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 18px;
-  line-height: 1.1;
-  color: var(--paper);
-}
 
 /* --- LA BARRE HAUTE SUR LARGE ------------------------------------------ */
 
@@ -11797,23 +10242,6 @@ button.chip:active:not(:disabled) {
     min-width: 0;
   }
 
-  /* --- Le chapo : 26 px, deux lignes, la seconde en accent ------------- */
-  #home .lede--court {
-    margin: 20px 0 0;
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 26px;
-    line-height: 1.25;
-    letter-spacing: -0.02em;
-    color: var(--paper);
-    max-width: 26ch;
-    text-align: left;
-  }
-
-  #home .lede--court span {
-    color: var(--signal);
-  }
-
   /* --- La bande de record : HORIZONTALE -------------------------------- */
   #home .but {
     display: block;
@@ -11825,96 +10253,7 @@ button.chip:active:not(:disabled) {
     width: auto;
   }
 
-  #home .but__plein,
-  #home .but__vide {
-    flex-direction: row;
-    align-items: center;
-    gap: 20px;
-    padding: 16px 18px;
-    border: var(--bd-hair) solid var(--line);
-    border-left: 4px solid var(--ambre);
-    background: var(--ink-2);
   }
-
-  #home .but__gros {
-    flex: none;
-    text-align: center;
-  }
-
-  #home .but__chiffre {
-    margin: 0;
-    font-size: 44px;
-    line-height: 1;
-    letter-spacing: -0.04em;
-    color: var(--ambre);
-  }
-
-  #home .but__unite {
-    margin: 4px 0 0;
-    font-family: var(--mono);
-    font-size: var(--t-etiquette);
-    letter-spacing: 0.18em;
-    color: var(--paper-dim);
-  }
-
-  #home .but__filet {
-    width: 1px;
-    align-self: stretch;
-    background: var(--line);
-  }
-
-  #home .but__milieu {
-    flex: 1 1 auto;
-    min-width: 0;
-    text-align: left;
-  }
-
-  #home .but__quoi {
-    margin: 0;
-    font-family: var(--mono);
-    font-size: var(--t-etiquette);
-    letter-spacing: 0.18em;
-    color: var(--paper-dim);
-  }
-
-  #home .but__pousse {
-    margin: 7px 0 0;
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 20px;
-    line-height: 1;
-    color: var(--paper);
-  }
-
-  #home .but__droite {
-    flex: none;
-    text-align: right;
-  }
-
-  #home .but__droite.hidden {
-    display: none;
-  }
-
-  #home .but__sien {
-    margin: 5px 0 0;
-    font-family: var(--display);
-    font-weight: 600;
-    font-size: 24px;
-    line-height: 1;
-    color: var(--paper);
-  }
-
-  #home .but__premier {
-    margin: 7px 0 0;
-    font-size: 20px;
-  }
-
-  #home .but__vide .btn {
-    flex: none;
-    align-self: center;
-    margin-top: 0;
-  }
-}
 
 /* ==================================================================
    LA BARRE DU HAUT — VALEURS RELEVEES SUR LA SOURCE
@@ -12052,23 +10391,10 @@ button.chip:active:not(:disabled) {
    ================================================================== */
 
 @media (min-width: 900px) {
-  #home .etat__bloc {
-    gap: 0;
-    padding: 14px 15px;
-  }
-
-  #home .etat__tete {
-    align-items: baseline;
-  }
-
   #home .etat .eyebrow {
     font-size: var(--t-etiquette);
     letter-spacing: 0.18em;
     color: var(--signal-pale);
-  }
-
-  #home .etat__compte {
-    font-size: 15px;
   }
 
   /*
@@ -12087,87 +10413,6 @@ button.chip:active:not(:disabled) {
     flex: 1;
     height: 26px;
     border-radius: 0;
-  }
-
-  #home .etat__note {
-    margin-top: 10px;
-    font-family: var(--display);
-    font-size: 12.5px;
-    letter-spacing: 0;
-    line-height: 1.45;
-  }
-
-  /* A MATER : l'illustration dans un cadre d'accent de 66 px. */
-  #home .etat__bloc--vedette {
-    padding: 14px 15px;
-    gap: 13px;
-    flex-direction: row;
-    align-items: flex-start;
-    background: color-mix(in srgb, var(--signal) 8%, var(--ink-2));
-  }
-
-  #home .etat__mater {
-    display: contents;
-  }
-
-  #home .etat__img {
-    flex: none;
-    width: 66px;
-    height: 66px;
-    padding: 5px;
-    border: 2px solid var(--signal);
-    background: #0b111c;
-    object-fit: contain;
-  }
-
-  #home .etat__materTxt {
-    gap: 0;
-  }
-
-  #home .etat__bloc--vedette .eyebrow {
-    letter-spacing: 0.16em;
-  }
-
-  #home .etat__materNom {
-    margin-top: 5px;
-    font-size: 17px;
-    line-height: 1;
-  }
-
-  #home .etat__materTxt .etat__note {
-    margin-top: 6px;
-  }
-
-  /* La paire JOUR / SERIE : 10 px de gouttiere, valeur en 16. */
-  #home .etat__paire {
-    gap: 10px;
-  }
-
-  #home .etat__paire .etat__bloc {
-    padding: 13px 14px;
-  }
-
-  /* L'intitule du RUN DU JOUR est en AMBRE dans la source : c'est la seule
-     chose de la colonne qui ait une echeance. */
-  #home .etat__paire .etat__bloc:first-child .eyebrow {
-    color: var(--ambre);
-  }
-
-  #home .etat__paire .etat__bloc:last-child .eyebrow {
-    color: var(--paper-dim);
-  }
-
-  #home .etat__gros {
-    margin-top: 7px;
-    font-size: 16px;
-    line-height: 1;
-  }
-
-  #home .etat__paire .etat__note {
-    margin-top: 6px;
-    font-family: var(--mono);
-    font-size: var(--t-etiquette);
-    letter-spacing: 0.12em;
   }
 
   /*
@@ -12322,15 +10567,7 @@ button.chip:active:not(:disabled) {
  * seul trait en 86 px a 1280. Un `<br>` masque ne coupe pas : c'est le seul
  * moyen d'avoir les deux formes sans dupliquer le titre.
  */
-.logo__saut {
-  display: none;
-}
-
 @media (max-width: 899px) {
-  .logo__saut {
-    display: block;
-  }
-
   .logo {
     font-size: 44px;
     padding-left: 15px;
@@ -12361,13 +10598,6 @@ button.chip:active:not(:disabled) {
   padding: 9px 14px 9px 0;
   min-height: 48px;
   gap: 0 14px;
-}
-
-#band .band__quoi,
-.band__eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.24em;
-  line-height: 1;
 }
 
 #bandRule {
@@ -12532,12 +10762,6 @@ button.chip:active:not(:disabled) {
   letter-spacing: -0.03em;
 }
 
-#codex .codexbar__ligne,
-#codex .codexbar__note {
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.12em;
-}
-
 .filtres__groupe {
   gap: 6px;
 }
@@ -12557,10 +10781,6 @@ button.chip:active:not(:disabled) {
 .carte__cases {
   font-size: var(--t-etiquette);
   letter-spacing: 0.16em;
-}
-
-.carte__jauge i {
-  height: 5px;
 }
 
 .carte__pied {
@@ -12594,10 +10814,6 @@ button.chip:active:not(:disabled) {
 #compte .screen__scroll {
   padding: 20px 16px;
 }
-
-
-
-
 
 /* La grille de chiffres : gouttiere de UN pixel — les cases se touchent, et
    c'est ce qui en fait un tableau plutot que quatre vignettes. */
@@ -12831,16 +11047,6 @@ button.chip:active:not(:disabled) {
   letter-spacing: 0.08em;
 }
 
-.chat__ligne,
-.chat__msg {
-  font-size: 12px;
-}
-
-.chat__qui {
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.14em;
-}
-
 /* ==================================================================
    LE MUR DES RECORDS — VALEURS RELEVEES SUR LA SOURCE (vue `leader`)
 
@@ -12857,46 +11063,9 @@ button.chip:active:not(:disabled) {
   letter-spacing: -0.03em;
 }
 
-.mur__cible {
-  padding: 18px 16px;
-}
-
-.mur__cible .mur__kicker {
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.2em;
-}
-
-.mur__gros {
-  margin: 10px 0 0;
-  font-size: 76px;
-  line-height: 0.9;
-  letter-spacing: -0.05em;
-}
-
-.mur__note {
-  margin: 14px 0 0;
-  font-size: 14px;
-  line-height: 1.5;
-  letter-spacing: 0;
-}
-
-.mur__moi {
-  padding: 14px;
-}
-
 .mur__mien {
   font-size: 32px;
   line-height: 1;
-}
-
-.mur__moi .mur__kicker {
-  margin: 3px 0 0;
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.16em;
-}
-
-.mur__jauge {
-  height: 10px;
 }
 
 /* ==================================================================
@@ -12917,55 +11086,6 @@ button.chip:active:not(:disabled) {
 #onb .eyebrow {
   font-size: var(--t-etiquette);
   letter-spacing: 0.2em;
-}
-
-.onb__titre {
-  margin: 22px 0 0;
-  font-size: 22px;
-  line-height: 1.3;
-  letter-spacing: -0.01em;
-}
-
-.onb__kicker {
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.18em;
-}
-
-.onb__nom {
-  font-size: 32px;
-  line-height: 1;
-  letter-spacing: -0.03em;
-}
-
-.onb__brief {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  letter-spacing: 0;
-}
-
-.onb__cas1,
-.onb__cas2 {
-  padding: 14px;
-}
-
-.onb__consigne {
-  margin: 9px 0 0;
-  font-size: 19px;
-  letter-spacing: -0.01em;
-}
-
-.onb__verdict {
-  margin: 9px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  letter-spacing: 0;
-}
-
-.onb__pied {
-  margin: 12px 0 0;
-  font-size: var(--t-etiquette);
-  letter-spacing: 0.12em;
 }
 
 /* ==================================================================
@@ -13040,11 +11160,6 @@ button.chip:active:not(:disabled) {
   letter-spacing: -0.03em;
 }
 
-.fiche__case {
-  font-size: var(--t-micro);
-  letter-spacing: 0.04em;
-}
-
 .panel__title {
   font-size: 22px;
   line-height: 1;
@@ -13105,12 +11220,6 @@ button.chip:active:not(:disabled) {
     color-mix(in srgb, var(--signal) 6%, transparent) 0 2px,
     transparent 2px 4px
   );
-}
-
-.accroche__cvs {
-  display: block;
-  width: 100%;
-  height: 108px;
 }
 
 /*
@@ -13739,14 +11848,6 @@ button.chip:active:not(:disabled) {
   min-height: 0;
 }
 
-#home .home__centre .lede--court {
-  margin: 0;
-  text-align: center;
-  max-width: 34ch;
-  align-self: end;
-  text-shadow: 2px 2px 0 var(--ink);
-}
-
 .home__second {
   align-self: start;
   margin: 0;
@@ -14184,7 +12285,6 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-
 .joinmort {
   display: flex;
   gap: 7px;
@@ -14436,10 +12536,6 @@ button.chip:active:not(:disabled) {
     align-content: start;
   }
 
-  #home .home__centre .lede--court {
-    align-self: auto;
-  }
-
   #home .play {
     min-height: 76px;
   }
@@ -14508,7 +12604,6 @@ button.chip:active:not(:disabled) {
   }
 }
 
-
 /*
  * Les filtres du carnet en large sont une LISTE, pas des boutons : 34 px y
  * suffisent à la souris. Au doigt — une tablette large, un portable tactile —
@@ -14519,7 +12614,6 @@ button.chip:active:not(:disabled) {
     min-height: var(--tap);
   }
 }
-
 
 /*
  * UNE BARRE À QUATRE CHOIX SE COMPOSE EN 2 × 2 SUR TÉLÉPHONE.
@@ -14852,18 +12946,6 @@ button.chip:active:not(:disabled) {
     grid-template-rows: auto auto auto;
     align-content: start;
     gap: 8px;
-  }
-
-  /*
-   * ⚠️ L'ACCROCHE PREND TOUTE LA LARGEUR, et c'est ce qui la fait tenir. Sa
-   * colonne de lecture de 326 px la pliait en TROIS lignes (66 px) : JOUER
-   * passait alors sous la barre basse, à 339 pour une fenêtre de 375. Couché,
-   * la largeur est ce qu'on a — une ligne de 455 px dans 645 disponibles.
-   */
-  #home .home__centre .lede--court {
-    align-self: auto;
-    max-width: none;
-    font-size: var(--t-petit);
   }
 
   /*
