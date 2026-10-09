@@ -34,7 +34,9 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
-      - run: npx vitest run
+      # Les tests ET le cliquet de couverture (point 21) : un seuil manqué rend 1.
+      # `npx vitest run` seul laissait passer une baisse de couverture.
+      - run: npm run coverage
       - run: npx vite build
       # Le crochet de vérification `window.__tor` ne doit JAMAIS partir dans le
       # bundle livré (bloc `import.meta.env.DEV`).

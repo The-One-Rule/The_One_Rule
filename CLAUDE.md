@@ -958,6 +958,9 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   `checkJs` y rend 41 erreurs, toutes des artefacts d'inférence (objet figé
   par sa première affectation, globales posées par l'e2e) — aucune n'est un
   bug, et les rendre propres demanderait du JSDoc sur des milliers de lignes.
+- **31 — Unitaires.** La CI lançait `vitest run`, jamais le cliquet de
+  couverture : une baisse n'y était pas vue. Elle lance `npm run coverage`
+  (mêmes tests, plus les seuils ; code 1 vérifié sur un seuil manqué).
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
