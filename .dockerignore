@@ -17,7 +17,6 @@ tests
 public
 index.html
 vite.config.ts
-e2e.mjs
 
 # Secrets et artefacts locaux : ils n'ont rien à faire dans une image.
 .env

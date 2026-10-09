@@ -66,7 +66,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsx e2e.mjs
+      - run: npm run e2e
 
   # LE BUILD DE PRODUCTION, tel que Vercel le fait (phase 5, point 34). Le job
   # « rapide » construit SANS aucune variable `VITE_*` : multi inerte, mesure
@@ -124,7 +124,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsx e2e-navigateur.mjs
+      - run: npm run e2e:navigateur
 
   # L'IMAGE FLY, CONSTRUITE ET LANCÉE (phase 5, point 32). Un import vers un
   # fichier absent des COPY du Dockerfile passe tout le reste et tue

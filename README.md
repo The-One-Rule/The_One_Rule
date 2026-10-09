@@ -35,7 +35,7 @@ Les mêmes commandes que la CI (`.github/workflows/verification.yml`) :
 | `npm run lint` | ESLint, réglé sur la justesse (pas de style) |
 | `npm run typecheck` | `tsc --noEmit`, strict |
 | `npm run coverage` | 1 355 tests vitest + seuils de couverture des couches pures |
-| `npm run e2e` | serveur de salons réel, clients WebSocket réels (165 assertions) |
+| `npm run e2e` | serveur de salons réel, clients WebSocket réels (≈ 165 assertions) |
 | `npm run e2e:navigateur` | le vrai client dans Chromium : coupure réseau, deux onglets (33 assertions) |
 | `npm run integration` | l'image Fly reconstituée, lancée et sondée |
 | `npm run build` puis `npm run taille` | paquet de production et plafonds de taille |
@@ -53,7 +53,7 @@ server/    serveur de salons WebSocket (Fly.io)
 shared/    protocole et logique pure partagés client ↔ serveur ↔ API
 api/       fonctions edge Vercel (mesure, comptes, performances, amis)
 supabase/  migrations SQL de la base des comptes
-tests/     tests unitaires et d'intégration (vitest)
+tests/     tests unitaires et d'intégration (vitest) ; e2e/ : les deux scénarios de bout en bout
 scripts/   vérification de déploiement, mesure, taille du paquet
 docs/      déploiement, audits, archives
 ```

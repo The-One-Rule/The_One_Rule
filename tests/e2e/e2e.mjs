@@ -22,15 +22,15 @@ process.on("uncaughtException", (e) => {
   throw e;
 });
 
-await import("./server/index.ts");
-const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("./src/engine/multiround.ts");
-const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
-const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("./src/engine/instructions/index.ts");
-const { HOLD_MS } = await import("./src/engine/difficulty.ts");
-const { ONE_RULES } = await import("./src/engine/rules/index.ts");
-const { MOTIFS } = await import("./src/engine/motifs.ts");
-const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
-const { ECHECS_JOIN_MAX } = await import("./server/debit.ts");
+await import("../../server/index.ts");
+const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("../../src/engine/multiround.ts");
+const { draftImposteur, SANS_REGLE } = await import("../../src/engine/imposteur.ts");
+const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("../../src/engine/instructions/index.ts");
+const { HOLD_MS } = await import("../../src/engine/difficulty.ts");
+const { ONE_RULES } = await import("../../src/engine/rules/index.ts");
+const { MOTIFS } = await import("../../src/engine/motifs.ts");
+const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("../../shared/protocol.ts");
+const { ECHECS_JOIN_MAX } = await import("../../server/debit.ts");
 
 /*
  * Attendre le DÉPART d'un match, pas une durée devinée.
@@ -781,8 +781,8 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 // il est assure de perdre ». On rejoue ici le chemin complet — vrai serveur,
 // vrai client ws — sur une piece situee hors de la zone.
 {
-  const { draftShared, applyRule } = await import("./src/engine/multiround.ts");
-  const { ONE_RULES: RULES } = await import("./src/engine/rules/index.ts");
+  const { draftShared, applyRule } = await import("../../src/engine/multiround.ts");
+  const { ONE_RULES: RULES } = await import("../../src/engine/rules/index.ts");
   const gaucher = RULES.find((r) => r.id === "gaucher");
 
   /*
@@ -1241,8 +1241,8 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
  * COOP — curseur décoratif. Le clic est jugé sur l'index, pas sur x,y.
  * ------------------------------------------------------------------ */
 {
-  const { draftCoop } = await import("./src/engine/coop.ts");
-  const { FIELD_H } = await import("./src/engine/types.ts");
+  const { draftCoop } = await import("../../src/engine/coop.ts");
+  const { FIELD_H } = await import("../../src/engine/types.ts");
   const seuilG = ONE_RULES.find((r) => r.id === "gaucher")?.zone?.[0]?.x1 ?? 200;
 
   const attendre = async (pred, ms) => {
@@ -1562,7 +1562,7 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
  * le match se termine au temps.
  * ------------------------------------------------------------------ */
 {
-  const { ATTENTE_SALON_MS, ATTENTE_APRES_MATCH_MS } = await import("./server/rapide.ts");
+  const { ATTENTE_SALON_MS, ATTENTE_APRES_MATCH_MS } = await import("../../server/rapide.ts");
   const [q1, q2, q3] = await Promise.all([client("RAPIDE1", "kq1"), client("RAPIDE2", "kq2"), client("RAPIDE3", "kq3")]);
   const departs = new Map();
   for (const c of [q1, q2, q3]) {

@@ -75,8 +75,8 @@ trouvés en mesurant, aucun en relisant.
 npm run lint                 # ESLint, justesse seulement (pas de style)
 npx tsc --noEmit
 npx vitest run
-npx tsx e2e.mjs
-npx tsx e2e-navigateur.mjs   # le VRAI client dans Chromium (Vite en dev)
+npm run e2e                  # tests/e2e/e2e.mjs : salons réels, clients ws
+npm run e2e:navigateur       # tests/e2e/e2e-navigateur.mjs : le VRAI client dans Chromium
 npm run coverage             # cliquet sur engine, game, shared, api
 npx vite build
 ```
@@ -1054,6 +1054,16 @@ tel en entreprise ». Un commit par point.
   feuille donne 8 878/8 878 éléments identiques à la nouvelle : c'est le
   premier passage, à froid, qui diffère de tous les autres. **Ne jamais
   prendre pour référence le premier relevé d'une session.**
+- **42 — Scripts.** Les six de `scripts/` sont tous appelés (CI, flux de
+  déploiement, documentation) et tous tournent encore à vide. Un seul
+  mentait : l'en-tête de `pull.mjs` disait que `vercel env pull` dépose les
+  identifiants Upstash — c'est le piège exactement inverse, documenté au §10.
+  Les deux scénarios de bout en bout quittent la racine pour `tests/e2e/`,
+  SANS changer de nom (ce fichier les cite par dizaines sous ces noms) :
+  imports en `../../`, et l'e2e navigateur sert Vite depuis la racine lue
+  dans `import.meta.url`, plus `process.cwd()`. Lancés depuis le nouvel
+  emplacement : 166 et 33 assertions, 0 échec. La CI passe par `npm run e2e`
+  et `npm run e2e:navigateur` : un seul endroit sait où ils vivent.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

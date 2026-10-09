@@ -18,6 +18,7 @@
  * Lancement : `npm run e2e:navigateur`. Comme l'e2e : SEUL sur la machine.
  */
 import net from "node:net";
+import { fileURLToPath } from "node:url";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const PORT_SALONS = 8798;
@@ -30,9 +31,9 @@ process.env.VITE_WS_URL = `ws://localhost:${PORT_RELAIS}`;
 const { default: WebSocket } = await import("ws");
 const { createServer } = await import("vite");
 const { chromium } = await import("playwright-core");
-await import("./server/index.ts");
-const { RECONNECT_GRACE_MS } = await import("./shared/protocol.ts");
-const { FENETRE_REPRISE_MS } = await import("./src/net/reprise.ts");
+await import("../../server/index.ts");
+const { RECONNECT_GRACE_MS } = await import("../../shared/protocol.ts");
+const { FENETRE_REPRISE_MS } = await import("../../src/net/reprise.ts");
 
 /* ------------------------------------------------------------------ *
  * Journal : même doctrine que `e2e.mjs`, chaque assertion porte son numéro.
@@ -146,8 +147,12 @@ async function salonOuvert(nom) {
 /* ------------------------------------------------------------------ *
  * Le front, et le navigateur.
  * ------------------------------------------------------------------ */
+// La racine du dépôt, lue depuis CE fichier : le scénario se lance aussi
+// d'ailleurs que la racine (`npx tsx tests/e2e/e2e-navigateur.mjs` depuis un
+// sous-dossier), et Vite servirait sinon le mauvais index.html.
+const RACINE = fileURLToPath(new URL("../../", import.meta.url));
 const vite = await createServer({
-  root: process.cwd(),
+  root: RACINE,
   server: { port: PORT_VITE, strictPort: true },
   logLevel: "warn",
 });
