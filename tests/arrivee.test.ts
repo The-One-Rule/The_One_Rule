@@ -60,7 +60,7 @@ beforeAll(() => {
   };
 });
 
-let nowMs = 0;
+const nowMs = 0;
 
 describe("ARRIVER DIRECTEMENT SUR UNE ADRESSE", () => {
   /*

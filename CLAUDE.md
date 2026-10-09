@@ -72,6 +72,7 @@ spectateur avec 3 vies, une carte d'accueil qui se détruisait elle-même. Tous
 trouvés en mesurant, aucun en relisant.
 
 ```bash
+npm run lint                 # ESLint, justesse seulement (pas de style)
 npx tsc --noEmit
 npx vitest run
 npx tsx e2e.mjs
@@ -936,6 +937,20 @@ Et `smoke` tirait le run du jour du calendrier : il tombait 3 jours sur 10
 (date figée au 08/10). Toute la suite repasse au 15/11/2026 et au
 02/03/2027. ⚠️ **vitest ne vérifie pas les types** : le premier correctif a
 ajouté un argument de trop à `auth` sans qu'un test rougisse ; `tsc` l'a vu.
+
+### Phase 5 de l'audit : l'intégration continue (09/10/2026)
+
+Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
+
+- **29 — Lint** (`npm run lint`, ESLint 9 + typescript-eslint, en CI avant
+  `tsc`). Réglé sur la JUSTESSE, jamais sur le style, et AUCUN formateur :
+  reformater 30 000 lignes casserait `git blame` sans corriger un bug.
+  Premier passage : 15 signalements seulement, `tsc` strict faisait le gros
+  du travail. ⚠️ Neuf étaient des BOM LITTÉRAUX voulus (ils documentent et
+  testent le bug du BOM, `src/env.ts`) : `no-irregular-whitespace` ignore
+  donc chaînes et commentaires. Un `_` en tête marque un inutilisé assumé.
+  Trouvé : l'e2e recevait un libellé d'attente (`quoi`) et l'ignorait — une
+  attente épuisée le dit maintenant au journal.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

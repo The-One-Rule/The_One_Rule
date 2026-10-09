@@ -1355,7 +1355,11 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   const attendre = async (pred, ms, quoi) => {
     const t0 = Date.now();
     while (!pred() && Date.now() - t0 < ms) await sleep(200);
-    return pred();
+    const ok = pred();
+    // Une attente épuisée le DIT, avec ce qu'elle attendait : l'assertion qui
+    // suit tombera, et ce journal dira pourquoi (§2, « l'e2e est bavard »).
+    if (!ok && quoi) info(`attente épuisée après ${ms} ms : ${quoi}`);
+    return ok;
   };
 
   const jouerUnMatch = async (joueurs, accusateur, voter = null) => {
