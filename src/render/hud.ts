@@ -11,6 +11,28 @@ const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) 
  * formes et les teintes du terrain. Une pièce sans couleur nommée est
  * dessinée en creux ; une pièce sans forme nommée est un rond plein.
  */
+/*
+ * ⚠️ ÉCRIRE SEULEMENT CE QUI CHANGE — phase 4, point 28.
+ *
+ * Le pied et le bandeau étaient RÉÉCRITS à chaque image, avec des valeurs
+ * presque toujours identiques. Or réécrire un `textContent` à l'identique
+ * REMPLACE le nœud texte, et un `classList.add` d'une classe déjà présente
+ * repose l'attribut : chacun invalide les styles et force une mise en page.
+ * Mesuré en partie, téléphone ×4 : un recalcul de styles ET une mise en page
+ * COMPLÈTE à chaque image (370 et 369 en 12 s), le calcul des styles
+ * devant le script, et 30 images/s. Même doctrine que `--heat` : jamais deux
+ * fois à l'identique.
+ */
+function ecrisTexte(el: HTMLElement, v: string): void {
+  if (el.textContent !== v) el.textContent = v;
+}
+function ecrisClasse(el: HTMLElement, v: string): void {
+  if (el.className !== v) el.className = v;
+}
+function bascule(el: HTMLElement, c: string, on: boolean): void {
+  if (el.classList.contains(c) !== on) el.classList.toggle(c, on);
+}
+
 function pieceSvg(p: PieceDessinee, x: number): string {
   const fill = p.couleur ? colorHex(p.couleur) : "var(--surface)";
   const trait = `stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"`;
@@ -211,18 +233,18 @@ export class Hud {
     const chiffre = /^(\d+)\s+(.+)$/.exec(text);
     if (val && lab) {
       if (chiffre) {
-        val.textContent = chiffre[1];
-        lab.textContent = chiffre[2];
-        this.bandMeta.classList.add("is-stat");
+        ecrisTexte(val, chiffre[1]!);
+        ecrisTexte(lab, chiffre[2]!);
+        bascule(this.bandMeta, "is-stat", true);
       } else {
-        val.textContent = "";
-        lab.textContent = text;
-        this.bandMeta.classList.remove("is-stat");
+        ecrisTexte(val, "");
+        ecrisTexte(lab, text);
+        bascule(this.bandMeta, "is-stat", false);
       }
     } else {
-      this.bandMeta.textContent = text;
+      ecrisTexte(this.bandMeta, text);
     }
-    this.bandMeta.classList.toggle("is-on", !!text);
+    bascule(this.bandMeta, "is-on", !!text);
   }
 
   /**
@@ -274,12 +296,12 @@ export class Hud {
     // resterait sur l'ecran d'apres. Meme discipline que le libelle du bouton
     // COMMENCER apres un rebours — une cellule au repos ne garde jamais le mot
     // d'un autre mode.
-    this.fScoreLabel.textContent = motManche();
-    this.fScore.textContent = String(score);
-    this.fBest.className = "foot__value";
-    this.fBest.textContent = String(best);
-    this.fMidLabel.textContent = midLabel;
-    this.fMode.textContent = mode;
+    ecrisTexte(this.fScoreLabel, motManche());
+    ecrisTexte(this.fScore, String(score));
+    ecrisClasse(this.fBest, "foot__value");
+    ecrisTexte(this.fBest, String(best));
+    ecrisTexte(this.fMidLabel, midLabel);
+    ecrisTexte(this.fMode, mode);
   }
 
   /**
@@ -294,12 +316,12 @@ export class Hud {
    * case qui change de mot. Rien à mesurer parce que rien ne bouge.
    */
   setFooterRecord(score: number, avance: number, mode: string): void {
-    this.fScoreLabel.textContent = motManche();
-    this.fScore.textContent = String(score);
-    this.fBest.className = "foot__value foot__value--record";
-    this.fBest.textContent = `+${avance}`;
-    this.fMidLabel.textContent = t("piedDepasse");
-    this.fMode.textContent = mode;
+    ecrisTexte(this.fScoreLabel, motManche());
+    ecrisTexte(this.fScore, String(score));
+    ecrisClasse(this.fBest, "foot__value foot__value--record");
+    ecrisTexte(this.fBest, `+${avance}`);
+    ecrisTexte(this.fMidLabel, t("piedDepasse"));
+    ecrisTexte(this.fMode, mode);
   }
 
   /**
@@ -320,12 +342,12 @@ export class Hud {
     mode: string,
     gauche = motManche(),
   ): void {
-    this.fScoreLabel.textContent = gauche;
-    this.fScore.textContent = String(score);
-    this.fMidLabel.textContent = t("piedVies");
-    this.fBest.className = "foot__value";
-    this.fBest.textContent = String(Math.max(0, lives));
-    this.fMode.textContent = mode;
+    ecrisTexte(this.fScoreLabel, gauche);
+    ecrisTexte(this.fScore, String(score));
+    ecrisTexte(this.fMidLabel, t("piedVies"));
+    ecrisClasse(this.fBest, "foot__value");
+    ecrisTexte(this.fBest, String(Math.max(0, lives)));
+    ecrisTexte(this.fMode, mode);
     this.setVies(lives, max);
   }
 
@@ -388,7 +410,7 @@ export class Hud {
       this.instr.textContent = shown || "\u00a0";
       this.lastText = shown;
     }
-    this.instr.className = round.glyph && !hidden ? "is-glyph" : "";
+    ecrisClasse(this.instr, round.glyph && !hidden ? "is-glyph" : "");
     this.instr.style.color = round.inkColor ? colorHex(round.inkColor) : "";
 
     /*

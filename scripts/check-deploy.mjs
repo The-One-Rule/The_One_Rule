@@ -23,8 +23,38 @@ if (!base) {
   process.exit(2);
 }
 
+/*
+ * Une PRÉVERSION Vercel peut être protégée (« Deployment Protection ») : sans
+ * jeton elle répond 401, et le vérificateur échouerait sur un déploiement
+ * sain. `VERCEL_AUTOMATION_BYPASS_SECRET`, s'il est posé, passe la porte —
+ * c'est le mécanisme que Vercel prévoit pour l'automatisation. Absent, rien
+ * ne change : la production n'est pas protégée.
+ */
+const contournement = process.env.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+const entetes = contournement ? { "x-vercel-protection-bypass": contournement } : {};
+
+/*
+ * ⚠️ Une préversion PROTÉGÉE ne répond pas 401 au robot : elle le REDIRIGE
+ * vers la page de connexion de Vercel, sur un autre domaine, qui répond 200.
+ * Sans cette garde, le vérificateur lisait la page de Vercel comme si c'était
+ * le jeu — « collecteur absent », « /api/collect répond 200 » — et accusait
+ * le déploiement d'une panne qu'il n'a pas (vu en CI, 09/10/2026). Toute
+ * réponse servie par un AUTRE hôte que celui vérifié sort donc en code 3 :
+ * « pas lisible », qui n'est ni sain ni cassé.
+ */
+const HORS_DOMAINE = 3;
+const hote = new URL(base).host;
+
 const get = async (url) => {
-  const res = await fetch(url, { redirect: "follow" });
+  const res = await fetch(url, { redirect: "follow", headers: entetes });
+  if (new URL(res.url).host !== hote) {
+    console.error(
+      `✗ ${url} a été redirigé vers ${new URL(res.url).origin} : déploiement PROTÉGÉ, rien n'a été vérifié.\n` +
+        "     Poser VERCEL_AUTOMATION_BYPASS_SECRET (Vercel → Settings → Deployment Protection →\n" +
+        "     Protection Bypass for Automation), ou vérifier un déploiement public.",
+    );
+    process.exit(HORS_DOMAINE);
+  }
   if (!res.ok) {
     console.error(`✗ ${url} a répondu ${res.status} ${res.statusText}`);
     process.exit(1);
@@ -101,8 +131,8 @@ const checks = [
 const local = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])/.test(base);
 let edge = null;
 try {
-  const res = await fetch(base + "/api/collect", { method: "GET" });
-  edge = res.status;
+  const res = await fetch(base + "/api/collect", { method: "GET", headers: entetes });
+  edge = new URL(res.url).host === hote ? res.status : `une redirection vers ${new URL(res.url).host}`;
 } catch {
   /* injoignable : traité ci-dessous */
 }

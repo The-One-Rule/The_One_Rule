@@ -59,8 +59,10 @@ describe("lot C — sources", () => {
 
   it("la vitrine de l'arrivée se fige sous le mouvement réduit", () => {
     const fn = /function peintVitrine[\s\S]*?\n}/.exec(main)?.[0] ?? "";
-    expect(fn, "peintVitrine introuvable").toMatch(
-      /matchMedia\(\s*["']\(prefers-reduced-motion:\s*reduce\)["']\s*\)/,
+    // La requête est créée une fois (`MOUVEMENT_REDUIT`) et lue à chaque image.
+    expect(fn, "peintVitrine introuvable").toMatch(/MOUVEMENT_REDUIT\?\.matches/);
+    expect(main).toMatch(
+      /const MOUVEMENT_REDUIT\s*=[^;]*matchMedia\(\s*["']\(prefers-reduced-motion:\s*reduce\)["']\s*\)/,
     );
   });
 

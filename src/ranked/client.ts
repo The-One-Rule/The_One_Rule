@@ -74,8 +74,8 @@ export const submitRun = (payload: {
   inputs: LoggedInput[];
   capacites?: { clavier: boolean; maintien: boolean; encre: boolean; lettres?: boolean };
   catalogue?: number;
-  opponentScore?: number;
-  opponentRating?: number;
+  /** Le run servi par `queue` : le serveur relit son score et son classement. */
+  opponentRunId?: string;
 }): Promise<SubmitResult | null> => post<SubmitResult>("submit", payload);
 
 /** Profil local affiché tant que le serveur n'a pas répondu. */

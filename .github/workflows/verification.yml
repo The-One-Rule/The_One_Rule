@@ -32,13 +32,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # SÉCURITÉ (phase 5, point 35). Ce que reçoivent les joueurs et la machine
+      # Fly — les dépendances de production — BLOQUE dès un avis « high ». Les
+      # outils de développement ne tournent jamais en production : un avis neuf
+      # sur l'un d'eux peut tomber un matin sans aucun rapport avec la PR, donc
+      # il est AFFICHÉ, pas bloquant ; Dependabot ouvre la mise à jour.
+      - name: audit des dépendances de production
+        run: npm audit --omit=dev --audit-level=high
+      - name: audit des outils de développement (informatif)
+        run: npm audit --audit-level=high || echo "::warning::avis de sécurité sur un outil de développement — voir la sortie ci-dessus"
+      - run: npm run lint
       - run: npx tsc --noEmit
-      - run: npx vitest run
+      # Les tests ET le cliquet de couverture (point 21) : un seuil manqué rend 1.
+      # `npx vitest run` seul laissait passer une baisse de couverture.
+      - run: npm run coverage
       - run: npx vite build
       # Le crochet de vérification `window.__tor` ne doit JAMAIS partir dans le
       # bundle livré (bloc `import.meta.env.DEV`).
       - name: aucun crochet de dev dans le bundle
         run: "! grep -rq __tor dist"
+      # Plafonds gzip et encodeur QR hors du paquet principal (phase 4, point 26).
+      - name: taille du paquet
+        run: node scripts/taille-paquet.mjs
 
   e2e:
     name: e2e (salons réels)
@@ -51,4 +66,89 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx tsx e2e.mjs
+      - run: npm run e2e
+
+  # LE BUILD DE PRODUCTION, tel que Vercel le fait (phase 5, point 34). Le job
+  # « rapide » construit SANS aucune variable `VITE_*` : multi inerte, mesure
+  # coupée — ce n'est pas le paquet que reçoivent les joueurs. Celui-ci pose la
+  # configuration de production, lance LA commande de `vercel.json`
+  # (`npm run build`), sert `dist` et le passe au vérificateur de déploiement :
+  # un collecteur ou une URL de salons absents du bundle sont exactement la
+  # panne muette du §10 (« le jeu tourne, rien ne mesure »).
+  build-production:
+    name: build de production (config Vercel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_WS_URL: wss://the-one-rule-salons.fly.dev
+      VITE_COLLECT_URL: /api/collect
+      VITE_PERF_URL: /api/perf
+      VITE_AUTH_URL: /api/auth
+      VITE_MOI_URL: /api/moi
+      VITE_AMIS_URL: /api/amis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: aucun crochet de dev dans le bundle
+        run: "! grep -rq __tor dist"
+      - name: l'URL des salons est dans le bundle
+        run: grep -rq "wss://the-one-rule-salons.fly.dev" dist/assets
+      - name: taille du paquet (configuration de production)
+        run: node scripts/taille-paquet.mjs
+      - name: vérificateur de déploiement sur dist servi
+        run: |
+          # `--host 127.0.0.1` : sans lui, vite preview écoute sur `localhost`,
+          # que le Node 22 du runner résout en IPv6 (::1) — et une sonde sur
+          # 127.0.0.1 ne le trouvait jamais (ECONNREFUSED, vu en CI 09/10).
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          # L'attente qui s'épuise le DIT, au lieu de laisser la suite échouer loin d'elle.
+          curl -sf http://127.0.0.1:4173/ >/dev/null || { echo "::error::vite preview ne répond pas sur 127.0.0.1:4173"; exit 1; }
+          node scripts/check-deploy.mjs http://127.0.0.1:4173
+
+  # LE VRAI CLIENT DANS UN NAVIGATEUR (phase 5, point 33). `e2e.mjs` pilote
+  # des sockets nues : il ne voit ni la reprise après une coupure, ni deux
+  # onglets d'un même appareil, ni un terrain qui se repeint derrière un menu.
+  # Deux pannes de reprise n'ont été trouvées QUE par ce scénario (§12, point
+  # 19). Les runners Ubuntu portent Google Chrome : pas de téléchargement.
+  e2e-navigateur:
+    name: e2e navigateur (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CHROMIUM_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run e2e:navigateur
+
+  # L'IMAGE FLY, CONSTRUITE ET LANCÉE (phase 5, point 32). Un import vers un
+  # fichier absent des COPY du Dockerfile passe tout le reste et tue
+  # l'instance au démarrage (30/08/2026). Ici l'image démarre en production,
+  # répond /health, ouvre un salon, et refuse une origine inconnue.
+  image:
+    name: image Fly (docker build + sonde)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: docker build -t tor-salons .
+      - run: docker run -d --name salons -p 8080:8080 -e ALLOWED_ORIGINS=https://integration.theonerule.test tor-salons
+      - run: node scripts/integration-image.mjs --url http://localhost:8080
+      - name: journal du conteneur
+        if: always()
+        run: docker logs salons

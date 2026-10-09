@@ -6,10 +6,16 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "taille": "node scripts/taille-paquet.mjs",
     "preview": "vite preview",
     "test": "vitest run",
+    "coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
-    "server": "tsx server/index.ts"
+    "lint": "eslint .",
+    "server": "tsx server/index.ts",
+    "e2e": "tsx tests/e2e/e2e.mjs",
+    "e2e:navigateur": "tsx tests/e2e/e2e-navigateur.mjs",
+    "integration": "node scripts/integration-image.mjs"
   },
   "keywords": [],
   "author": "",
@@ -18,12 +24,17 @@
     "node": "22.x"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^22.20.5",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.1.11",
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0",
     "jsdom": "^30.0.1",
+    "playwright-core": "^1.56.1",
     "typescript": "5.9",
+    "typescript-eslint": "^8.71.1",
     "vite": "^8.2.1",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "type": "module",
   "dependencies": {
@@ -32,5 +43,9 @@
     "qrcode-generator": "^2.0.4",
     "tsx": "^4.23.12",
     "ws": "^8.21.3"
+  },
+  "overrides": {
+    "undici": "^8.10.2",
+    "source-map-js": "^1.2.2"
   }
 }

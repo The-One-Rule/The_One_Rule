@@ -18,6 +18,7 @@
  */
 
 import { choisitTable, echeanceDepart, RAPIDE_MIN } from "./rapide";
+import { adresseDe, EchecsParAdresse, REFUS_AVANT_COUPURE, SEAU_CAPACITE, SEAU_PAR_SECONDE, Seau } from "./debit";
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
@@ -62,6 +63,8 @@ import { glyphFor, glyphFromIndex, PATTERN_COUNT } from "../src/net/glyph";
 const PORT = Number(process.env.PORT) || 8787;
 /** Écart minimal entre deux changements de photo d'un même joueur. */
 const PROFIL_PHOTO_COOLDOWN_MS = 1500;
+/** L'observation de l'imposteur se clôt seule au bout de ce délai. */
+const OBSERVATION_MAX_MS = 90_000;
 const ALLOWED_ORIGINS = parseOrigins(process.env.ALLOWED_ORIGINS);
 const PRODUCTION = process.env.NODE_ENV === "production";
 /**
@@ -129,6 +132,8 @@ interface Client {
    * défaut — le catalogue d'origine —, bornée par celle du serveur.
    */
   consignes: number;
+  /** Il comprend `remplace` (voir le `hello`) — absent vaut non. */
+  reprise: boolean;
   /**
    * Identifiant de compte TOR, si le `hello` portait un jeton valide.
    *
@@ -144,6 +149,12 @@ interface Client {
    * déclarer.
    */
   compte: string | null;
+  /** Adresse du joueur (`fly-client-ip` derrière Fly) : voir `debit.ts`. */
+  adresse: string;
+  /** Tous messages confondus : voir `debit.ts`. */
+  seau: Seau;
+  /** Messages refusés d'affilée par le seau. */
+  refus: number;
   /** Carte de visite et photo (`shared/profil.ts`). Absent vaut non. */
   carte?: string;
   photo?: string;
@@ -176,6 +187,8 @@ interface Room {
   /** L'échéance du départ automatique, heure serveur. */
   autoAt: number | null;
   autoTimer: ReturnType<typeof setTimeout> | null;
+  /** Une diffusion de l'état est déjà prévue (regroupement des `profil`). */
+  etatPrevu: ReturnType<typeof setTimeout> | null;
 }
 
 const rooms = new Map<string, Room>();
@@ -443,6 +456,7 @@ function nouveauSalon(client: Client, publique: boolean): Room {
     public: publique,
     autoAt: null,
     autoTimer: null,
+    etatPrevu: null,
   };
   rooms.set(room.code, room);
   client.room = room;
@@ -781,6 +795,16 @@ function closeRound(room: Room): void {
      */
     broadcast(room, { t: "journal", tours: match.journalPublic() });
     broadcast(room, { t: "observe" });
+    /*
+     * Une borne : le vote se clôt avec les voix posées si personne ne l'a
+     * fait avant (audit C3). Sans elle, un seul votant silencieux bloquait le
+     * salon pour toujours.
+     */
+    room.timer = plusTard(() => {
+      if (room.match !== match) return;
+      const issue = match.clotureSansAttendre([...room.clients.keys()], true);
+      if (issue) clotureVote(room, issue);
+    }, OBSERVATION_MAX_MS);
     return;
   }
 
@@ -809,6 +833,9 @@ function clotureVote(room: Room, issue: IssueVote): void {
   const match = room.match;
   if (!match || !match.imposteurId) return;
   const imposteurId = match.imposteurId;
+  // La borne de l'observation n'a plus rien à clore.
+  if (room.timer) clearTimeout(room.timer);
+  room.timer = null;
   broadcast(room, {
     t: "vote_result",
     accuseId: issue.accuseId,
@@ -867,6 +894,26 @@ const httpServer = createServer((req, res) => {
   );
 });
 
+/** Les échecs de `join` par adresse : voir `debit.ts`. */
+const echecsJoin = new EchecsParAdresse();
+
+/**
+ * L'état du salon, regroupé : au plus une diffusion toutes les
+ * `REGROUPEMENT_ETAT_MS` par salon. Un `profil` rediffusait l'état complet
+ * (2,7 Ko × neuf) à CHAQUE message ; le seau le borne à 40/s par socket, ce
+ * qui laissait encore 1 Mo/s par salon pour un seul client qui alterne sa
+ * carte. Le dernier choix gagne toujours : la diffusion lit l'état à son
+ * heure, pas à celle de la demande.
+ */
+const REGROUPEMENT_ETAT_MS = 150;
+function diffuseEtatBientot(room: Room): void {
+  if (room.etatPrevu) return;
+  room.etatPrevu = plusTard(() => {
+    room.etatPrevu = null;
+    if (rooms.get(room.code) === room) broadcast(room, roomState(room));
+  }, REGROUPEMENT_ETAT_MS, "etat");
+}
+
 const wss = new WebSocketServer({
   server: httpServer,
   // Le refus se fait à la poignée de main, pas après : une socket acceptée
@@ -887,9 +934,28 @@ const wss = new WebSocketServer({
   // (code 1009) au moment où il choisit sa photo — une coupure sans message,
   // pas un refus. L'e2e envoie une photo de 13 Ko pour le garder.
   maxPayload: PHOTO_MAX + 1024,
+  /*
+   * LA COMPRESSION, négociée par le navigateur lui-même : rien ne change au
+   * protocole, et un client qui ne la propose pas reçoit du texte brut.
+   *
+   * Mesuré à 20 salons × 10 (phase 4, point 24) : un `verdict` pèse 3,2 Ko
+   * de JSON très répétitif (la liste des joueurs à chaque manche), soit 72 %
+   * des octets. Sur le fil, par client : 0,92 Ko/s sans compression,
+   * 0,22 Ko/s ainsi (÷4), pour ~2 points de processeur. Un verdict tient
+   * alors dans UN paquet au lieu de trois — ce qui compte sur un réseau
+   * mobile qui perd des paquets.
+   *
+   * ⚠️ SANS CONTEXTE PARTAGÉ, délibérément. Avec, le fil tombait à
+   * 0,07 Ko/s (÷13), mais chaque connexion garde une fenêtre zlib en
+   * mémoire : ~100 Ko × 400 connexions (`hard_limit` de fly.toml) sur une
+   * machine de 512 Mo qui porte TOUS les salons. Sans contexte, la mémoire
+   * ne dépend plus du nombre de joueurs. Le seuil épargne les petits
+   * messages (`round`, `pong`, émotes), que zlib grossirait.
+   */
+  perMessageDeflate: { threshold: 256, serverNoContextTakeover: true, clientNoContextTakeover: true },
 });
 
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   const client: Client = {
     id: uid(),
     name: "ANONYME",
@@ -907,7 +973,11 @@ wss.on("connection", (ws) => {
     rookie: false,
     clavier: false,
     consignes: 1,
+    reprise: false,
     compte: null,
+    adresse: adresseDe(req.headers, req.socket.remoteAddress),
+    seau: new Seau(SEAU_CAPACITE, SEAU_PAR_SECONDE, Date.now()),
+    refus: 0,
   };
   client.glyph = glyphFor(client.id);
 
@@ -929,6 +999,13 @@ wss.on("connection", (ws) => {
   });
 
   ws.on("message", guarded((raw: RawData) => {
+    // Le seau AVANT le décodage : un message en trop ne doit rien coûter.
+    if (!client.seau.prend(Date.now())) {
+      client.refus += 1;
+      if (client.refus === REFUS_AVANT_COUPURE) ws.close(1008, "debit");
+      return;
+    }
+    client.refus = 0;
     const msg = decodeClient(raw.toString());
     if (!msg) return;
 
@@ -951,6 +1028,7 @@ wss.on("connection", (ws) => {
             ? Math.min(msg.consignes as number, CONSIGNES_VERSION)
             : 1;
         client.glyph = parseGlyph(msg.glyph, client.id);
+        client.reprise = msg.reprise === true;
 
         /*
          * Le compte, s'il y en a un.
@@ -1015,7 +1093,7 @@ wss.on("connection", (ws) => {
         client.photo = photo;
         const room = client.room;
         if (room) {
-          broadcast(room, roomState(room));
+          diffuseEtatBientot(room);
           if (photo !== photoAvant) {
             broadcast(room, { t: "photos", photos: { [client.id]: photo ?? "" } });
           }
@@ -1061,8 +1139,28 @@ wss.on("connection", (ws) => {
       }
 
       case "join": {
-        const room = rooms.get(String(msg.code ?? "").toUpperCase());
+        /*
+         * Au-delà de `ECHECS_JOIN_MAX` codes inconnus par minute, la même
+         * réponse part SANS regarder la table : celui qui balaie les codes
+         * n'apprend plus rien. Voir `debit.ts`.
+         */
+        const t = Date.now();
+        const code = String(msg.code ?? "").toUpperCase();
+        /*
+         * Un code MAL FORMÉ ne désigne aucun salon : il ne révèle rien, donc
+         * il ne compte pas comme un essai. Seuls les codes qui POURRAIENT
+         * exister usent le crédit de l'adresse — sinon une faute de frappe
+         * hostile (le corpus de l'e2e, un client bricolé) bloquerait le vrai
+         * code tapé juste après par quelqu'un du même réseau.
+         */
+        const bienForme = code.length === 4 && [...code].every((ch) => CODE_ALPHABET.includes(ch));
+        if (!bienForme || echecsJoin.bloquee(client.adresse, t)) {
+          send(client, { t: "error", code: "room_unknown" });
+          return;
+        }
+        const room = rooms.get(code);
         if (!room) {
+          echecsJoin.note(client.adresse, t);
           send(client, { t: "error", code: "room_unknown" });
           return;
         }
@@ -1378,9 +1476,9 @@ function rejoindre(client: Client, room: Room): void {
    * locale, il REPREND son identifiant — donc son siège, ses vies et
    * son score — au lieu d'entrer en spectateur avec une identité neuve.
    *
-   * On n'accepte la reprise que si l'ancienne socket est effectivement
-   * fermée : sinon deux onglets du même navigateur, qui partagent la
-   * clé, se voleraient mutuellement leur place.
+   * Deux onglets du même navigateur partagent la clé : le plus récent
+   * prend la place, l'ancien est prévenu et ne la reprend pas tout seul
+   * (voir `remplace` plus bas).
    */
   /*
    * Déjà dans ce salon : rejoindre à nouveau ne doit RIEN casser.
@@ -1402,12 +1500,33 @@ function rejoindre(client: Client, room: Room): void {
   // le salon précédent, introuvable et jamais nettoyée.
   leaveRoom(client);
 
+  /*
+   * ⚠️ LA CLÉ SUFFIT, même si l'ancienne socket paraît encore OUVERTE.
+   *
+   * La reprise exigeait une socket déjà fermée côté serveur. Or une coupure
+   * réseau « à moitié ouverte » (le téléphone passe du Wi-Fi à la 4G) ne se
+   * voit qu'au battement de cœur, 15 à 30 s plus tard, alors que le client
+   * revient en moins d'une seconde. Il entrait donc comme un INCONNU,
+   * spectateur, et son siège tombait en forfait 25 s après la fermeture
+   * enfin constatée : la décision n°4 trahie par le cas le plus courant sur
+   * téléphone (audit C1).
+   *
+   * La connexion la plus récente gagne. L'ancienne est prévenue (`remplace`)
+   * puis fermée ; le client ne tente pas de revenir après ce message, donc
+   * deux onglets du même navigateur ne se renvoient pas le siège en boucle.
+   */
   const fantome = client.key
     ? [...room.clients.values()].find(
-        (c) => c.key === client.key && c.ws.readyState !== WebSocket.OPEN,
+        // Une socket ouverte ne se remplace que chez un client qui saura
+        // céder sans revenir : sinon deux vieux onglets se battraient.
+        (c) => c.key === client.key && (c.ws.readyState !== WebSocket.OPEN || c.reprise),
       )
     : undefined;
   if (fantome) {
+    if (fantome.ws.readyState === WebSocket.OPEN) {
+      send(fantome, { t: "error", code: "remplace" });
+      fantome.ws.close(4001, "remplace");
+    }
     if (fantome.graceTimer) clearTimeout(fantome.graceTimer);
     fantome.graceTimer = null;
     fantome.room = null;
@@ -1526,6 +1645,13 @@ function leaveRoom(client: Client): void {
   }
   if (client.id === room.hostId) {
     room.hostId = [...room.clients.keys()][0]!;
+  }
+  // Un votant qui part : ceux qui restent ont peut-être déjà tous voté.
+  // `clotureVote` diffuse la fin et l'état du salon lui-même.
+  const issue = room.match?.clotureSansAttendre([...room.clients.keys()]) ?? null;
+  if (issue) {
+    clotureVote(room, issue);
+    return;
   }
   planifieDepart(room);
   broadcast(room, roomState(room));

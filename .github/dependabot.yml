@@ -1,0 +1,41 @@
+# LES MISES À JOUR DE SÉCURITÉ (phase 5, point 35).
+#
+# Une fois par semaine, regroupées : une PR par écosystème plutôt qu'une par
+# paquet — ce dépôt n'a qu'un relecteur, et dix PR de version le lundi matin
+# finiraient fermées sans être lues. Les correctifs de SÉCURITÉ, eux, passent
+# hors de ce calendrier (Dependabot les ouvre dès l'avis publié).
+#
+# Chaque PR passe la vérification complète, e2e compris : une mise à jour
+# n'entre que si le jeu tourne encore. ⚠️ `ws` et `tsx` sont des dépendances
+# de PRODUCTION du serveur de salons : une mise à jour fusionnée ne vit
+# qu'après un `fly deploy` (§10), comme tout le reste.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      outils:
+        dependency-type: development
+      production:
+        dependency-type: production
+    # @types/node suit la version de Node de la PRODUCTION (22 : Dockerfile,
+    # `engines`, CI), jamais la dernière : des types plus récents laissent
+    # passer à `tsc` une API que le serveur ne trouvera pas (phase 6, point 40).
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+    commit-message:
+      prefix: "dépendances"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "CI"

@@ -521,6 +521,40 @@ describe("un seul vote", () => {
     expect(m.poserVote(cible, villageois[0]!)).toEqual({ ignore: true });
   });
 
+  it("⚠️ un votant qui part ne bloque plus le vote : ceux qui restent ont voté, il se clôt", () => {
+    // Audit C3 : seul `poserVote` clôturait, donc un départ après un vote
+    // partagé laissait le match posé pour toujours (`in_match` à tout).
+    const m = matchImposteur(4, 4);
+    for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
+      m.openRound();
+      m.closeRound();
+    }
+    const [a, b, c, d] = m.seats.map((s) => s.id) as [string, string, string, string];
+    m.poserVote(a, b);
+    m.poserVote(b, c);
+    m.poserVote(c, a); // partagé : pas de majorité, d n'a pas voté
+    expect(m.enObservation()).toBe(true);
+    // d quitte le salon : les trois présents ont voté.
+    const issue = m.clotureSansAttendre([a, b, c]);
+    expect(issue).not.toBeNull();
+    expect(m.enObservation()).toBe(false);
+    expect(m.clotureSansAttendre([a, b, c]), "on ne clôt qu'une fois").toBeNull();
+    void d;
+  });
+
+  it("⚠️ la borne de temps clôt un vote où quelqu'un n'a jamais voté", () => {
+    const m = matchImposteur(4, 4);
+    for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {
+      m.openRound();
+      m.closeRound();
+    }
+    const ids = m.seats.map((s) => s.id);
+    m.poserVote(ids[0]!, ids[1]!);
+    expect(m.clotureSansAttendre(ids), "sans force, on attend encore").toBeNull();
+    expect(m.clotureSansAttendre(ids, true)).not.toBeNull();
+    expect(m.enObservation()).toBe(false);
+  });
+
   it("une coupure n'est pas un aveu : le siège away reste accusable", () => {
     const m = matchImposteur(2, 4);
     for (let i = 0; i < IMPOSTEUR_MANCHES; i++) {

@@ -25,6 +25,7 @@
     "tests",
     "api",
     "server",
-    "shared"
+    "shared",
+    "vite.config.ts"
   ]
 }

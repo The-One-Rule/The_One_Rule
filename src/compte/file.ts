@@ -217,7 +217,10 @@ async function videUne(): Promise<Resultat[]> {
         continue; // envoyé : on ne le remet pas
       }
       // 4xx = ce run ne sera jamais accepté. 5xx et le reste = on réessaiera.
-      if (res.status >= 500 || res.status === 401) {
+      // ⚠️ 429 aussi : `api/perf.ts` répond « trop de requêtes » quand le quota
+      // horaire est atteint. C'est un « pas maintenant », pas un « jamais » —
+      // le classer avec les refus jetait le score pour toujours (audit D3).
+      if (res.status >= 500 || res.status === 401 || res.status === 429) {
         restants.push(e);
       } else {
         /*

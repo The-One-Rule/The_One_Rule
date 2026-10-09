@@ -142,12 +142,46 @@ function toAction(input: LoggedInput, ents: Entity[]): Action | null {
  * et les quêtes. Le vérificateur ne doit dépendre que du moteur pur, sinon il
  * devient impossible à exécuter côté serveur.
  */
+/**
+ * Une entrée du journal a-t-elle la forme que `LoggedInput` promet ?
+ *
+ * ⚠️ Le journal arrive du réseau en JSON brut : le type n'est qu'une
+ * promesse du client. Sans ce contrôle (audit S2, mesuré) :
+ *   · une entrée `null` levait une exception, donc une réponse 500 ;
+ *   · un `t` en TEXTE était ACCEPTÉ — `next.t >= deadline` devenait une
+ *     comparaison de chaînes, les échéances ne s'appliquaient plus, et la
+ *     durée rendue valait « abc382036403460 » ;
+ *   · `i: "__proto__"` faisait de `ents[i]` le prototype des tableaux.
+ * Le serveur de salons se gardait déjà de ce dernier cas (`server/index.ts`) ;
+ * le rejeu non.
+ */
+export function entreeValide(e: unknown): e is LoggedInput {
+  if (!e || typeof e !== "object") return false;
+  const o = e as Record<string, unknown>;
+  if (typeof o.t !== "number" || !Number.isFinite(o.t)) return false;
+  const index = (v: unknown): boolean => v === null || (Number.isInteger(v) && (v as number) >= 0);
+  const touche = (v: unknown): boolean => typeof v === "string" && v.length > 0 && v.length <= 16;
+  switch (o.k) {
+    case "c":
+    case "l":
+      return index(o.i);
+    case "x":
+      return typeof o.x === "number" && Number.isFinite(o.x) && typeof o.y === "number" && Number.isFinite(o.y);
+    case "k":
+    case "r":
+      return touche(o.key);
+    default:
+      return false;
+  }
+}
+
 export function verifyRun(claim: RunClaim): Verdict {
   const rule: OneRule | undefined = ONE_RULES.find((r) => r.id === claim.ruleId);
   if (!rule) return fail("règle inconnue");
   if (!Number.isFinite(claim.seed)) return fail("graine invalide");
   if (!Array.isArray(claim.inputs)) return fail("journal absent");
   if (claim.inputs.length > MAX_INPUTS) return fail("journal trop long");
+  if (!claim.inputs.every(entreeValide)) return fail("entrée malformée");
 
   // le journal doit être monotone : un temps qui recule signale un montage
   for (let i = 1; i < claim.inputs.length; i++) {

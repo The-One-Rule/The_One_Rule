@@ -1,0 +1,18 @@
+# Fins de ligne : LF dans le dépôt ET dans la copie de travail, quel que soit
+# le système. Deux pièges déjà payés (CLAUDE.md §3) : `git stash` rendait des
+# fichiers en CRLF sur le poste Windows, et un script PowerShell 5.1 doit
+# rester ASCII pour être lu. Mesuré à l'écriture de ce fichier : 272 fichiers
+# texte, tous déjà en LF — aucune normalisation à appliquer.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Le verrou est GÉNÉRÉ : GitHub le replie dans les PR. Il reste lisible en
+# `git diff` — un changement de dépendance se relit, c'est de la sécurité.
+# En conflit, le régénérer (`npm install`) plutôt que le résoudre à la main.
+package-lock.json linguist-generated=true

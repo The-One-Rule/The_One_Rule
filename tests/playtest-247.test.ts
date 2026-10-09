@@ -19,6 +19,7 @@ import { readFileSync } from "node:fs";
 import type { Round } from "../src/engine/types";
 import { actionsDeFin } from "../src/render/finactions";
 import type { EtatFin } from "../src/render/finactions";
+import { lancementRefuse } from "../src/render/jour";
 
 /** Un run du jour ordinaire — seul `essaisRestants` varie dans les cas ci-dessous. */
 const FIN_JOUR: EtatFin = {
@@ -217,35 +218,39 @@ describe("REJOUER — le run du jour se rejoue tant qu'il reste un essai", () =>
     expect(corps, "REJOUER après une pile lançait un entraînement").not.toMatch(/:\s*"training"\s*\)/);
   });
 
-  it("le brief du jour se verrouille aussi, et pas seulement les portes", () => {
+  it("le brief, le lancement et startRun jugent la journée close de la MÊME façon", () => {
     /*
-     * LA FUITE TROUVÉE EN VÉRIFIANT LE CORRECTIF PRÉCÉDENT.
+     * LA FUITE TROUVÉE EN VÉRIFIANT LE CORRECTIF PRÉCÉDENT : le verrou était
+     * posé sur `#btnDaily` et `#btnAgain`, jamais sur le brief — or `navDaily`
+     * l'ouvre directement. Mesuré : trois essais consommés, COMMENCER actif,
+     * et le quatrième run partait.
      *
-     * `vueDuJour().verrouille` était appliqué sur `#btnDaily` et sur
-     * `#btnAgain`, jamais sur le brief lui-même — or `navDaily` l'ouvre
-     * directement depuis la barre du bas. Mesuré dans le navigateur : trois
-     * essais consommés, « 0 / 3 ESSAIS » à l'écran, COMMENCER actif, et le
-     * quatrième run partait.
-     *
-     * Le garde-fou appartient au point de passage COMMUN, pas à chaque porte —
-     * la prochaine porte oubliera de le poser.
+     * Le jugement était ensuite écrit TROIS fois (brief, `lanceRun`,
+     * `jourDuRunClos`), et le brief oubliait le mode classé. Il vit désormais
+     * dans `lancementRefuse` (render/jour.ts), testé ci-dessous par son
+     * comportement ; ici on vérifie seulement que les trois portes le
+     * consultent — `main.ts` ne s'instancie pas dans un test.
      */
-    expect(source, "le brief doit calculer si la journée est close").toMatch(
-      /const closeJour = mode === "daily"[\s\S]{0,80}verrouille/,
-    );
-    expect(source, "et désactiver COMMENCER en conséquence").toMatch(/go\.disabled = closeJour/);
+    for (const nom of ["function jourDuRunClos()", "function openBrief(", "function lanceRun()"]) {
+      const debut = source.indexOf(nom);
+      expect(debut, `${nom} a disparu`).toBeGreaterThan(-1);
+      const corpsFn = source.slice(debut, source.indexOf("\n}", debut) + 2);
+      expect(corpsFn, `${nom} ne consulte plus lancementRefuse`).toMatch(/lancementRefuse\(/);
+    }
+    expect(source, "et COMMENCER se désactive en conséquence").toMatch(/go\.disabled = closeJour/);
   });
 
-  it("lanceRun refuse un jour verrouillé — le point de passage commun", () => {
-    /*
-     * Les boutons et le clavier peuvent mentir. Le lancement, lui, ne doit
-     * pas. Sans cette garde, le battement de lecture (3 s) laissait la
-     * sync recoller « 0 / 3 » puis lançait quand même.
-     */
-    const debut = source.indexOf("function lanceRun()");
-    expect(debut, "lanceRun a disparu").toBeGreaterThan(-1);
-    const corpsLance = source.slice(debut, source.indexOf("\n}", debut) + 2);
-    expect(corpsLance, "lanceRun ne consulte plus verrouille").toMatch(/verrouille/);
+  it("lancementRefuse : seule une journée close du RUN DU JOUR refuse", () => {
+    const clos = { verrouille: true };
+    const ouvert = { verrouille: false };
+    expect(lancementRefuse({ mode: "daily", defi: false, classe: false, vue: clos })).toBe(true);
+    expect(lancementRefuse({ mode: "daily", defi: false, classe: false, vue: ouvert })).toBe(false);
+    // Défi et classé rejouent une graine imposée : pas d'essai consommé.
+    expect(lancementRefuse({ mode: "daily", defi: true, classe: false, vue: clos })).toBe(false);
+    expect(lancementRefuse({ mode: "daily", defi: false, classe: true, vue: clos })).toBe(false);
+    for (const mode of ["training", "escalade", "ranked"]) {
+      expect(lancementRefuse({ mode, defi: false, classe: false, vue: clos }), mode).toBe(false);
+    }
   });
 
   it("le clavier du brief respecte l'état de COMMENCER", () => {

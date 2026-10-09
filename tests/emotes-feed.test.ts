@@ -28,7 +28,7 @@ describe("émotes — index, pas le glyphe", () => {
   });
 
   it("populateEmotes pose aria-label = le mot, et n'écrit pas textContent sur le bouton", () => {
-    const fn = /function populateEmotes\(\)[\s\S]*?\n  \}/.exec(multi)?.[0] ?? "";
+    const fn = /function populateEmotes\(\)[\s\S]*?\n {2}\}/.exec(multi)?.[0] ?? "";
     expect(fn.length, "populateEmotes introuvable").toBeGreaterThan(80);
     expect(fn).toMatch(/setAttribute\(\s*"aria-label",\s*label\s*\)/);
     expect(fn).toMatch(/emoteGlyphe\(k\)/);

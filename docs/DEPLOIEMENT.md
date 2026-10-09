@@ -94,7 +94,27 @@ les changer après exige un redéploiement :
 |---|---|---|
 | `VITE_WS_URL` | `wss://ton-app.fly.dev` | **`wss://`**, jamais `ws://` |
 | `VITE_COLLECT_URL` | `/api/collect` | inutile sans le stockage du §5 |
-| `VITE_RANKED_URL` | *(vide)* | stockage en mémoire, à laisser éteint |
+| `VITE_RANKED_URL` | *(vide)* | classé hors routage (`api/_ranked.ts`) et non authentifié — à laisser éteint |
+
+Les routes des comptes (`VITE_AUTH_URL`, `VITE_MOI_URL`, `VITE_PERF_URL`,
+`VITE_AMIS_URL`) ont pour défaut les fonctions du dépôt : rien à poser.
+
+---
+
+## 2 bis. Les comptes — optionnels
+
+Sans ces réglages, le bouton de connexion reste masqué et le jeu se comporte
+exactement comme sans comptes : aucune fonctionnalité de jeu n'en dépend.
+
+1. Un projet **Supabase**, puis les migrations **dans l'ordre** :
+   `supabase/migrations/0001_comptes.sql` → `0005_purge_performances_supprimees.sql`.
+2. Deux applications OAuth (**Google**, **Discord**), avec pour URL de retour
+   `https://www.theonerule.party/api/authcb`.
+3. Les variables, côté **Vercel** : `TOR_AUTH_SECRET`, `TOR_APP_URL`,
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID/SECRET`,
+   `DISCORD_CLIENT_ID/SECRET` — et côté **Fly** : `TOR_AUTH_SECRET`, **le même**
+   (le serveur de salons vérifie les jetons sans base). `fly secrets set`
+   redémarre la machine : à faire quand personne ne joue.
 
 ---
 
@@ -141,19 +161,41 @@ partie est perdue quand même. Ne déploie pas pendant la soirée de test.
 
 ## 4. Avant d'inviter qui que ce soit
 
+La CI (`.github/workflows/verification.yml`) refait tout ce qui suit sur
+chaque PR. En local :
+
 ```bash
-npx tsc --noEmit && npx vitest run && npx tsx e2e.mjs && npx vite build
+npm run lint && npm run typecheck && npm run coverage && npm run build
+npm run e2e && npm run e2e:navigateur      # seuls, machine au repos
+npm run integration                        # l'image reconstituée et lancée
 ```
 
 L'e2e vérifie aussi la sonde `/health`, sur le même port que les sockets.
 
-Pour éprouver l'image du serveur sans déployer :
+Pour éprouver la vraie image Docker sans déployer :
 
 ```bash
 docker build -t one-rule-salons .
-docker run --rm -p 8080:8080 one-rule-salons
-curl http://localhost:8080/health
+docker run --rm -p 8080:8080 -e ALLOWED_ORIGINS=https://integration.theonerule.test one-rule-salons
+node scripts/integration-image.mjs --url http://localhost:8080
 ```
+
+### Déployer et revenir en arrière depuis GitHub
+
+Deux flux **manuels** (onglet *Actions* → *Run workflow*), jamais déclenchés
+par un push. Prérequis : le secret `FLY_API_TOKEN` (`fly tokens create deploy`)
+dans l'environnement `production` du dépôt, idéalement protégé par une règle
+*Required reviewers*.
+
+- **Déploiement des salons** — taper `DEPLOYER`. Vérification rapide, refus
+  s'il y a des salons en cours (sauf « forcer »), `fly deploy`, `fly scale
+  count 1`, `check-salons`. L'image en place AVANT est écrite au résumé.
+- **Retour arrière des salons** — coller cette image. `fly deploy --image`,
+  une machine, une instance, et `/health` doit annoncer l'image demandée.
+
+Le front, lui, se déploie et se ramène depuis Vercel (*Deployments* →
+*Promote to Production*). Si le retour arrière des salons défait une évolution
+du protocole, le front qui l'attend doit revenir aussi.
 
 Puis, dans l'ordre :
 
@@ -272,7 +314,8 @@ Ce qui ne se mesure pas mais décide autant, et qui n'attend aucun stockage : à
 observer pendant la soirée.
 
 - relancent-ils une partie **sans qu'on le demande** ?
-- le chat vit-il **pendant les kill-cams** ? (c'est le pari de tout le pivot)
+- ~~le chat vit-il **pendant les kill-cams** ?~~ — **réponse : non**, les
+  joueurs soufflent pendant la pause plutôt que de lire (CLAUDE.md §12).
 - quelqu'un **rit-il à voix haute** en voyant un autre se faire piéger ?
 - le chat sert-il **pendant les premières manches** ? Si non, la fenêtre
   bavarde ne sert à rien et le facteur `1.45` de `tensionAt` doit descendre

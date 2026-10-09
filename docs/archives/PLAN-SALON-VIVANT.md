@@ -1,3 +1,8 @@
+> ⛔ **ARCHIVE — plan entièrement réalisé** (état au 27/08/2026). CLAUDE.md
+> §2 en tire la leçon « les documents mentent » : il a décrit trois fois du
+> travail déjà fait. Ne pas l'exécuter ; l'état actuel est dans
+> [`CLAUDE.md`](../../CLAUDE.md).
+
 # Salon vivant — journal et plan
 
 Ce document reprend le fil **depuis le lot kill-cam** : ce qui est livré, la

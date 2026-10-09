@@ -22,14 +22,15 @@ process.on("uncaughtException", (e) => {
   throw e;
 });
 
-await import("./server/index.ts");
-const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("./src/engine/multiround.ts");
-const { draftImposteur, SANS_REGLE } = await import("./src/engine/imposteur.ts");
-const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("./src/engine/instructions/index.ts");
-const { HOLD_MS } = await import("./src/engine/difficulty.ts");
-const { ONE_RULES } = await import("./src/engine/rules/index.ts");
-const { MOTIFS } = await import("./src/engine/motifs.ts");
-const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("./shared/protocol.ts");
+await import("../../server/index.ts");
+const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("../../src/engine/multiround.ts");
+const { draftImposteur, SANS_REGLE } = await import("../../src/engine/imposteur.ts");
+const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("../../src/engine/instructions/index.ts");
+const { HOLD_MS } = await import("../../src/engine/difficulty.ts");
+const { ONE_RULES } = await import("../../src/engine/rules/index.ts");
+const { MOTIFS } = await import("../../src/engine/motifs.ts");
+const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("../../shared/protocol.ts");
+const { ECHECS_JOIN_MAX } = await import("../../server/debit.ts");
 
 /*
  * Attendre le DÉPART d'un match, pas une durée devinée.
@@ -228,7 +229,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
     if (m.t === "error") c.errors.push(m);
   });
   ws.on("close", (code) => { c.ferme = code; });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, reprise: true, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -780,8 +781,8 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 // il est assure de perdre ». On rejoue ici le chemin complet — vrai serveur,
 // vrai client ws — sur une piece situee hors de la zone.
 {
-  const { draftShared, applyRule } = await import("./src/engine/multiround.ts");
-  const { ONE_RULES: RULES } = await import("./src/engine/rules/index.ts");
+  const { draftShared, applyRule } = await import("../../src/engine/multiround.ts");
+  const { ONE_RULES: RULES } = await import("../../src/engine/rules/index.ts");
   const gaucher = RULES.find((r) => r.id === "gaucher");
 
   /*
@@ -1079,13 +1080,35 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
     `REJOINDRE ne déclare pas forfait (vies ${doraAvant?.lives} → ${doraApres?.lives}, spectateur ${doraApres?.spectator})`,
   );
 
+  /*
+   * ⚠️ COUPURE À MOITIÉ OUVERTE (audit C1). Le téléphone change de réseau :
+   * il revient par une socket NEUVE alors que le serveur croit l'ancienne
+   * toujours ouverte — il ne s'en apercevra qu'au battement de cœur, 15 à
+   * 30 s plus tard. On simule exactement ça : emil2 n'est PAS fermé.
+   * Avant le correctif, EMIL entrait en inconnu, spectateur, et perdait son
+   * siège en forfait une fois l'ancienne socket enfin tombée.
+   */
+  const emil3 = await client("EMIL", "cle-stable-emil");
+  emil3.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(500);
+  ok(emil3.id === idAvant, `demi-coupure : la socket neuve reprend le siège (${idAvant} → ${emil3.id})`);
+  ok(
+    emil2.errors.some((e) => e.code === "remplace") && emil2.ferme !== null,
+    `demi-coupure : l'ancienne socket est prévenue puis fermée (code ${emil2.ferme})`,
+  );
+  const emils = emil3.room?.players?.filter((p) => p.name === "EMIL") ?? [];
+  ok(
+    emils.length === 1 && emils[0].spectator === false,
+    `demi-coupure : un seul EMIL, et il joue (${emils.length} ligne(s))`,
+  );
+
   // Une clé différente ne doit RIEN pouvoir reprendre.
   const voleur = await client("VOLEUR", "cle-inconnue");
   voleur.ws.send(JSON.stringify({ t: "join", code }));
   await sleep(300);
   ok(voleur.id !== idAvant, "une autre clé ne reprend pas le siège d'EMIL");
 
-  for (const c of [dora, emil2, voleur]) c.ws.close();
+  for (const c of [dora, emil2, emil3, voleur]) c.ws.close();
   await sleep(200);
 }
 
@@ -1096,35 +1119,108 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 // capturée dans un écouteur Node tue le processus — donc TOUS les salons de
 // l'instance, depuis une seule socket. Ce test est la régression : si le
 // serveur meurt ici, plus rien ne répond ensuite et /health tombe avec.
-alice.ws.send(JSON.stringify({ t: "create" }));
+/*
+ * Un client DÉDIÉ : le corpus change son identité et finit par faire fermer
+ * sa socket (un `hello` de mauvaise version), ce qu'aucun autre scénario ne
+ * doit subir.
+ */
+const fuzz = await client("FUZZ", "cle-fuzz");
+fuzz.manuel = true;
+fuzz.ws.send(JSON.stringify({ t: "create" }));
 await sleep(150);
-alice.ws.send(JSON.stringify({ t: "start" }));
+fuzz.ws.send(JSON.stringify({ t: "start" }));
 await sleep(APRES_DEPART); // COUNTDOWN_MS + marge : il faut une manche OUVERTE pour atteindre le code fautif
+/*
+ * ⚠️ « Le serveur répond encore » ne prouve plus rien : depuis `guarded` et le
+ * filet `uncaughtException`, il survit à TOUTE exception. Le critère qui a des
+ * dents est le compteur `erreurs` de /health — chaque exception rattrapée
+ * l'incrémente. Un message malformé doit être REFUSÉ en silence, pas
+ * rattrapé après avoir levé (phase 3, point 17).
+ *
+ * Le corpus croise CHAQUE type de message du protocole avec des valeurs
+ * hostiles pour chacun de ses champs, plus des trames qui ne sont pas du JSON.
+ */
+const lisErreurs = () =>
+  fetch(`http://127.0.0.1:${process.env.PORT}/health`).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+const erreursAvant = (await lisErreurs())?.erreurs;
+const HOSTILES = [null, undefined, true, -1, 1e308, Number.NaN, "", "__proto__", "x".repeat(2000), [], {}, [null], { __proto__: { x: 1 } }];
+const CHAMPS = {
+  hello: ["v", "name", "key", "glyph", "tok", "rookie", "clavier", "consignes", "reprise"],
+  ping: ["sent"],
+  profil: ["carte", "photo"],
+  join: ["code"],
+  settings: ["settings"],
+  watch: ["playerId"],
+  input: ["round", "at", "action"],
+  vote: ["playerId"],
+  cursor: ["x", "y"],
+  emote: ["k"],
+  chat: ["text"],
+  kick: ["playerId"],
+};
 const malformes = [
-  { t: "input", round: 0, at: 0 },                          // action absente : le crasheur
-  { t: "input", round: 0, at: 0, action: null },
-  { t: "input", round: 0, at: 0, action: {} },
+  { t: "input", round: 0, at: 0 },
   { t: "input", round: 0, at: 0, action: { k: "c", i: "__proto__" } },
   { t: "input", round: 0, at: 0, action: { k: "c", i: 1e9 } },
   { t: "input", round: 0, at: 0, action: { k: "k" } },
-  { t: "settings", settings: "pas un objet" },
-  { t: "emote", k: "beaucoup" },
-  { t: "watch" },
-  { t: "join" },
-  { t: "kick" },
-  { t: "hello", v: 1, glyph: { shape: "banane", color: 999, pattern: -1 } },
-  { t: "cursor" },
-  { t: "cursor", x: "nope", y: 1 },
+  { t: "input", round: 0, at: 0, action: { k: "l", i: -3 } },
+  { t: "input", round: 0, at: 0, action: { k: "r", key: { length: 1e9 } } },
 ];
-for (const m of malformes) {
-  alice.ws.send(JSON.stringify(m));
-  await sleep(20);
+for (const [t, champs] of Object.entries(CHAMPS)) {
+  for (const champ of champs) {
+    // Un `hello` garde une version valide : sinon le serveur FERME la socket
+    // (`bad_version`, c'est sa règle) et la suite du corpus n'arrive jamais —
+    // le premier passage l'a montré, « 0 exception » ne prouvait alors rien.
+    if (t === "hello" && champ === "v") continue;
+    for (const v of HOSTILES) malformes.push(t === "hello" ? { t, v: 1, [champ]: v } : { t, [champ]: v });
+  }
 }
+// Les types qu'on ne connaît pas, ou qu'on n'attend pas en premier.
+for (const t of ["inconnu", "", "__proto__", "constructor", "start", "quick", "create", "leave"]) malformes.push({ t });
+// Le `hello` en dernier : il change l'identité d'ALICE, on la rétablit après.
+const crus = ["", "{", "null", "[]", "42", '"x"', '{"t":null}', '{"t":42}', '{"t":{}}', "\u0000\u0001"];
+/*
+ * ⚠️ CADENCÉ, depuis les limites de débit (`server/debit.ts`) : envoyé d'un
+ * bloc, le corpus bute sur le seau de sa socket, qui le coupe (1008). C'est le
+ * bon comportement — et il est éprouvé plus bas, à part — mais ce scénario-ci
+ * veut éprouver le DÉCODAGE de chaque message : 30 par seconde, sous les 40
+ * accordés.
+ */
+let envoyesFuzz = 0;
+const cadence = async () => {
+  envoyesFuzz += 1;
+  if (envoyesFuzz % 30 === 0) await sleep(1000);
+};
+for (const m of malformes) {
+  fuzz.ws.send(JSON.stringify(m));
+  await cadence();
+  if (m.t === "leave" || m.t === "create" || m.t === "quick") {
+    // On remet FUZZ dans une partie ouverte pour que `input` atteigne son code.
+    fuzz.ws.send(JSON.stringify({ t: "create" }));
+    fuzz.ws.send(JSON.stringify({ t: "start" }));
+    envoyesFuzz += 2;
+  }
+}
+for (const c of crus) {
+  fuzz.ws.send(c);
+  await cadence();
+}
+fuzz.ws.send(Buffer.from([0xff, 0xfe, 0x00]));
+await sleep(400);
+ok(fuzz.ferme === null, `le corpus est allé jusqu'au bout sur une socket ouverte (fermée : ${fuzz.ferme})`);
+const surviving = await lisErreurs();
+ok(surviving?.ok === true, `serveur vivant après ${malformes.length + crus.length + 1} messages malformés`);
+ok(
+  typeof erreursAvant === "number" && surviving?.erreurs === erreursAvant,
+  `aucune exception rattrapée sur le corpus malformé (erreurs ${erreursAvant} → ${surviving?.erreurs})`,
+);
+// Et la version hostile en DERNIER : le serveur doit refuser puis fermer.
+fuzz.ws.send(JSON.stringify({ t: "hello", v: "x" }));
 await sleep(200);
-const surviving = await fetch(`http://127.0.0.1:${process.env.PORT}/health`)
-  .then((r) => (r.ok ? r.json() : null))
-  .catch(() => null);
-ok(surviving?.ok === true, `serveur vivant après ${malformes.length} messages malformés`);
+ok(
+  fuzz.errors.some((e) => e.code === "bad_version") && fuzz.ferme !== null,
+  `un hello de mauvaise version est refusé puis fermé (code ${fuzz.ferme})`,
+);
 ok(alice.ws.readyState === WebSocket.OPEN, "socket d'ALICE toujours ouverte après les malformés");
 alice.ws.send(JSON.stringify({ t: "leave" }));
 await sleep(150);
@@ -1145,8 +1241,8 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
  * COOP — curseur décoratif. Le clic est jugé sur l'index, pas sur x,y.
  * ------------------------------------------------------------------ */
 {
-  const { draftCoop } = await import("./src/engine/coop.ts");
-  const { FIELD_H } = await import("./src/engine/types.ts");
+  const { draftCoop } = await import("../../src/engine/coop.ts");
+  const { FIELD_H } = await import("../../src/engine/types.ts");
   const seuilG = ONE_RULES.find((r) => r.id === "gaucher")?.zone?.[0]?.x1 ?? 200;
 
   const attendre = async (pred, ms) => {
@@ -1259,10 +1355,14 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   const attendre = async (pred, ms, quoi) => {
     const t0 = Date.now();
     while (!pred() && Date.now() - t0 < ms) await sleep(200);
-    return pred();
+    const ok = pred();
+    // Une attente épuisée le DIT, avec ce qu'elle attendait : l'assertion qui
+    // suit tombera, et ce journal dira pourquoi (§2, « l'e2e est bavard »).
+    if (!ok && quoi) info(`attente épuisée après ${ms} ms : ${quoi}`);
+    return ok;
   };
 
-  const jouerUnMatch = async (joueurs, accusateur) => {
+  const jouerUnMatch = async (joueurs, accusateur, voter = null) => {
     for (const c of joueurs) raz(c);
     joueurs[0].ws.send(JSON.stringify({ t: "start" }));
     const dix = await attendre(() => joueurs[0].verdicts.length >= 10, 90000, "10 verdicts");
@@ -1307,8 +1407,11 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
         : joueurs[0].acted.length > 0,
       `imposteur : un t:acted d'un villageois (${joueurs[0].acted.length} acted, aAgitVillage=${villageAAgi})`,
     );
-    const cible = accusateur(joueurs);
-    for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
+    if (voter) voter(joueurs, village);
+    else {
+      const cible = accusateur(joueurs);
+      for (const v of village) v.ws.send(JSON.stringify({ t: "vote", playerId: cible }));
+    }
     const vote = await attendre(() => joueurs[0].voteResults.length >= 1, 4000, "vote_result");
     ok(vote, "imposteur : vote_result reçu");
     const fin = await attendre(() => !!joueurs[0].ended, 4000, "match_end");
@@ -1346,8 +1449,32 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   const r2 = await jouerUnMatch(imp, (js) => js.find((c) => !c.imposteur).id);
   ok(r2?.vainqueur === "imposteur", `imposteur : 3 voix sur un villageois → imposteur (got ${r2?.vainqueur})`);
 
+  /*
+   * ⚠️ UN VOTANT QUI PART NE BLOQUE PLUS LE SALON (audit C3). Trois voix
+   * partagées, sans majorité ; le seul siège qui n'a pas voté quitte la
+   * table. Avant le correctif, plus aucune voix n'arrivait, donc rien ne
+   * clôturait : le match restait posé pour toujours et le salon répondait
+   * `in_match` à tout. Le vote doit se clore AUSSITÔT — pas au bout de la
+   * borne de 90 s, que l'attente de 4 s ne laisserait pas atteindre.
+   */
+  await sleep(500);
+  let partant = null;
+  const r3 = await jouerUnMatch(imp, null, (js, village) => {
+    const imposteur = js.find((c) => c.imposteur);
+    // Celui qui part n'est jamais js[0] : c'est lui qu'on écoute.
+    partant = village.find((c) => c !== js[0]);
+    const votants = js.filter((c) => c !== partant);
+    // Chacun accuse quelqu'un de différent : aucune majorité possible.
+    votants.forEach((v, i) => v.ws.send(JSON.stringify({ t: "vote", playerId: votants[(i + 1) % votants.length].id })));
+    void imposteur;
+    setTimeout(() => partant.ws.send(JSON.stringify({ t: "leave" })), 300);
+  });
+  ok(!!r3, "imposteur : un votant qui part après un vote partagé clôt le vote (pas de salon bloqué)");
+  ok(r3?.vainqueur === "imposteur", `imposteur : sans majorité, l'imposteur l'emporte (got ${r3?.vainqueur})`);
+
   for (const c of imp) c.ws.close();
   await sleep(220);
+  void partant;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1366,7 +1493,8 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
   p1.ws.send(JSON.stringify({ t: "create" }));
   await sleep(150);
   p1.ws.send(JSON.stringify({ t: "profil", carte: "sang", photo: lourde }));
-  await sleep(150);
+  // 150 ms de regroupement de l'état du salon (`diffuseEtatBientot`), plus la marge.
+  await sleep(400);
   ok(p1.ferme === null, `profil : une photo de 13 Ko ne ferme pas la socket (code ${p1.ferme})`);
   const moi1 = p1.room?.players.find((x) => x.id === p1.id);
   ok(moi1?.carte === "sang", `profil : la carte est publiée dans le salon (${moi1?.carte})`);
@@ -1434,7 +1562,7 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
  * le match se termine au temps.
  * ------------------------------------------------------------------ */
 {
-  const { ATTENTE_SALON_MS, ATTENTE_APRES_MATCH_MS } = await import("./server/rapide.ts");
+  const { ATTENTE_SALON_MS, ATTENTE_APRES_MATCH_MS } = await import("../../server/rapide.ts");
   const [q1, q2, q3] = await Promise.all([client("RAPIDE1", "kq1"), client("RAPIDE2", "kq2"), client("RAPIDE3", "kq3")]);
   const departs = new Map();
   for (const c of [q1, q2, q3]) {
@@ -1552,6 +1680,44 @@ ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
 
   const inattendues = match1.errors.filter((e) => e.code !== "not_host");
   ok(inattendues.length === 0, `aucune erreur inattendue chez ALICE (${inattendues.map((e) => e.code).join(",") || "aucune"})`);
+}
+
+/* ------------------------------------------------------------------ *
+ * LES LIMITES DE DÉBIT (`server/debit.ts`) — phase 4, point 23.
+ *
+ * ⚠️ TOUJOURS EN DERNIER : le balayage de codes BLOQUE l'adresse pendant une
+ * minute, et tous les clients de ce fichier partagent 127.0.0.1. Placé plus
+ * haut, il ferait refuser les `join` de tous les scénarios suivants.
+ * ------------------------------------------------------------------ */
+{
+  const [hote, flot, balai] = await Promise.all([client("HOTEDEBIT", "hdeb"), client("FLOT", "flot"), client("BALAI", "balai")]);
+  for (const c of [hote, flot, balai]) c.manuel = true;
+  hote.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(150);
+  const code = hote.room?.code;
+  const avant = (await lisErreurs())?.erreurs;
+  // Une rafale de 2000 messages : 80 passent, puis le seau refuse, et coupe.
+  for (let i = 0; i < 2000; i++) flot.ws.send(JSON.stringify({ t: "ping", sent: i }));
+  await sleep(400);
+  ok(flot.ferme === 1008, `débit : une rafale fait couper la socket fautive (code ${flot.ferme})`);
+  ok(hote.ws.readyState === WebSocket.OPEN, "débit : les autres sockets restent ouvertes");
+  const apres = await lisErreurs();
+  ok(apres?.ok === true && apres?.erreurs === avant, `débit : serveur vivant, aucune exception (erreurs ${avant} → ${apres?.erreurs})`);
+
+  // Le balayage : ECHECS_JOIN_MAX codes inconnus, puis le VRAI code est refusé.
+  const faux = [];
+  for (const a of "ABCDEFGHJK") for (const b of "MNPQ") if (faux.length < ECHECS_JOIN_MAX) faux.push(`Z${a}${b}9`);
+  for (const f of faux.filter((f) => f !== code)) {
+    balai.ws.send(JSON.stringify({ t: "join", code: f }));
+    await sleep(40);
+  }
+  balai.ws.send(JSON.stringify({ t: "join", code }));
+  await sleep(300);
+  ok(
+    balai.room?.code !== code && balai.errors.filter((e) => e.code === "room_unknown").length === faux.length + 1,
+    `débit : après ${faux.length} codes inconnus, même le vrai est refusé (${balai.room?.code ?? "hors salon"})`,
+  );
+  ok(balai.ferme === null, "débit : le balayeur n'est pas coupé — il n'apprend simplement plus rien");
 }
 
 /* ------------------------------------------------------------------ *

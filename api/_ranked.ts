@@ -54,6 +54,8 @@ export interface Store {
   putRun(r: StoredRun): Promise<void>;
   /** runs jouables comme fantôme, dans une fenêtre de classement */
   findRuns(rating: number, window: number, excludeOwner: string, limit: number): Promise<StoredRun[]>;
+  /** Le run servi en fantôme, relu au moment du verdict. */
+  runById(id: string): Promise<StoredRun | null>;
   top(limit: number): Promise<Profile[]>;
 }
 
@@ -78,6 +80,9 @@ class MemoryStore implements Store {
       .slice(-400)
       .sort(() => Math.random() - 0.5)
       .slice(0, limit);
+  }
+  async runById(id: string): Promise<StoredRun | null> {
+    return this.runs.find((r) => r.id === id) ?? null;
   }
   async top(limit: number): Promise<Profile[]> {
     return [...this.profiles.values()]
@@ -134,7 +139,10 @@ export default async function handler(req: Request): Promise<Response> {
   const action = url.searchParams.get("a");
 
   if (action === "top") {
-    return json({ top: (await store.top(50)).map(({ flags, ...p }) => ({ ...p, flags: undefined })) });
+    // ⚠️ Le profil PUBLIC seulement. La liste rendait chaque profil entier
+    // moins `flags` — donc son `id`, qui est l'`anonId` du joueur : sa clé de
+    // reprise de siège en salon et son identifiant de mesure (audit S1).
+    return json({ top: (await store.top(50)).map(publicProfile) });
   }
 
   if (req.method !== "POST") return json({ error: "method" }, 405);
@@ -214,10 +222,19 @@ export default async function handler(req: Request): Promise<Response> {
       });
     }
 
-    // Le score adverse est relu du stockage, jamais accepté du client.
-    const oppScore = Number(body.opponentScore);
-    const oppRating = Number(body.opponentRating);
-    const hasOpponent = Number.isFinite(oppScore) && Number.isFinite(oppRating);
+    /*
+     * Le score adverse est relu du stockage, jamais accepté du client.
+     *
+     * ⚠️ Ce commentaire était déjà là, au-dessus de `Number(body.opponentScore)` :
+     * le client fixait lui-même le score ET le classement de l'adversaire, donc
+     * son propre gain d'Elo (audit S1). Le client ne désigne plus que le run
+     * qu'on lui a servi ; un run introuvable (autre instance, vivier recyclé)
+     * ne fait bouger aucun classement.
+     */
+    const opp = typeof body.opponentRunId === "string" ? await store.runById(body.opponentRunId.slice(0, 64)) : null;
+    const hasOpponent = opp !== null && opp.owner !== me.id;
+    const oppScore = opp?.score ?? 0;
+    const oppRating = opp?.rating ?? 0;
 
     let change = null;
     if (hasOpponent) {

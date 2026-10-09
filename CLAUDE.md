@@ -72,9 +72,12 @@ spectateur avec 3 vies, une carte d'accueil qui se détruisait elle-même. Tous
 trouvés en mesurant, aucun en relisant.
 
 ```bash
+npm run lint                 # ESLint, justesse seulement (pas de style)
 npx tsc --noEmit
 npx vitest run
-npx tsx e2e.mjs
+npm run e2e                  # tests/e2e/e2e.mjs : salons réels, clients ws
+npm run e2e:navigateur       # tests/e2e/e2e-navigateur.mjs : le VRAI client dans Chromium
+npm run coverage             # cliquet sur engine, game, shared, api
 npx vite build
 ```
 
@@ -115,7 +118,8 @@ sans nom d'assertion ont coûté des heures avant ça.
 
 ### Les documents mentent
 
-`PLAN-SALON-VIVANT.md` a décrit trois fois du travail déjà fait. **Avant
+`PLAN-SALON-VIVANT.md` (archivé dans `docs/archives/`) a décrit trois fois du
+travail déjà fait. **Avant
 d'attaquer quoi que ce soit d'annoncé comme « à faire », vérifie dans le
 code** — un `git grep` sur les symboles cités suffit — et corrige le document.
 
@@ -123,7 +127,17 @@ code** — un `git grep` sur les symboles cités suffit — et corrige le docume
 
 ## 3. Environnement — et le piège qui a corrompu deux fichiers
 
-Windows, **PowerShell 5.1**. Pas de `&&`, pas de ternaire, pas de `??`.
+Trois environnements ont porté ce dépôt, et chacun a ses pièges :
+
+- **le poste de Pierre**, désormais macOS / zsh / Node 26 (§12, refonte
+  PARCOURS) — alors que la production et la CI tournent en **Node 22**
+  (`engines`) ;
+- **les sessions cloud** : Linux, pas de démon Docker (d'où le mode sans Docker
+  de `scripts/integration-image.mjs`), Fly et le registre de déploiements
+  GitHub injoignables ;
+- **l'ancien poste Windows, PowerShell 5.1** — pas de `&&`, pas de ternaire,
+  pas de `??`. La section qui suit vient de lui, et le piège reste vrai pour
+  quiconque édite depuis Windows.
 
 ### ⚠️ N'édite JAMAIS un fichier source avec `Get-Content` / `Set-Content`
 
@@ -162,13 +176,23 @@ Get-ChildItem -Recurse -Include *.ts,*.mjs,*.css,*.html -Path src,server,shared,
 
 ## 4. Architecture
 
+Vue d'ensemble pour un nouveau venu : `docs/ARCHITECTURE.md`. Les décisions
+structurantes ont chacune leur ADR dans `docs/adr/` (0002 moteur pur, 0003
+fil, 0004 instance unique, 0005 comptes, 0006 rejoué, 0007 HMAC, 0008
+négociation). Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
+pas dans une ADR.
+
 ```
 shared/
   protocol.ts  protocole typé unique, importé des deux côtés
   jeton.ts     noyau JWT PUR — la primitive HMAC vient de l'appelant (§12)
   compte.ts    types du compte + fusion PURE + clé de comparabilité
+  amis.ts, profil.ts  règles pures des amis et du profil, validées des deux côtés
 server/
   match.ts     logique de match PURE (règles, vies, verdicts, forfaits, tension)
+  coop.ts      le mode coop, chemin séparé (plusieurs clics par manche)
+  rapide.ts    la PARTIE RAPIDE (tables publiques), pure
+  debit.ts     limites de débit (seau par socket, échecs de join par adresse)
   index.ts     serveur ws : salons, ordonnancement, heartbeat, arrêt propre
   origin.ts    liste blanche d'origines
   jeton.ts     vérification SYNCHRONE du jeton (node:crypto)
@@ -188,12 +212,18 @@ src/
   analytics/   file groupée, sendBeacon, transport injectable
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
-api/           fonctions edge Vercel : collect, ranked, auth, moi, perf
-               (`_jeton`, `_depot`, `_debit` : le `_` les exclut du routage)
-supabase/migrations/  0001 identité · 0002 performances
+api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis
+               (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked` : le `_` les
+               exclut du routage)
+supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
+               0004 demandes d'ami · 0005 purge des comptes supprimés
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
   brand/       le kit d'identité d'origine, son README et ses tokens
-scripts/       pull, report, check-deploy, check-salons
+scripts/       pull, report (mesure) · check-deploy, check-salons (production)
+               · integration-image, taille-paquet (CI)
+.github/       verification (chaque PR), preversion, deploiement-salons et
+               retour-arriere-salons (MANUELS), dependabot
+docs/          DEPLOIEMENT · audits/ · archives/
 ```
 
 **`render/plate.ts` et `render/seat.ts` sont purs et testés** pour la même
@@ -243,7 +273,7 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 | Réglages hôte | vitesse `[1.7 … 0.65]` · vies `[1,3,5]` · rotation `[4,8,16,999]` |
 | Allure solo | `PACE_CHOICES [2, 1.5, 1, 0.8]`, `PACE_DEFAULT 1`, défaut du joueur **2** |
 | Solo | `DAILY_LENGTH 40`, `DAILY_ESSAIS 3`, `GRACE_ROUNDS 3`, `FORCED_TRAP_ROUNDS {2,5,9}` |
-| Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` |
+| Reconnexion | `RECONNECT_GRACE_MS 25000` · `ROOKIE_BONUS_LIVES 1` · client : `ATTENTES_REPRISE_MS` couvre 20 s du sursis (`net/reprise.ts`) |
 | UI | `--tap 44px` · `COLUMN_MIN 176` / `COLUMN_ENTER 232` ↔ `.plate min-width 150` |
 
 **`MULTI_RULES` = 14, ou 15 en salon clavier** (`multiRulesFor`) :
@@ -412,96 +442,37 @@ du terrain tombent à 85–102 % du rayon, donc en pleine zone assombrie. Le jeu
 occupe presque toute la surface. D'où le halo de bord (60 px, pour une
 gouttière mesurée à 64).
 
-### La faille : la vitrine du site
+### ~~La faille~~ — l'ancienne vitrine SOLO / MULTI, retirée de l'écran
 
-**Le composant SOLO / MULTI est UN objet fendu horizontalement**, pleine
-largeur du `#app` (plus de padding latéral sur `#home`), et la FISSURE
-entre les deux est le sujet — pas la séparation.
+L'accueil ne porte plus la faille (deux `<button>` superposés, découpés par
+`clip-path: polygon()`, une fissure animée entre eux) : la barre du bas, le
+bloc MULTI et la vitrine l'ont remplacée. Ses règles CSS sont retirées en
+phase 6 (point 41). Ce qu'elle a appris reste vrai, et c'est pour ça que
+cette section reste :
 
-Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
-suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est lui
-qu'on lit comme la déchirure. Aucun trait n'est dessiné. `clip-path` découpe
-**aussi le test de survol** — chaque zone ne reçoit que les clics qui tombent
-dedans, sans une ligne de géométrie en JS, et le clavier marche parce que ce
-sont de vrais boutons. Mesuré à 1440 × 900, animations coupées : faille
-1407 px / `#app` 1424 px (**98,8 %**, `left: 1`) — c'est un objet pleine
-largeur, plus deux zones posées au milieu. Hits (grille 28 × 16) : **51 %
-SOLO · 31 % MULTI · 18 % de couture**. La couture a grossi avec la hauteur
-(451 px) : le ruban garde la même amplitude en %, donc plus de pixels morts
-au milieu. C'est le prix de la vitrine, pas un oubli.
-
-**La fissure est un calque HORS des boutons.** Dans le découpage, tout ce
-qu'elle émet serait rogné à son propre bord au lieu d'en sortir.
-
-⚠️ **Un abîme trop sombre est invisible.** Premier essai : poches chaudes
-sur du `#0a0715`, presque `--ink`. La fente se lisait comme une couture,
-pas comme une déchirure. L'abîme est maintenant un ruban LUMINEUX — noir
-d'abord, mais percés de `--signal` / `--signal-pale` / `--paper` francs.
-C'est le contraste, pas la largeur, qui fait la cassure.
-
-Plusieurs plans qui ne battent pas au même rythme — même principe que
-`--heat` : balayage, braises, débris, éclats, traversées. Pas de halo
-pulsant : il se lisait comme une lampe, pas comme une cassure. Une seule
-vitesse donne une boucle.
-
-**Deux mondes derrière la cassure.** Au survol de SOLO, des chevrons
-*montent* et l'abîme blanchit ; au survol de MULTI, des lames *tombent* et
-l'abîme s'embrase. Vérifié : au repos les deux émetteurs sont à
-`animation: none`, et chacun ne s'allume que sur sa moitié.
-
-Les pictogrammes sont des **SVG en `data:`**, pas des emoji : le rendu d'un
-emoji change d'un système à l'autre, et une épée qui devient un carré blanc
-chez un joueur sur trois n'est pas un effet, c'est un bug.
-
-⚠️ **Tout ce qui bouge est décoratif et `aria-hidden`.** C'est la condition
-pour qu'un `prefers-reduced-motion` généreux reste honnête : rien ne se perd
-quand le mouvement est coupé. Et seuls `transform` et `opacity` sont animés —
-la même règle que `--heat`.
-
-⚠️ **Aucun coût pendant une partie** : l'accueil est en `display: none` en
-jeu, et une animation sur un élément non affiché ne compose pas.
+- **`clip-path` découpe aussi le test de survol** : deux zones cliquables de
+  forme libre sans une ligne de géométrie en JS, et le clavier marche parce que
+  ce sont de vrais boutons.
+- **Un abîme trop sombre est invisible** : c'est le CONTRASTE, pas la largeur,
+  qui fait lire une cassure.
+- **Pictogrammes en SVG `data:`, jamais en emoji** : le rendu d'un emoji
+  change d'un système à l'autre.
+- **Tout ce qui bouge est décoratif et `aria-hidden`**, et seuls `transform` et
+  `opacity` sont animés : c'est ce qui rend un `prefers-reduced-motion`
+  généreux honnête. Un élément en `display: none` ne compose pas : un décor
+  animé de l'accueil ne coûte rien en partie.
+- ⚠️ **Une grille d'échantillonnage trop grossière ment dans le sens
+  rassurant** : un relevé 7 × 4 annonçait 0 % de débordement, un 21 × 9 en
+  montrait 22 %.
+- ⚠️ **Le HMR de Vite n'applique pas toujours une media query ajoutée** :
+  recharger la page avant de conclure qu'un correctif CSS ne fait rien.
 
 ### La couche pixel
 
-**Le composant SOLO / MULTI est UN objet fendu**, pas deux boutons voisins.
-Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
-suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est
-lui qu'on lit comme la déchirure. Aucun trait n'est dessiné.
-
-`clip-path` découpe **aussi le test de survol** — chaque zone ne reçoit que
-les clics qui tombent dedans, sans une ligne de géométrie en JS, et le clavier
-marche parce que ce sont de vrais boutons.
-
-Deux formes, pour une raison mesurée :
-
-| | large | étroit (≤ 560 px) |
-|---|---|---|
-| axe | diagonale, 82 % à gauche → 15 % à droite | bande, 60 % → 51 % |
-| répartition des clics | 45 / 48 / 8 % de couture | 55 / 37 / 8 % |
-
-Sur un composant étroit ET court, une diagonale mange les deux coins et ne
-laisse à aucune face la largeur d'écrire : **22 % de l'état de SOLO tombait
-hors de sa propre zone de clic**. Raccourcir le texte n'aurait rien réglé —
-le nom de la règle du jour varie, « LA MAIN GAUCHE » est plus long que
-« LE SANG », donc ce qui tient aujourd'hui déborde demain. C'est la fente qui
-change d'axe, et la correction devient indépendante du contenu.
-
-⚠️ **Deux pièges de mesure payés sur ce seul composant.**
-
-- **Une grille d'échantillonnage trop grossière ment dans le sens
-  rassurant.** Un relevé 7×4 annonçait 0 % de débordement ; en 21×9, le même
-  élément en montrait 22 %. Les points passaient entre les crans.
-- **Le HMR de Vite n'applique pas toujours une media query ajoutée.** Trois
-  relevés successifs ont lu du CSS périmé et donné le même chiffre après des
-  correctifs pourtant réels. **Recharger la page avant de conclure qu'un
-  correctif CSS ne fait rien.**
-
-**La couche pixel** est de la MATIÈRE, pas une identité de remplacement :
-`--px` comme module, un grain en `repeating-linear-gradient` à 45°/-45°, un
-cadre en marches en `box-shadow` étagées, une ombre décalée d'un module sur le
-logo, `image-rendering: pixelated` sur les glyphes. Les braises s'animent en
-`steps()` — une flamme lissée jurerait avec des angles droits, une flamme en
-crans est du même monde.
+**De la MATIÈRE, pas une identité de remplacement** : `--px` comme module, un
+grain en `repeating-linear-gradient` à 45°/-45°, un cadre en marches en
+`box-shadow` étagées, une ombre décalée d'un module sur le logo,
+`image-rendering: pixelated` sur les glyphes, des animations en `steps()`.
 
 **Elle ne touche pas au canvas**, et c'est vérifié à chaque fois plutôt
 qu'affirmé : buffer et `fieldRect()` identiques avant/après. Les pièces
@@ -665,17 +636,17 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
 | **Front et salons déployés séparément** — ⚠️ **a planté la prod le 30/09** (§12) | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
-| `api/ranked.ts` en `MemoryStore` | mode classé masqué en production. **Ne pas rebrancher `a=top` tel quel** : il accepte `body.id` sans aucune vérification, donc n'importe qui peut soumettre sous n'importe quelle identité. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
+| `api/_ranked.ts` en `MemoryStore` | mode classé masqué ET hors routage (le `_`, depuis l'audit d'architecture du 07/10). **Ne pas le renommer tel quel** : `submit` accepte `body.id` sans aucune vérification, donc n'importe qui soumet et se renomme sous n'importe quelle identité. Le score de l'adversaire est désormais relu du stockage (`opponentRunId`), et `a=top` ne rend plus l'`id`. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
-| Aucun filet sur la mise en page | jsdom ne calcule pas de layout. Playwright a fait ses preuves À LA MAIN (salon, tutoriel, nuit : une dizaine de défauts trouvés) mais n'est pas dans le dépôt |
+| Peu de filet sur la mise en page | jsdom ne calcule pas de layout. `e2e-navigateur.mjs` (Chromium, en CI depuis le point 33) couvre la reprise, deux onglets et le terrain derrière les menus — PAS les dimensions des écrans. Les relevés de mise en page restent faits À LA MAIN (scripts du scratchpad) |
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 16 règles ; 120 combinaisons possibles à deux règles |
 | ~~Pièces sans dépense~~ | **levée** — la boutique de styles de pièces (§12, refonte PARCOURS) |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
 | ~~Couleur sans second canal~~ | **levée** — mode MOTIFS (§12) |
-| ~~Aucune intégration continue~~ | **levée** — `.github/workflows/verification.yml` relance tsc, vitest, le build (et l'absence de `__tor` dans `dist`) puis l'e2e, sur les PR vers `master`. ⚠️ L'e2e y tourne sur une machine partagée : les faux échecs de charge ([001], [005]) peuvent y paraître |
+| ~~Aucune intégration continue~~ | **levée** — `.github/workflows/verification.yml` (phase 5 : lint, tsc, couverture, builds à vide et de production, taille, audits, e2e salons et navigateur, image Docker) sur chaque PR et chaque push sur `master`. ⚠️ L'e2e y tourne sur une machine partagée : les faux échecs de charge ([001], [005]) peuvent y paraître |
 
 ---
 
@@ -684,6 +655,10 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 Front **Vercel**, servi sur **`www.theonerule.party`** (l'apex répond 308 vers
 `www` ; `the-one-rule-rho.vercel.app` reste actif) · salons **Fly**
 (`the-one-rule-salons.fly.dev`). Deux déploiements distincts, **par Pierre**.
+Les salons peuvent aussi partir de GitHub, par deux flux MANUELS
+(« Déploiement des salons », « Retour arrière des salons » — §12, points 37
+et 38), qui refont la procédure ci-dessous sans en sauter une étape. Détail :
+`docs/DEPLOIEMENT.md`.
 
 ```bash
 vercel --prod --yes
@@ -724,6 +699,11 @@ fait rien.
 ---
 
 ## 11. Conventions de travail
+
+Les conventions de DÉPÔT — branches `type/sujet`, sujet de commit
+`domaine : effet`, PR avec gabarit, fusion par commit de fusion (jamais de
+squash : chaque commit porte un point et ses chiffres) — sont dans
+`CONTRIBUTING.md`. Ce qui suit est ce qui ne s'y écrit pas.
 
 **Commits** : message long en français qui explique **le symptôme observé, la
 cause exacte, et pourquoi le correctif est celui-là**. Pas un journal de
@@ -773,7 +753,426 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+**Branche** `master`, travail en branches et PR. **Vérification** : la
+liste du §2, toute reprise par la CI.
+
+### Phase 3 de l'audit : les tests (08/10/2026)
+
+Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
+3 à 7 dans l'ordre, un commit par point. Ce qui ne se déduit pas du code :
+
+- **16 — `DepotSupabase`** : 44 tests figent les requêtes des 24 méthodes
+  (`fetch` remplacé par un enregistreur). Trouvé : `leveDrapeau` ignorait la
+  réponse du PATCH — un drapeau d'anti-triche perdu en silence.
+- **17 — Entrées malformées** (`tests/entrees-malformees.test.ts`, et un
+  client FUZZ dans l'e2e). Trouvé : un corps `null` faisait LEVER perf, moi,
+  amis et collect (500). `api/_corps.ts` (`litObjet`) ne rend qu'un objet.
+  ⚠️ Dans l'e2e, le corpus commençait par des `hello` de mauvaise version :
+  la socket se fermait et le reste n'arrivait jamais — « 0 erreur » ne
+  prouvait rien. Version fausse envoyée EN DERNIER.
+- **18 — Concurrence** (`tests/concurrence.test.ts`). ⚠️ Le dépôt en mémoire
+  répond sans attendre : le premier jet passait AUSSI sur l'ancien code. Le
+  proxy `lent` fait attendre chaque appel d'un tour de boucle, et les deux
+  requêtes s'entrelacent comme en production. Trouvé : deux demandes
+  croisées restaient en attente (C4), deux acceptations dépassaient
+  `MAX_AMIS`.
+- **19 — Coupure réseau, VRAI client** (`e2e-navigateur.mjs`). ⚠️
+  `context.setOffline` ne coupe pas une socket déjà ouverte (mesuré : 10 s
+  hors ligne, siège toujours `connected`). Le navigateur passe donc par un
+  RELAIS TCP qu'on tranche. **Deux pannes trouvées, aucune visible à la
+  lecture :**
+  - **l'ami arrivé par un LIEN ne revenait JAMAIS seul.** Il est anonyme, et
+    `attemptRejoin` appelait `ensureConnected()` sans `anonyme` : rendu
+    `null` à chaque essai, sans ouvrir une socket. Le cas le plus courant
+    du jeu (« code/lien → rejoindre → jouer ») ;
+  - **le client abandonnait à 1,6 s** (3 essais × 800 ms) pour un siège
+    gardé 25 s. Le calendrier (`net/reprise.ts`) couvre maintenant 20 s.
+  Chacune éprouvée seule : 4 assertions tombent.
+- **20 — Deux onglets, un appareil** (même fichier). Une écriture de
+  réglage dans l'onglet B survit à celle de A (écouteur `storage`) ; le
+  même salon ouvert deux fois : B garde le siège, A affiche « TA PLACE A
+  ÉTÉ REPRISE », aucun ping-pong sur 6 s. Rien de neuf à corriger : les
+  correctifs C1 et C2 de l'audit tenaient. Dents : sans l'écouteur, [017]
+  tombe ; serveur sans `reprise`, trois tombent ; sans `departSubi`, le
+  motif est écrasé par « DÉCONNECTÉ » ([020]) — le ping-pong, lui, est
+  déjà tenu par `lastRoomCode = ""`.
+- **21 — Couverture** (`npm run coverage`, v8). 51 % au total, et la
+  moyenne ne dit rien : moteur 98 %, jeu 95 %, `shared` 95 %, `api` 86 % ;
+  `main.ts` 45 %, `multi.ts` 7 %. ⚠️ `server/index.ts` lit **0 % sous
+  vitest et 92 % sous l'e2e** (mesuré une fois avec `npx c8`, sans
+  dépendance) : ne pas conclure qu'il est intesté. Les seuils sont un
+  CLIQUET posé sous la mesure, et seulement sur les couches pures — une
+  baisse y veut dire « de la logique sans test ». Trouvé : `api/authcb.ts`,
+  le retour OAuth RÉEL en production, n'était appelé par aucun test.
+
+### Phase 4 de l'audit : la performance, mesurée d'abord (08/10/2026)
+
+Méthode commune : build de production servi par `vite preview`, Chromium,
+processeur ralenti ×4 par CDP (`Emulation.setCPUThrottlingRate`) pour
+approcher un téléphone moyen, profil par `Profiler` résolu par la carte de
+source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
+
+- **22 — Front.** Relevé au téléphone ×4 : premier affichage 336-480 ms,
+  LCP ≤ 960 ms, accueil à 60 i/s, tas 2 Mo, ~500 ms de tâches longues au
+  démarrage — dont 609 ms de `(program)` natif (analyse, styles, mise en
+  page de 3 465 nœuds et 232 Ko de CSS : points 26 et 27). ⚠️ **Le terrain se
+  repeignait à 60 i/s derrière TOUS les menus**, invisibles sous leur fond
+  sable (0 point sur 49, cinq écrans, deux formats) : `draw` était la
+  première fonction du profil de l'accueil. `show()` lit maintenant le fond
+  CALCULÉ de l'écran (`terrainMasque`) — lu et non supposé, un écran rendu
+  translucide un jour se repeindra seul. Prouvé dans `e2e-navigateur.mjs`
+  en comptant les `clearRect` de `#cv` : 60/s avant, 0 après, 61/s en match.
+  Et `peintVitrine` créait un `matchMedia` par image (`MOUVEMENT_REDUIT`).
+  `syncField` force deux mises en page au démarrage, pas plus : laissé.
+- **23 — Backend.** Charge : 20 salons × 10 joueurs = 4,3 % d'un cœur,
+  retard de boucle p99 11 ms, 104 Mo RSS. Le serveur n'est PAS un goulot.
+  ⚠️ **Mais il n'avait AUCUNE limite de débit**, et un seul client suffisait
+  à le saturer : `profil` en rafale → 60 Mo/s émis, 96 % d'un cœur (la
+  machine Fly porte TOUS les salons) ; `join` en rafale → 34 000 codes/s,
+  l'espace entier (31⁴) balayé en 27 s. `server/debit.ts` (pur, testé) :
+  un SEAU par socket (40/s, réserve 80 ; le plus haut débit légitime est
+  20/s, les curseurs du coop), coupure 1008 après 200 refus d'affilée ; et
+  au-delà de 20 codes inconnus BIEN FORMÉS par minute et par ADRESSE
+  (`fly-client-ip` derrière Fly), `room_unknown` sans regarder la table.
+  Le `profil` regroupe sa diffusion (`diffuseEtatBientot`, 150 ms) : ÷5,5.
+  ⚠️ **Le scénario de débit est le DERNIER de l'e2e** : il bloque
+  127.0.0.1 une minute, et tous ses clients partagent cette adresse. Et le
+  corpus FUZZ est CADENCÉ (30/s), sinon le seau le coupe avant la fin.
+  À déployer côté Fly seulement ; aucun client à changer.
+  ⚠️ **Collision de NOM DE FICHIER, la même famille que les classes CSS** :
+  `tests/debit.test.ts` existait déjà (10 tests du limiteur EDGE,
+  `api/_debit.ts`) et je l'ai écrasé par un `cat >` sans le regarder — vu
+  au décompte (1339 au lieu de 1349), restauré au commit suivant. Le test
+  du serveur de salons vit dans `tests/debit-salons.test.ts`. **Avant de
+  créer un fichier, `ls` le chemin** ; l'outil Write refuse d'écraser un
+  fichier non lu, un `cat >` ne refuse rien.
+- **24 — Réseau.** Par client en match : 0,92 Ko/s sur le fil, dont 72 %
+  de `verdict` (3,2 Ko : la liste des joueurs à chaque manche). Compression
+  `permessage-deflate` SANS contexte partagé : 0,22 Ko/s (÷4), ~2 points de
+  processeur, et la mémoire ne dépend pas du nombre de joueurs. Avec
+  contexte : ÷13, mais ~100 Ko × 400 connexions sur une machine de 512 Mo.
+  Négociée par le navigateur, aucun changement de protocole ; l'e2e
+  navigateur vérifie que Chromium l'obtient. **Direction, pas faite** :
+  alléger `verdict` (ne renvoyer que ce qui change) toucherait le protocole,
+  donc les deux déploiements.
+- **25 — Redis et base.** Redis est déjà sobre : un aller-retour par appel
+  (`RPUSH`+`EXPIRE`, `INCR`+`EXPIRE` par le pipeline). Les index couvrent les
+  lectures des amis (lu dans les migrations, pas d'`EXPLAIN` sans base). Pas
+  de N+1. ⚠️ **Mais la latence suit la PROFONDEUR, pas le nombre** : AJOUTER
+  enchaînait 11 allers-retours vers Supabase, ACCEPTER 13, LIRE 4 — des
+  lectures indépendantes faites l'une après l'autre. Parallélisées, mêmes
+  décisions dans le même ordre : 7, 9, 3 (−30 % environ à 25 ms par appel).
+  `tests/amis-profondeur.test.ts` mesure la profondeur SANS HORLOGE : un
+  proxy libère les appels par vagues, le nombre de vagues est la profondeur.
+  Ce qui reste en série a sa raison : `codeAmi` ÉCRIT, donc attend `parId`.
+- **26 — Paquet.** 334 Ko, 113 Ko gzip, et AUCUNE bibliothèque tierce
+  (mesuré par la carte de source : main 83 Ko, i18n 70, multi 47, rendu
+  43). Le seul tiers, l'encodeur QR, est à la demande. Pas découpé plus :
+  séparer les deux langues gagnerait ~10 Ko gzip contre une attente avant
+  le premier affichage, et sortir le multi EST le découpage R1/R2 de
+  l'audit — une direction. Ce qui manquait est un GARDE-FOU :
+  `npm run taille` (en CI après le build) plafonne chaque morceau en gzip
+  et refuse l'encodeur QR dans le paquet principal. Éprouvé avec un
+  `import` statique de `render/qr.ts`. Un plafond se relève, avec sa raison.
+- **27 — CSS.** 100 classes que ni le HTML ni le code ne nomment, reliques
+  d'écrans retirés (`onb`, `faille`, `fissure`, `codexrow`, `but__`,
+  `etat__`, `mur__`…) : 238 règles, 49 Ko (41,3 → 36,6 Ko gzip, 1 867 →
+  1 682 règles). Le temps de calcul des styles ne bouge PAS de façon
+  mesurable (dans le bruit au ×4) : le gain est en octets et en lecture.
+  ⚠️ **Le premier scan était faux** : `carte is-${etat}` fabrique
+  `is-maitrisee`, et un motif qui ne voyait que les gabarits en début de
+  chaîne l'aurait supprimée. Le scan relève désormais chaque fragment avant
+  un `${`. ⚠️ **La preuve n'est PAS une capture d'écran** : deux passages
+  du même code différaient sur 80 captures sur 80 (hasard, canvas). Elle
+  est une EMPREINTE des styles calculés de chaque élément visible, 80
+  écrans (10 routes dont le salon, 375 et 1280, clair et sombre, nouveau
+  venu et vétéran), avec hasard figé et SANS les propriétés `--*` —
+  `--field-top` et `--or` varient au minutage, et par héritage elles
+  faisaient diverger tous les éléments. Stable 8 878/8 878 d'un passage à
+  l'autre, puis 8 878/8 878 identiques après le retrait. Les deux feuilles
+  sont des SOUS-SUITES exactes des anciennes : rien d'ajouté.
+  ⚠️ **Incomplet, vu au point 41** : 16 classes de plus étaient mortes et
+  passaient pour vivantes parce que leur NOM figurait dans un commentaire.
+  ⚠️ Les §7 « La faille » et « La couche pixel » décrivent des composants
+  dont les règles sont parties : à corriger en phase 6 (docs).
+- **28 — Boucle de jeu.** Mesuré en partie solo jouée juste, téléphone ×4
+  (serveur de dev, `__tor.joue()`) : **30 images/s**, et le premier poste
+  n'était PAS le script mais le calcul des styles (2 057 ms sur 12 s), avec
+  un recalcul ET une mise en page complète à CHAQUE image (370 et 369). Un
+  `MutationObserver` a nommé la cause : le pied et le bandeau RÉÉCRIVAIENT à
+  chaque image cinq textes et trois classes identiques — réécrire un
+  `textContent` à l'identique remplace le nœud, un `classList.add` d'une
+  classe présente repose l'attribut. `hud.ts` n'écrit plus que ce qui change
+  (`ecrisTexte`, `ecrisClasse`, `bascule`). Après : 463-502 images, p50
+  16,7 ms, styles 95-346 ms, 11-23 mises en page en 12 s. Au bureau ×4 :
+  504 → 675 images, mise en page 1 001 → 31-44 ms. Ne reste à chaque image
+  que la barre de temps, un `transform`. `tests/hud-ecritures.test.ts`
+  l'exige d'un `MutationObserver` jsdom ; éprouvé sur l'ancien HUD, trois
+  tombent. **Même doctrine que `--heat` : jamais deux fois à l'identique.**
+
+**Deux bombes de calendrier trouvées en route** (09/10) : mes tests des
+points 17 et 18 signaient un jeton au 07/10 et `moi` le jugeait à
+`Date.now()` — il reçoit maintenant `maintenant`, comme `amis` et `perf`.
+Et `smoke` tirait le run du jour du calendrier : il tombait 3 jours sur 10
+(date figée au 08/10). Toute la suite repasse au 15/11/2026 et au
+02/03/2027. ⚠️ **vitest ne vérifie pas les types** : le premier correctif a
+ajouté un argument de trop à `auth` sans qu'un test rougisse ; `tsc` l'a vu.
+
+### Phase 5 de l'audit : l'intégration continue (09/10/2026)
+
+Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
+
+- **29 — Lint** (`npm run lint`, ESLint 9 + typescript-eslint, en CI avant
+  `tsc`). Réglé sur la JUSTESSE, jamais sur le style, et AUCUN formateur :
+  reformater 30 000 lignes casserait `git blame` sans corriger un bug.
+  Premier passage : 15 signalements seulement, `tsc` strict faisait le gros
+  du travail. ⚠️ Neuf étaient des BOM LITTÉRAUX voulus (ils documentent et
+  testent le bug du BOM, `src/env.ts`) : `no-irregular-whitespace` ignore
+  donc chaînes et commentaires. Un `_` en tête marque un inutilisé assumé.
+  Trouvé : l'e2e recevait un libellé d'attente (`quoi`) et l'ignorait — une
+  attente épuisée le dit maintenant au journal.
+- **30 — Typecheck.** `tsc` couvre aussi `vite.config.ts`, typé par
+  `vitest/config` : une faute sur `thresholds` y désactivait EN SILENCE le
+  cliquet de couverture (vitest ignore une clé inconnue). Les scripts JS
+  (`e2e*.mjs`, `scripts/*.mjs`) restent HORS du typage, décision mesurée :
+  `checkJs` y rend 41 erreurs, toutes des artefacts d'inférence (objet figé
+  par sa première affectation, globales posées par l'e2e) — aucune n'est un
+  bug, et les rendre propres demanderait du JSDoc sur des milliers de lignes.
+- **31 — Unitaires.** La CI lançait `vitest run`, jamais le cliquet de
+  couverture : une baisse n'y était pas vue. Elle lance `npm run coverage`
+  (mêmes tests, plus les seuils ; code 1 vérifié sur un seuil manqué).
+- **32 — Intégration : l'image Fly LANCÉE** (`npm run integration`, et un job
+  CI qui fait le vrai `docker build`). Le script LIT les `COPY` et le `CMD`
+  du Dockerfile, reconstitue l'image dans un dossier vide (`npm ci
+  --omit=dev --ignore-scripts`), la lance en production, puis : `/health`,
+  un salon ouvert depuis une origine autorisée, une origine inconnue
+  refusée, `SIGTERM` → 1001 et sortie 0. En CI, `--url` sonde la vraie
+  image. Éprouvé en retirant `COPY src/env.ts` : la panne du 30/08 revient,
+  et le journal la NOMME (`Cannot find module …/src/env`). Pas de démon
+  Docker dans les sessions cloud : le mode sans Docker est celui-là.
+- **33 — E2E.** L'e2e des salons tournait déjà en CI ; `e2e-navigateur.mjs`,
+  le seul qui pilote le VRAI client (reprise après coupure, deux onglets,
+  terrain qui ne se repeint pas derrière un menu, compression négociée),
+  n'y était pas — alors que les deux pannes de reprise du point 19 n'ont été
+  trouvées QUE par lui. Job à part, `CHROMIUM_PATH=/usr/bin/google-chrome` :
+  le runner Ubuntu porte Chrome, `playwright-core` ne télécharge rien.
+  Vérifié en local avec un chemin explicite : 33/33.
+- **34 — Build.** La CI construisait SANS aucune `VITE_*` : multi inerte,
+  mesure coupée — pas le paquet servi aux joueurs. Un job pose la
+  configuration de production, lance LA commande de `vercel.json` (`npm run
+  build`), puis : pas de `__tor`, l'URL `wss://` présente, plafonds de taille
+  (111,1 Ko gzip, la même mesure qu'à vide), et `check-deploy.mjs` sur `dist`
+  servi par `vite preview`. Éprouvé : sans `VITE_COLLECT_URL`, le
+  vérificateur sort en 1. ⚠️ Il ne fait qu'AVERTIR sur un `wss://` absent
+  (normal pour un solo seul) : la CI l'exige par un `grep` à part.
+- **35 — Sécurité.** Production : 0 avis. Outils : `undici` (via jsdom, 11
+  avis dont 2 « high »), `source-map-js` (high), `@vitest/mocker`. ⚠️ **Le
+  verrou faisait PLANTER npm 10** (`Cannot read properties of null (reading
+  'edgesOut')`, dans `#loadPeerSet`) — `audit fix`, `update`, `install` :
+  tout. Résolu une fois par npm 11, après quoi npm 10 (celui de la CI)
+  repasse en `ci` comme en `install`. Correctifs : vitest 4.1.11 (même
+  mineure), `overrides` sur `undici` et `source-map-js`. En CI, l'audit de
+  PRODUCTION bloque dès « high » ; celui des outils n'avertit que — un avis
+  neuf peut tomber un matin sans rapport avec la PR. Éprouvé avec `ws@8.17.0`
+  posé dans une copie : code 1. Dependabot hebdomadaire, REGROUPÉ (un seul
+  relecteur). Historique git balayé : aucun motif de secret, aucun `.env`
+  jamais commité hors `.env.example`.
+- **36 — Préversion** (`.github/workflows/preversion.yml`). Sur chaque
+  `deployment_status` réussi hors production, la préversion VERCEL — le
+  paquet construit avec SES variables — passe à `check-deploy.mjs`. Une
+  préversion protégée répond 401 : le secret de dépôt
+  `VERCEL_AUTOMATION_BYPASS_SECRET` passe la porte (éprouvé sur un serveur
+  qui exige l'en-tête). ⚠️ **Le MULTI ne s'y joue pas, délibérément** : la
+  liste blanche refuse une adresse qui change à chaque commit, et un joker
+  `*.vercel.app` ouvrirait nos salons à N'IMPORTE QUEL projet Vercel. ⚠️ Non
+  vu tourner : cette session ne lit pas les déploiements du dépôt (403).
+  Sans l'intégration GitHub de Vercel, le flux ne se déclenche jamais.
+- **37 — Déploiement** (`deploiement-salons.yml`). Les SALONS seulement,
+  et seulement par « Run workflow » en tapant `DEPLOYER` : aucun push ne
+  déploie. Il refait la procédure du §10 sans en sauter une étape :
+  vérification rapide (tsc, tests, image reconstituée), refus s'il y a des
+  salons en cours (`/health.rooms`, sauf « forcer »), `fly deploy`, `fly
+  scale count 1`, `check-salons`. L'image en place AVANT est lue dans
+  `/health` (`FLY_IMAGE_REF`, posée par Fly) et écrite au résumé : c'est
+  l'entrée du retour arrière. Le front reste à Pierre (`vercel --prod`),
+  APRÈS Fly. ⚠️ **À poser par Pierre** : `FLY_API_TOKEN` dans
+  l'environnement `production`, et une règle « Required reviewers ». ⚠️
+  Jamais lancé pour de vrai (pas de jeton, Fly injoignable d'ici) : les
+  étapes shell sont éprouvées contre un faux `/health` (2 salons → refus,
+  0 → passe), pas `flyctl`.
+- **38 — Retour arrière** (`retour-arriere-salons.yml`, à la main). On
+  ne répare pas en production : on redéploie l'image d'avant (`fly deploy
+  --image`), donnée par le résumé du dernier déploiement. Image d'une AUTRE
+  application refusée ; puis une machine, une instance, et `/health` doit
+  annoncer l'image DEMANDÉE — sinon le retour n'a pas eu lieu (une forme
+  peut contenir l'autre : `FLY_IMAGE_REF` porte étiquette et empreinte). Pas
+  de garde « personne ne joue » : on ne revient que parce que c'est déjà
+  cassé. ⚠️ Le FRONT revient à part, par Pierre (Vercel → Deployments →
+  « Promote to Production »), et DOIT revenir si le retour défait une
+  évolution du fil : sinon, la panne du 30/09 à l'envers.
+
+⚠️ **Premier passage sur GitHub : deux échecs, aucun du code du jeu.**
+`vite preview` écoutait sur `localhost`, que le Node 22 du runner résout en
+IPv6 : la sonde sur `127.0.0.1` échouait trente fois EN SILENCE, puis le
+vérificateur tombait sur ECONNREFUSED — `--host 127.0.0.1`, et l'attente
+qui s'épuise le dit. Et la PRÉVERSION est protégée : Vercel REDIRIGE le
+robot vers sa page de connexion (autre domaine, 200), que le vérificateur
+lisait comme le jeu — « collecteur absent ». Une réponse servie par un
+autre hôte sort maintenant en code 3 ; sans le secret, le flux avertit au
+lieu d'échouer. En local, les deux passaient : le premier parce que la
+résolution de `localhost` y diffère, le second parce que rien n'y est
+protégé. **Une CI ne se juge qu'en la regardant tourner là où elle tourne.**
+
+**Bilan de la phase 5** : quatre flux. `verification.yml` (lint, tsc,
+couverture, build à vide et de production, taille, audits, e2e salons, e2e
+navigateur, image Docker) sur chaque PR et chaque push sur `master` ;
+`preversion.yml` sur les déploiements Vercel ; deux flux MANUELS pour les
+salons. Premier passage sur GitHub : la PR
+[Alexestgrand/The_One_Rule#18](https://github.com/Alexestgrand/The_One_Rule/pull/18).
+
+### Phase 6 de l'audit : le nettoyage (09/10/2026)
+
+Directive de Pierre : « enchaîne la phase 6 et 7 (…) que le nettoyage soit fait
+tel en entreprise ». Un commit par point.
+
+- **39 — Docs.** Le README s'intitulait « Phase 1 », annonçait 137 tests (il
+  y en a 1 355), « aucune dépendance runtime », l'identité Nocturne et
+  l'absence de comptes : réécrit en point d'entrée (démarrer, vérifier,
+  configurer, déployer), l'ancien archivé dans `docs/archives/` avec un
+  bandeau. `.env.example` nommait encore `api/ranked.ts` et ignorait les
+  comptes et le serveur. Les documents de la racine sont rangés :
+  `docs/DEPLOIEMENT.md` (gagne les comptes et les flux GitHub),
+  `docs/audits/`. Ici : §3 (trois environnements, plus un seul), §4
+  (arborescence réelle), §7 (la faille n'est plus à l'écran : ses leçons
+  restent, sa description part), §9, §10. ⚠️ **Trouvé en route** : le
+  point 27 annonçait `faille` et `fissure` retirées, et leurs règles sont
+  TOUJOURS dans `style.css` — le scan les a crues vivantes parce que le MOT
+  figure dans des commentaires. À traiter au point 41.
+- **40 — Dépendances.** Aucune inutilisée : les 16 sont citées par le code,
+  la config ou le Dockerfile (`@types/ws` et `@vitest/coverage-v8` le sont
+  implicitement). ⚠️ **`@types/node` était en 26 pour une production en
+  22** (Dockerfile, `engines`, CI) : `tsc` acceptait une API absente du
+  serveur. Éprouvé avec `new URLPattern()` (Node 24) : vert en types 26,
+  `TS2304` en types 22. Ramené à `^22.20.5`, Dependabot interdit d'en monter
+  la majeure, et `.nvmrc` dit 22 aux postes de travail. Les polices et
+  l'encodeur QR restent en `dependencies` alors que Vite les embarque :
+  c'est ce qui les garde dans l'audit de PRODUCTION (point 35), puisqu'ils
+  partent chez les joueurs. Montées de version dans les bornes : laissées à
+  Dependabot, une PR relue plutôt qu'un lot invisible ici.
+- **41 — Fichiers hérités.** `the-one-rule-v1.html` (150 Ko, un ARTEFACT de
+  build versionné, quatre semaines de jeu en retard) et `inline.mjs` (qui ne
+  savait plus le régénérer : il ne prend qu'UN fichier JS, le build en fait
+  deux depuis le QR à la demande) sont retirés — l'historique les garde si
+  une version hors ligne redevient utile. `PLAN-SALON-VIVANT.md` et
+  `PROMPT-CURSOR-MULTI.md`, tous deux réalisés, vont dans `docs/archives/`
+  avec un bandeau. Les CSS mortes laissées par le point 27 : le scan ignore
+  maintenant les COMMENTAIRES, chaque langage avec les siens. ⚠️ **Piège payé
+  en le faisant** : appliquer `/* */` au HTML ouvre un faux commentaire dans
+  `accept="image/*"` et avale le balisage — le scan annonçait alors
+  `codein`, `room__*`, `end__*` mortes, toutes vivantes. 16 classes, 25
+  règles et 5 sélecteurs dans des listes mêlées, 14,5 Ko (style 36,6 → 35,6
+  Ko gzip). ⚠️ **Preuve, et un faux écart** : le premier relevé AVANT
+  différait de l'après sur 5 éléments du salon (le dessin d'un signe, `rect`
+  contre `circle` — rien qu'une feuille puisse produire). Rejouée, l'ANCIENNE
+  feuille donne 8 878/8 878 éléments identiques à la nouvelle : c'est le
+  premier passage, à froid, qui diffère de tous les autres. **Ne jamais
+  prendre pour référence le premier relevé d'une session.**
+- **42 — Scripts.** Les six de `scripts/` sont tous appelés (CI, flux de
+  déploiement, documentation) et tous tournent encore à vide. Un seul
+  mentait : l'en-tête de `pull.mjs` disait que `vercel env pull` dépose les
+  identifiants Upstash — c'est le piège exactement inverse, documenté au §10.
+  Les deux scénarios de bout en bout quittent la racine pour `tests/e2e/`,
+  SANS changer de nom (ce fichier les cite par dizaines sous ces noms) :
+  imports en `../../`, et l'e2e navigateur sert Vite depuis la racine lue
+  dans `import.meta.url`, plus `process.cwd()`. Lancés depuis le nouvel
+  emplacement : 166 et 33 assertions, 0 échec. La CI passe par `npm run e2e`
+  et `npm run e2e:navigateur` : un seul endroit sait où ils vivent.
+- **43 — Conventions.** `CONTRIBUTING.md` (le cycle d'un changement,
+  branches `type/sujet`, commits `domaine : effet` avec le corps symptôme →
+  cause → pourquoi → chiffres → dents, PR, déploiement), gabarit de PR,
+  `.editorconfig`, `.gitattributes` (LF partout, PNG binaires, verrou marqué
+  généré). L'historique avait des sujets hétérogènes (« Phase 4, point 24 »,
+  « Bureau », « CI ») : la convention vaut pour la suite, le passé n'est pas
+  réécrit (phase 7). **Fusion par commit de fusion, jamais de squash** — ici
+  c'est structurel, pas un goût : écraser une PR de dix points en un commit
+  perdrait les dix messages qui portent les mesures. `git add --renormalize`
+  ne change rien : les 272 fichiers texte étaient déjà en LF.
+- **44 — Architecture finale.** `docs/ARCHITECTURE.md` (trois déploiements,
+  couches, fil, données, livraison, ce que l'architecture NE SAIT PAS faire)
+  et huit ADR dans `docs/adr/`, RÉTRO-documentées : chacune dit d'où vient
+  la décision, aucune n'en invente. ⚠️ **La pureté du moteur — la promesse
+  qui porte le rejeu serveur et tout le multi — n'était gardée par AUCUN
+  test** : seul l'import des comptes l'était. `tests/architecture.test.ts`
+  refuse désormais, dans `src/engine/`, `shared/` et la logique de match, un
+  import hors de sa couche et toute horloge, tout hasard non seedé, toute API
+  de navigateur, tout `fetch`. Vrai dans le code avant lui (0 violation).
+  Éprouvé : un `Date.now()` dans `rng.ts` le fait tomber ; un `import
+  "../i18n"` PASSAIT la première version (import d'effet de bord, sans
+  `from`) — corrigé, rééprouvé, il tombe. Deux faits vérifiés en écrivant
+  la doc plutôt que supposés : le code d'ami est une colonne
+  d'`utilisateur`, pas une table ; `lien_plateforme` porte les comptes
+  OAuth liés.
+
+### Phase 7 de l'audit : l'historique git (09/10/2026)
+
+Directive : « reconstruire proprement l'historique si tu veux vraiment le
+faire ». **Décision : ne PAS le réécrire** — ADR 0009. Relevé : 166 commits
+sur `master` depuis le 04/09 (rien d'importé avant), 18 fusions, 17 PR
+fusionnées, 1,7 Mo, aucune étiquette. Réécrire aurait changé tous les SHA
+cités (ici, dans les commits, dans 17 PR), forcé un `push --force` sur une
+branche partagée, obligé à réinitialiser chaque clone, et — en regroupant —
+PERDU des corps de commit, c'est-à-dire des mesures. Pour 0 octet gagné.
+
+Ce qui rend l'historique lisible à la place, par le haut :
+- `CONTRIBUTING.md` pour tout commit à venir (branches, sujets, fusion par
+  commit de fusion) ;
+- `CHANGELOG.md` : le projet raconté PR par PR (#1 à #18) ;
+- des ÉTIQUETTES DATÉES `AAAA.MM.JJ` sur chaque commit mis en production —
+  à poser par Pierre au déploiement (commande dans `CONTRIBUTING.md` §6) ;
+  elles ne se rattrapent pas pour le passé : le commit déployé à une date
+  ancienne n'est connu que des journaux Vercel et Fly ;
+- ⚠️ **à supprimer par Pierre** (fusionnées dans `master`, vérifié par
+  `git merge-base --is-ancestor`) : `audit/ux-onboarding-recompenses`,
+  `claude/bugs-playtest-247`, `claude/chasse-bugs-0912` —
+  `git push origin --delete <branche>`, ou le réglage GitHub
+  « Automatically delete head branches », qui le fera seul ensuite. Pas
+  fait ici : c'est une écriture sur le dépôt partagé, hors de ma branche.
+- Écart connu à la convention : `claude/modest-bell-9vp1ds` porte les PR
+  #8 à #18 — la branche de session est imposée par l'outil et réutilisée
+  après chaque fusion. Elle se supprime une fois #18 fusionnée.
+
+### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
+
+Directive de Pierre : auditer tout le dépôt sans rien supposer
+(`docs/audits/AUDIT-ARCHITECTURE.md`, chaque point prouvé), puis « vas-y dans l'ordre ».
+Un commit par priorité. Ce qui ne se déduit pas du code :
+
+- ⚠️ **À faire côté Pierre** : appliquer la migration **0005** (purge des
+  performances des comptes déjà supprimés). Déployer Fly ET Vercel : le
+  `hello` porte `reprise`, et `remplace` est un code d'erreur neuf.
+- **Les tests passaient sur le dépôt qui ne tourne pas.** `DepotMemoire` et
+  `DepotSupabase` divergeaient deux fois (suppression qui laissait les scores
+  au podium ; égalité de score jamais départagée par la durée). Désormais
+  `tests/depot-supabase.test.ts` fige les REQUÊTES émises, `fetch` remplacé
+  par un enregistreur. Ce n'est pas une vraie base : une requête que
+  PostgREST refuserait passerait tant qu'elle ressemble à l'attendu.
+- **`verifyRun` valide chaque entrée** (`entreeValide`) : avant, un `t` en
+  texte était ACCEPTÉ et les échéances ne s'appliquaient plus.
+- **La collecte** ne laisse plus un événement réécrire `id`, `day`, `at`.
+- **Le classé** est sorti du routage (`api/_ranked.ts`), relit l'adversaire
+  dans le vivier (`opponentRunId`) et ne publie plus d'`id`. `body.id` reste
+  non authentifié : ne pas le renommer tel quel (§9).
+- **La reprise de siège** : la CLÉ suffit, même si l'ancienne socket paraît
+  ouverte (coupure à moitié ouverte, 15 à 30 s avant le battement de cœur).
+  La plus récente gagne ; l'ancienne reçoit `remplace` et ne revient pas.
+  ⚠️ Seulement chez un client qui a annoncé `reprise: true` : deux VIEUX
+  onglets ignoreraient `remplace` et se renverraient le siège en boucle.
+- **Deux onglets** : `progress.ts` oublie sa copie sur l'événement `storage`.
+- **Le vote imposteur** se clôt aussi au départ d'un votant (si les présents
+  ont tous voté) et au bout de `OBSERVATION_MAX_MS` (90 s).
+- **Point 10, premier pas seulement** : `lancementRefuse` (render/jour.ts)
+  remplace trois copies du verrou du jour dans main.ts. `initMulti` et
+  `finishRun` restent à découper — une direction.
 
 ### La navigation aux places habituelles, et trois écrans réparés (01/10/2026)
 
@@ -1557,7 +1956,7 @@ barre qui file plus vite sur un piège le révèle avant la mort (n°5).
 
 Demandée par Pierre, carte blanche totale, après des retours « pas intuitif »,
 « aucune sensation de récompense », « les escaliers sont durs à trouver ».
-L'audit qui l'a motivée est dans `AUDIT-UX-RECOMPENSES.md`.
+L'audit qui l'a motivée est dans `docs/audits/AUDIT-UX-RECOMPENSES.md`.
 
 **Le jeu est une MONTÉE qu'on voit** (`src/game/parcours.ts`, pur, testé) :
 un chapitre par règle (`CHAPITRES`, ordre pédagogique, LE SANG d'abord),
@@ -3499,6 +3898,30 @@ désormais au-dessus du pied.
 2. ~~**Salons publics**~~ — **faits** sous la forme d'une PARTIE RAPIDE (lot
    « addiction », §12) : pas de liste de salons, qui dirait « personne ne
    joue », mais une porte qui range à une table.
+3. **Le curseur du trailer comme VRAI curseur** (idée de Pierre, 07/10, « un
+   gadget sympa sans plus ») — le personnage-curseur de
+   `The_One_Rule_Trailer_v3` devient le pointeur du site ; ses formes et
+   styles s'achètent à la boutique ; en multi, il RÉAGIT quand un joueur
+   meurt. Pas commencé. Ce qu'il faudra régler avant :
+   - ⚠️ **le point chaud doit tomber EXACTEMENT là où le clic est jugé** :
+     `cursor: url(…) x y` décale l'image, pas le clic. Un personnage dont la
+     « pointe » visible n'est pas le point chaud fait cliquer à côté, c'est
+     « le jeu triche » (n°3). Sur le terrain, garder le point chaud au pixel
+     près, ou ne pas l'y montrer ;
+   - **au doigt, il n'y a pas de curseur** (`TOUCH_ONLY`) : sur téléphone, la
+     moitié des joueurs ne le verraient jamais. Une réaction à la mort devra
+     donc vivre aussi sur la plaque ou l'avatar ;
+   - les navigateurs plafonnent une image de curseur (≈ 128 px, 32 conseillé)
+     et la réduisent sans prévenir sur un écran dense ;
+   - en multi CLASSIQUE, les curseurs des autres ne voyagent PAS — seul le
+     coop envoie `{ t: "cursor" }`. Voir le curseur d'un autre mourir demande
+     de les transporter (trafic, et ce n'est pas un verdict : hors n°3,
+     comme le coop) ; réagir à SA propre mort ne demande rien ;
+   - les styles achetés vivent en local comme ceux des pièces
+     (`game/boutique.ts`), et ne changent QUE le dessin.
+   À penser avec les « autres mondes » et les modificateurs de partie, en
+   réflexion côté Pierre : un curseur qui réagit est un levier de PRÉSENCE,
+   pas de variété — il ne répond pas au retour « on fait vite le tour ».
 
 ### Ce qui a été écarté avec des chiffres
 

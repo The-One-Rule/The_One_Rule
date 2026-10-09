@@ -1,0 +1,49 @@
+# LA PRÉVERSION VERCEL, VÉRIFIÉE (phase 5, point 36).
+#
+# Vercel construit une préversion de chaque branche poussée et publie un
+# « deployment_status » sur le commit. Ce flux s'y accroche et passe la
+# préversion au vérificateur de déploiement : c'est le paquet RÉELLEMENT
+# construit par Vercel, avec SES variables — la panne muette du §10 (un
+# collecteur absent du bundle) s'y voit avant d'atteindre la production.
+#
+# ⚠️ Le MULTI ne s'y joue pas, et c'est voulu : l'adresse d'une préversion
+# change à chaque commit, et la liste blanche des salons (`server/origin.ts`,
+# §10) la refuse. L'ouvrir demanderait un joker `*.vercel.app`, qui laisserait
+# N'IMPORTE QUEL projet Vercel ouvrir des salons sur notre machine Fly.
+#
+# Si la préversion est protégée (Deployment Protection), poser le secret de
+# dépôt VERCEL_AUTOMATION_BYPASS_SECRET ; sans lui, le vérificateur reçoit 401.
+name: Préversion
+
+on:
+  deployment_status:
+
+jobs:
+  verifie:
+    name: vérificateur de déploiement (préversion)
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment != 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: câblage de la préversion
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          CIBLE: ${{ github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}
+        # Code 3 = la préversion est PROTÉGÉE et le robot a été redirigé vers
+        # la connexion Vercel : rien n'a été vérifié. Sans le secret posé, c'est
+        # un réglage du projet, pas un défaut de la PR — un avertissement, pas
+        # un échec. Avec le secret posé, une redirection reste un échec.
+        run: |
+          code=0
+          node scripts/check-deploy.mjs "$CIBLE" || code=$?
+          if [ "$code" = 3 ] && [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "::warning::préversion protégée et VERCEL_AUTOMATION_BYPASS_SECRET absent : câblage NON vérifié"
+            exit 0
+          fi
+          exit $code

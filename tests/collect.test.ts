@@ -73,6 +73,26 @@ describe("collecteur d'événements", () => {
     expect(typeof line.at).toBe("number");
   });
 
+  it("⚠️ un événement ne réécrit ni l'identifiant, ni le jour, ni l'heure de réception", async () => {
+    // Audit S5, mesuré : `{ id: "quelqu-un", day: 1, at: 0 }` dans un événement
+    // remplaçait les trois champs de la ligne. Le rapport en tire D1, l'entonnoir
+    // et les joueurs uniques.
+    const calls = upstash();
+    const avant = Date.now();
+    await handler(post({ id: "abc123", day: 3, batch: [{ ev: "run_start", ts: 1, id: "quelqu-un", day: 1, at: 0 }] }));
+    const line = JSON.parse(bodyOf(calls[0]!)[0][2]);
+    expect(line).toMatchObject({ id: "abc123", day: 3, ev: "run_start" });
+    expect(line.at).toBeGreaterThanOrEqual(avant);
+  });
+
+  it("lit les identifiants Upstash même précédés d'un BOM", async () => {
+    // Le piège de CLAUDE.md §3 : sans `cleanEnv`, l'URL devenait « ﻿https://… ».
+    const calls = upstash();
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "﻿https://redis.test ");
+    await handler(post(lot("first_open")));
+    expect(calls[0]!.url).toBe("https://redis.test/pipeline");
+  });
+
   it("découpe le stockage par jour de réception", () => {
     // Clé de rangement, sans rapport avec le `day` d'un événement, qui est
     // l'âge du joueur et sert aux cohortes.

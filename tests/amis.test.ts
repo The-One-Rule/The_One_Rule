@@ -164,6 +164,9 @@ async function appel(id: string | null, methode = "GET", action?: string, corps?
     MAINTENANT,
     hasard,
   );
+  // Réponse JSON BRUTE, lue champ par champ par chaque test : la typer
+  // reviendrait à recopier ici le contrat qu'ils vérifient justement.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return { status: res.status, corps: (await res.json()) as Record<string, any>, brut: res };
 }
 

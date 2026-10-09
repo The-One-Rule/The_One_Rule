@@ -10,10 +10,12 @@
  * exactement au format que `report.mjs` sait lire — c'est tout l'intérêt de
  * n'avoir jamais stocké autre chose que la ligne brute.
  *
- * Variables attendues : UPSTASH_REDIS_REST_URL et UPSTASH_REDIS_REST_TOKEN,
- * les mêmes que la fonction de collecte. `vercel env pull` les dépose dans
- * .env.local, que ce script lit tout seul si elles ne sont pas dans
- * l'environnement.
+ * Variables attendues : KV_REST_API_URL + KV_REST_API_TOKEN, ou
+ * UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN — les mêmes que la
+ * fonction de collecte. Le script lit .env.local tout seul si elles ne sont
+ * pas dans l'environnement. ⚠️ `vercel env pull` ne les y dépose PAS :
+ * l'intégration les marque sensibles et Vercel les renvoie vides. Elles se
+ * copient à la main depuis le tableau de bord Upstash (docs/DEPLOIEMENT.md §5).
  */
 
 if (!process.env.UPSTASH_REDIS_REST_URL && !process.env.KV_REST_API_URL) {

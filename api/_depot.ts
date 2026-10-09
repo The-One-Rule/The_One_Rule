@@ -638,6 +638,22 @@ export class DepotSupabase implements Depot {
     );
     if (!liens.ok) throw new Error(`supabase liens ${liens.status}`);
 
+    /*
+     * ⚠️ LES PERFORMANCES, À LA MAIN, comme les amitiés plus bas.
+     *
+     * `performance.utilisateur_id` est bien `on delete cascade` (0002), mais
+     * la suppression est LOGIQUE : la ligne `utilisateur` reste, donc la
+     * cascade ne joue jamais. Les scores d'un compte supprimé restaient sur
+     * le podium, sous un pseudo vide — alors que `DepotMemoire`, le seul que
+     * les tests exercent, les retirait. Une donnée personnelle publiée après
+     * une demande de suppression.
+     */
+    const perfs = await this.req(
+      `performance?utilisateur_id=eq.${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!perfs.ok) throw new Error(`supabase performances ${perfs.status}`);
+
     const res = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -654,7 +670,10 @@ export class DepotSupabase implements Depot {
     if (!amis.ok) throw new Error(`supabase amities ${amis.status}`);
     const dem = await this.req(`demande_ami?or=(de_id.eq.${e},a_id.eq.${e})`, { method: "DELETE" });
     if (!dem.ok) throw new Error(`supabase demandes ${dem.status}`);
-    await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
+    // Vérifié comme les autres : un code resté posé ouvrirait encore une
+    // demande d'ami vers un compte supprimé.
+    const code = await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
+    if (!code.ok) throw new Error(`supabase code ${code.status}`);
     await this.revoque(id);
   }
 
@@ -696,7 +715,12 @@ export class DepotSupabase implements Depot {
     // marcher dessus.
     const maj = await this.req(
       `performance?utilisateur_id=eq.${encodeURIComponent(p.utilisateurId)}` +
-        `&cle=eq.${encodeURIComponent(p.cle)}&valeur=lt.${p.valeur}`,
+        `&cle=eq.${encodeURIComponent(p.cle)}` +
+        // ⚠️ Le même ordre que l'index de classement ET que `DepotMemoire` :
+        // valeur décroissante, PUIS durée croissante. Le filtre ne gardait que
+        // `valeur=lt.` — une égalité plus rapide n'était jamais retenue en
+        // production, alors que les tests (sur la mémoire) disaient l'inverse.
+        `&or=(valeur.lt.${p.valeur},and(valeur.eq.${p.valeur},valeur2.gt.${p.valeur2}))`,
       { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(ligne) },
     );
     if (!maj.ok) throw new Error(`supabase perf maj ${maj.status}`);
@@ -803,10 +827,13 @@ export class DepotSupabase implements Depot {
     const u = await this.parId(id);
     if (!u) return 0;
     const suivant = u.drapeaux + 1;
-    await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
+    // Lu comme les autres écritures : un drapeau qui échoue en silence
+    // laisserait croire à `api/perf.ts` qu'un run douteux a été signalé.
+    const res = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify({ drapeaux: suivant }),
     });
+    if (!res.ok) throw new Error(`supabase drapeau ${res.status}`);
     return suivant;
   }
 

@@ -1,0 +1,86 @@
+# LE RETOUR ARRIÈRE DU SERVEUR DE SALONS (phase 5, point 38).
+#
+# Quand une version casse le multi, on ne la répare pas en production : on
+# REDÉPLOIE celle d'avant, puis on cherche. L'image à redonner est écrite au
+# résumé de chaque « Déploiement des salons » (« Image en place AVANT ce
+# déploiement »). À défaut : `fly releases --image --app the-one-rule-salons`.
+#
+# Pas de garde « personne ne joue » ici : on ne revient en arrière que parce
+# que la production est déjà cassée. Mais les mêmes deux vérifications
+# qu'au déploiement — une seule machine, une seule instance — et une de plus :
+# /health doit annoncer l'image DEMANDÉE, sinon le retour n'a pas eu lieu.
+#
+# ⚠️ Le FRONT se ramène à part, par Pierre : tableau de bord Vercel →
+# Deployments → le précédent → « Promote to Production » (ou `vercel
+# rollback`). Si le retour arrière des salons défait une évolution du FIL, le
+# front qui l'attend doit revenir AUSSI, sinon c'est la panne du 30/09 à
+# l'envers : un client plus récent que son serveur.
+name: Retour arrière des salons
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "Image à redéployer (registry.fly.io/the-one-rule-salons@sha256:…)"
+        required: true
+
+concurrency:
+  group: deploiement-salons
+  cancel-in-progress: false
+
+env:
+  APP: the-one-rule-salons
+  URL: https://the-one-rule-salons.fly.dev
+
+jobs:
+  retour:
+    name: fly deploy --image (retour arrière)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: image bien formée
+        env:
+          IMAGE: ${{ github.event.inputs.image }}
+        run: |
+          case "$IMAGE" in
+            registry.fly.io/the-one-rule-salons[@:]*) ;;
+            *) echo "::error::« $IMAGE » n'est pas une image de the-one-rule-salons"; exit 1 ;;
+          esac
+
+      - name: installer flyctl
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      - name: fly deploy --image
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          IMAGE: ${{ github.event.inputs.image }}
+        run: flyctl deploy --image "$IMAGE" --app "$APP"
+
+      - name: une seule machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 1 --yes --app "$APP"
+
+      - name: une seule instance, et c'est la bonne image
+        env:
+          IMAGE: ${{ github.event.inputs.image }}
+        run: |
+          for i in $(seq 1 30); do curl -sf "$URL/health" >/dev/null && break; sleep 2; done
+          node scripts/check-salons.mjs "$URL"
+          servie=$(curl -sf "$URL/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).image ?? ""))')
+          echo "image servie : $servie"
+          # FLY_IMAGE_REF peut porter étiquette ET empreinte, `fly releases` une
+          # forme plus courte : l'une doit contenir l'autre.
+          if [ -z "$servie" ] || { [[ "$servie" != *"$IMAGE"* ]] && [[ "$IMAGE" != *"$servie"* ]]; }; then
+            echo "::error::/health annonce « $servie », pas l'image demandée : le retour arrière n'a pas eu lieu."
+            exit 1
+          fi
+          echo "Retour arrière vers \`$IMAGE\` : servie par une seule instance." >> "$GITHUB_STEP_SUMMARY"
