@@ -60,6 +60,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 35 | sécurité | 14 avis des outils corrigés, verrou qui plantait npm réparé ; audit de production bloquant en CI, Dependabot |
 | 36 | préversion | chaque préversion Vercel passée au vérificateur de déploiement ; multi volontairement fermé aux préversions |
 | 37 | déploiement | déploiement des salons À LA MAIN seulement, procédure du §10 entière (personne ne joue, une machine, une instance) |
+| 38 | retour arrière | redéploiement d'une image précédente, vérifié par l'image que /health annonce ; front ramené à part |
 
 ## 0. Méthode et état de départ
 

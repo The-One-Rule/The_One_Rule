@@ -1020,6 +1020,24 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   Jamais lancé pour de vrai (pas de jeton, Fly injoignable d'ici) : les
   étapes shell sont éprouvées contre un faux `/health` (2 salons → refus,
   0 → passe), pas `flyctl`.
+- **38 — Retour arrière** (`retour-arriere-salons.yml`, à la main). On
+  ne répare pas en production : on redéploie l'image d'avant (`fly deploy
+  --image`), donnée par le résumé du dernier déploiement. Image d'une AUTRE
+  application refusée ; puis une machine, une instance, et `/health` doit
+  annoncer l'image DEMANDÉE — sinon le retour n'a pas eu lieu (une forme
+  peut contenir l'autre : `FLY_IMAGE_REF` porte étiquette et empreinte). Pas
+  de garde « personne ne joue » : on ne revient que parce que c'est déjà
+  cassé. ⚠️ Le FRONT revient à part, par Pierre (Vercel → Deployments →
+  « Promote to Production »), et DOIT revenir si le retour défait une
+  évolution du fil : sinon, la panne du 30/09 à l'envers.
+
+**Bilan de la phase 5** : quatre flux. `verification.yml` (lint, tsc,
+couverture, build à vide et de production, taille, audits, e2e salons, e2e
+navigateur, image Docker) sur chaque PR et chaque push sur `master` ;
+`preversion.yml` sur les déploiements Vercel ; deux flux MANUELS pour les
+salons. ⚠️ **Rien de tout ça n'a encore tourné sur GitHub** : la
+vérification ne part que sur une PR, et aucune n'est ouverte depuis le
+point 29.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
