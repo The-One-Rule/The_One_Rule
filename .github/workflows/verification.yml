@@ -59,6 +59,44 @@ jobs:
       - run: npm ci
       - run: npx tsx e2e.mjs
 
+  # LE BUILD DE PRODUCTION, tel que Vercel le fait (phase 5, point 34). Le job
+  # « rapide » construit SANS aucune variable `VITE_*` : multi inerte, mesure
+  # coupée — ce n'est pas le paquet que reçoivent les joueurs. Celui-ci pose la
+  # configuration de production, lance LA commande de `vercel.json`
+  # (`npm run build`), sert `dist` et le passe au vérificateur de déploiement :
+  # un collecteur ou une URL de salons absents du bundle sont exactement la
+  # panne muette du §10 (« le jeu tourne, rien ne mesure »).
+  build-production:
+    name: build de production (config Vercel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VITE_WS_URL: wss://the-one-rule-salons.fly.dev
+      VITE_COLLECT_URL: /api/collect
+      VITE_PERF_URL: /api/perf
+      VITE_AUTH_URL: /api/auth
+      VITE_MOI_URL: /api/moi
+      VITE_AMIS_URL: /api/amis
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: aucun crochet de dev dans le bundle
+        run: "! grep -rq __tor dist"
+      - name: l'URL des salons est dans le bundle
+        run: grep -rq "wss://the-one-rule-salons.fly.dev" dist/assets
+      - name: taille du paquet (configuration de production)
+        run: node scripts/taille-paquet.mjs
+      - name: vérificateur de déploiement sur dist servi
+        run: |
+          npx vite preview --port 4173 --strictPort &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          node scripts/check-deploy.mjs http://127.0.0.1:4173
+
   # LE VRAI CLIENT DANS UN NAVIGATEUR (phase 5, point 33). `e2e.mjs` pilote
   # des sockets nues : il ne voit ni la reprise après une coupure, ni deux
   # onglets d'un même appareil, ni un terrain qui se repeint derrière un menu.

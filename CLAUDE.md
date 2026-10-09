@@ -977,6 +977,14 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   trouvées QUE par lui. Job à part, `CHROMIUM_PATH=/usr/bin/google-chrome` :
   le runner Ubuntu porte Chrome, `playwright-core` ne télécharge rien.
   Vérifié en local avec un chemin explicite : 33/33.
+- **34 — Build.** La CI construisait SANS aucune `VITE_*` : multi inerte,
+  mesure coupée — pas le paquet servi aux joueurs. Un job pose la
+  configuration de production, lance LA commande de `vercel.json` (`npm run
+  build`), puis : pas de `__tor`, l'URL `wss://` présente, plafonds de taille
+  (111,1 Ko gzip, la même mesure qu'à vide), et `check-deploy.mjs` sur `dist`
+  servi par `vite preview`. Éprouvé : sans `VITE_COLLECT_URL`, le
+  vérificateur sort en 1. ⚠️ Il ne fait qu'AVERTIR sur un `wss://` absent
+  (normal pour un solo seul) : la CI l'exige par un `grep` à part.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

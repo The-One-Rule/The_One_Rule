@@ -56,6 +56,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 31 | unitaires | la CI lance la couverture et ses seuils, plus seulement les tests |
 | 32 | intégration | l'image Fly construite, lancée et sondée (santé, salon, origine, arrêt propre) |
 | 33 | E2E | l'e2e navigateur (vrai client, Chromium) rejoint l'e2e des salons en CI |
+| 34 | build | le build de PRODUCTION (variables posées, commande de `vercel.json`) passé au vérificateur de déploiement |
 
 ## 0. Méthode et état de départ
 
