@@ -126,7 +126,17 @@ code** — un `git grep` sur les symboles cités suffit — et corrige le docume
 
 ## 3. Environnement — et le piège qui a corrompu deux fichiers
 
-Windows, **PowerShell 5.1**. Pas de `&&`, pas de ternaire, pas de `??`.
+Trois environnements ont porté ce dépôt, et chacun a ses pièges :
+
+- **le poste de Pierre**, désormais macOS / zsh / Node 26 (§12, refonte
+  PARCOURS) — alors que la production et la CI tournent en **Node 22**
+  (`engines`) ;
+- **les sessions cloud** : Linux, pas de démon Docker (d'où le mode sans Docker
+  de `scripts/integration-image.mjs`), Fly et le registre de déploiements
+  GitHub injoignables ;
+- **l'ancien poste Windows, PowerShell 5.1** — pas de `&&`, pas de ternaire,
+  pas de `??`. La section qui suit vient de lui, et le piège reste vrai pour
+  quiconque édite depuis Windows.
 
 ### ⚠️ N'édite JAMAIS un fichier source avec `Get-Content` / `Set-Content`
 
@@ -170,8 +180,12 @@ shared/
   protocol.ts  protocole typé unique, importé des deux côtés
   jeton.ts     noyau JWT PUR — la primitive HMAC vient de l'appelant (§12)
   compte.ts    types du compte + fusion PURE + clé de comparabilité
+  amis.ts, profil.ts  règles pures des amis et du profil, validées des deux côtés
 server/
   match.ts     logique de match PURE (règles, vies, verdicts, forfaits, tension)
+  coop.ts      le mode coop, chemin séparé (plusieurs clics par manche)
+  rapide.ts    la PARTIE RAPIDE (tables publiques), pure
+  debit.ts     limites de débit (seau par socket, échecs de join par adresse)
   index.ts     serveur ws : salons, ordonnancement, heartbeat, arrêt propre
   origin.ts    liste blanche d'origines
   jeton.ts     vérification SYNCHRONE du jeton (node:crypto)
@@ -191,12 +205,18 @@ src/
   analytics/   file groupée, sendBeacon, transport injectable
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
-api/           fonctions edge Vercel : collect, ranked, auth, moi, perf
-               (`_jeton`, `_depot`, `_debit` : le `_` les exclut du routage)
-supabase/migrations/  0001 identité · 0002 performances
+api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis
+               (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked` : le `_` les
+               exclut du routage)
+supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
+               0004 demandes d'ami · 0005 purge des comptes supprimés
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
   brand/       le kit d'identité d'origine, son README et ses tokens
-scripts/       pull, report, check-deploy, check-salons
+scripts/       pull, report (mesure) · check-deploy, check-salons (production)
+               · integration-image, taille-paquet (CI)
+.github/       verification (chaque PR), preversion, deploiement-salons et
+               retour-arriere-salons (MANUELS), dependabot
+docs/          DEPLOIEMENT · audits/ · archives/
 ```
 
 **`render/plate.ts` et `render/seat.ts` sont purs et testés** pour la même
@@ -415,96 +435,37 @@ du terrain tombent à 85–102 % du rayon, donc en pleine zone assombrie. Le jeu
 occupe presque toute la surface. D'où le halo de bord (60 px, pour une
 gouttière mesurée à 64).
 
-### La faille : la vitrine du site
+### ~~La faille~~ — l'ancienne vitrine SOLO / MULTI, retirée de l'écran
 
-**Le composant SOLO / MULTI est UN objet fendu horizontalement**, pleine
-largeur du `#app` (plus de padding latéral sur `#home`), et la FISSURE
-entre les deux est le sujet — pas la séparation.
+L'accueil ne porte plus la faille (deux `<button>` superposés, découpés par
+`clip-path: polygon()`, une fissure animée entre eux) : la barre du bas, le
+bloc MULTI et la vitrine l'ont remplacée. Ses règles CSS sont retirées en
+phase 6 (point 41). Ce qu'elle a appris reste vrai, et c'est pour ça que
+cette section reste :
 
-Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
-suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est lui
-qu'on lit comme la déchirure. Aucun trait n'est dessiné. `clip-path` découpe
-**aussi le test de survol** — chaque zone ne reçoit que les clics qui tombent
-dedans, sans une ligne de géométrie en JS, et le clavier marche parce que ce
-sont de vrais boutons. Mesuré à 1440 × 900, animations coupées : faille
-1407 px / `#app` 1424 px (**98,8 %**, `left: 1`) — c'est un objet pleine
-largeur, plus deux zones posées au milieu. Hits (grille 28 × 16) : **51 %
-SOLO · 31 % MULTI · 18 % de couture**. La couture a grossi avec la hauteur
-(451 px) : le ruban garde la même amplitude en %, donc plus de pixels morts
-au milieu. C'est le prix de la vitrine, pas un oubli.
-
-**La fissure est un calque HORS des boutons.** Dans le découpage, tout ce
-qu'elle émet serait rogné à son propre bord au lieu d'en sortir.
-
-⚠️ **Un abîme trop sombre est invisible.** Premier essai : poches chaudes
-sur du `#0a0715`, presque `--ink`. La fente se lisait comme une couture,
-pas comme une déchirure. L'abîme est maintenant un ruban LUMINEUX — noir
-d'abord, mais percés de `--signal` / `--signal-pale` / `--paper` francs.
-C'est le contraste, pas la largeur, qui fait la cassure.
-
-Plusieurs plans qui ne battent pas au même rythme — même principe que
-`--heat` : balayage, braises, débris, éclats, traversées. Pas de halo
-pulsant : il se lisait comme une lampe, pas comme une cassure. Une seule
-vitesse donne une boucle.
-
-**Deux mondes derrière la cassure.** Au survol de SOLO, des chevrons
-*montent* et l'abîme blanchit ; au survol de MULTI, des lames *tombent* et
-l'abîme s'embrase. Vérifié : au repos les deux émetteurs sont à
-`animation: none`, et chacun ne s'allume que sur sa moitié.
-
-Les pictogrammes sont des **SVG en `data:`**, pas des emoji : le rendu d'un
-emoji change d'un système à l'autre, et une épée qui devient un carré blanc
-chez un joueur sur trois n'est pas un effet, c'est un bug.
-
-⚠️ **Tout ce qui bouge est décoratif et `aria-hidden`.** C'est la condition
-pour qu'un `prefers-reduced-motion` généreux reste honnête : rien ne se perd
-quand le mouvement est coupé. Et seuls `transform` et `opacity` sont animés —
-la même règle que `--heat`.
-
-⚠️ **Aucun coût pendant une partie** : l'accueil est en `display: none` en
-jeu, et une animation sur un élément non affiché ne compose pas.
+- **`clip-path` découpe aussi le test de survol** : deux zones cliquables de
+  forme libre sans une ligne de géométrie en JS, et le clavier marche parce que
+  ce sont de vrais boutons.
+- **Un abîme trop sombre est invisible** : c'est le CONTRASTE, pas la largeur,
+  qui fait lire une cassure.
+- **Pictogrammes en SVG `data:`, jamais en emoji** : le rendu d'un emoji
+  change d'un système à l'autre.
+- **Tout ce qui bouge est décoratif et `aria-hidden`**, et seuls `transform` et
+  `opacity` sont animés : c'est ce qui rend un `prefers-reduced-motion`
+  généreux honnête. Un élément en `display: none` ne compose pas : un décor
+  animé de l'accueil ne coûte rien en partie.
+- ⚠️ **Une grille d'échantillonnage trop grossière ment dans le sens
+  rassurant** : un relevé 7 × 4 annonçait 0 % de débordement, un 21 × 9 en
+  montrait 22 %.
+- ⚠️ **Le HMR de Vite n'applique pas toujours une media query ajoutée** :
+  recharger la page avant de conclure qu'un correctif CSS ne fait rien.
 
 ### La couche pixel
 
-**Le composant SOLO / MULTI est UN objet fendu**, pas deux boutons voisins.
-Deux `<button>` superposés, chacun découpé par un `clip-path: polygon()` qui
-suit la même suite de crans décalée : l'écart laisse voir le fond, et c'est
-lui qu'on lit comme la déchirure. Aucun trait n'est dessiné.
-
-`clip-path` découpe **aussi le test de survol** — chaque zone ne reçoit que
-les clics qui tombent dedans, sans une ligne de géométrie en JS, et le clavier
-marche parce que ce sont de vrais boutons.
-
-Deux formes, pour une raison mesurée :
-
-| | large | étroit (≤ 560 px) |
-|---|---|---|
-| axe | diagonale, 82 % à gauche → 15 % à droite | bande, 60 % → 51 % |
-| répartition des clics | 45 / 48 / 8 % de couture | 55 / 37 / 8 % |
-
-Sur un composant étroit ET court, une diagonale mange les deux coins et ne
-laisse à aucune face la largeur d'écrire : **22 % de l'état de SOLO tombait
-hors de sa propre zone de clic**. Raccourcir le texte n'aurait rien réglé —
-le nom de la règle du jour varie, « LA MAIN GAUCHE » est plus long que
-« LE SANG », donc ce qui tient aujourd'hui déborde demain. C'est la fente qui
-change d'axe, et la correction devient indépendante du contenu.
-
-⚠️ **Deux pièges de mesure payés sur ce seul composant.**
-
-- **Une grille d'échantillonnage trop grossière ment dans le sens
-  rassurant.** Un relevé 7×4 annonçait 0 % de débordement ; en 21×9, le même
-  élément en montrait 22 %. Les points passaient entre les crans.
-- **Le HMR de Vite n'applique pas toujours une media query ajoutée.** Trois
-  relevés successifs ont lu du CSS périmé et donné le même chiffre après des
-  correctifs pourtant réels. **Recharger la page avant de conclure qu'un
-  correctif CSS ne fait rien.**
-
-**La couche pixel** est de la MATIÈRE, pas une identité de remplacement :
-`--px` comme module, un grain en `repeating-linear-gradient` à 45°/-45°, un
-cadre en marches en `box-shadow` étagées, une ombre décalée d'un module sur le
-logo, `image-rendering: pixelated` sur les glyphes. Les braises s'animent en
-`steps()` — une flamme lissée jurerait avec des angles droits, une flamme en
-crans est du même monde.
+**De la MATIÈRE, pas une identité de remplacement** : `--px` comme module, un
+grain en `repeating-linear-gradient` à 45°/-45°, un cadre en marches en
+`box-shadow` étagées, une ombre décalée d'un module sur le logo,
+`image-rendering: pixelated` sur les glyphes, des animations en `steps()`.
 
 **Elle ne touche pas au canvas**, et c'est vérifié à chaque fois plutôt
 qu'affirmé : buffer et `fieldRect()` identiques avant/après. Les pièces
@@ -672,13 +633,13 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
-| Aucun filet sur la mise en page | jsdom ne calcule pas de layout. Playwright a fait ses preuves À LA MAIN (salon, tutoriel, nuit : une dizaine de défauts trouvés) mais n'est pas dans le dépôt |
+| Peu de filet sur la mise en page | jsdom ne calcule pas de layout. `e2e-navigateur.mjs` (Chromium, en CI depuis le point 33) couvre la reprise, deux onglets et le terrain derrière les menus — PAS les dimensions des écrans. Les relevés de mise en page restent faits À LA MAIN (scripts du scratchpad) |
 | Hôte coupé | bloque le lancement ≤ 25 s |
 | Plafond de contenu | 16 règles ; 120 combinaisons possibles à deux règles |
 | ~~Pièces sans dépense~~ | **levée** — la boutique de styles de pièces (§12, refonte PARCOURS) |
 | Domaine écrit en dur dans `index.html` | `og:image` exige une URL absolue — si le site déménage, la vignette meurt en silence. `tests/marque.test.ts` vérifie au moins que `og:url` et `og:image` restent d'accord |
 | ~~Couleur sans second canal~~ | **levée** — mode MOTIFS (§12) |
-| ~~Aucune intégration continue~~ | **levée** — `.github/workflows/verification.yml` relance tsc, vitest, le build (et l'absence de `__tor` dans `dist`) puis l'e2e, sur les PR vers `master`. ⚠️ L'e2e y tourne sur une machine partagée : les faux échecs de charge ([001], [005]) peuvent y paraître |
+| ~~Aucune intégration continue~~ | **levée** — `.github/workflows/verification.yml` (phase 5 : lint, tsc, couverture, builds à vide et de production, taille, audits, e2e salons et navigateur, image Docker) sur chaque PR et chaque push sur `master`. ⚠️ L'e2e y tourne sur une machine partagée : les faux échecs de charge ([001], [005]) peuvent y paraître |
 
 ---
 
@@ -687,6 +648,10 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 Front **Vercel**, servi sur **`www.theonerule.party`** (l'apex répond 308 vers
 `www` ; `the-one-rule-rho.vercel.app` reste actif) · salons **Fly**
 (`the-one-rule-salons.fly.dev`). Deux déploiements distincts, **par Pierre**.
+Les salons peuvent aussi partir de GitHub, par deux flux MANUELS
+(« Déploiement des salons », « Retour arrière des salons » — §12, points 37
+et 38), qui refont la procédure ci-dessous sans en sauter une étape. Détail :
+`docs/DEPLOIEMENT.md`.
 
 ```bash
 vercel --prod --yes
@@ -776,7 +741,8 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 ## 12. Où en est le travail
 
-**Branche** `master`. **Vérification** : `tsc` · vitest · e2e · `vite build`.
+**Branche** `master`, travail en branches et PR. **Vérification** : la
+liste du §2, toute reprise par la CI.
 
 ### Phase 3 de l'audit : les tests (08/10/2026)
 
@@ -1035,14 +1001,32 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
 couverture, build à vide et de production, taille, audits, e2e salons, e2e
 navigateur, image Docker) sur chaque PR et chaque push sur `master` ;
 `preversion.yml` sur les déploiements Vercel ; deux flux MANUELS pour les
-salons. ⚠️ **Rien de tout ça n'a encore tourné sur GitHub** : la
-vérification ne part que sur une PR, et aucune n'est ouverte depuis le
-point 29.
+salons. Premier passage sur GitHub : la PR
+[Alexestgrand/The_One_Rule#18](https://github.com/Alexestgrand/The_One_Rule/pull/18).
+
+### Phase 6 de l'audit : le nettoyage (09/10/2026)
+
+Directive de Pierre : « enchaîne la phase 6 et 7 (…) que le nettoyage soit fait
+tel en entreprise ». Un commit par point.
+
+- **39 — Docs.** Le README s'intitulait « Phase 1 », annonçait 137 tests (il
+  y en a 1 355), « aucune dépendance runtime », l'identité Nocturne et
+  l'absence de comptes : réécrit en point d'entrée (démarrer, vérifier,
+  configurer, déployer), l'ancien archivé dans `docs/archives/` avec un
+  bandeau. `.env.example` nommait encore `api/ranked.ts` et ignorait les
+  comptes et le serveur. Les documents de la racine sont rangés :
+  `docs/DEPLOIEMENT.md` (gagne les comptes et les flux GitHub),
+  `docs/audits/`. Ici : §3 (trois environnements, plus un seul), §4
+  (arborescence réelle), §7 (la faille n'est plus à l'écran : ses leçons
+  restent, sa description part), §9, §10. ⚠️ **Trouvé en route** : le
+  point 27 annonçait `faille` et `fissure` retirées, et leurs règles sont
+  TOUJOURS dans `style.css` — le scan les a crues vivantes parce que le MOT
+  figure dans des commentaires. À traiter au point 41.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
 Directive de Pierre : auditer tout le dépôt sans rien supposer
-(`AUDIT-ARCHITECTURE.md`, chaque point prouvé), puis « vas-y dans l'ordre ».
+(`docs/audits/AUDIT-ARCHITECTURE.md`, chaque point prouvé), puis « vas-y dans l'ordre ».
 Un commit par priorité. Ce qui ne se déduit pas du code :
 
 - ⚠️ **À faire côté Pierre** : appliquer la migration **0005** (purge des
@@ -1854,7 +1838,7 @@ barre qui file plus vite sur un piège le révèle avant la mort (n°5).
 
 Demandée par Pierre, carte blanche totale, après des retours « pas intuitif »,
 « aucune sensation de récompense », « les escaliers sont durs à trouver ».
-L'audit qui l'a motivée est dans `AUDIT-UX-RECOMPENSES.md`.
+L'audit qui l'a motivée est dans `docs/audits/AUDIT-UX-RECOMPENSES.md`.
 
 **Le jeu est une MONTÉE qu'on voit** (`src/game/parcours.ts`, pur, testé) :
 un chapitre par règle (`CHAPITRES`, ordre pédagogique, LE SANG d'abord),

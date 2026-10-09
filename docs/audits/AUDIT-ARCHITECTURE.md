@@ -62,6 +62,12 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 37 | déploiement | déploiement des salons À LA MAIN seulement, procédure du §10 entière (personne ne joue, une machine, une instance) |
 | 38 | retour arrière | redéploiement d'une image précédente, vérifié par l'image que /health annonce ; front ramené à part |
 
+## Suivi de la phase 6 (nettoyage), 09/10/2026
+
+| # | Point | État |
+|---|---|---|
+| 39 | docs | README réécrit (il décrivait la phase 1), `.env.example` et déploiement à jour, documents rangés dans `docs/` |
+
 ## 0. Méthode et état de départ
 
 **Ce qui a été lancé :**
