@@ -694,6 +694,11 @@ fait rien.
 
 ## 11. Conventions de travail
 
+Les conventions de DÉPÔT — branches `type/sujet`, sujet de commit
+`domaine : effet`, PR avec gabarit, fusion par commit de fusion (jamais de
+squash : chaque commit porte un point et ses chiffres) — sont dans
+`CONTRIBUTING.md`. Ce qui suit est ce qui ne s'y écrit pas.
+
 **Commits** : message long en français qui explique **le symptôme observé, la
 cause exacte, et pourquoi le correctif est celui-là**. Pas un journal de
 modifications. Les chiffres mesurés y ont leur place — ce sont eux qui rendent
@@ -1064,6 +1069,16 @@ tel en entreprise ». Un commit par point.
   dans `import.meta.url`, plus `process.cwd()`. Lancés depuis le nouvel
   emplacement : 166 et 33 assertions, 0 échec. La CI passe par `npm run e2e`
   et `npm run e2e:navigateur` : un seul endroit sait où ils vivent.
+- **43 — Conventions.** `CONTRIBUTING.md` (le cycle d'un changement,
+  branches `type/sujet`, commits `domaine : effet` avec le corps symptôme →
+  cause → pourquoi → chiffres → dents, PR, déploiement), gabarit de PR,
+  `.editorconfig`, `.gitattributes` (LF partout, PNG binaires, verrou marqué
+  généré). L'historique avait des sujets hétérogènes (« Phase 4, point 24 »,
+  « Bureau », « CI ») : la convention vaut pour la suite, le passé n'est pas
+  réécrit (phase 7). **Fusion par commit de fusion, jamais de squash** — ici
+  c'est structurel, pas un goût : écraser une PR de dix points en un commit
+  perdrait les dix messages qui portent les mesures. `git add --renormalize`
+  ne change rien : les 272 fichiers texte étaient déjà en LF.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

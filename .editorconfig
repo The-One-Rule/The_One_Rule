@@ -1,0 +1,16 @@
+# Le style du dépôt, appliqué par l'éditeur avant d'arriver au commit.
+# Pas de formateur automatique (CLAUDE.md §12, point 29) : ceci ne règle que
+# ce qu'un éditeur sait faire seul, sans reformater 30 000 lignes.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Deux espaces en fin de ligne y valent un retour à la ligne forcé.
+[*.md]
+trim_trailing_whitespace = false
