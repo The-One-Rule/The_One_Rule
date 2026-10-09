@@ -2638,8 +2638,7 @@ body {
  */
 #home .home__brand,
 #home .home__foot,
-#home .coupe,
-#home .faille {
+#home .coupe {
   order: 0;
 }
 
@@ -2743,43 +2742,9 @@ body {
   }
 }
 
-/*
- * Le titre.
- *
- * C'est la première chose qu'on voit du jeu, et c'était un mot posé en haut
- * d'une colonne. Il devient une enseigne : plus grand, appuyé sur un filet
- * d'accent, avec une lueur qui le décolle du fond. Rien de tout cela ne bouge
- * — un logo qui s'agite est un logo qu'on ne regarde plus.
- */
-.logo {
-  position: relative;
-  display: inline-block;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: clamp(46px, 10vw, 92px);
-  line-height: 0.86;
-  letter-spacing: -0.05em;
-  padding-left: var(--sp-3);
-  text-shadow: 0 0 46px rgba(145, 132, 217, 0.28);
-}
 
 /* Le filet reprend les hachures du bandeau de règle : c'est la même
    signalétique, et elle dit d'emblée de quel jeu il s'agit. */
-.logo::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 4%;
-  bottom: 4%;
-  width: 6px;
-  background: repeating-linear-gradient(-45deg, var(--signal) 0 5px, transparent 5px 10px);
-}
-
-.logo em {
-  font-style: normal;
-  color: var(--signal);
-}
-
 .eyebrow {
   font-size: var(--t-intitule);
   letter-spacing: var(--ls-intitule);
@@ -5769,21 +5734,6 @@ button.chip:active:not(:disabled) {
     );
 }
 
-/*
- * Le cadre en marches.
- *
- * Quatre ombres portées sans flou, décalées d'un module : les coins
- * naissent en escalier au lieu d'être nets. `box-shadow` plutôt qu'une
- * bordure parce qu'elle ne prend AUCUNE place dans le flux — la taille du
- * champ est du gameplay, et cette règle vaut aussi pour ce qui l'entoure.
- */
-.marches {
-  box-shadow:
-    var(--px) 0 0 0 var(--ink-2),
-    calc(var(--px) * -1) 0 0 0 var(--ink-2),
-    0 var(--px) 0 0 var(--ink-2),
-    0 calc(var(--px) * -1) 0 0 var(--ink-2);
-}
 
 /*
  * Le rendu net des images et des SVG d'interface.
@@ -5805,10 +5755,6 @@ button.chip:active:not(:disabled) {
  * Le logo prend le grain et une ombre d'un module — l'ombre « 8 bits »,
  * celle d'un titre d'écran-titre, sans flou et alignée sur la grille.
  */
-.logo {
-  text-shadow: var(--px) var(--px) 0 color-mix(in srgb, var(--signal) 22%, transparent);
-}
-
 @media (prefers-reduced-motion: reduce) {
   /* Rien à neutraliser ici : la couche est entièrement statique. C'est
      délibéré — un grain qui bouge devient du bruit, et le jeu se joue en
@@ -5986,89 +5932,6 @@ button.chip:active:not(:disabled) {
   background: var(--paper);
 }
 
-.faille {
-  position: relative;
-  /*
-   * `overflow-x: clip` et non `hidden` : `clip` ne cree PAS de conteneur de
-   * defilement, donc la page continue de defiler verticalement comme avant.
-   *
-   * Mesure a 375x812 : le balayage de la fissure se translate de +/-60 % de
-   * sa largeur, ce qui poussait `#home` a 201 px de large de plus que son
-   * cadre. Visuellement rien ne depassait — `clip-path` decoupe le RENDU —
-   * mais le debordement de MISE EN PAGE restait, et `.screen` ayant un
-   * `overflow` automatique, l'accueil devenait glissable lateralement au
-   * doigt. Un ecran qui part de cote quand on veut appuyer sur SOLO.
-   *
-   * Le decoupage ne coute rien : mesure, aucune particule ne sort de la
-   * faille verticalement (0 px au-dessus, 0 en dessous). Ce qui s'echappe de
-   * la fente reste dans le composant.
-   */
-  overflow-x: clip;
-  /* Toute la largeur du #app, pas de la colonne de texte : c'est ce
-     qui fait UN grand composant plutôt que deux zones posées au milieu. */
-  width: 100%;
-  /*
-   * Reduite de 56 a 44 vh : la barre haute a grandi de 68 px en accueillant
-   * la langue, et JOUER en ajoute 76. Sans ca l'accueil defilait de 194 px et
-   * le bas de la faille passait sous la ligne de flottaison — or c'est la
-   * vitrine, et une vitrine coupee ne montre rien.
-   */
-  /*
-   * ⚠️ RABAISSÉE POUR PAYER LA DÉMO — de `clamp(300px, 44vh, 440px)`.
-   *
-   * Mesurée à 382 px sur un 375 × 812, la faille occupait 47 % de la page pour
-   * porter deux libellés et deux descriptions, c'est-à-dire un menu à deux
-   * entrées que la barre du bas propose déjà. Elle reste la vitrine ; elle
-   * cesse d'être le corps de l'écran.
-   */
-  min-height: clamp(240px, 34vh, 400px);
-  margin-top: var(--sp-2);
-  flex: 1 1 auto;
-  isolation: isolate;
-  /*
-   * Le repère commun.
-   *
-   * Les deux découpes, le vide entre elles et tout ce qui en sort sont
-   * exprimés en pourcentages de CETTE boîte. C'est ce qui permet au ruban
-   * de la fente d'être le complément exact des deux faces : un calque de
-   * hauteur réduite aurait son propre système de coordonnées, et le vide
-   * ne coïnciderait plus avec les lèvres.
-   *
-   * La ligne serpente entre 44 et 61 % — 17 points d'amplitude. Générée une
-   * fois (voir le commentaire du HTML), jamais calculée à l'exécution.
-   */
-  --ruban: polygon(
-    0% 45%, 4% 45%, 4% 49.5%, 9% 48.2%,
-    14% 54%, 14% 46.8%, 19% 46%, 24% 51.5%,
-    24% 55.8%, 29% 54.2%, 34% 47.5%, 38% 48.8%,
-    38% 56.5%, 43% 55%, 48% 46.5%, 52% 47.2%,
-    52% 52%, 57% 50.4%, 62% 44.5%, 66% 45.8%,
-    66% 53.5%, 71% 52%, 76% 57%, 76% 49%,
-    81% 48.2%, 86% 54.5%, 90% 53%, 90% 46.2%,
-    95% 45.5%, 100% 47.5%, 100% 51.5%, 95% 50.3%,
-    90% 49.2%, 90% 55.4%, 86% 59.7%, 81% 51.8%,
-    76% 51.3%, 76% 61.6%, 71% 54.6%, 66% 57.5%,
-    66% 48%, 62% 49.9%, 57% 53.6%, 52% 54.1%,
-    52% 51.6%, 48% 49%, 43% 60%, 38% 60.3%,
-    38% 51.1%, 34% 52.7%, 29% 57.6%, 24% 57.8%,
-    24% 56.3%, 19% 48.6%, 14% 49%, 14% 59.6%,
-    9% 51.2%, 4% 51.9%, 4% 49.2%, 0% 49.2%
-  );
-}
-
-/* Le pourtour de l'objet : un cadre en marches. Pas de halo — la fente
-   porte déjà assez de lumière, et un halo qui bat se lisait comme une
-   lampe, pas comme une cassure. */
-.faille::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  box-shadow:
-    0 0 0 var(--px) color-mix(in srgb, var(--signal) 28%, transparent),
-    0 0 0 calc(var(--px) * 2) color-mix(in srgb, var(--ink) 90%, transparent);
-}
 
 /*
  * LA MATIÈRE DES FACES.
@@ -6098,39 +5961,7 @@ button.chip:active:not(:disabled) {
 
 /* ---- survol : le monde touché POUSSE l'autre ---- */
 
-/* ==================================================================
- * LA FISSURE — la vitrine
- *
- * Un calque a part, HORS des boutons : dans le decoupage, tout ce qu'elle
- * emet serait rogne a son propre bord au lieu d'en sortir. Il couvre TOUTE
- * la faille, pour partager le repere des deux decoupes.
- *
- * SIX plans qui ne battent pas au meme rythme — c'est le principe deja
- * eprouve sur la couche `--heat`, qui separe le voile et le cadre : trois
- * vitesses donnent de la vie, une seule donne une boucle.
- *
- *   · l'ABIME, le vide entre les levres, seule chose qui montre le fond ;
- *   · le BALAYAGE, une lumiere qui parcourt la fente, clippee dedans ;
- *   · le COEUR, le halo qui respire et chauffe les deux bords ;
- *   · les ARCS, de brefs eclairs en travers ;
- *   · les BRAISES, qui montent et tombent en permanence ;
- *   · les DEBRIS, plus gros, plus lents, qui tournent.
- *
- * ⚠️ Seuls `transform` et `opacity` sont animes. Rien ici ne recalcule une
- * mise en page, et tout est `aria-hidden` : le composant ne perd aucune
- * information quand le mouvement est coupe.
- * ================================================================== */
 
-.fissure {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  /* Le calque suit la cassure quand elle se deplace au survol. En
-     pourcentage : il fait exactement la hauteur de la faille, donc 4,5 %
-     ici valent les 4,5 points dont les decoupes se decalent. */
-  transition: transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1);
-}
 
 /* ---- l'abime : le vide, et ce qu'on voit au fond ---- */
 
@@ -6330,44 +6161,6 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/* ==================================================================
- * MOUVEMENT REDUIT
- *
- * Tout s'arrete, et la LISIBILITE reste. Neutraliser une animation sans
- * remettre l'etat visible laisse un element invisible — piege deja paye
- * avec `animation-fill-mode: backwards`. Chaque famille recoit donc son
- * opacite de repos.
- *
- * Le composant ne perd RIEN d'informatif : tout ce qui bouge est decoratif
- * et `aria-hidden`. La fente, elle, reste dessinee : c'est la forme, pas
- * une animation.
- * ================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  .faille::before,
-  .faille__zone::before,
-  .fissure__abime,
-  .fissure__balayage,
-  .fissure__arcs i,
-  .fissure__braises i,
-  .fissure__debris i,
-  .fissure__eclats i,
-  .fissure__traverse i,
-  .fissure__sortie i {
-    animation: none !important;
-  }
-
-  .faille::before,
-  .fissure__abime {
-    opacity: 1;
-  }
-
-  /* Les faces gardent leur reaction de couleur : ce n'est pas du mouvement,
-     et c'est le seul retour de survol qui reste. */
-  .faille__zone,
-  .fissure {
-    transition: background-color 200ms ease-out;
-  }
-}
 
 /*
  * L'habillage pixel pose sur les surfaces existantes.
@@ -8430,8 +8223,7 @@ button.chip:active:not(:disabled) {
    * Ce qui reste de la lecon : le desktop manque de HAUTEUR, pas de largeur.
    */
   #home .home__brand,
-  #home .coupe,
-  #home .faille {
+  #home .coupe {
     grid-column: 1 / -1;
   }
 
@@ -10039,50 +9831,11 @@ button.chip:active:not(:disabled) {
     display: none;
   }
 
-  /*
-   * ⚠️ LA FAILLE SE RESSERRE QUAND LA COLONNE D'ETAT PARAIT.
-   *
-   * Le budget est arithmetique, pas esthetique. A 1280 x 860 : la barre du
-   * haut prend 56, la colonne d'etat 573 — c'est elle la plus haute des deux,
-   * l'enseigne et la carte n'en font que 260. Il reste donc 205 px pour la
-   * vitrine, et `clamp(300px, 44vh, 440px)` en reclamait 378 : mesure, le bas
-   * de la faille tombait a 1025 pour 860 de fenetre.
-   *
-   * Une vitrine coupee ne montre rien — c'est ecrit dans la regle qu'elle
-   * remplace. On la resserre donc plutot que de la laisser deborder, et la
-   * fissure garde son amplitude puisque tout y est exprime en POURCENTAGES de
-   * cette boite : elle se lit pareil, en plus fin.
-   */
-  #home .faille {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    /*
-     * ⚠️ ELLE RESSORT DU RETRAIT. La vitrine est « un seul objet pleine
-     * largeur du #app » — c'est ce qui la distingue de deux zones posees au
-     * milieu, et c'est mesure a 98,8 % de la largeur. Le retrait des colonnes
-     * ne doit pas la rogner.
-     */
-    width: calc(100% + 50px);
-    margin-left: -25px;
-    min-height: 0;
-    /*
-     * ⚠️ 25 vh et pas moins : a 181 px le mot SOLO etait coupe par le cadre de
-     * sa propre face. La vitrine est ce qu'un inconnu regarde en premier —
-     * coupee, elle ne montre rien, et c'est la raison ecrite de la regle
-     * qu'elle remplace. Les pixels qui lui manquaient viennent des blocs
-     * d'etat, pas d'une troncature de plus.
-     */
-    /* 216 px et 26 de marge haute : les valeurs de la source. */
-    height: 216px;
-    margin-top: 26px;
-  }
-
+  
   /* La colonne s'aligne a gauche. (L'enseigne a quitte l'accueil : elle
      tient la barre du haut, et l'ecrire deux fois sur le meme ecran prenait
      la place du champ qui tourne derriere.) */
-  #home .but,
-  #home .but__plein,
-  #home .but__vide {
+  #home .but {
     align-items: flex-start;
     text-align: left;
   }
@@ -10560,23 +10313,6 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/*
- * ⚠️ LE LOGO SE COUPE SUR TELEPHONE, PAS SUR LARGE.
- *
- * La source ecrit « THE / ONE RULE » en 44 px a 375, et « THE ONE RULE » d'un
- * seul trait en 86 px a 1280. Un `<br>` masque ne coupe pas : c'est le seul
- * moyen d'avoir les deux formes sans dupliquer le titre.
- */
-@media (max-width: 899px) {
-  .logo {
-    font-size: 44px;
-    padding-left: 15px;
-  }
-
-  .logo::before {
-    width: 6px;
-  }
-}
 
 /* ==================================================================
    L'ECRAN DE JEU — VALEURS RELEVEES SUR LA SOURCE (vue `jeu`)
@@ -10741,8 +10477,7 @@ button.chip:active:not(:disabled) {
 }
 
 /* La jauge de six : des cases de 7 px, pas un filet. */
-#over .avance__jauge i,
-#over .carte__jauge i {
+#over .avance__jauge i {
   height: 7px;
 }
 
@@ -11481,59 +11216,9 @@ button.chip:active:not(:disabled) {
   display: none;
 }
 
-/*
- * ⚠️ LA DÉMO S'EN VA ENTIÈREMENT — Y COMPRIS CE QU'ELLE ÉCRIT.
- *
- * La carte de règle, la consigne et la ligne « DÉMO · MANCHE » sont peintes
- * par la boucle. Sans elle, elles resteraient sur leur dernier texte, ou
- * vides : des cadres morts en haut de l'accueil.
- */
-#home .attract--nuit ~ .home .home__regle,
-#home .attract--nuit ~ .home .home__consigne,
-#home .attract--nuit ~ .home .home__demo,
-.attract--nuit .attract__cvs,
-.attract--nuit .attract__curseur,
-.attract--nuit .attract__chaleur {
-  display: none;
-}
 
-/*
- * ⚠️ **SANS LA DÉMO, DEUX ENFANTS RESTENT EN FLUX : PLAY ET LA PROFONDEUR.**
- *
- * Sur bureau, la profondeur est la porte vers les cinq modes (la barre du
- * bas remonte). PLAY prend l'espace souple, la rangée du bas reste auto.
- * Sur téléphone, `.profondeur` est masquée par la media 899 px — il ne
- * reste que PLAY, centré dans le `1fr`.
- */
-#home .attract--nuit ~ .home {
-  grid-template-rows: minmax(0, 1fr) auto;
-}
 
-/*
- * LE SOL. Plus profond que le terrain (`#111A28`) : ce n'est plus le champ,
- * c'est la nuit autour. Le dégradé vertical seul suffit à donner un haut et un
- * bas, ce qui empêche l'écran de se lire comme un aplat.
- */
-.attract--nuit {
-  background: linear-gradient(176deg, #080d14 0%, #101a2b 38%, #16233a 62%, #0a1119 100%);
-}
 
-/*
- * ⚠️ **LE VIGNETTAGE SE DESSERRE, IL NE DISPARAÎT PAS.**
- *
- * Celui de la démo va jusqu'à `rgba(8, 11, 17, 0.78)` : il existe pour rendre
- * PLAY lisible par-dessus une scène de jeu qui bouge et qui est claire. Sur un
- * fond de nuit, il ne recouvre plus rien — il éteint. Relevé à l'écran : les
- * deux braises tombaient entièrement dans la zone assombrie et ne se voyaient
- * pas du tout, exactement la faute déjà payée au §7 (« un abîme trop sombre est
- * invisible »).
- *
- * Il reste, parce qu'un bouton posé sur un dégradé sans creux flotte : il perd
- * seulement un tiers de sa force, et son bord franc recule de 30 % à 46 %.
- */
-.attract--nuit::after {
-  background: radial-gradient(125% 84% at 50% 44%, transparent 46%, rgba(6, 9, 14, 0.52) 100%);
-}
 
 /*
  * PLAN 1 — LA TRAME. La même grille de points que le terrain de jeu, au même
@@ -11543,24 +11228,6 @@ button.chip:active:not(:disabled) {
  * ⚠️ Elle est SURDIMENSIONNÉE (`inset: -60px`) : une trame qu'on translate
  * découvrirait son bord sur deux côtés.
  */
-.attract--nuit::before {
-  content: "";
-  position: absolute;
-  inset: -60px;
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      color-mix(in srgb, var(--signal-pale) 19%, transparent) 0 2px,
-      transparent 2px 50px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--signal-pale) 19%, transparent) 0 2px,
-      transparent 2px 50px
-    );
-  animation: nuitTrame 29s linear infinite;
-}
-
 @keyframes nuitTrame {
   from {
     transform: translate3d(0, 0, 0);
@@ -11576,41 +11243,6 @@ button.chip:active:not(:disabled) {
  * proscrit les arrondis : une lueur n'a pas de forme, donc pas d'angle à
  * couper — c'est le même arbitrage que le halo de bord de `--heat`.
  */
-.attract--nuit .attract__nuit {
-  display: block;
-  position: absolute;
-  inset: 0;
-  background:
-    /*
-     * ⚠️ ELLES SONT RAMENÉES VERS LE CENTRE (22 % → 30 %, 82 % → 72 %). Aux
-     * anciennes positions elles tombaient dans le quart assombri par le
-     * vignettage, donc invisibles : c'est le halo de bord du §7 qui avait déjà
-     * enseigné qu'un décor placé là ne se voit pas.
-     */
-    radial-gradient(
-      58% 36% at 30% 30%,
-      color-mix(in srgb, var(--signal) 46%, transparent) 0%,
-      transparent 72%
-    ),
-    /*
-     * ⚠️ `var(--jade, …)` AVEC SON REPLI, ET C'EST OBLIGATOIRE ICI.
-     *
-     * `--jade` n'est PAS déclarée dans la feuille : les couleurs des pièces
-     * vivent dans le canvas, et les deux autres usages CSS portent déjà ce
-     * repli pour cette raison. Sans lui, `color-mix` devient invalide au calcul
-     * et le dégradé entier disparaît — sans erreur, sans avertissement, et sans
-     * qu'aucun test ne puisse le voir. La famille de pannes que ce dépôt
-     * attrape le plus mal.
-     */
-    radial-gradient(
-      50% 34% at 72% 68%,
-      color-mix(in srgb, var(--jade, #40f7c0) 24%, transparent) 0%,
-      transparent 70%
-    );
-  opacity: 0.85;
-  animation: nuitBraises 19s ease-in-out infinite;
-}
-
 @keyframes nuitBraises {
   0%,
   100% {
@@ -11628,21 +11260,6 @@ button.chip:active:not(:disabled) {
  * `steps()` : une lueur lissée jurerait avec des angles droits, une lueur en
  * crans est du même monde que la couche pixel (§7).
  */
-.attract--nuit .attract__nuit::before {
-  content: "";
-  position: absolute;
-  inset: -30% 0;
-  background: linear-gradient(
-    180deg,
-    transparent 0%,
-    color-mix(in srgb, var(--signal-pale) 22%, transparent) 46%,
-    color-mix(in srgb, var(--paper) 14%, transparent) 50%,
-    color-mix(in srgb, var(--signal-pale) 22%, transparent) 54%,
-    transparent 100%
-  );
-  animation: nuitBalayage 13s steps(26, end) infinite;
-}
-
 @keyframes nuitBalayage {
   from {
     transform: translate3d(0, 60%, 0);
@@ -11652,20 +11269,6 @@ button.chip:active:not(:disabled) {
   }
 }
 
-/*
- * ⚠️ LE MOUVEMENT SE FIGE, LE FOND RESTE.
- *
- * Neutraliser une animation sans rien laisser à sa place est le piège
- * documenté du dépôt (`animation-fill-mode: backwards`). Les trois plans
- * gardent donc leur état, et seul le mouvement s'arrête.
- */
-@media (prefers-reduced-motion: reduce) {
-  .attract--nuit::before,
-  .attract--nuit .attract__nuit,
-  .attract--nuit .attract__nuit::before {
-    animation: none;
-  }
-}
 
 /* ------------------------------------------------------------------
  * CE QUI SE POSE SUR LE CHAMP

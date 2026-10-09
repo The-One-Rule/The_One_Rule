@@ -1616,8 +1616,7 @@ body {
 }
 
 /* La démo derrière l'accueil neuf : sur le sable, plus sur la nuit. */
-.attract,
-.attract--nuit {
+.attract {
   background: var(--ink);
 }
 

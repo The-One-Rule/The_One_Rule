@@ -11,7 +11,7 @@
 > : un document qui décrit du travail déjà fait coûte plus cher qu'un document
 > absent.
 >
-> **Pour l'état réel du mode, lire [README.md](README.md) § « Multijoueur » et
+> **Pour l'état réel du mode, lire [README.md](README-phase-1-2.md) § « Multijoueur » et
 > [PLAN-SALON-VIVANT.md](PLAN-SALON-VIVANT.md)** — ce dernier porte les
 > invariants et la liste de ce qui reste, qui ne contient plus aucun lot.
 >

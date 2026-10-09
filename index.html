@@ -67,8 +67,9 @@
 
          Le SVG d'abord : il reste net à toutes les tailles. Le PNG de 32 px
          n'est qu'un repli pour les navigateurs qui ignorent `image/svg+xml`.
-         Les chemins sont relatifs, pas absolus : le dépôt sait aussi produire
-         un fichier autonome (`inline.mjs`) qu'on ouvre sans serveur. -->
+         Les chemins sont relatifs, pas absolus : le site reste servable sous
+         un sous-chemin. (Ils servaient aussi la v1 autonome hors ligne,
+         `inline.mjs`, retirée en phase 6 — l'historique git la garde.) -->
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="alternate icon" href="./favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />

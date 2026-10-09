@@ -118,7 +118,8 @@ sans nom d'assertion ont coûté des heures avant ça.
 
 ### Les documents mentent
 
-`PLAN-SALON-VIVANT.md` a décrit trois fois du travail déjà fait. **Avant
+`PLAN-SALON-VIVANT.md` (archivé dans `docs/archives/`) a décrit trois fois du
+travail déjà fait. **Avant
 d'attaquer quoi que ce soit d'annoncé comme « à faire », vérifie dans le
 code** — un `git grep` sur les symboles cités suffit — et corrige le document.
 
@@ -879,6 +880,8 @@ source. Les scripts vivent dans le scratchpad, pas dans le dépôt.
   faisaient diverger tous les éléments. Stable 8 878/8 878 d'un passage à
   l'autre, puis 8 878/8 878 identiques après le retrait. Les deux feuilles
   sont des SOUS-SUITES exactes des anciennes : rien d'ajouté.
+  ⚠️ **Incomplet, vu au point 41** : 16 classes de plus étaient mortes et
+  passaient pour vivantes parce que leur NOM figurait dans un commentaire.
   ⚠️ Les §7 « La faille » et « La couche pixel » décrivent des composants
   dont les règles sont parties : à corriger en phase 6 (docs).
 - **28 — Boucle de jeu.** Mesuré en partie solo jouée juste, téléphone ×4
@@ -1033,6 +1036,24 @@ tel en entreprise ». Un commit par point.
   c'est ce qui les garde dans l'audit de PRODUCTION (point 35), puisqu'ils
   partent chez les joueurs. Montées de version dans les bornes : laissées à
   Dependabot, une PR relue plutôt qu'un lot invisible ici.
+- **41 — Fichiers hérités.** `the-one-rule-v1.html` (150 Ko, un ARTEFACT de
+  build versionné, quatre semaines de jeu en retard) et `inline.mjs` (qui ne
+  savait plus le régénérer : il ne prend qu'UN fichier JS, le build en fait
+  deux depuis le QR à la demande) sont retirés — l'historique les garde si
+  une version hors ligne redevient utile. `PLAN-SALON-VIVANT.md` et
+  `PROMPT-CURSOR-MULTI.md`, tous deux réalisés, vont dans `docs/archives/`
+  avec un bandeau. Les CSS mortes laissées par le point 27 : le scan ignore
+  maintenant les COMMENTAIRES, chaque langage avec les siens. ⚠️ **Piège payé
+  en le faisant** : appliquer `/* */` au HTML ouvre un faux commentaire dans
+  `accept="image/*"` et avale le balisage — le scan annonçait alors
+  `codein`, `room__*`, `end__*` mortes, toutes vivantes. 16 classes, 25
+  règles et 5 sélecteurs dans des listes mêlées, 14,5 Ko (style 36,6 → 35,6
+  Ko gzip). ⚠️ **Preuve, et un faux écart** : le premier relevé AVANT
+  différait de l'après sur 5 éléments du salon (le dessin d'un signe, `rect`
+  contre `circle` — rien qu'une feuille puisse produire). Rejouée, l'ANCIENNE
+  feuille donne 8 878/8 878 éléments identiques à la nouvelle : c'est le
+  premier passage, à froid, qui diffère de tous les autres. **Ne jamais
+  prendre pour référence le premier relevé d'une session.**
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
