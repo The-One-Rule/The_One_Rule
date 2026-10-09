@@ -1007,6 +1007,19 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   `*.vercel.app` ouvrirait nos salons à N'IMPORTE QUEL projet Vercel. ⚠️ Non
   vu tourner : cette session ne lit pas les déploiements du dépôt (403).
   Sans l'intégration GitHub de Vercel, le flux ne se déclenche jamais.
+- **37 — Déploiement** (`deploiement-salons.yml`). Les SALONS seulement,
+  et seulement par « Run workflow » en tapant `DEPLOYER` : aucun push ne
+  déploie. Il refait la procédure du §10 sans en sauter une étape :
+  vérification rapide (tsc, tests, image reconstituée), refus s'il y a des
+  salons en cours (`/health.rooms`, sauf « forcer »), `fly deploy`, `fly
+  scale count 1`, `check-salons`. L'image en place AVANT est lue dans
+  `/health` (`FLY_IMAGE_REF`, posée par Fly) et écrite au résumé : c'est
+  l'entrée du retour arrière. Le front reste à Pierre (`vercel --prod`),
+  APRÈS Fly. ⚠️ **À poser par Pierre** : `FLY_API_TOKEN` dans
+  l'environnement `production`, et une règle « Required reviewers ». ⚠️
+  Jamais lancé pour de vrai (pas de jeton, Fly injoignable d'ici) : les
+  étapes shell sont éprouvées contre un faux `/health` (2 salons → refus,
+  0 → passe), pas `flyctl`.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

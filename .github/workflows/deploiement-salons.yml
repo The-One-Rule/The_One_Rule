@@ -1,0 +1,105 @@
+# LE DÉPLOIEMENT DU SERVEUR DE SALONS — À LA MAIN, JAMAIS SEUL (phase 5, point 37).
+#
+# Ce flux ne se déclenche QUE par « Run workflow » (workflow_dispatch) : aucun
+# push, aucune fusion ne déploie. Il refait, dans l'ordre et sans en sauter
+# une, la procédure du §10 de CLAUDE.md — c'est elle qu'on oublie à moitié
+# quand on la tape à la main :
+#
+#   1. la vérification rapide (tsc, tests, image reconstituée et lancée) ;
+#   2. PERSONNE NE JOUE : un déploiement tue les salons en mémoire. S'il y en
+#      a, le flux s'arrête — sauf si l'on coche « forcer » ;
+#   3. `fly deploy`, puis `fly scale count 1` : Fly provisionne DEUX machines
+#      par défaut, et deux machines donnent « SALON INTROUVABLE » entre amis
+#      (27/08/2026) ;
+#   4. `check-salons` : une seule instance répond.
+#
+# La version qui tournait AVANT est écrite dans le résumé du flux : c'est
+# elle que « Retour arrière des salons » (point 38) redéploie.
+#
+# ⚠️ ORDRE : toute évolution du fil se déploie FLY D'ABORD, VERCEL ENSUITE
+# (§12, 30/09 : un front en avance sur les salons a tué la production). Le
+# front reste déployé par Pierre (`vercel --prod`).
+#
+# Prérequis côté Pierre : le secret FLY_API_TOKEN (`fly tokens create deploy`)
+# dans l'environnement « production » du dépôt, et — conseillé — une règle
+# « Required reviewers » sur cet environnement.
+name: Déploiement des salons
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Taper DEPLOYER pour confirmer"
+        required: true
+      forcer:
+        description: "Déployer même si des salons sont en cours (ils seront perdus)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploiement-salons
+  cancel-in-progress: false
+
+env:
+  APP: the-one-rule-salons
+  URL: https://the-one-rule-salons.fly.dev
+
+jobs:
+  deploie:
+    name: fly deploy (the-one-rule-salons)
+    if: github.event.inputs.confirmation == 'DEPLOYER'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: vérification rapide
+        run: |
+          npx tsc --noEmit
+          npx vitest run
+          node scripts/integration-image.mjs
+
+      - name: personne ne joue ?
+        if: github.event.inputs.forcer != 'true'
+        run: |
+          h=$(curl -sf "$URL/health")
+          echo "$h"
+          salons=$(echo "$h" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).rooms ?? 0))')
+          if [ "$salons" != "0" ]; then
+            echo "::error::$salons salon(s) en cours : un déploiement les tuerait. Relancer plus tard, ou cocher « forcer »."
+            exit 1
+          fi
+
+      - name: installer flyctl
+        run: |
+          curl -fsSL https://fly.io/install.sh | sh
+          echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
+
+      # Lue dans /health : le serveur y publie `FLY_IMAGE_REF`, que Fly pose sur
+      # chaque machine. Aucun format de sortie de flyctl à deviner.
+      - name: version en place (pour le retour arrière)
+        run: |
+          avant=$(curl -sf "$URL/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).image ?? "inconnue (serveur antérieur au diagnostic)"))')
+          echo "Image en place AVANT ce déploiement : \`$avant\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "→ à redonner à « Retour arrière des salons » si la nouvelle version casse." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: fly deploy
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl deploy --remote-only --app "$APP"
+
+      - name: une seule machine
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+        run: flyctl scale count 1 --yes --app "$APP"
+
+      - name: une seule instance répond
+        run: |
+          for i in $(seq 1 30); do curl -sf "$URL/health" >/dev/null && break; sleep 2; done
+          node scripts/check-salons.mjs "$URL"
