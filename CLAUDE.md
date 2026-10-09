@@ -1011,6 +1011,18 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   « Promote to Production »), et DOIT revenir si le retour défait une
   évolution du fil : sinon, la panne du 30/09 à l'envers.
 
+⚠️ **Premier passage sur GitHub : deux échecs, aucun du code du jeu.**
+`vite preview` écoutait sur `localhost`, que le Node 22 du runner résout en
+IPv6 : la sonde sur `127.0.0.1` échouait trente fois EN SILENCE, puis le
+vérificateur tombait sur ECONNREFUSED — `--host 127.0.0.1`, et l'attente
+qui s'épuise le dit. Et la PRÉVERSION est protégée : Vercel REDIRIGE le
+robot vers sa page de connexion (autre domaine, 200), que le vérificateur
+lisait comme le jeu — « collecteur absent ». Une réponse servie par un
+autre hôte sort maintenant en code 3 ; sans le secret, le flux avertit au
+lieu d'échouer. En local, les deux passaient : le premier parce que la
+résolution de `localhost` y diffère, le second parce que rien n'y est
+protégé. **Une CI ne se juge qu'en la regardant tourner là où elle tourne.**
+
 **Bilan de la phase 5** : quatre flux. `verification.yml` (lint, tsc,
 couverture, build à vide et de production, taille, audits, e2e salons, e2e
 navigateur, image Docker) sur chaque PR et chaque push sur `master` ;

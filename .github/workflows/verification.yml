@@ -102,8 +102,13 @@ jobs:
         run: node scripts/taille-paquet.mjs
       - name: vérificateur de déploiement sur dist servi
         run: |
-          npx vite preview --port 4173 --strictPort &
+          # `--host 127.0.0.1` : sans lui, vite preview écoute sur `localhost`,
+          # que le Node 22 du runner résout en IPv6 (::1) — et une sonde sur
+          # 127.0.0.1 ne le trouvait jamais (ECONNREFUSED, vu en CI 09/10).
+          npx vite preview --host 127.0.0.1 --port 4173 --strictPort &
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          # L'attente qui s'épuise le DIT, au lieu de laisser la suite échouer loin d'elle.
+          curl -sf http://127.0.0.1:4173/ >/dev/null || { echo "::error::vite preview ne répond pas sur 127.0.0.1:4173"; exit 1; }
           node scripts/check-deploy.mjs http://127.0.0.1:4173
 
   # LE VRAI CLIENT DANS UN NAVIGATEUR (phase 5, point 33). `e2e.mjs` pilote
