@@ -54,6 +54,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | 29 | lint | ESLint (justesse, pas de style) en CI ; 15 signalements, dont 9 BOM voulus |
 | 30 | typecheck | `vite.config.ts` typé (le cliquet de couverture pouvait se taire) ; scripts JS hors typage, 41 artefacts et 0 bug |
 | 31 | unitaires | la CI lance la couverture et ses seuils, plus seulement les tests |
+| 32 | intégration | l'image Fly construite, lancée et sondée (santé, salon, origine, arrêt propre) |
 
 ## 0. Méthode et état de départ
 

@@ -58,3 +58,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsx e2e.mjs
+
+  # L'IMAGE FLY, CONSTRUITE ET LANCÉE (phase 5, point 32). Un import vers un
+  # fichier absent des COPY du Dockerfile passe tout le reste et tue
+  # l'instance au démarrage (30/08/2026). Ici l'image démarre en production,
+  # répond /health, ouvre un salon, et refuse une origine inconnue.
+  image:
+    name: image Fly (docker build + sonde)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: docker build -t tor-salons .
+      - run: docker run -d --name salons -p 8080:8080 -e ALLOWED_ORIGINS=https://integration.theonerule.test tor-salons
+      - run: node scripts/integration-image.mjs --url http://localhost:8080
+      - name: journal du conteneur
+        if: always()
+        run: docker logs salons

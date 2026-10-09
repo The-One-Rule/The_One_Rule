@@ -14,7 +14,8 @@
     "lint": "eslint .",
     "server": "tsx server/index.ts",
     "e2e": "tsx e2e.mjs",
-    "e2e:navigateur": "tsx e2e-navigateur.mjs"
+    "e2e:navigateur": "tsx e2e-navigateur.mjs",
+    "integration": "node scripts/integration-image.mjs"
   },
   "keywords": [],
   "author": "",

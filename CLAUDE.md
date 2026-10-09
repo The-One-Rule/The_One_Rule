@@ -961,6 +961,15 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
 - **31 — Unitaires.** La CI lançait `vitest run`, jamais le cliquet de
   couverture : une baisse n'y était pas vue. Elle lance `npm run coverage`
   (mêmes tests, plus les seuils ; code 1 vérifié sur un seuil manqué).
+- **32 — Intégration : l'image Fly LANCÉE** (`npm run integration`, et un job
+  CI qui fait le vrai `docker build`). Le script LIT les `COPY` et le `CMD`
+  du Dockerfile, reconstitue l'image dans un dossier vide (`npm ci
+  --omit=dev --ignore-scripts`), la lance en production, puis : `/health`,
+  un salon ouvert depuis une origine autorisée, une origine inconnue
+  refusée, `SIGTERM` → 1001 et sortie 0. En CI, `--url` sonde la vraie
+  image. Éprouvé en retirant `COPY src/env.ts` : la panne du 30/08 revient,
+  et le journal la NOMME (`Cannot find module …/src/env`). Pas de démon
+  Docker dans les sessions cloud : le mode sans Docker est celui-là.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 
