@@ -130,6 +130,7 @@ describe("la fusion des agrégats, sous accès concurrent", () => {
         }),
         ENV,
         depot,
+        MAINTENANT,
       );
     await Promise.all([
       appel({ sang: { best: 14, cleared: false, pieges: 2 } }),

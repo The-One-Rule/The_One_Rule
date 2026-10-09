@@ -28,7 +28,20 @@ const ctxStub: CanvasRenderingContext2D = new Proxy({}, { get: () => () => ctxSt
  */
 const HASARD = 20260925;
 
+/*
+ * ⚠️ LA DATE AUSSI EST FIGÉE, et pour la même raison que le hasard. Le run du
+ * jour tire sa graine et sa règle du CALENDRIER : selon le jour, sa mort donne
+ * quelque chose à l'écran de fin (une carte, une quête…), qui passe alors
+ * devant la carte de relance. Mesuré en faisant varier la date : le second
+ * test tombait 3 jours sur 10 (05, 09 et 25 octobre), sans qu'aucun code
+ * n'ait changé — il est tombé le 09/10. Seule `Date` est simulée :
+ * `performance.now` a déjà son horloge à la main, plus bas.
+ */
+const JOUR_FIGE = new Date("2026-10-08T12:00:00Z");
+
 beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(JOUR_FIGE);
   let h = HASARD;
   Math.random = () => {
     // mulberry32 : le même générateur que le moteur, recopié pour ne pas

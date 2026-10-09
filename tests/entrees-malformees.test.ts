@@ -91,10 +91,10 @@ describe("aucune fonction edge ne lève sur un corps malformé", () => {
 
     it(`moi — ${nom}`, async () => {
       for (const a of ["fusion", "identite", "inconnue"]) {
-        await tenir(`moi?a=${a}`, () => moi(requete(`/api/moi?a=${a}`, corps), ENV, depot));
+        await tenir(`moi?a=${a}`, () => moi(requete(`/api/moi?a=${a}`, corps), ENV, depot, MAINTENANT));
       }
       // Et le compte reste lisible après coup : rien d'hostile n'a été écrit.
-      const res = await moi(requete("/api/moi", "", "GET"), ENV, depot);
+      const res = await moi(requete("/api/moi", "", "GET"), ENV, depot, MAINTENANT);
       expect(res.status).toBe(200);
       const vue = (await res.json()) as { moi: { agregats: { carnet: object; records: object } } };
       expect(Object.getPrototypeOf(vue.moi.agregats.carnet)).toBe(Object.prototype);
@@ -123,6 +123,7 @@ describe("l'authentification refuse sans lever", () => {
         new Request(`https://www.theonerule.party/api/auth?a=callback&code=c&state=${encodeURIComponent(etat)}`),
         ENV,
         depot,
+        MAINTENANT,
       );
       expect(res.status).toBe(302);
       expect(res.headers.get("Location")).toContain("#compte=etat_invalide");
@@ -135,6 +136,7 @@ describe("l'authentification refuse sans lever", () => {
         new Request("https://www.theonerule.party/api/auth?a=refresh", { method: "POST", headers: { Authorization: entete } }),
         ENV,
         depot,
+        MAINTENANT,
       );
       expect(res.status).toBe(401);
     });

@@ -256,12 +256,13 @@ export async function traite(
   req: Request,
   env: Record<string, string | undefined>,
   depotInjecte?: Depot,
+  /** Injectable, comme dans `amis` et `perf` : un jeton se juge à une HEURE. */
+  maintenant: number = Date.now(),
 ): Promise<Response> {
   const secret = cleanEnv(env.TOR_AUTH_SECRET);
   const depot = depotInjecte ?? depotConfigure(env);
   if (!secret || !depot) return json({ disponible: false }, 503);
 
-  const maintenant = Date.now();
   const r = await verifieJeton(jetonDeLaRequete(req), secret, maintenant);
   if (!r) return json({ error: "jeton" }, 401);
 
