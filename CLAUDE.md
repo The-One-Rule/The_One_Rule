@@ -1022,6 +1022,17 @@ tel en entreprise ». Un commit par point.
   point 27 annonçait `faille` et `fissure` retirées, et leurs règles sont
   TOUJOURS dans `style.css` — le scan les a crues vivantes parce que le MOT
   figure dans des commentaires. À traiter au point 41.
+- **40 — Dépendances.** Aucune inutilisée : les 16 sont citées par le code,
+  la config ou le Dockerfile (`@types/ws` et `@vitest/coverage-v8` le sont
+  implicitement). ⚠️ **`@types/node` était en 26 pour une production en
+  22** (Dockerfile, `engines`, CI) : `tsc` acceptait une API absente du
+  serveur. Éprouvé avec `new URLPattern()` (Node 24) : vert en types 26,
+  `TS2304` en types 22. Ramené à `^22.20.5`, Dependabot interdit d'en monter
+  la majeure, et `.nvmrc` dit 22 aux postes de travail. Les polices et
+  l'encodeur QR restent en `dependencies` alors que Vite les embarque :
+  c'est ce qui les garde dans l'audit de PRODUCTION (point 35), puisqu'ils
+  partent chez les joueurs. Montées de version dans les bornes : laissées à
+  Dependabot, une PR relue plutôt qu'un lot invisible ici.
 
 ### L'audit d'architecture, et ses dix priorités traitées (07/10/2026)
 

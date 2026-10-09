@@ -22,6 +22,12 @@ updates:
         dependency-type: development
       production:
         dependency-type: production
+    # @types/node suit la version de Node de la PRODUCTION (22 : Dockerfile,
+    # `engines`, CI), jamais la dernière : des types plus récents laissent
+    # passer à `tsc` une API que le serveur ne trouvera pas (phase 6, point 40).
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "dépendances"
   - package-ecosystem: github-actions

@@ -67,6 +67,7 @@ S9, C4 à C6, et les points de §9, §10 et §12 qui n'y figuraient pas.
 | # | Point | État |
 |---|---|---|
 | 39 | docs | README réécrit (il décrivait la phase 1), `.env.example` et déploiement à jour, documents rangés dans `docs/` |
+| 40 | dépendances | aucune inutilisée ; `@types/node` ramené de 26 à 22 (la version de production), `.nvmrc`, Dependabot borné |
 
 ## 0. Méthode et état de départ
 
