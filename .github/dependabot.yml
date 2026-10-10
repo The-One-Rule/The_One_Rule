@@ -16,17 +16,29 @@ updates:
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 8
+    # Les groupes ne prennent que les MINEURES et les CORRECTIFS : une montée
+    # majeure arrive seule, dans sa PR. Payé le 09/10 : le groupe « outils »
+    # (PR #20) mêlait trois mises à jour sans risque et QUATRE majeures
+    # (TypeScript 7, ESLint 10, vitest 5, globals 17) ; `npm ci` refusait
+    # tout (ERESOLVE), donc rien ne passait, pas même jsdom ou vite.
     groups:
       outils:
         dependency-type: development
+        update-types: ["minor", "patch"]
       production:
         dependency-type: production
+        update-types: ["minor", "patch"]
     # @types/node suit la version de Node de la PRODUCTION (22 : Dockerfile,
     # `engines`, CI), jamais la dernière : des types plus récents laissent
     # passer à `tsc` une API que le serveur ne trouvera pas (phase 6, point 40).
     ignore:
       - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 (le compilateur réécrit) : `typescript-eslint` 8.71
+      # exige `typescript < 6.1`, donc la PR serait rouge dès `npm ci`
+      # chaque lundi. À retirer quand typescript-eslint l'accepte.
+      - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
     commit-message:
       prefix: "dépendances"
