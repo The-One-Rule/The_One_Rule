@@ -17,6 +17,8 @@
  * collecte fausserait le D1 qu'on cherche à mesurer.
  */
 
+import { scriptsDeLAppli } from "./scripts-de-l-appli.mjs";
+
 const base = process.argv[2]?.replace(/\/+$/, "");
 if (!base) {
   console.error("usage : node scripts/check-deploy.mjs https://ton-app.vercel.app");
@@ -64,15 +66,16 @@ const get = async (url) => {
 
 const html = await get(base + "/");
 
-// Vite émet un seul module d'entrée. On prend tous les scripts et on les
-// concatène plutôt que de deviner lequel porte la mesure : un découpage en
-// morceaux ferait échouer un test qui cherche dans le mauvais fichier.
-const srcs = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]);
+// Vite émet un seul module d'entrée. On prend tous les scripts de l'appli et
+// on les concatène plutôt que de deviner lequel porte la mesure : un découpage
+// en morceaux ferait échouer un test qui cherche dans le mauvais fichier.
+// ⚠️ De l'APPLI seulement : voir `scripts-de-l-appli.mjs` (barre Vercel).
+const srcs = scriptsDeLAppli(html, base);
 if (!srcs.length) {
-  console.error("✗ aucun <script src> dans la page : ce n'est pas un build Vite servi.");
+  console.error("✗ aucun script servi par l'appli dans la page : ce n'est pas un build Vite servi.");
   process.exit(1);
 }
-const bundles = await Promise.all(srcs.map((s) => get(new URL(s, base + "/").href)));
+const bundles = await Promise.all(srcs.map((s) => get(s)));
 const code = bundles.join("\n");
 
 /*
