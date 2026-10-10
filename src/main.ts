@@ -7644,7 +7644,7 @@ function loop(now: number): void {
        * n'a encore rien fait ne compare rien.
        */
       const recAv = recordAvantRun;
-      let cibleRival: ReturnType<typeof cibleDuPied> = null;
+      let cibleRival: ReturnType<typeof cibleDuPied>;
       if (session.mode !== "daily" && recAv > 0 && session.level > recAv) {
         hud.setFooterRecord(session.level, session.level - recAv, t("modeTraining"));
         if (!pastilleDite) {

@@ -214,7 +214,7 @@ describe("les vies dans Session", () => {
     let t = 0;
     // Première manche d'action : on la laisse filer.
     while (s.round.steps.length === 0) t = laisseFiler(s, t);
-    t = laisseFiler(s, t);
+    laisseFiler(s, t);
     expect(s.vies).toBe(VIES_NIVEAU - 1);
     expect(s.phase).toBe("playing");
     expect(s.vieJustePerdue).toBe(true);
