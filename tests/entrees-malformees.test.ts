@@ -78,7 +78,7 @@ async function tenir(nom: string, appel: () => Promise<Response>): Promise<void>
   try {
     res = await appel();
   } catch (e) {
-    throw new Error(`${nom} a LEVÉ : ${(e as Error).message}`);
+    throw new Error(`${nom} a LEVÉ : ${(e as Error).message}`, { cause: e });
   }
   expect(res.status, `${nom} → ${res.status}`).toBeLessThan(500);
 }

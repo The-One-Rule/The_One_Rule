@@ -48,7 +48,7 @@ function pieceSvg(p: PieceDessinee, x: number): string {
 
 function dessinePicto(p: Pictogramme): string {
   const [a, b] = p.pieces;
-  let corps = "";
+  let corps: string;
   let w = 20;
   if (!a) return "";
   if (p.geste === "double") {

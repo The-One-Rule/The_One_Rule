@@ -289,7 +289,7 @@ export async function traite(
     const f = FOURNISSEURS[etat.fournisseur]!;
     const ident = c.identifiants[etat.fournisseur]!;
 
-    let idExterne: string | null = null;
+    let idExterne: string | null;
     try {
       const res = await fetch(f.jeton, {
         method: "POST",
