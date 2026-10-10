@@ -977,6 +977,13 @@ Directive de Pierre : « vas-y enchaîne la phase 5 ». Un commit par point.
   posé dans une copie : code 1. Dependabot hebdomadaire, REGROUPÉ (un seul
   relecteur). Historique git balayé : aucun motif de secret, aucun `.env`
   jamais commité hors `.env.example`.
+  ⚠️ **Regroupé, mais MINEURES seulement** (10/10) : la première PR d'outils
+  (#20) mêlait jsdom, vite, playwright-core et QUATRE majeures (TypeScript 7,
+  ESLint 10, vitest 5, globals 17) ; `typescript-eslint` exige `typescript <
+  6.1`, donc `npm ci` refusait tout et rien ne passait. Les groupes ne
+  prennent plus que `minor`/`patch`, une majeure arrive seule, et TypeScript
+  7 est ignoré jusqu'à ce que typescript-eslint l'accepte. Les trois
+  mineures, posées à la main : lint, tsc, 1361 tests, build — verts.
 - **36 — Préversion** (`.github/workflows/preversion.yml`). Sur chaque
   `deployment_status` réussi hors production, la préversion VERCEL — le
   paquet construit avec SES variables — passe à `check-deploy.mjs`. Une
