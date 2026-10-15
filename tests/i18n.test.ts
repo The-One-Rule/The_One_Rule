@@ -17,9 +17,10 @@ import {
   DYNAMIQUES,
   langueDuNavigateur,
 } from "../src/i18n";
+import { pageHtml } from "./helpers/page";
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 });
 
@@ -141,7 +142,7 @@ describe("libellés dérivés", () => {
  * ------------------------------------------------------------------ */
 
 describe("les chaînes statiques", () => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
 
   /**
    * Les clés réellement posées dans le document.
@@ -573,7 +574,7 @@ describe("les accords, qui ne se ressemblent pas d'une langue à l'autre", () =>
      * il porte un `data-i18n`, ou son identifiant apparaît dans les sources —
      * donc quelque chose l'écrit.
      */
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     const src = ["src", "shared"]
       .flatMap((d) => filsDe(d))
       .map((f) => readFileSync(f, "utf8"))

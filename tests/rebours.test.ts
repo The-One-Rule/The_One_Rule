@@ -6,15 +6,15 @@
  * erreurs d'assemblage que les tests unitaires ne peuvent pas voir.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import { LECTURE_CONNUE_MS, LECTURE_NEUVE_MS } from "../src/game/lecture";
+import { pageHtml } from "./helpers/page";
 
 // Chaque méthode rend le contexte lui-même : un dégradé (`createRadialGradient`)
 // doit accepter `addColorStop`, comme dans un vrai navigateur.
 const ctxStub: CanvasRenderingContext2D = new Proxy({}, { get: () => () => ctxStub }) as never;
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 
   HTMLCanvasElement.prototype.getContext = (() => ctxStub) as never;

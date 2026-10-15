@@ -7,9 +7,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { pageHtml } from "./helpers/page";
 
 const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-const html = readFileSync("index.html", "utf8");
+const html = pageHtml();
 const main = readFileSync("src/main.ts", "utf8");
 
 function corpsMedia(feuille: string, cond: RegExp): string[] {

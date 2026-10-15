@@ -10,11 +10,11 @@
  * où il faut s'abstenir.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
 import type { Round } from "../src/engine/types";
+import { pageHtml } from "./helpers/page";
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 });
 

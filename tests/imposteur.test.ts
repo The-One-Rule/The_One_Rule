@@ -35,6 +35,7 @@ import { ONE_RULES } from "../src/engine/rules";
 import { MOTIFS } from "../src/engine/motifs";
 import { VERSION_CONTENU } from "../src/engine/version";
 import { FORCED_TRAP_ROUNDS } from "../src/engine/difficulty";
+import { pageHtml } from "./helpers/page";
 
 function matchImposteur(seed: number, n = 4, clavier = false): MatchLogic {
   const ids = Array.from({ length: n }, (_, i) => `p${i}`);
@@ -381,7 +382,7 @@ describe("observation — zone et transform coupés", () => {
   });
 
   it("l'overlay est hors flux dans #stage — #cv ne change pas de géométrie", () => {
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     const iCv = html.indexOf('id="cv"');
     const iObs = html.indexOf('id="observe"');
     const iStage = html.indexOf("</main>");
@@ -433,7 +434,7 @@ describe("fil — journal une fois, pas dans le verdict, pas de match_end", () =
     const src = readFileSync("src/multi.ts", "utf8");
     expect(src).toMatch(/enObservation\(\)/);
     expect(src).toMatch(/screenOpen\(\) \|\| enObservation\(\)/);
-    expect(readFileSync("index.html", "utf8").match(/id="chat"/g)?.length).toBe(1);
+    expect(pageHtml().match(/id="chat"/g)?.length).toBe(1);
   });
 });
 

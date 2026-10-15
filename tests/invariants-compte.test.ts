@@ -18,6 +18,7 @@ import { join } from "node:path";
 
 import { PROTOCOL_VERSION } from "../shared/protocol";
 import { verifieJeton } from "../server/jeton";
+import { pageHtml } from "./helpers/page";
 
 const lit = (f: string): string => readFileSync(f, "utf8");
 
@@ -198,7 +199,7 @@ describe("le nom du joueur", () => {
     const src = lit("src/main.ts");
     expect(src, "le bouton CHANGER DE NOM doit être câblé").toMatch(/btnCompteNom/);
     expect(src, "il rouvre l'écran NOM ET SIGNE existant").toMatch(/ouvreIdentite/);
-    expect(lit("index.html")).toMatch(/id="btnCompteNom"/);
+    expect(pageHtml()).toMatch(/id="btnCompteNom"/);
   });
 
   it("⚠️ un nom validé REJOINT le compte", () => {
@@ -267,7 +268,7 @@ describe("l'écran de compte", () => {
     // ⚠️ Le bouton de la barre haute, lui, est TOUJOURS là depuis qu'il ouvre
     // le PROFIL (photo, carte, nom et signe), qui se tient sans compte. C'est
     // la section du compte, dans l'écran, qui porte l'invariant désormais.
-    const html = lit("index.html");
+    const html = pageHtml();
     expect(html).toMatch(/id="btnTopCompte"/);
     expect(html).toMatch(/id="profilCompte"/);
     expect(lit("src/main.ts")).toMatch(

@@ -47,7 +47,10 @@ ou dans `CHROMIUM_PATH`.
 ## Organisation du dépôt
 
 ```
-src/       le client (Vite, TypeScript, sans framework)
+src/       le client (Vite, TypeScript)
+  ui/      le balisage, en composants React STATIQUES (docs/adr/0010) ;
+           `main.ts` pilote ce DOM à la main
+  entry.tsx  importe `monte.tsx` (rend `src/ui/`) puis `main.ts`, dans cet ordre
   engine/  moteur PUR : aucun DOM, aucune horloge, aucun hasard non seedé
 server/    serveur de salons WebSocket (Fly.io)
 shared/    protocole et logique pure partagés client ↔ serveur ↔ API
