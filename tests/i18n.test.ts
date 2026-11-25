@@ -207,6 +207,9 @@ describe("les chaînes statiques", () => {
     )) {
       const [, , cle, texte] = m;
       const attendu = CHAINES.en[cle!];
+      // Une expression JSX n'est pas servie dans le HTML : le composant la
+      // peint déjà dans la langue courante (ADR 0010).
+      if (/^\{[^]*\}$/.test(texte!.trim())) continue;
       if (attendu !== undefined && texte!.trim() !== attendu) {
         ecarts.push(`${cle} : document « ${texte!.trim()} » ≠ dictionnaire « ${attendu} »`);
       }

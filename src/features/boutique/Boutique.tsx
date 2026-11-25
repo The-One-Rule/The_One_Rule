@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { achete, porte, SKINS } from "../../game/boutique";
 import type { SkinId } from "../../game/boutique";
 import * as P from "../../game/progress";
-import { tp } from "../../i18n";
+import { langue, tp } from "../../i18n";
+import { STATIQUE_PARCOURS } from "../../i18n-parcours";
 import { dessineApercu } from "../../render/skins";
 import { souscrisReglages } from "../reglages/etat";
 import type { EffetsBoutique } from "./effets";
@@ -18,6 +19,13 @@ export function Boutique({ effets }: { effets: EffetsBoutique }) {
 
   const s = P.load();
   const T = tp();
+  /*
+   * Le texte statique se peint DANS la langue, au premier rendu. Écrire
+   * l'anglais du HTML d'origine et compter sur `appliqueLangue` laissait
+   * « SHOP » sur un site français : le composant monte après son passage.
+   * `data-i18n` reste posé, pour une bascule de langue écran ouvert.
+   */
+  const S = STATIQUE_PARCOURS[langue()];
 
   useLayoutEffect(() => {
     for (const skin of SKINS) {
@@ -64,14 +72,14 @@ export function Boutique({ effets }: { effets: EffetsBoutique }) {
   return (
     <div className="screen__scroll boutique">
       <div className="boutique__tete">
-        <h2 className="boutique__titre" data-i18n="boutique.titre">SHOP</h2>
+        <h2 className="boutique__titre" data-i18n="boutique.titre">{S["boutique.titre"]}</h2>
         <span className="pstat pstat--pieces">
           <i aria-hidden="true">●</i>
           <b id="boutiquePieces">{s.coins}</b>
         </span>
       </div>
       <p className="boutique__chapo" data-i18n="boutique.chapo">
-        Boards: they dress your whole game. Never the rule.
+        {S["boutique.chapo"]}
       </p>
       {erreur ? (
         <p className="warn" id="boutiqueErr" role="alert">
@@ -116,7 +124,7 @@ export function Boutique({ effets }: { effets: EffetsBoutique }) {
         })}
       </div>
       <button className="btn" id="btnBoutiqueRetour" data-i18n="boutique.retour" onClick={() => effets.retour()}>
-        BACK
+        {S["boutique.retour"]}
       </button>
     </div>
   );

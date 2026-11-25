@@ -756,6 +756,27 @@ Deux façons propres de s'en passer, toutes deux en place :
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
 
+### React par étranglement : Réglages et Boutique (25/11/2026)
+
+ADR 0010 et `docs/audits/INVENTAIRE-REFONTE.md` (lots 0 à 2 : délais
+réseau, codes de salon par `node:crypto`, `_ranked` retiré,
+`noUncheckedIndexedAccess`, `valideClient`). React 19 n'entre que là où il
+POSSÈDE un écran : `src/nav.ts` est le seul à poser `hidden`, un écran migré
+vit dans `src/features/<écran>/` et `main.ts` ne cite plus ses ids. Entrée
+110,8 → 179,1 Ko gzip, plafond 190. La branche `test_migration_react` de
+Camille n'est PAS fusionnée (Shell statique, `flushSync` au démarrage).
+
+⚠️ **Un composant React ne peut pas compter sur `appliqueLangue`** : il
+monte APRÈS son passage. La boutique écrivait l'anglais du HTML d'origine
+dans ses `data-i18n` et s'affichait « SHOP » sur un site français (mesuré
+dans le navigateur, invisible aux tests qui ne lisaient pas la langue). Le
+texte statique se peint depuis la table (`STATIQUE_PARCOURS[langue()]`) ;
+`data-i18n` reste pour une bascule écran ouvert. Tout écran migré ensuite
+doit avoir le même test (`tests/boutique-react.test.tsx`, éprouvé).
+
+⚠️ `AGENTS.md` est une COPIE de ce fichier pour un autre agent : deux
+mémoires qui divergeront. Corriger les deux, ou n'en garder qu'une.
+
 ### Phase 3 de l'audit : les tests (08/10/2026)
 
 Directive de Pierre : « je te laisse choisir ces décisions », puis les phases

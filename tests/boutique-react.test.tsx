@@ -10,6 +10,8 @@ import { Boutique } from "../src/features/boutique/Boutique";
 import { effetsBoutiqueMuets } from "../src/features/boutique/effets";
 import type { EffetsBoutique } from "../src/features/boutique/effets";
 import * as P from "../src/game/progress";
+import { poseLangue } from "../src/i18n";
+import { STATIQUE_PARCOURS } from "../src/i18n-parcours";
 
 function effets(partiel: Partial<EffetsBoutique> = {}): EffetsBoutique {
   return { ...effetsBoutiqueMuets, ...partiel };
@@ -42,6 +44,25 @@ describe("boutique en React", () => {
     expect(P.load().coins).toBe(0);
     expect(P.load().boutique.possedes).toEqual(["sticker"]);
     flushSync(() => root.unmount());
+  });
+
+  it("se peint dans la langue courante dès le premier rendu", () => {
+    for (const [lang, titre, retour] of [
+      ["fr", "BOUTIQUE", "RETOUR"],
+      ["en", "SHOP", "BACK"],
+    ] as const) {
+      poseLangue(lang);
+      const hote = document.createElement("div");
+      const root = createRoot(hote);
+      flushSync(() => root.render(<Boutique effets={effets()} />));
+      expect(hote.querySelector(".boutique__titre")?.textContent, lang).toBe(titre);
+      expect(hote.querySelector("#btnBoutiqueRetour")?.textContent, lang).toBe(retour);
+      expect(hote.querySelector(".boutique__chapo")?.textContent?.trim(), lang).toBe(
+        STATIQUE_PARCOURS[lang]["boutique.chapo"],
+      );
+      flushSync(() => root.unmount());
+    }
+    poseLangue("fr");
   });
 
   it("démonter retire la grille", () => {

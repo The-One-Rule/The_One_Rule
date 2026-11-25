@@ -24,7 +24,7 @@ import { join } from "node:path";
 const DOSSIER = "dist/assets";
 const PLAFONDS_GZIP = {
   // 110,8 Ko avant React (24/11). React 19 dans l'entrée, mesuré le 25/11 :
-  // 185,2 Ko gzip. Le HTML des réglages a quitté index.html (−1,5 Ko gzip).
+  // 179,1 Ko gzip (Réglages et boutique). Le HTML des réglages a quitté index.html (−1,5 Ko gzip).
   // Plafond à quelques pour cent au-dessus de la mesure, pas pour absorber
   // la suite. ADR 0010.
   index: 190 * 1024,
