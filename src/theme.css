@@ -1317,7 +1317,10 @@ body {
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 32px;
+  /* L'échelle des titres d'écran (`.rulename`) : 30 px au téléphone, 46 au
+     bureau. Elle était figée à 32 — un titre de plus à sa propre taille,
+     relevé par l'audit de cohérence (docs/audits/AUDIT-UI-COHERENCE.md). */
+  font-size: clamp(30px, 5.5vw, 46px);
   color: var(--encre);
 }
 
@@ -3525,7 +3528,8 @@ body {
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 34px;
+  /* Même échelle que les autres titres d'écran (elle était figée à 34). */
+  font-size: clamp(30px, 5.5vw, 46px);
   line-height: 1;
   letter-spacing: -0.01em;
   color: var(--encre);
@@ -4217,6 +4221,14 @@ body {
 .panel--rapide {
   border-color: var(--signal);
   background: var(--lilas);
+}
+
+/* L'intitulé « SANS CODE » sur le fond lilas : le violet d'action tombait à
+   2,76:1 la nuit (#7c52ff sur #342a5c), sous le plancher de 3:1 du relevé
+   UI/UX. `--signal-pale` est le même violet, réglé pour se lire sur fond :
+   5,47:1 le jour, 5,96:1 la nuit. */
+.panel--rapide .eyebrow {
+  color: var(--signal-pale);
 }
 
 /* Le compte d'une table publique : on ne lance rien, on regarde partir. */
