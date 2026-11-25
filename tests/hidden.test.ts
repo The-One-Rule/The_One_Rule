@@ -20,6 +20,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { pageHtml } from "./helpers/page";
 
 /** Classes pour lesquelles la feuille déclare bien `.classe.hidden`. */
 const masquantes = new Set<string>();
@@ -35,7 +36,7 @@ const masquantesId = new Set<string>();
 let generique = false;
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 
   // On aplatit : commentaires retirés (ils contiennent des accolades et des

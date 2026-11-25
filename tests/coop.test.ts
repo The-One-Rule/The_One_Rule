@@ -37,6 +37,7 @@ import { COLOR_IDS, FIELD_H, FIELD_W } from "../src/engine/types";
 import { colorHex, NEED_BADGE } from "../src/render/scene";
 import { GLYPH_COLORS } from "../src/net/glyph";
 import type { Action, Entity, OneRule } from "../src/engine/types";
+import { pageHtml } from "./helpers/page";
 
 const QUATRE = ["a", "b", "c", "d"];
 
@@ -358,7 +359,7 @@ describe("MatchCoop — vie, score, plusieurs clics", () => {
 
 describe("HUD hors flux", () => {
   it("le HUD coop est hors flux dans #stage — #cv ne change pas de géométrie", () => {
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     const iCv = html.indexOf('id="cv"');
     const iHud = html.indexOf('id="coophud"');
     const iStage = html.indexOf("</main>");
@@ -535,7 +536,7 @@ describe("curseurs — canal hors verdict", () => {
   });
 
   it("le calque est hors flux, pointer-events none, 6 sièges", () => {
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     const iCv = html.indexOf('id="cv"');
     const iCur = html.indexOf('id="cursors"');
     const iStage = html.indexOf("</main>");

@@ -18,7 +18,8 @@
       "vite/client",
       "node"
     ],
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "jsx": "react-jsx"
   },
   "include": [
     "src",

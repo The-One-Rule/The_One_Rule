@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { indicesDeMode, MODES, MODES_OFFERTS } from "../src/multi";
+import { pageHtml } from "./helpers/page";
 
 const src = readFileSync("src/multi.ts", "utf8");
 
@@ -85,7 +86,7 @@ describe("le verrou d'identité reste là où il a un sens", () => {
     // Le supprimer serait revenir au `prompt()` natif d'avant, que CLAUDE.md
     // documente comme pire. Il est déplacé, pas retiré.
     expect(src).toContain('$("btnMultiNom").addEventListener');
-    expect(readFileSync("index.html", "utf8")).toContain('id="btnMultiNom"');
+    expect(pageHtml()).toContain('id="btnMultiNom"');
   });
 
   it("renoncer à se nommer depuis le salon n'en fait pas sortir", () => {
@@ -99,7 +100,7 @@ describe("trois portes d'ouverture, separees et nommees", () => {
     // COOP n'existait que dans la barre MODE du salon : il fallait connaitre
     // le mode pour le trouver. Il est desormais une intention annoncee a
     // l'entree, a egalite avec DUO.
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     const iJoin = html.indexOf('id="btnMultiJoin"');
     const iClassique = html.indexOf('id="btnMultiCreate"');
     const iDuo = html.indexOf('id="btnMultiCreateDuo"');
@@ -126,7 +127,7 @@ describe("trois portes d'ouverture, separees et nommees", () => {
    * changent de mode.
    */
   it("l'imposteur n'est offert NI a l'entree NI dans la barre MODE", () => {
-    const html = readFileSync("index.html", "utf8");
+    const html = pageHtml();
     expect(html).not.toContain("btnMultiCreateImposteur");
     expect(html).not.toContain("IMPOSTOR");
     expect(MODES_OFFERTS).not.toContain("imposteur");
@@ -199,6 +200,6 @@ describe("trois portes d'ouverture, separees et nommees", () => {
 
   it("l'hote peut encore changer d'avis dans le salon", () => {
     // Ouvrir par une porte est un depart, pas un verrou : la barre MODE reste.
-    expect(readFileSync("index.html", "utf8")).toContain('id="optDuo"');
+    expect(pageHtml()).toContain('id="optDuo"');
   });
 });
