@@ -168,6 +168,11 @@ export interface Save {
    */
   trainingPace: number;
   /**
+   * LA PILE en CAMÉLÉON (réglage du brief) : la règle CHANGE toutes les 10
+   * manches au lieu de s'ajouter (`engine/escalade.ts`). Absent vaut non.
+   */
+  pileCameleon: boolean;
+  /**
    * L'avis a-t-il déjà été demandé (`game/avis.ts`) ? Absent vaut non : les
    * joueurs déjà venus le verront une fois, à leur prochaine fin de partie.
    */
@@ -308,6 +313,7 @@ const fresh = (): Save => ({
    * record : passer à NORMAL ne se compare pas à un score fait à DÉBUT.
    */
   trainingPace: 2,
+  pileCameleon: false,
   metrics: { on: true, asked: false, firstDay: -1, lastDay: -1 },
   records: {},
   compte: { revendiquePar: null, glyphe: null },
@@ -436,6 +442,7 @@ export function normaliseSave(brut: unknown): Save {
     lang: brut.lang === "fr" || brut.lang === "en" ? brut.lang : "fr",
     bestTraining: nombre(brut.bestTraining, d.bestTraining),
     trainingPace: nombre(brut.trainingPace, d.trainingPace),
+    pileCameleon: booleen(brut.pileCameleon, d.pileCameleon),
     trainingRegle: typeof brut.trainingRegle === "string" ? brut.trainingRegle : null,
     metrics: {
       on: booleen(me.on, d.metrics.on),

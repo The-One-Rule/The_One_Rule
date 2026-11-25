@@ -15,7 +15,7 @@
 import { mulberry32 } from "./rng.js";
 import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./rules/index.js";
 import { combineRules } from "./rules/combine.js";
-import { pileA, pileEscalade } from "./escalade.js";
+import { pileA, pileCameleon, pileEscalade, regleCameleonA } from "./escalade.js";
 import { buildRound } from "./round.js";
 import {
   INSTRUCTIONS,
@@ -74,6 +74,11 @@ export interface RunClaim {
    * d'un client d'avant l'ouverture se rejoue sur l'ancien catalogue.
    */
   catalogue?: number;
+  /**
+   * ESCALADE en CAMÉLÉON : la règle change au lieu de s'ajouter
+   * (`pileCameleon`). ABSENT VAUT NON — l'escalade d'avant se rejoue comme avant.
+   */
+  cameleon?: boolean;
 }
 
 export interface Verdict {
@@ -198,9 +203,10 @@ export function verifyRun(claim: RunClaim): Verdict {
    * des manches, qui doit rester identique a une graine donnee. Reproduire ce
    * detail est ce qui rend le run rejouable ici.
    */
+  const cameleon = claim.mode === "escalade" && claim.cameleon === true;
   const pile =
     claim.mode === "escalade"
-      ? pileEscalade(mulberry32(claim.seed ^ 0x5eca1ade), (r) => {
+      ? (cameleon ? pileCameleon : pileEscalade)(mulberry32(claim.seed ^ 0x5eca1ade), (r) => {
           if (claim.capacites?.maintien === false && withoutHold(r) !== r) return false;
           if (claim.capacites?.encre === false && withoutInk(r) !== r) return false;
           if (claim.capacites?.lettres === false && withoutLetters(r) !== r) return false;
@@ -255,7 +261,8 @@ export function verifyRun(claim: RunClaim): Verdict {
   if (claim.capacites?.lettres === false) regleSeule = withoutLetters(regleSeule);
 
   /** La regle du palier : la pile combinee en escalade, la regle seule sinon. */
-  const regleA = (lvl: number): OneRule => (pile ? combineRules(pileA(pile, lvl)) : regleSeule);
+  const regleA = (lvl: number): OneRule =>
+    pile ? combineRules(cameleon ? regleCameleonA(pile, lvl) : pileA(pile, lvl)) : regleSeule;
 
   let round: Round = buildRound(rng, level, regleA(level), pool);
   let progress: RoundProgress = { step: 0 };

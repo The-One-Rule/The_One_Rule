@@ -18,7 +18,7 @@ import {
 import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
 import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./engine/rules";
-import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
+import { PALIER, PALIER_CAMELEON, PALIER_MAX, pileCameleon, pileEscalade, pileA } from "./engine/escalade";
 import type { Action, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
@@ -1853,6 +1853,38 @@ function renderPace(): void {
         : t("allureMoins")(ref);
 }
 
+/**
+ * LE CAMÉLÉON — le réglage de LA PILE : les règles s'ajoutent, ou changent.
+ *
+ * Seulement sur le brief de LA PILE, et jamais sur un niveau du parcours. Le
+ * choix est retenu (`pileCameleon`) et repeint le brief en entier : son nom,
+ * sa phrase et sa ligne d'avertissement disent l'un ou l'autre.
+ */
+function renderPile(): void {
+  const box = $("briefPile");
+  const visible = pendingMode === "escalade" && !challenge && !niveauEnCours;
+  box.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  const cameleon = P.load().pileCameleon;
+  const opts = $("optPile");
+  fillOptions(opts, [
+    // Des segments de barre (`compact`) : deux choix, aucun n'est « plus ».
+    { value: "pile", label: t("pileAjoutent"), level: 1, steps: 2, icon: "bars", compact: true, selected: !cameleon, aria: t("pileAjoutent") },
+    { value: "cameleon", label: t("pileChangent"), level: 2, steps: 2, icon: "bars", compact: true, selected: cameleon, aria: t("pileChangent") },
+  ]);
+  for (const btn of Array.from(opts.children)) {
+    btn.addEventListener("click", () => {
+      const voulu = (btn as HTMLElement).dataset.value === "cameleon";
+      sfx.ui();
+      if (voulu === P.load().pileCameleon) return;
+      P.mutate((st) => {
+        st.pileCameleon = voulu;
+      });
+      openBrief("escalade");
+    });
+  }
+}
+
 function renderCodex(): void {
   const s = P.load();
   const list = $("codexList");
@@ -3472,12 +3504,16 @@ function openBrief(mode: Mode): void {
   $("briefMeme").classList.toggle("hidden", mode !== "daily");
   $("briefEyebrow").textContent =
     mode === "daily" ? t("modeDaily")(day) : mode === "escalade" ? t("modeEscalade") : t("modeTraining");
+  const cameleon = mode === "escalade" && P.load().pileCameleon;
   $("briefName").textContent =
-    mode === "escalade" ? t("briefUneDePlus") : nomDeRegle(pendingRule.id, pendingRule.name);
+    mode === "escalade"
+      ? cameleon ? t("briefCameleonNom") : t("briefUneDePlus")
+      : nomDeRegle(pendingRule.id, pendingRule.name);
   $("briefText").textContent =
     mode === "escalade"
-      ? t("briefEscalade")(PALIER)
+      ? cameleon ? t("briefCameleon")(PALIER_CAMELEON) : t("briefEscalade")(PALIER)
       : briefDeRegle(pendingRule.id, pendingRule.brief);
+  renderPile();
 
   // La grille ne vit QUE sur l'entraînement : le run du jour et l'escalade
   // n'offrent aucun choix de règle, et en montrer un là serait un mensonge.
@@ -3530,7 +3566,9 @@ function openBrief(mode: Mode): void {
     lines.push(tp().briefObjectif(d.manches, PC.VIES_NIVEAU));
     if (d.annonce !== "jamais") lines.push(tp().briefPiegeAnnonce);
   }
-  if (mode === "escalade") lines.push(t("briefEscaladeLignes")(PALIER_MAX));
+  if (mode === "escalade") {
+    lines.push(cameleon ? t("briefCameleonLignes")(PALIER_MAX) : t("briefEscaladeLignes")(PALIER_MAX));
+  }
   if (hold) lines.push(t("briefTiens"));
   warn.textContent = lines.join(" · ");
   warn.classList.toggle("hidden", lines.length === 0);
@@ -3845,9 +3883,14 @@ function lanceRun(): void {
    * l'identique par `verify.ts`. Un flux dérivé de la même graine garde le
    * déterminisme sans toucher à l'autre.
    */
+  /*
+   * LE CAMÉLÉON (réglage de LA PILE) tire sa file du MÊME flux dérivé : la
+   * graine rejoue l'un comme l'autre (`verify.ts`, `claim.cameleon`).
+   */
+  const cameleon = pendingMode === "escalade" && s.pileCameleon;
   const pile =
     pendingMode === "escalade"
-      ? pileEscalade(mulberry32(seed ^ 0x5eca1ade), estJouableIci)
+      ? (cameleon ? pileCameleon : pileEscalade)(mulberry32(seed ^ 0x5eca1ade), estJouableIci)
       : undefined;
 
   session = new Session({
@@ -3868,6 +3911,7 @@ function lanceRun(): void {
      */
     pace: challenge ? PACE_DEFAULT : (palier?.allure ?? s.trainingPace),
     pile,
+    cameleon,
     // Les deux leviers du palier. Absents ailleurs — donc `maxRounds` et
     // `buildRound` répondent exactement ce qu'ils répondaient hier.
     longueur: palier?.manches,
@@ -4755,8 +4799,16 @@ function ouvreOnboarding(): void {
  * manche 3 sur 572 runs.
  */
 
-function montreAnnonce(suite: () => void): void {
+function montreAnnonce(suite: () => void, textes?: { titre: string; quoi: string }): void {
   annonceSuite = suite;
+  /*
+   * LE CAMÉLÉON prête ce plein cadre à chaque changement de règle. Les textes
+   * sont donc REPOSÉS à chaque ouverture : sans ça, l'échauffement du run
+   * suivant afficherait la dernière règle du caméléon.
+   */
+  const ch = CHAINES[langue()];
+  $("annonce").querySelector(".annonce__titre")!.textContent = textes?.titre ?? ch["annonce.titre"] ?? "";
+  $("annonce").querySelector(".annonce__quoi")!.textContent = textes?.quoi ?? ch["annonce.quoi"] ?? "";
   $("annonce").classList.remove("hidden");
   sfx.palier(1);
 }
@@ -4978,7 +5030,7 @@ function finishRun(): void {
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
   let avant: P.RuleRecord | undefined;
   /** Le record de LA PILE avant ce run, en règles tenues — pour la carte de relance. */
-  const pileAvant = P.load().records[cleEscalade()] ?? 0;
+  const pileAvant = P.load().records[cleEscalade(session?.cameleon)] ?? 0;
 
   const s = P.mutate((st) => {
     ensureDay(st, day);
@@ -5071,7 +5123,7 @@ function finishRun(): void {
      */
     if (mode === "escalade") {
       st.recent = [...st.recent, end.score].slice(-5);
-      P.inscritRecord(st, cleEscalade(), session!.paliers);
+      P.inscritRecord(st, cleEscalade(session!.cameleon), session!.paliers);
       return;
     }
 
@@ -7562,7 +7614,32 @@ function loop(now: number): void {
        * t'a jamais montré. Le bandeau est mis à jour dans la foulée, sinon il
        * continuerait d'afficher l'ancienne pile.
        */
-      if (session.regleAjoutee) {
+      if (session.regleAjoutee && session.cameleon) {
+        /*
+         * LE CAMÉLÉON : la règle CHANGE. Pas une pastille de 1,6 s pendant la
+         * manche — la manche d'après tuerait sur une règle pas encore lue —,
+         * mais le plein cadre de l'échauffement, partie SUSPENDUE et décalée
+         * d'autant (`Session.decale`) : la manche ouverte reprend avec tout
+         * son temps, et le rejeu ne voit aucun trou.
+         */
+        const nouvelle = session.regleAjoutee;
+        session.regleAjoutee = null;
+        session.tierJustCrossed = false;
+        hud.setRule(session.rule);
+        annoncePause = now;
+        montreAnnonce(
+          () => {
+            if (session && annoncePause !== null) session.decale(performance.now() - annoncePause);
+            annoncePause = null;
+          },
+          {
+            // Le NOM en titre — c'est lui qu'on emporte en partie ; collé à
+            // « TA RÈGLE CHANGE », il se coupait seul à la ligne à 375 px.
+            titre: nomDeRegle(nouvelle.id, nouvelle.name),
+            quoi: `${t("regleChange")} — ${briefDeRegle(nouvelle.id, nouvelle.brief)}`,
+          },
+        );
+      } else if (session.regleAjoutee) {
         hud.setRule(regleAffichee(session));
         peintPuces(session);
         const ajoutee = session.regleAjoutee;

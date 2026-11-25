@@ -113,3 +113,51 @@ export function avantPalier(pile: readonly OneRule[], level: number): number | n
   if (paliersA(level) >= Math.min(pile.length, PALIER_MAX)) return null;
   return PALIER - (level % PALIER);
 }
+
+/* ================================================================== *
+ * LE CAMÉLÉON — la règle CHANGE au lieu de s'ajouter (kanban, 25/11).
+ *
+ * « La règle change toutes les 10 manches. Le multi le fait déjà, à porter
+ * en solo. » C'est un RÉGLAGE de l'escalade et non un mode : même graine,
+ * même borne de 40 manches, même score — les RÈGLES TENUES, de 1 à 4 — et
+ * donc les mêmes écrans. Seule la pile se lit autrement : une règle à la
+ * fois, la suivante remplace la précédente.
+ *
+ * ⚠️ Chaque changement est annoncé en plein cadre ENTRE deux manches, partie
+ * suspendue (`Session.decale`, comme la fin de l'échauffement) : sans temps
+ * de lecture, la manche d'après tuerait sur une règle pas encore lue. Le
+ * rejeu ne voit pas la pause (`tests/pause-echauffement`).
+ *
+ * Son record a sa propre clé (`cleEscalade(true)`) : tenir quatre règles
+ * l'une après l'autre n'est pas tenir quatre règles À LA FOIS.
+ * ================================================================== */
+
+/** Manches entre deux changements de règle. Le chiffre de la carte du kanban. */
+export const PALIER_CAMELEON = 10;
+
+/** Le rang de la règle tenue à cette manche : 1 au départ, +1 toutes les 10. */
+export const rangCameleon = (level: number): number =>
+  Math.min(PALIER_MAX, 1 + Math.floor(Math.max(0, level) / PALIER_CAMELEON));
+
+/**
+ * La file du caméléon : QUE des règles qui piègent, tant qu'il y en a.
+ *
+ * Une règle seule doit avoir des dents — c'est la même contrainte que la
+ * première règle de l'escalade, appliquée à toutes, puisque chacune est seule
+ * à son tour. Pas de contrainte de compatibilité : deux règles ne se tiennent
+ * jamais ensemble. Tirée d'un coup, du même flux que l'escalade, donc
+ * rejouable par `verify.ts`.
+ */
+export function pileCameleon(
+  rng: Rng,
+  jouable: (r: OneRule) => boolean = () => true,
+): OneRule[] {
+  const dispo = ONE_RULES.filter(jouable);
+  const pieges = rShuffle(rng, dispo.filter((r) => r.traps));
+  const reste = rShuffle(rng, dispo.filter((r) => !r.traps));
+  return [...pieges, ...reste].slice(0, PALIER_MAX);
+}
+
+/** La règle tenue à cette manche — UNE, jamais une composée. */
+export const regleCameleonA = (pile: readonly OneRule[], level: number): OneRule[] =>
+  pile.length ? [pile[Math.min(pile.length, rangCameleon(level)) - 1]!] : [];

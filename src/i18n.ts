@@ -193,6 +193,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
+    "brief.regles": "LES RÈGLES",
     "commun.retour": "RETOUR",
     "commun.menu": "MENU",
     "fin.quetes": "QUÊTES DU JOUR",
@@ -341,6 +342,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.salon": "Salon",
     "aria.modesSolo": "Modes solo",
     "aria.allure": "Allure",
+    "aria.pileRegles": "Les règles s'ajoutent ou changent",
     "aria.codeSalon": "Code du salon",
     "aria.discussion": "Discussion du salon",
     "aria.titres": "Titres du match",
@@ -403,6 +405,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
+    "brief.regles": "RULES",
     "commun.retour": "BACK",
     "commun.menu": "MENU",
     "fin.quetes": "TODAY'S QUESTS",
@@ -551,6 +554,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "aria.salon": "Room",
     "aria.modesSolo": "Solo modes",
     "aria.allure": "Pace",
+    "aria.pileRegles": "Rules stack up or swap",
     "aria.codeSalon": "Room code",
     "aria.discussion": "Room chat",
     "aria.titres": "Match awards",
@@ -768,6 +772,12 @@ type Dyn = {
   briefEscalade: (palier: number) => string;
   briefDailyLignes: (manches: number) => string;
   briefEscaladeLignes: (max: number) => string;
+  /* --- LE CAMÉLÉON, réglage de LA PILE --- */
+  briefCameleonNom: string;
+  briefCameleon: (palier: number) => string;
+  briefCameleonLignes: (max: number) => string;
+  pileAjoutent: string;
+  pileChangent: string;
   briefTiens: string;
   goCommencer: string;
   goUnSeulEssai: string;
@@ -1401,6 +1411,12 @@ const DYN: Record<Lang, Dyn> = {
       `Tu commences avec une règle. Toutes les ${p} manches, une autre s'ajoute — et tu les tiens toutes. Jusqu'où ?`,
     briefDailyLignes: (m) => `${m} MANCHES · LE MEILLEUR DE TES ESSAIS COMPTE`,
     briefEscaladeLignes: (m) => `${m} RÈGLES AU MAXIMUM · LE SCORE EST CE QUE TU TIENS`,
+    briefCameleonNom: "ELLE CHANGE",
+    briefCameleon: (p) =>
+      `Une seule règle à la fois — mais toutes les ${p} manches, elle change. La partie s'arrête le temps de lire la nouvelle.`,
+    briefCameleonLignes: (m) => `${m} RÈGLES L'UNE APRÈS L'AUTRE · LE SCORE EST CE QUE TU TIENS`,
+    pileAjoutent: "S'AJOUTENT",
+    pileChangent: "CHANGENT",
     briefTiens: "APPUIE SUR ESPACE ET GARDE-LA ENFONCÉE",
     goCommencer: "COMMENCER",
     goUnSeulEssai: "COMMENCER",
@@ -1949,6 +1965,12 @@ const DYN: Record<Lang, Dyn> = {
       `You start with one rule. Every ${p} rounds another one is added — and you hold them all. How far?`,
     briefDailyLignes: (m) => `${m} ROUNDS · YOUR BEST ATTEMPT COUNTS`,
     briefEscaladeLignes: (m) => `${m} RULES AT MOST · YOUR SCORE IS WHAT YOU HOLD`,
+    briefCameleonNom: "IT CHANGES",
+    briefCameleon: (p) =>
+      `One rule at a time — but every ${p} rounds, it changes. The run pauses while you read the new one.`,
+    briefCameleonLignes: (m) => `${m} RULES ONE AFTER ANOTHER · YOUR SCORE IS WHAT YOU HOLD`,
+    pileAjoutent: "STACK UP",
+    pileChangent: "SWAP",
     briefTiens: "PRESS SPACE AND HOLD IT DOWN",
     goCommencer: "START",
     goUnSeulEssai: "START",

@@ -66,8 +66,15 @@ export const cleEntrainement = (allure: number): string =>
  * ex æquo massifs. `valeur2` porte le départage — les manches — et il faudra
  * l'utiliser le jour où quelqu'un voudra en tirer un rang.
  */
-export const cleEscalade = (): string =>
-  cleComparaison({ mode: "escalade", regime: {}, versionContenu: VERSION_CONTENU });
+export const cleEscalade = (cameleon = false): string =>
+  cleComparaison({
+    mode: "escalade",
+    // LE CAMÉLÉON a SON record : tenir quatre règles l'une après l'autre
+    // n'est pas tenir quatre règles à la fois. Absent du régime sinon, donc
+    // la clé de LA PILE ne bouge pas d'un caractère.
+    regime: cameleon ? { cameleon: 1 } : {},
+    versionContenu: VERSION_CONTENU,
+  });
 
 /*
  * ⚠️ IL Y AVAIT ICI UN `clePour(mode, opts)`, ET IL EST SUPPRIME.
