@@ -20,6 +20,7 @@ import type { Round } from "../src/engine/types";
 import { actionsDeFin } from "../src/render/finactions";
 import type { EtatFin } from "../src/render/finactions";
 import { lancementRefuse } from "../src/render/jour";
+import { pageHtml } from "./helpers/page";
 
 /** Un run du jour ordinaire — seul `essaisRestants` varie dans les cas ci-dessous. */
 const FIN_JOUR: EtatFin = {
@@ -32,7 +33,7 @@ const FIN_JOUR: EtatFin = {
 let nowMs = 0;
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
   // Le HUD lit `performance.now()` pour son horloge de LECTURE : on la pilote.
   globalThis.performance = { now: () => nowMs } as never;

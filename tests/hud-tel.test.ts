@@ -8,9 +8,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { pageHtml } from "./helpers/page";
 
 const css = readFileSync("src/style.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-const html = readFileSync("index.html", "utf8");
+const html = pageHtml();
 const scene = readFileSync("src/render/scene.ts", "utf8");
 
 /** Corps des `@media` dont la condition matche, accolades appariées. */

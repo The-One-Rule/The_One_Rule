@@ -20,6 +20,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
+import { pageHtml } from "./helpers/page";
 
 /*
  * Deux familles, meme piege.
@@ -43,7 +44,7 @@ const PORTES = ["profJour", "profClassement", "btnMulti", "profEscalade", "profC
 const SOURCES = ["src/main.ts", "src/multi.ts", "src/i18n.ts"];
 
 beforeAll(() => {
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 });
 

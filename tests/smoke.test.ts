@@ -6,8 +6,8 @@
  * erreurs d'assemblage que les tests unitaires ne peuvent pas voir.
  */
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
 import { LECTURE_NEUVE_MS } from "../src/game/lecture";
+import { pageHtml } from "./helpers/page";
 
 // Chaque méthode rend le contexte lui-même : un dégradé (`createRadialGradient`)
 // doit accepter `addColorStop`, comme dans un vrai navigateur.
@@ -51,7 +51,7 @@ beforeAll(() => {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const html = readFileSync("index.html", "utf8");
+  const html = pageHtml();
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
 
   HTMLCanvasElement.prototype.getContext = (() => ctxStub) as never;
