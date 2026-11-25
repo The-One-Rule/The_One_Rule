@@ -459,6 +459,16 @@ export type ClientMsg =
   | { t: "watch"; playerId: string }
   | { t: "emote"; k: number }
   /**
+   * L'INVITATION D'UN AMI (`server/invitation.ts`). `ami` annonce SON code
+   * d'ami — lu chez Vercel, le serveur de salons n'a pas de base ; accepté
+   * seulement d'un client connecté avec un compte. `invite_ami` demande de
+   * remettre une invitation au salon courant à l'ami qui porte `code`.
+   * Un serveur d'avant les ignore : l'inviteur n'a pas de réponse et retombe
+   * sur le lien. `PROTOCOL_VERSION` inchangée, doctrine de `quick`.
+   */
+  | { t: "ami"; code: string }
+  | { t: "invite_ami"; code: string }
+  /**
    * Position du pointeur, en coordonnées de CHAMP. FACULTATIF.
    *
    * ⚠️ AJOUTER CE MESSAGE N'INCRÉMENTE PAS `PROTOCOL_VERSION`. Un serveur
@@ -713,6 +723,10 @@ export type ServerMsg =
       tenu?: boolean;
     }
   | { t: "emote"; playerId: string; k: number }
+  /** Un ami t'invite au salon `salon`. Un client d'avant l'ignore. */
+  | { t: "invitation"; de: string; glyph: Glyph; salon: string }
+  /** La réponse à `invite_ami` : remise, ou pourquoi pas. */
+  | { t: "invite_ami_res"; code: string; livre: boolean; pourquoi?: string }
   | { t: "chat"; playerId: string; name: string; text: string }
   /**
    * Instantané des curseurs coop. FACULTATIF.

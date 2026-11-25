@@ -182,6 +182,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
+    "salon.amisTitre": "INVITER UN AMI",
+    "invitami.oui": "REJOINDRE",
+    "invitami.non": "PLUS TARD",
     "commun.retour": "RETOUR",
     "commun.menu": "MENU",
     "fin.quetes": "QUÊTES DU JOUR",
@@ -392,6 +395,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
+    "salon.amisTitre": "INVITE A FRIEND",
+    "invitami.oui": "JOIN",
+    "invitami.non": "LATER",
     "commun.retour": "BACK",
     "commun.menu": "MENU",
     "fin.quetes": "TODAY'S QUESTS",
@@ -708,6 +714,12 @@ type Dyn = {
   quetesValidees: (pieces: number) => string;
   /* --- les pièces de partie (kanban) --- */
   piecesPartie: (pieces: number) => string;
+  /* --- l'invitation d'un ami (kanban) --- */
+  invitamiTexte: (de: string, salon: string) => string;
+  inviteAmi: string;
+  inviteEnvoyee: string;
+  inviteAbsent: string;
+  inviteOccupe: string;
   piecesPlafond: string;
   piecesClassement: (pieces: number, rang: number) => string;
   comboPieces: (mult: number) => string;
@@ -1349,6 +1361,11 @@ const DYN: Record<Lang, Dyn> = {
     quetesValidees: (p) => `QUÊTES VALIDÉES · +${p} PIÈCES`,
     piecesPartie: (p) => `PARTIE · +${p} ${p > 1 ? "PIÈCES" : "PIÈCE"}`,
     piecesPlafond: "PLAFOND DU JOUR ATTEINT",
+    invitamiTexte: (de, s) => `${de} T'INVITE · SALON ${s}`,
+    inviteAmi: "INVITER",
+    inviteEnvoyee: "INVITÉ",
+    inviteAbsent: "PAS EN LIGNE · LIEN COPIÉ",
+    inviteOccupe: "EN PARTIE · LIEN COPIÉ",
     piecesClassement: (p, r) => `+${p} PIÈCES · ${r === 1 ? "1RE" : `${r}E`} PLACE`,
     comboPieces: (m) => `COMBO ×${String(m).replace(".", ",")}`,
     serieEnCours: "SÉRIE EN COURS",
@@ -1900,6 +1917,11 @@ const DYN: Record<Lang, Dyn> = {
     quetesValidees: (p) => `QUESTS CLEARED · +${p} COINS`,
     piecesPartie: (p) => `RUN · +${p} ${p === 1 ? "COIN" : "COINS"}`,
     piecesPlafond: "DAILY CAP REACHED",
+    invitamiTexte: (de, s) => `${de} INVITES YOU · ROOM ${s}`,
+    inviteAmi: "INVITE",
+    inviteEnvoyee: "INVITED",
+    inviteAbsent: "OFFLINE · LINK COPIED",
+    inviteOccupe: "IN A GAME · LINK COPIED",
     piecesClassement: (p, r) => `+${p} COINS · ${r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`} PLACE`,
     comboPieces: (m) => `COMBO ×${m}`,
     serieEnCours: "STREAK RUNNING",

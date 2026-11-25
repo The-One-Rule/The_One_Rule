@@ -24,6 +24,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { formatMetrics } from "./metrics";
 import { MatchLogic, MULTI_RULES } from "./match";
+import { routeInvitation } from "./invitation";
+import { codeAmiValide } from "../shared/amis";
 import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
 import {
   fautSignalerActe,
@@ -133,6 +135,13 @@ interface Client {
    * défaut — le catalogue d'origine —, bornée par celle du serveur.
    */
   consignes: number;
+  /**
+   * Son code d'ami, annoncé par `{ t: "ami" }` — accepté seulement avec un
+   * compte. Sert à lui remettre une invitation (`server/invitation.ts`).
+   */
+  codeAmi: string | null;
+  /** L'instant de sa dernière invitation envoyée — borne le débit. */
+  derniereInvite: number;
   /** Il comprend `remplace` (voir le `hello`) — absent vaut non. */
   reprise: boolean;
   /**
@@ -1007,6 +1016,8 @@ wss.on("connection", (ws, req) => {
     rookie: false,
     clavier: false,
     consignes: 1,
+    codeAmi: null,
+    derniereInvite: -Infinity,
     reprise: false,
     compte: null,
     adresse: adresseDe(req.headers, req.socket.remoteAddress),
@@ -1413,6 +1424,41 @@ wss.on("connection", (ws, req) => {
         if (t - client.lastEmoteAt < EMOTE_COOLDOWN_MS) return;
         client.lastEmoteAt = t;
         broadcast(room, { t: "emote", playerId: client.id, k });
+        return;
+      }
+
+      case "ami": {
+        // Un code d'ami n'a de sens qu'avec un compte : sans lui, rien.
+        if (!client.compte) return;
+        client.codeAmi = codeAmiValide(msg.code) ?? null;
+        return;
+      }
+
+      case "invite_ami": {
+        const t = now();
+        const salon = client.room?.code ?? null;
+        const issue = routeInvitation(
+          { id: client.id, codeAmi: client.codeAmi, salon, derniereInvite: client.derniereInvite },
+          msg.code,
+          [...clients].map((c) => ({
+            id: c.id,
+            codeAmi: c.codeAmi,
+            enPartie:
+              (!!c.room?.match && c.room.match.seats.some((s) => s.id === c.id && !s.eliminated)) ||
+              (!!c.room?.coop && c.room.coop.seats.some((s) => s.id === c.id)),
+          })),
+          t,
+        );
+        const code = String(msg.code ?? "").slice(0, 12);
+        if (issue.livre) {
+          client.derniereInvite = t;
+          const ami = [...clients].find((c) => c.id === issue.a);
+          if (ami && salon) send(ami, { t: "invitation", de: client.name, glyph: client.glyph, salon });
+          send(client, { t: "invite_ami_res", code, livre: true });
+        } else {
+          if (issue.pourquoi !== "trop_vite") client.derniereInvite = t;
+          send(client, { t: "invite_ami_res", code, livre: false, pourquoi: issue.pourquoi });
+        }
         return;
       }
 

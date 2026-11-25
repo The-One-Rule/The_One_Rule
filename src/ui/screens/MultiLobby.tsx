@@ -53,6 +53,15 @@ export function MultiLobby() {
                 SAY IT OUT LOUD, OR SEND THE LINK
               </p>
               {/*
+                 INVITER UN AMI (kanban) : sa liste d'amis, un bouton par ami.
+                 Masquée sans compte ou sans ami — §6 n°12, rien n'en dépend.
+                 Remplie par `peintAmisSalon` (multi.ts).
+              */}
+              <div className="lobbyamis hidden" id="lobbyAmis">
+                <p className="lobbyamis__titre" data-i18n="salon.amisTitre">INVITE A FRIEND</p>
+                <ul className="lobbyamis__liste" id="lobbyAmisListe" />
+              </div>
+              {/*
                  Maquette 8.1 : pour qui est dans la même pièce, le QR mène au
                  même lien que COPIER LE LIEN. Posé par `setRoomCode`.
               */}

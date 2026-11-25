@@ -5,6 +5,9 @@
  */
 process.env.PORT = "8797";
 process.env.METRICS_PORT = "8798";
+// Un secret de test : il permet de signer des jetons de compte (scénario
+// INVITATION). Sans jeton, tout le reste joue en anonyme, comme avant.
+process.env.TOR_AUTH_SECRET = process.env.TOR_AUTH_SECRET || "secret-e2e-invitation-0123456789abcdef";
 import WebSocket from "ws";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -676,6 +679,65 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 }
 
 /*
+ * INVITER UN AMI — sur le fil (`server/invitation.ts`).
+ *
+ * Le serveur n'a pas de base : il remet l'invitation à la socket qui a
+ * annoncé le code visé, et SEULEMENT si elle a un compte. Trois cas : l'ami
+ * connecté la reçoit (avec le salon et le nom de l'inviteur), un anonyme qui
+ * prétend un code n'est pas joignable, un code que personne ne porte est
+ * « absent » — le client se rabat alors sur le lien.
+ */
+{
+  const { signeJeton } = await import("../../server/jeton.ts");
+  const brut = (nom, sub) =>
+    new Promise((res) => {
+      const ws = new WebSocket("ws://localhost:8797");
+      const c = { ws, recus: [] };
+      ws.on("message", (raw) => c.recus.push(JSON.parse(raw)));
+      ws.on("open", () => {
+        const tok = sub ? signeJeton({ sub, psd: nom, gly: 0, vj: 0 }, process.env.TOR_AUTH_SECRET) : undefined;
+        ws.send(JSON.stringify({ t: "hello", v: 1, name: nom, key: "cle-" + nom, reprise: true, ...(tok ? { tok } : {}) }));
+        setTimeout(() => res(c), 200);
+      });
+    });
+  const hote = await brut("INVITEUR", "compte-inviteur");
+  const ami = await brut("AMIE", "compte-amie");
+  const anonyme = await brut("ANONYME2", null);
+  hote.ws.send(JSON.stringify({ t: "ami", code: "AAAAAA" }));
+  ami.ws.send(JSON.stringify({ t: "ami", code: "BBBBBB" }));
+  anonyme.ws.send(JSON.stringify({ t: "ami", code: "CCCCCC" }));
+  hote.ws.send(JSON.stringify({ t: "create" }));
+  await sleep(300);
+  const salon = hote.recus.filter((m) => m.t === "room").at(-1)?.code;
+
+  hote.ws.send(JSON.stringify({ t: "invite_ami", code: "bbb-bbb" }));
+  await sleep(300);
+  const recue = ami.recus.find((m) => m.t === "invitation");
+  const reponse = hote.recus.filter((m) => m.t === "invite_ami_res").at(-1);
+  ok(!!recue && recue.salon === salon && recue.de === "INVITEUR", `l'ami connecté reçoit l'invitation au salon ${salon} (${JSON.stringify(recue ?? null)})`);
+  ok(reponse?.livre === true, "l'inviteur apprend que l'invitation est remise");
+  ok(!JSON.stringify(recue ?? {}).includes("compte-"), "aucun identifiant de compte ne voyage dans l'invitation");
+
+  await sleep(1600); // l'intervalle entre deux invitations
+  hote.ws.send(JSON.stringify({ t: "invite_ami", code: "CCCCCC" }));
+  await sleep(300);
+  const rAnonyme = hote.recus.filter((m) => m.t === "invite_ami_res").at(-1);
+  ok(
+    rAnonyme?.livre === false && rAnonyme.pourquoi === "absent" && !anonyme.recus.some((m) => m.t === "invitation"),
+    `un anonyme ne peut pas annoncer de code : rien ne lui est remis (${JSON.stringify(rAnonyme)})`,
+  );
+
+  await sleep(1600);
+  hote.ws.send(JSON.stringify({ t: "invite_ami", code: "DDDDDD" }));
+  await sleep(300);
+  const rAbsent = hote.recus.filter((m) => m.t === "invite_ami_res").at(-1);
+  ok(rAbsent?.livre === false && rAbsent.pourquoi === "absent", "un code que personne ne porte est dit absent");
+
+  for (const c of [hote, ami, anonyme]) c.ws.close();
+  await sleep(220);
+}
+
+/*
  * DUO : deux joueurs, une reserve — verifie sur le fil.
  *
  * La propriete centrale du mode ne peut pas se prouver en unitaire : il faut
@@ -1156,6 +1218,8 @@ const CHAMPS = {
   vote: ["playerId"],
   cursor: ["x", "y"],
   emote: ["k"],
+  ami: ["code"],
+  invite_ami: ["code"],
   chat: ["text"],
   kick: ["playerId"],
 };

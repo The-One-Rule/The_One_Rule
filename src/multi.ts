@@ -30,6 +30,8 @@ import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
 import * as REC from "./game/recompenses";
 import { jetonPourSalon } from "./compte";
+import { cercle } from "./compte/amis";
+import type { LigneAmi } from "../shared/amis";
 import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
 import { cleanEnv } from "./env";
@@ -1795,6 +1797,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function paintLobby(): void {
     if (!roomCode) return;
+    peintAmisSalon();
     const startErr = $("multiStartErr");
     startErr.textContent = "";
     startErr.classList.add("hidden");
@@ -2945,7 +2948,137 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /* ---------------------------------------------------------------- *
+   * INVITER UN AMI (kanban) — voir `server/invitation.ts`.
+   * ---------------------------------------------------------------- */
+
+  /** Mes amis, lus chez Vercel à la connexion. Vide sans compte (§6 n°12). */
+  let amisSalon: LigneAmi[] = [];
+  /** L'état du bouton de chaque ami, par code d'ami. */
+  const etatInvite = new Map<string, "envoi" | "ok" | "absent" | "occupe">();
+  /** Le salon où un ami m'invite, le temps du bandeau. */
+  let invitationRecue: string | null = null;
+
+  /**
+   * Annonce MON code d'ami au serveur de salons, une fois ma liste lue.
+   *
+   * Jamais attendu : la connexion n'attend pas le compte, et un échec (hors
+   * ligne, anonyme, déploiement sans comptes) laisse simplement la liste vide.
+   */
+  function annonceAmi(client: NetClient): void {
+    void (async () => {
+      const c = await cercle();
+      if (!c || net !== client) return;
+      amisSalon = c.amis.filter((a) => !a.moi);
+      client.send({ t: "ami", code: c.code });
+      peintAmisSalon();
+    })();
+  }
+
+  /** Le salon auquel se rapportent les états des boutons. */
+  let salonDesInvites = "";
+
+  function peintAmisSalon(): void {
+    // Un autre salon : les « INVITÉ » du précédent ne veulent plus rien dire.
+    if (salonDesInvites !== roomCode) {
+      etatInvite.clear();
+      salonDesInvites = roomCode;
+    }
+    const box = $("lobbyAmis");
+    const liste = $("lobbyAmisListe");
+    box.classList.toggle("hidden", amisSalon.length === 0 || !roomCode);
+    if (amisSalon.length === 0 || !roomCode) return;
+    liste.replaceChildren(
+      ...amisSalon.map((a) => {
+        const li = document.createElement("li");
+        li.className = "lobbyamis__ami";
+        const nom = document.createElement("span");
+        nom.className = "lobbyamis__nom";
+        nom.textContent = a.pseudo;
+        const etat = etatInvite.get(a.code);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn--ghost lobbyamis__btn";
+        btn.dataset.code = a.code;
+        btn.disabled = etat === "envoi" || etat === "ok";
+        btn.textContent =
+          etat === "ok"
+            ? tr("inviteEnvoyee")
+            : etat === "absent"
+              ? tr("inviteAbsent")
+              : etat === "occupe"
+                ? tr("inviteOccupe")
+                : tr("inviteAmi");
+        btn.addEventListener("click", () => {
+          if (!net?.connected) return;
+          sfx.ui();
+          etatInvite.set(a.code, "envoi");
+          net.send({ t: "invite_ami", code: a.code });
+          peintAmisSalon();
+          /*
+           * Un serveur d'avant ne répond pas : passé ce délai, on se rabat
+           * sur le lien, comme pour un ami absent.
+           */
+          setTimeout(() => {
+            if (etatInvite.get(a.code) !== "envoi") return;
+            etatInvite.set(a.code, "absent");
+            void copyInvite("multiLobbyCodeHint");
+            peintAmisSalon();
+          }, 4000);
+        });
+        li.append(nom, btn);
+        return li;
+      }),
+    );
+  }
+
+  function recoisInvitation(de: string, salon: string): void {
+    // Jamais par-dessus une manche, ni pour le salon où l'on est déjà.
+    if (isPlayingMulti() || salon === roomCode) return;
+    invitationRecue = salon;
+    $("invitamiTexte").textContent = tr("invitamiTexte")(de, salon);
+    $("invitationAmi").classList.remove("hidden");
+    sfx.ui();
+  }
+
+  function fermeInvitation(): void {
+    invitationRecue = null;
+    $("invitationAmi").classList.add("hidden");
+  }
+
+  $("btnInvitamiNon").addEventListener("click", fermeInvitation);
+  $("btnInvitamiOui").addEventListener("click", () => {
+    const salon = invitationRecue;
+    fermeInvitation();
+    if (!salon) return;
+    void (async () => {
+      const client = await ensureConnected({ anonyme: true });
+      if (!client) {
+        await openJoin(salon);
+        return;
+      }
+      // On QUITTE le salon où l'on attendait : on ne joue qu'à une table.
+      if (roomCode && roomCode !== salon) client.leave();
+      setJoinErr(null);
+      entreeSalon = "rejoint";
+      client.joinRoom(salon);
+    })();
+  });
+
   const onMsg = (msg: ServerMsg): void => {
+    if (msg.t === "invitation") {
+      recoisInvitation(String(msg.de ?? "").slice(0, 14), String(msg.salon ?? "").slice(0, 8));
+      return;
+    }
+    if (msg.t === "invite_ami_res") {
+      const avant = etatInvite.get(msg.code);
+      const issue = msg.livre ? "ok" : msg.pourquoi === "occupe" ? "occupe" : "absent";
+      etatInvite.set(msg.code, issue);
+      // Pas remise : le lien prend le relais, une seule fois par tentative.
+      if (issue !== "ok" && avant === "envoi") void copyInvite("multiLobbyCodeHint");
+      peintAmisSalon();
+      return;
+    }
     if (msg.t === "photos") {
       // Revalidées ici aussi : ce qui entre dans un `src` ne se fie à personne.
       for (const [id, brute] of Object.entries(msg.photos ?? {})) {
@@ -3425,6 +3558,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       );
       // Une connexion neuve : le départ subi de la précédente est réglé.
       departSubi = false;
+      annonceAmi(net);
       return net;
     } catch {
       if (!errFromServer) {
