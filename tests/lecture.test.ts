@@ -18,8 +18,8 @@ import type { Save } from "../src/game/progress";
 const carnet = (...ids: string[]): Save =>
   ({ encountered: Object.fromEntries(ids.map((i) => [i, { best: 20, cleared: true }])) }) as Save;
 
-const REGLE = ONE_RULES[0]!;
-const AUTRE = ONE_RULES[1]!;
+const REGLE = ONE_RULES[0];
+const AUTRE = ONE_RULES[1];
 
 describe("le temps de lecture", () => {
   it("une règle JAMAIS rencontrée mérite le temps long", () => {

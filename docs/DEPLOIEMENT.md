@@ -94,7 +94,7 @@ les changer après exige un redéploiement :
 |---|---|---|
 | `VITE_WS_URL` | `wss://ton-app.fly.dev` | **`wss://`**, jamais `ws://` |
 | `VITE_COLLECT_URL` | `/api/collect` | inutile sans le stockage du §5 |
-| `VITE_RANKED_URL` | *(vide)* | à laisser vide : la fonction classée est retirée, le podium est `perf` |
+| `VITE_RANKED_URL` | *(vide)* | classé hors routage (`api/_ranked.ts`) et non authentifié — à laisser éteint |
 
 Les routes des comptes (`VITE_AUTH_URL`, `VITE_MOI_URL`, `VITE_PERF_URL`,
 `VITE_AMIS_URL`) ont pour défaut les fonctions du dépôt : rien à poser.

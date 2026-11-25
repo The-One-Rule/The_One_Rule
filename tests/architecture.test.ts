@@ -41,7 +41,7 @@ const imports = (f: string): string[] =>
   // sans `from`, échappait à la première version (éprouvé).
   [...code(f).matchAll(/(?:\bfrom|\bimport\s*\(|\bimport)\s*["']([^"']+)["']/g)]
     .map((m) => m[1])
-    .filter((m): m is string => typeof m === "string" && m.startsWith("."))
+    .filter((m) => m.startsWith("."))
     .map((m) => normalize(join(dirname(f), m)));
 
 /** Ce qui rend un calcul irreproductible, ou le lie à un navigateur. */

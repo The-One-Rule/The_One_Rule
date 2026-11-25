@@ -5,7 +5,7 @@ export default defineConfig({
   build: { target: "es2022", assetsInlineLimit: 4096, cssCodeSplit: false },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    include: ["tests/**/*.test.ts"],
     /*
      * Node 25+ expose un `localStorage` natif qui MASQUE celui de jsdom : il
      * vaut `undefined` sans `--localstorage-file`, et 22 tests tombaient sans

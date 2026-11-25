@@ -732,7 +732,17 @@
       </section>
 
       <!-- BOUTIQUE — les pièces achètent des styles de pièces. -->
-      <section class="screen hidden" id="boutique"></section>
+      <section class="screen hidden" id="boutique">
+        <div class="screen__scroll boutique">
+          <div class="boutique__tete">
+            <h2 class="boutique__titre" data-i18n="boutique.titre">SHOP</h2>
+            <span class="pstat pstat--pieces"><i aria-hidden="true">●</i><b id="boutiquePieces">0</b></span>
+          </div>
+          <p class="boutique__chapo" data-i18n="boutique.chapo">Boards: they dress your whole game. Never the rule.</p>
+          <div class="skins" id="skins"></div>
+          <button class="btn" id="btnBoutiqueRetour" data-i18n="boutique.retour">BACK</button>
+        </div>
+      </section>
 
       <!-- SOLO
            Les trois modes, et ce qui les entoure : la serie, les quetes, le
@@ -1369,10 +1379,137 @@
         </div>
       </header>
 
-            <section class="screen hidden" id="reglages"></section>
+      <!-- RÉGLAGES
+           Ils quittent le pied de l'accueil : on ne choisit pas « MOTIFS : ON »
+           comme on choisit une partie, et les laisser là leur donnait le même
+           poids qu'une carte de mode. -->
+      <section class="screen hidden" id="reglages">
+        <div class="screen__scroll">
+          <p class="eyebrow" data-i18n="reglages.titre">SETTINGS</p>
+          <h2 class="rulename" data-i18n="reglages.sous">HOW YOU LIKE IT</h2>
+
+          <!-- ⚠️ UNE LIGNE, PAS UN BOUTON.
+               « MUSIQUE : ON » dit dans quel état on est, jamais ce que ça
+               change. Chaque réglage porte donc son nom, la CONSÉQUENCE écrite
+               en une phrase, et un interrupteur à deux faces où l'on voit les
+               deux états à la fois. Le seul qui gagne un aperçu est MOTIFS :
+               c'est le seul dont personne ne peut deviner l'effet. -->
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.son">SOUND</p>
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.musique">MUSIC</p>
+                  <p class="rgl__quoi" data-i18n="rgl.musiqueQuoi">The tempo rises with the difficulty.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMusic" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.effets">EFFECTS</p>
+                  <p class="rgl__quoi" data-i18n="rgl.effetsQuoi">Alert on the last quarter of the window.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnSound" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rgl__section">
+            <!-- Le libellé dit ce que ça FAIT, pas à qui ça s'adresse : on ne
+                 demande à personne de se déclarer daltonien pour trouver un
+                 réglage qui rend simplement les pièces plus lisibles. -->
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.lisibilite">READABILITY</p>
+            <div class="rgl__bloc rgl__bloc--vedette">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.motifs">PATTERNS ON PIECES</p>
+                  <p class="rgl__quoi" data-i18n="rgl.motifsQuoi">Every colour also carries a texture.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMotifs" role="switch" aria-checked="false">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+              <!-- L'APERÇU montre les quatre trames réelles du jeu. Il est
+                   décoratif : ce qu'il dit, la phrase au-dessus le dit aussi. -->
+              <div class="rgl__apercu" aria-hidden="true">
+                <span class="rgl__ech rgl__ech--garance"></span>
+                <span class="rgl__ech rgl__ech--azur"></span>
+                <span class="rgl__ech rgl__ech--jade"></span>
+                <span class="rgl__ech rgl__ech--ambre"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rgl__section">
+            <!-- L'APPARENCE. Trois crans et non un interrupteur : AUTO suit le
+                 système, et c'est la bonne réponse par défaut — un interrupteur
+                 CLAIR / SOMBRE forcerait à choisir avant d'avoir eu à le faire. -->
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.apparence">APPEARANCE</p>
+            <div class="settings settings--seg rgl__theme">
+              <div class="settings__opts" id="rglTheme"></div>
+            </div>
+            <p class="rgl__note" data-i18n="rgl.apparenceQuoi">AUTO follows your device. DARK is easier on the eyes at night.</p>
+
+            <!-- LES PHOTOS DES AUTRES. Une photo est un contenu que personne ne
+                 modère : on doit pouvoir ne plus les voir sans quitter le salon.
+                 Les signes et les cartes de visite restent. -->
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.photos">OTHERS' PHOTOS</p>
+                  <p class="rgl__quoi" data-i18n="rgl.photosQuoi">Profile photos of the players in your room.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnPhotosAutres" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.allure">DEFAULT PACE · TRAINING</p>
+            <div class="opts" id="rglAllure"></div>
+            <p class="rgl__note" data-i18n="rgl.allureQuoi">It only applies to training. The daily run is the same for everyone.</p>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.langue">LANGUAGE</p>
+            <div class="lang" id="lang" role="group" aria-label="Language">
+              <button type="button" class="lang__btn" id="btnLangFr" lang="fr" aria-pressed="false">FRANÇAIS</button>
+              <button type="button" class="lang__btn is-on" id="btnLangEn" lang="en" aria-pressed="true">ENGLISH</button>
+            </div>
+          </div>
+
+          <div class="rgl__section">
+            <p class="eyebrow rgl__groupe" data-i18n="rgl.mesure">METRICS</p>
+            <div class="rgl__bloc">
+              <div class="rgl__ligne">
+                <div class="rgl__txt">
+                  <p class="rgl__nom" data-i18n="rgl.compter">COUNT MY GAMES</p>
+                  <p class="rgl__quoi" data-i18n="rgl.compterQuoi">A random local id. No account, no cookie, nothing sold.</p>
+                </div>
+                <button type="button" class="rgl__inter" id="btnMetrics" role="switch" aria-checked="true">
+                  <i data-i18n="commun.on">ON</i><i data-i18n="commun.off">OFF</i>
+                </button>
+              </div>
+            </div>
+
+          
+          </div>
+
+          <p class="fineprint" id="reglagesFineprint">MOUSE AND KEYBOARD · <b>R</b> TO RESTART · <b>ESC</b> FOR THE MENU</p>
+          <div class="btnrow">
+            <button class="btn btn--ghost" id="btnReglagesBack" data-i18n="commun.retour">BACK</button>
+          </div>
+        </div>
+      </section>
 
 
-<!-- LE MUR DES RECORDS
+      <!-- LE MUR DES RECORDS
            Vue 17/27. Le podium existait, mais il ne paraissait que sur l'ecran
            de FIN, apres un run du jour : les trois joueurs sur quatre qui ne
            lancent jamais une partie ne l'ont jamais vu. C'est le levier nomme
