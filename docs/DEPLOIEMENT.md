@@ -236,14 +236,25 @@ node scripts/integration-image.mjs --url http://localhost:8080
 
 ### Déployer et revenir en arrière depuis GitHub
 
-Deux flux **manuels** (onglet *Actions* → *Run workflow*), jamais déclenchés
-par un push. Prérequis : le secret `FLY_API_TOKEN` (`fly tokens create deploy`)
-dans l'environnement `production` du dépôt, idéalement protégé par une règle
-*Required reviewers*.
+Prérequis : le secret `FLY_API_TOKEN` (`fly tokens create deploy`) dans
+l'environnement `production` du dépôt. Une règle *Required reviewers* sur cet
+environnement fait attendre chaque déploiement, automatique compris, d'une
+approbation.
 
-- **Déploiement des salons** — taper `DEPLOYER`. Vérification rapide, refus
-  s'il y a des salons en cours (sauf « forcer »), `fly deploy`, `fly scale
-  count 1`, `check-salons`. L'image en place AVANT est écrite au résumé.
+- **Déploiement des salons** — part **seul après chaque fusion sur `master`**
+  (25/11/2026), dès que la *Vérification* de ce commit est verte, et
+  **seulement si** ce qui entre dans l'image a changé depuis la version en
+  ligne (les `COPY` du Dockerfile, plus `Dockerfile`, `fly.toml`,
+  `.dockerignore`) : une fusion du front ne redémarre pas les salons. S'il y a
+  des salons en cours, il attend jusqu'à 30 minutes qu'ils se vident, puis
+  abandonne. L'image est étiquetée du commit déployé, donc `/health` dit
+  d'où vient la version en ligne. À la main aussi (*Run workflow*, taper
+  `DEPLOYER`) : vérification rapide, refus s'il y a des salons en cours (sauf
+  « forcer »). Dans les deux cas : `fly deploy`, `fly scale count 1`,
+  `check-salons`, et l'image en place AVANT est écrite au résumé.
+  ⚠️ Vercel déploie la fusion tout de suite, Fly à la fin de la Vérification :
+  le front passe en premier. Une évolution du fil qui n'est pas négociée
+  (ancien client, ancien serveur) se déploie encore à la main, Fly d'abord.
 - **Retour arrière des salons** — coller cette image. `fly deploy --image`,
   une machine, une instance, et `/health` doit annoncer l'image demandée.
 
