@@ -733,7 +733,14 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   let porteur = null;
   let essais = 0;
   for (; essais < 20 && !porteur; essais++) {
-    for (const c of tab) { c.rules = {}; c.ended = null; }
+    /*
+     * ⚠️ LES VERDICTS AUSSI. Les index de manche repartent de 0 à chaque
+     * match : sans ce vidage, l'assertion qui cherche le verdict de LA manche
+     * fautive lisait celui d'un match de relance (siège inactif, mort au
+     * temps, aucune rancune en jeu). Vu en CI après quatre lancements — et
+     * dans un passage local qu'on avait cru « cassé » par le test.
+     */
+    for (const c of tab) { c.rules = {}; c.ended = null; c.verdicts = []; }
     tab[0].ws.send(JSON.stringify({ t: "start" }));
     await sleep(500);
     porteur = tab.find((c) => String(c.rules[c.id] ?? "").startsWith("rancune:")) ?? null;
@@ -761,10 +768,10 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
       const mien = v?.outcomes?.[porteur.id];
       ok(mien?.kind === "death", `la mauvaise pièce coûte une vie (${mien?.kind ?? "aucun verdict"}${mien?.reason ? " " + mien.reason : ""})`);
       /*
-       * ⚠️ Sous charge, le clic peut arriver après l'échéance : la mort est
-       * alors au TEMPS, et la rancune devient la pièce VISÉE — c'est la règle
-       * (`formeQuiACoute`), pas un échec. Vu une fois, l'e2e tournant à côté
-       * d'une couverture et d'un build.
+       * Un clic arrivé après l'échéance (machine chargée) fait mourir au
+       * TEMPS : la rancune devient alors la pièce VISÉE — c'est la règle
+       * (`formeQuiACoute`), pas un échec. Jamais observé tant que les
+       * verdicts sont vidés à chaque relance (voir plus haut).
        */
       const attendue = mien?.reason === MOTIFS.temps ? faute.visee : faute.forme;
       ok(

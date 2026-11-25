@@ -90,6 +90,26 @@ export const multiRulesFor = (clavier: boolean, consignes = 1): OneRule[] => {
 };
 
 /**
+ * Les règles à joindre au verdict (`verdict.nextRules`), ou null.
+ *
+ * Aux rotations, toujours : c'est l'annonce faite pendant la pause. Hors
+ * rotation, seulement si une règle publique a CHANGÉ entre la manche jugée et
+ * la suivante — c'est-à-dire une RANCUNE qui vient de changer de cible. Un
+ * salon sans LA RANCUNE ne voit jamais la différence.
+ *
+ * Pure, et sortie de `server/index.ts` pour être éprouvée sans horloge :
+ * l'e2e qui la couvre de bout en bout dépend de délais réels.
+ */
+export function reglesAAnnoncer(
+  avant: Readonly<Record<string, string>>,
+  apres: Record<string, string>,
+  rotation: boolean,
+): Record<string, string> | null {
+  if (rotation) return apres;
+  return Object.keys(apres).some((id) => apres[id] !== avant[id]) ? apres : null;
+}
+
+/**
  * Décalage de graine pour le tirage des règles.
  *
  * Le même nombre sert déjà à tirer les scènes (`draftShared`). Deux usages

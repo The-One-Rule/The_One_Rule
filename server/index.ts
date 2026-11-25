@@ -23,7 +23,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { formatMetrics } from "./metrics";
-import { MatchLogic, MULTI_RULES } from "./match";
+import { MatchLogic, MULTI_RULES, reglesAAnnoncer } from "./match";
 import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
 import {
   fautSignalerActe,
@@ -799,12 +799,8 @@ function closeRound(room: Room): void {
    * l'annonce en plein cadre comme une rotation. Un salon sans LA RANCUNE ne
    * voit jamais la différence : ses règles ne bougent qu'aux rotations.
    */
-  const reglesApres = over ? null : match.reglesPubliques(prochaineIdx);
-  const rancuneBouge =
-    !!reglesApres && Object.keys(reglesApres).some((id) => reglesApres[id] !== reglesAvant[id]);
-  if (reglesApres && (rotation || rancuneBouge)) {
-    verdict.nextRules = reglesApres;
-  }
+  const annonce = over ? null : reglesAAnnoncer(reglesAvant, match.reglesPubliques(prochaineIdx), rotation);
+  if (annonce) verdict.nextRules = annonce;
   broadcast(room, verdict);
 
   if (over && match.imposteur) {

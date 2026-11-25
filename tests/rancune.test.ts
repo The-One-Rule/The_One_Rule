@@ -14,7 +14,7 @@ import { applyRule, buildMultiRound, draftShared, poolMulti } from "../src/engin
 import { CONSIGNES_VERSION } from "../src/engine/instructions";
 import { SHAPE_IDS } from "../src/engine/types";
 import type { Entity, Round, ShapeId } from "../src/engine/types";
-import { MatchLogic, multiRulesFor } from "../server/match";
+import { MatchLogic, multiRulesFor, reglesAAnnoncer } from "../server/match";
 import { DEFAULT_SETTINGS } from "../shared/protocol";
 import type { RoomSettings } from "../shared/protocol";
 import { briefCourtDeRegle, briefDeRegle, nomDeRegle, poseLangue, traduisMotif } from "../src/i18n";
@@ -301,6 +301,30 @@ describe("LA RANCUNE — le match", () => {
     m.closeRound();
     expect(m.seats.find((s) => s.id === "a")!.stats.rulebreaks).toBe(1);
     expect(equipe(m, "a").rancune).toBe(avant);
+  });
+
+  it("le verdict annonce la nouvelle cible — et se tait quand rien ne change", () => {
+    /*
+     * La décision de `server/index.ts` (`verdict.nextRules`), éprouvée sans
+     * horloge. Sans elle, le client garderait l'ancienne cible et son aperçu
+     * contredirait le verdict (n°3).
+     */
+    const m = matchRancune();
+    viesLarges(m);
+    // Une manche tenue en silence ou jouée : rien à annoncer hors rotation.
+    const avantTenue = m.reglesPubliques(0);
+    expect(reglesAAnnoncer(avantTenue, m.reglesPubliques(1), false)).toBeNull();
+    // À une rotation, toujours.
+    expect(reglesAAnnoncer(avantTenue, m.reglesPubliques(1), true)).toEqual(m.reglesPubliques(1));
+
+    const depart = equipe(m, "a").rancune;
+    const round = ouvreJusqua(m, "a", (_r, cible) => cible.shape !== depart);
+    const cible = round.ents[(round.steps[0] as { idx: number }).idx]!;
+    const avant = m.reglesPubliques(m.roundIdx);
+    m.closeRound(); // mort au temps
+    const annonce = reglesAAnnoncer(avant, m.reglesPubliques(m.roundIdx + 1), false);
+    expect(annonce?.a).toBe(`rancune:${cible.shape}`);
+    expect(annonce?.b).toBe(avant.b);
   });
 
   it("par rotation, on hérite de SON passé, pas d'une forme neuve", () => {
