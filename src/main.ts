@@ -25,6 +25,7 @@ import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./ga
 import * as ESC from "./game/escalier";
 import * as PC from "./game/parcours";
 import type { Position } from "./game/parcours";
+import * as BQ from "./game/boutique";
 import type { SkinId } from "./game/boutique";
 import { exploitDuRun } from "./render/exploit";
 import { actionsDeFin } from "./render/finactions";
@@ -59,6 +60,7 @@ import { Hud } from "./render/hud";
 import { fillOptions } from "./render/option";
 import { colorHex, SceneRenderer } from "./render/scene";
 import type { GesteAffiche } from "./render/scene";
+import { dessineApercu } from "./render/skins";
 import { stableGutter, wantsColumns } from "./render/layout";
 import { lancementRefuse, scoreDuJour, vueDuJour } from "./render/jour";
 import { MEILLEUR_CONNU, vueBut } from "./render/but";
@@ -130,12 +132,7 @@ import {
   paysageSerre,
 } from "./render/orientation";
 import { musicApi, setEnabled, setMusicEnabled, sfx, unlock } from "./audio";
-import { flush, initAnalytics, noteErreur, setAnalyticsEnabled, track } from "./analytics";
-import { montre } from "./nav";
-import type { EcranId as ScreenId } from "./nav";
-import { monteReglages } from "./features/reglages/monte";
-import { monteBoutique } from "./features/boutique/monte";
-import { invalideReglages } from "./features/reglages/etat";
+import { flush, initAnalytics, setAnalyticsEnabled, track } from "./analytics";
 import { initMulti, readInvite } from "./multi";
 import {
   appliqueLangue,
@@ -337,6 +334,26 @@ function syncField(): void {
   gutters = next;
   appEl.classList.toggle("has-gutters", next);
 }
+
+const SCREENS = [
+  "home",
+  "niveau",
+  "boutique",
+  "fiche",
+  "solo",
+  "brief",
+  "over",
+  "codex",
+  "compte",
+  "classement",
+  "amis",
+  "reglages",
+  "multi-id",
+  "multi-join",
+  "multi-lobby",
+  "multi-end",
+] as const;
+type ScreenId = (typeof SCREENS)[number] | null;
 
 let screen: ScreenId = "home";
 /**
@@ -578,7 +595,7 @@ function show(id: ScreenId): void {
   cacheToast();
   cacheRelance();
   screen = id;
-  montre(id);
+  for (const s of SCREENS) $(s).classList.toggle("hidden", s !== id);
   terrainMasque = id !== null && fondOpaque($(id));
   // La partie et le salon gardent l'écran allumé : voir `eveil.ts`.
   gardeEcranAllume(id === null || id === "multi-lobby" || id === "multi-end");
@@ -1363,27 +1380,73 @@ function appliqueSkin(id: SkinId): void {
   document.documentElement.dataset.skin = id;
 }
 
+function renderBoutique(): void {
+  const s = P.load();
+  const T = tp();
+  $("boutiquePieces").textContent = String(s.coins);
+  const grille = $("skins");
+  grille.innerHTML = "";
+  for (const skin of BQ.SKINS) {
+    const possede = s.boutique.possedes.includes(skin.id);
+    const porte = s.boutique.porte === skin.id;
+    const carte = document.createElement("div");
+    carte.className = "skin" + (porte ? " is-porte" : "") + (possede ? " is-possede" : "");
+    carte.innerHTML =
+      `<canvas class="skin__apercu" width="240" height="120" aria-hidden="true"></canvas>` +
+      `<div class="skin__corps"><b class="skin__nom"></b><span class="skin__desc"></span></div>` +
+      `<button type="button" class="btn skin__btn"></button>`;
+    carte.querySelector<HTMLElement>(".skin__nom")!.textContent = T.skinNom[skin.id] ?? skin.id;
+    carte.querySelector<HTMLElement>(".skin__desc")!.textContent = T.skinDesc[skin.id] ?? "";
+    dessineApercu(carte.querySelector("canvas")!, skin.id);
+    const b = carte.querySelector<HTMLButtonElement>(".skin__btn")!;
+    if (porte) {
+      b.textContent = T.porte;
+      b.disabled = true;
+    } else if (possede) {
+      b.textContent = T.porter;
+      b.addEventListener("click", () => {
+        sfx.ui();
+        P.mutate((st) => {
+          st.boutique = BQ.porte(st.boutique, skin.id);
+        });
+        appliqueSkin(skin.id);
+        renderBoutique();
+      });
+    } else {
+      const manque = skin.prix - s.coins;
+      b.textContent = manque > 0 ? T.manque(manque) : T.acheter(skin.prix);
+      b.classList.toggle("btn--primary", manque <= 0);
+      b.disabled = manque > 0;
+      b.addEventListener("click", () => {
+        let ok = false;
+        P.mutate((st) => {
+          const r = BQ.achete(st.boutique, st.coins, skin.id);
+          if (r.ok) {
+            st.boutique = r.etat;
+            st.coins = r.pieces;
+            ok = true;
+          }
+        });
+        if (!ok) return;
+        sfx.win();
+        appliqueSkin(skin.id);
+        track("boutique_achat", { skin: skin.id, prix: skin.prix });
+        montreToast(T.achete(T.skinNom[skin.id] ?? skin.id), "", 1800);
+        renderBoutique();
+      });
+    }
+    grille.appendChild(carte);
+  }
+}
+
 function ouvreBoutique(): void {
+  renderBoutique();
   show("boutique");
 }
 
-monteBoutique($("boutique"), {
-  skin(id) {
-    appliqueSkin(id);
-  },
-  achat(id, prix, nom) {
-    track("boutique_achat", { skin: id, prix });
-    montreToast(tp().achete(nom), "", 1800);
-  },
-  retour() {
-    backHome();
-  },
-  ui() {
-    sfx.ui();
-  },
-  gagne() {
-    sfx.win();
-  },
+$("btnBoutiqueRetour").addEventListener("click", () => {
+  sfx.ui();
+  backHome();
 });
 
 function choisitLangue(lang: Lang): void {
@@ -1535,7 +1598,107 @@ function renderSolo(): void {
   $("cardRankedState").textContent = `${divisionOf(s.ranked.rating).name} · ${s.ranked.rating}`;
 }
 
+/**
+ * Les libellés des réglages.
+ *
+ * Ils étaient rafraîchis par `renderHome` du temps où ils vivaient dans son
+ * pied. Depuis qu'ils ont leur écran, c'est lui qui les porte — sinon SON et
+ * MUSIQUE affichent l'état d'avant le dernier changement, ce qui est
+ * exactement le genre de mensonge qu'un bouton bascule ne pardonne pas.
+ */
+function renderReglages(): void {
+  const s = P.load();
+  poseInter("btnSound", s.sound);
+  poseInter("btnMusic", s.music);
+  appliqueMotifs(s.daltonien);
+  renderTheme();
+  poseInter("btnPhotosAutres", s.photosAutres);
+  refreshMetricsButton();
+  renderAllureDefaut();
+}
 
+
+/*
+ * ⚠️ UN INTERRUPTEUR NE S'ÉCRIT PAS EN `textContent`.
+ *
+ * Il porte deux `<i>` — la face ON et la face OFF, toutes deux visibles — et
+ * une écriture les détruirait. C'est exactement le piège des cartes de
+ * l'accueil (`tests/cartes.test.ts`), payé une fois de plus au même endroit :
+ * un élément à enfants ne se met à jour que par sa CLASSE.
+ *
+ * Et il annonce son état aux lecteurs d'écran par `aria-checked`, que la
+ * couleur ne dit pas.
+ */
+function poseInter(id: string, on: boolean): void {
+  const b = $(id);
+  b.classList.toggle("is-on", on);
+  b.setAttribute("aria-checked", String(on));
+}
+
+/**
+ * L'allure par défaut de l'entraînement, réglée ICI.
+ *
+ * Elle n'existait que dans le brief, donc introuvable : un joueur qui trouve
+ * le jeu trop rapide n'a aucune raison d'aller la chercher au moment précis
+ * où il vient de choisir une règle. Le défaut du joueur est 2 (DÉBUT), et
+ * c'est le chiffre que ce réglage sert à défaire.
+ */
+function renderAllureDefaut(): void {
+  const current = P.load().trainingPace;
+  const hote = $("rglAllure");
+  // De la plus LENTE à la plus rapide : une jauge qui descend de gauche à
+  // droite se lit à l'envers. `PACE_CHOICES` les donne dans l'autre sens.
+  const lentesDabord = [...PACE_CHOICES].sort((a, b) => b - a);
+  fillOptions(
+    hote,
+    lentesDabord.map((v, i) => ({
+      value: String(v),
+      label: nomAllure(v, PACE_LABELS[v] ?? String(v)),
+      hint: `${Math.round(fenetreAllure(windowMs(10), v))} MS`,
+      level: i + 1,
+      steps: lentesDabord.length,
+      icon: "bars" as const,
+      selected: v === current,
+      aria: `${nomAllure(v, PACE_LABELS[v] ?? String(v))} — ${Math.round(fenetreAllure(windowMs(10), v))} ms`,
+    })),
+  );
+  for (const btn of Array.from(hote.children)) {
+    btn.addEventListener("click", () => {
+      sfx.ui();
+      P.mutate((st) => {
+        st.trainingPace = Number((btn as HTMLElement).dataset.value);
+      });
+      renderAllureDefaut();
+    });
+  }
+}
+
+/**
+ * Pose le second canal partout où il doit l'être.
+ *
+ * Trois surfaces, et trois seulement — le reste du jeu porte DÉJÀ un second
+ * canal et n'a rien à changer : les plaques distinguent vivant et mort par un
+ * remplissage plein contre un liseré, le verdict de fin porte le mot autant
+ * que le filet, et l'état critique parle à l'oreille (`sfx.urgent`) au même
+ * seuil qu'à l'œil.
+ *
+ * Restaient les pièces — la trame du canevas — et la frise de fin de run, qui
+ * est une suite de carrés de couleur pure sans aucune autre marque. La classe
+ * sur `#app` laisse la feuille de style traiter la seconde.
+ */
+/*
+ * L'APPARENCE — AUTO, CLAIR ou SOMBRE.
+ *
+ * Le jeu se joue le soir, entre amis : c'est là qu'ont eu lieu tous les
+ * playtests. Une page sable plein écran dans une pièce éteinte éblouit, et la
+ * première identité du jeu était justement « Nocturne ». AUTO suit le système ;
+ * les deux autres le forcent.
+ *
+ * ⚠️ Le CSS décide seul en AUTO (`prefers-color-scheme`), mais le CANVAS ne lit
+ * pas de CSS : il faut lui dire si la page est sombre, et le lui redire quand
+ * le système bascule en cours de partie. D'où l'écoute du `matchMedia`, posée
+ * une fois.
+ */
 const nuitSysteme =
   typeof matchMedia === "function" ? matchMedia("(prefers-color-scheme: dark)") : null;
 
@@ -1548,9 +1711,37 @@ function appliqueTheme(theme: P.Theme): void {
 
 nuitSysteme?.addEventListener?.("change", () => appliqueTheme(P.load().theme));
 
+function renderTheme(): void {
+  const courant = P.load().theme;
+  const hote = $("rglTheme");
+  fillOptions(
+    hote,
+    P.THEMES.map((v) => ({
+      value: v,
+      label: t("themeNom")(v),
+      level: 0,
+      steps: 0,
+      icon: "dots" as const,
+      selected: v === courant,
+      compact: true,
+    })),
+  );
+  for (const btn of Array.from(hote.children)) {
+    btn.addEventListener("click", () => {
+      sfx.ui();
+      const st = P.mutate((x) => {
+        x.theme = (btn as HTMLElement).dataset.value as P.Theme;
+      });
+      appliqueTheme(st.theme);
+      renderTheme();
+    });
+  }
+}
+
 function appliqueMotifs(on: boolean): void {
   scene.daltonien = on;
   appEl.classList.toggle("is-motifs", on);
+  poseInter("btnMotifs", on);
 }
 
 /**
@@ -1686,10 +1877,10 @@ function renderCodex(): void {
    */
   const stat = CHAINES[langue()];
   if (codexVue === "training") {
-    $("codexEyebrow").textContent = stat["carte.training.titre"] ?? "";
+    $("codexEyebrow").textContent = stat["carte.training.titre"];
     $("codexTitre").textContent = t("salleTitre");
   } else {
-    $("codexEyebrow").textContent = stat["carnet.collection"] ?? "";
+    $("codexEyebrow").textContent = stat["carnet.collection"];
     $("codexTitre").textContent = `${vues} / ${ONE_RULES.length}`;
   }
   $("codexProgress").textContent = t("carnetProgres")(vues, ONE_RULES.length, maitrisees);
@@ -6835,57 +7026,12 @@ $("btnTopBrand").addEventListener("click", () => {
 });
 $("btnTopReglages").addEventListener("click", () => {
   sfx.ui();
+  renderReglages();
   show("reglages");
 });
-monteReglages($("reglages"), {
-  son(on) {
-    const sauve = P.mutate((st) => {
-      st.sound = on;
-    });
-    setEnabled(sauve.sound);
-  },
-  musique(on) {
-    const sauve = P.mutate((st) => {
-      st.music = on;
-    });
-    setMusicEnabled(sauve.music);
-  },
-  photos(on) {
-    P.mutate((st) => {
-      st.photosAutres = on;
-    });
-  },
-  motifs(on) {
-    P.mutate((st) => {
-      st.daltonien = on;
-    });
-    appliqueMotifs(on);
-  },
-  theme(theme) {
-    const sauve = P.mutate((st) => {
-      st.theme = theme;
-    });
-    appliqueTheme(sauve.theme);
-  },
-  allure(v) {
-    P.mutate((st) => {
-      st.trainingPace = v;
-    });
-  },
-  langue(lang) {
-    choisitLangue(lang);
-    invalideReglages();
-  },
-  mesure(on) {
-    decideMetrics(on);
-  },
-  retour() {
-    backHome();
-  },
-  ui() {
-    sfx.ui();
-  },
-});
+$("btnLangFr").addEventListener("click", () => choisitLangue("fr"));
+$("btnLangEn").addEventListener("click", () => choisitLangue("en"));
+$("btnReglagesBack").addEventListener("click", () => backHome());
 $("btnCompteBack").addEventListener("click", () => backHome());
 $("btnCompteInvite").addEventListener("click", () => {
   // Ouvrir l'écran vaut acceptation de l'invitation : elle ne réapparaîtra
@@ -6970,7 +7116,40 @@ $("btnCompteQuitter").addEventListener("click", () => {
   sfx.ui();
   renderCompte();
 });
-$("btnRanked").classList.toggle("hidden", !rankedAvailable());
+$("btnSound").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.sound = !st.sound;
+  });
+  setEnabled(s.sound);
+  $("btnRanked").classList.toggle("hidden", !rankedAvailable());
+  poseInter("btnSound", s.sound);
+  sfx.ui();
+});
+
+$("btnMusic").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.music = !st.music;
+  });
+  setMusicEnabled(s.music);
+  poseInter("btnMusic", s.music);
+  sfx.ui();
+});
+
+$("btnPhotosAutres").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.photosAutres = !st.photosAutres;
+  });
+  poseInter("btnPhotosAutres", s.photosAutres);
+  sfx.ui();
+});
+
+$("btnMotifs").addEventListener("click", () => {
+  const s = P.mutate((st) => {
+    st.daltonien = !st.daltonien;
+  });
+  appliqueMotifs(s.daltonien);
+  sfx.ui();
+});
 
 $("btnDuel").addEventListener("click", async () => {
   if (!lastRun) return;
@@ -7788,9 +7967,6 @@ function setupAnalytics(): void {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") flush();
   });
-  // Une exception chez un joueur part dans la mesure, déjà nettoyée.
-  window.addEventListener("error", (e) => noteErreur("error", e.message));
-  window.addEventListener("unhandledrejection", (e) => noteErreur("rejection", e.reason));
 
   /*
    * ⚠️ LE BANDEAU NE S'AFFICHE PLUS À L'ARRIVÉE. Voir `proposeMesure()`.
@@ -7809,7 +7985,7 @@ function setupAnalytics(): void {
 }
 
 function refreshMetricsButton(): void {
-  invalideReglages();
+  poseInter("btnMetrics", P.load().metrics.on);
 }
 
 function decideMetrics(on: boolean): void {
@@ -7827,6 +8003,10 @@ function decideMetrics(on: boolean): void {
 
 $("btnMetricsOk").addEventListener("click", () => decideMetrics(true));
 $("btnMetricsOff").addEventListener("click", () => decideMetrics(false));
+$("btnMetrics").addEventListener("click", () => {
+  decideMetrics(!P.load().metrics.on);
+  sfx.ui();
+});
 
 day = dayIndex();
 setupAnalytics();
@@ -7979,6 +8159,7 @@ function ouvreAdresse(id: EcranId): void {
       void ouvreCompte();
       return;
     case "reglages":
+      renderReglages();
       show("reglages");
       return;
     case "boutique":

@@ -12,8 +12,6 @@
  *  - désactivable, et le refus est respecté définitivement
  */
 
-import { avecDelai } from "../reseau";
-
 /**
  * Les quatre premiers chiffres mesurent un joueur seul. Les événements
  * `*_sent` / `*_opened` mesurent l'entonnoir social, qui a sa propre question :
@@ -134,11 +132,6 @@ export const EVENT_NAMES = [
   "avis_mot",
   "installer",
   "amis_partage",
-  /*
-   * Une exception chez un joueur. Le message est déjà nettoyé côté client
-   * (pas d'URL, pas de jeton). Le collecteur le recoupe encore à 40 caractères.
-   */
-  "erreur",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
@@ -178,15 +171,12 @@ function httpTransport(endpoint: string): Transport {
       } catch {
         /* on retombe sur fetch */
       }
-      void fetch(
-        endpoint,
-        avecDelai({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body,
-          keepalive: true,
-        }),
-      ).catch(() => undefined);
+      void fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => undefined);
     },
   };
 }
@@ -255,65 +245,3 @@ export function initAnalytics(opts: Options): Analytics {
 export const track: Analytics["track"] = (ev, props) => instance?.track(ev, props);
 export const flush = (): void => instance?.flush();
 export const setAnalyticsEnabled = (on: boolean): void => instance?.setEnabled(on);
-
-/* ------------------------------------------------------------------ *
- * Erreurs du client
- *
- * Silence pour la mesure elle-même : une exception ne doit pas casser la
- * partie. Mais elle ne doit pas non plus disparaître. On en garde une trace
- * bornée, sans URL ni jeton, et on refuse de se rappeler soi-même.
- * ------------------------------------------------------------------ */
-
-const ERREUR_MAX = 80;
-const ERREUR_PAR_MINUTE = 8;
-const FENETRE_ERREUR_MS = 60_000;
-
-let erreurFenetre = 0;
-let erreurCompte = 0;
-let erreurVues: string[] = [];
-let erreurEnCours = false;
-
-/** Retire ce qu'un message d'erreur peut déjà contenir : URL, jeton, bearer. */
-export function nettoieMessageErreur(brut: unknown): string {
-  const s = brut instanceof Error ? brut.message : typeof brut === "string" ? brut : "";
-  return s
-    .replace(/https?:\/\/\S+/gi, "[url]")
-    .replace(/Bearer\s+\S+/gi, "Bearer [jeton]")
-    .replace(/[A-Za-z0-9_-]{12,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, "[jeton]")
-    .slice(0, ERREUR_MAX);
-}
-
-/** Remet le compteur. Les tests s'en servent ; le jeu n'en a pas besoin. */
-export function reinitialiseErreurs(): void {
-  erreurFenetre = 0;
-  erreurCompte = 0;
-  erreurVues = [];
-  erreurEnCours = false;
-}
-
-/**
- * Note une exception. Même message dans la minute : une fois. Au-delà de
- * huit messages différents par minute : on se tait. Un appel pendant qu'on
- * note déjà (le transport qui relance) ne fait rien.
- */
-export function noteErreur(source: "error" | "rejection", brut: unknown, maintenant: number = Date.now()): void {
-  if (erreurEnCours) return;
-  erreurEnCours = true;
-  try {
-    const msg = nettoieMessageErreur(brut);
-    if (!msg) return;
-    if (maintenant - erreurFenetre > FENETRE_ERREUR_MS) {
-      erreurFenetre = maintenant;
-      erreurCompte = 0;
-      erreurVues = [];
-    }
-    const cle = `${source}:${msg}`;
-    if (erreurVues.includes(cle)) return;
-    if (erreurCompte >= ERREUR_PAR_MINUTE) return;
-    erreurVues.push(cle);
-    erreurCompte += 1;
-    track("erreur", { ou: source, msg });
-  } finally {
-    erreurEnCours = false;
-  }
-}

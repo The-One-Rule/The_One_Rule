@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Analytics, flush, initAnalytics, nettoieMessageErreur, noteErreur, reinitialiseErreurs } from "../src/analytics";
+import { Analytics } from "../src/analytics";
 import type { TrackedEvent, Transport } from "../src/analytics";
 
 function harness(enabled = true) {
@@ -86,60 +86,5 @@ describe("mesure", () => {
     vi.advanceTimersByTime(10_000);
     expect(sent).toHaveLength(1);
     vi.useRealTimers();
-  });
-});
-
-describe("erreurs client", () => {
-  it("retire les URL et les jetons du message", () => {
-    const msg = nettoieMessageErreur(
-      "échec https://jeu.test/api?tok=secret Bearer aaa.bbbbbbbb.cccccccc plus",
-    );
-    expect(msg).not.toContain("https://");
-    expect(msg).not.toContain("aaa.bbbbbbbb");
-    expect(msg).toContain("[url]");
-    expect(msg).toContain("[jeton]");
-  });
-
-  it("n'envoie qu'une fois le même message dans la minute, et huit au plus", () => {
-    reinitialiseErreurs();
-    const sent: TrackedEvent[][] = [];
-    initAnalytics({
-      id: "e",
-      day: 1,
-      enabled: true,
-      now: () => 0,
-      transport: { send: (p) => void sent.push(p.batch) },
-    });
-    noteErreur("error", "casse https://x.test/a", 1_000);
-    noteErreur("error", "casse https://x.test/a", 2_000);
-    for (let i = 0; i < 12; i++) noteErreur("error", `panne ${i}`, 3_000);
-    flush();
-    const msgs = sent.flat().map((e) => e.msg);
-    expect(msgs[0]).toBe("casse [url]");
-    expect(msgs.filter((m) => m === "casse [url]")).toHaveLength(1);
-    expect(msgs).toHaveLength(8);
-  });
-
-  it("ne se rappelle pas pendant que le transport envoie", () => {
-    reinitialiseErreurs();
-    let envois = 0;
-    const a = initAnalytics({
-      id: "e",
-      day: 1,
-      enabled: true,
-      now: () => 0,
-      transport: {
-        send() {
-          envois += 1;
-          noteErreur("rejection", "depuis le transport", 9_000);
-        },
-      },
-    });
-    for (let i = 0; i < 19; i++) a.track("run_end", { score: i });
-    noteErreur("error", "declencheur", 9_000);
-    // Le transport rappelle noteErreur. Sans la garde, cet appel rangerait
-    // un événement de plus (pending > 0) après le vidage des 20.
-    expect(envois).toBe(1);
-    expect(a.pending).toBe(0);
   });
 });

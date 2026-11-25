@@ -23,7 +23,7 @@ const seconde = ONE_RULES.find((r) => r.id === "seconde")!;
 describe("LA SECONDE ne juge pas un lever qui ne répond à rien", () => {
   it("un lever à 80 ms d'une manche ouverte n'est pas une action", () => {
     const s = new Session({ mode: "training", rule: seconde, rng: mulberry32(3), now: 0, seed: 3, touchOnly: true });
-    const lever: Action = { kind: "lift", ent: s.round.ents[0] ?? null, x: 0, y: 0 };
+    const lever: Action = { kind: "lift", ent: s.round.ents[0], x: 0, y: 0 };
     const r = resolveAction(s.round, { step: 0 }, lever, 80, seconde.judge);
     expect(r.outcome.kind).toBe("pending");
   });

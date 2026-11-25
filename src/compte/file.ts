@@ -16,7 +16,6 @@
 
 import { compte } from "./index";
 import { cleanEnv } from "../env";
-import { avecDelai } from "../reseau";
 import type { LoggedInput } from "../engine/verify";
 
 const CLE = "oneRule.envois.v1";
@@ -205,14 +204,11 @@ async function videUne(): Promise<Resultat[]> {
         restants.push(e);
         continue;
       }
-      const res = await fetch(
-        POINT,
-        avecDelai({
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
-          body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs, capacites: e.capacites, catalogue: e.catalogue }),
-        }),
-      );
+      const res = await fetch(POINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
+        body: JSON.stringify({ mode: e.mode, jour: e.jour, inputs: e.inputs, capacites: e.capacites, catalogue: e.catalogue }),
+      });
       if (res.ok) {
         const r = (await res.json()) as Resultat;
         // ⚠️ On ne recolle PAS un refus sur `enregistre: false` : c'est

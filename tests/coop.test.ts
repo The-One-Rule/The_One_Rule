@@ -508,7 +508,7 @@ describe("curseurs — canal hors verdict", () => {
   });
 
   it("le verdict coop ne lit jamais le curseur", () => {
-    const index = readFileSync("server/messages/index.ts", "utf8");
+    const index = readFileSync("server/index.ts", "utf8");
     const coop = readFileSync("server/coop.ts", "utf8");
     const debut = index.indexOf("if (room.coop)");
     const fin = index.indexOf("const match = room.match;", debut);
@@ -518,7 +518,7 @@ describe("curseurs — canal hors verdict", () => {
     expect(branche).not.toMatch(/cursorPos|lastCursor|msg\.x|msg\.y/);
     expect(coop).not.toMatch(/cursor/i);
     expect(coop).toMatch(/x: cible\.x,\s*y: cible\.y/);
-    expect(readFileSync("server/salon.ts", "utf8")).toMatch(/Jamais lu par inputCoop/);
+    expect(index).toMatch(/Jamais lu par inputCoop/);
   });
 
   it("borneCurseur cale dans le champ et refuse le non-nombre", () => {
