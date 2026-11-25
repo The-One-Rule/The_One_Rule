@@ -294,12 +294,13 @@ relus, pas mis en compétition).
 
 ## 10. Ce qui reste à trancher
 
-1. **La boutique du compte n'est branchée à aucun écran.** Le jeu lit la
-   boutique de l'appareil, et c'est voulu (n°12). Faire du compte la source du
-   solde demande de régler un vrai problème : une monnaie qui **décroît** ne
-   fusionne pas par maximum comme le carnet. Le grand livre et l'import par
-   appareil sont prêts ; il manque un compteur de gains par appareil (monotone,
-   lui) pour créditer sans compter deux fois. Décision de produit.
+1. ~~La boutique du compte n'est branchée à aucun écran.~~ **TRANCHÉ le
+   25/11/2026 : elle RESTE côté serveur.** Le jeu lit la boutique de
+   l'appareil (n°12) ; la route, le dépôt et le client existent, aucun écran
+   ne les appelle, et c'est voulu. La rouvrir demandera de régler d'abord le
+   vrai problème : une monnaie qui **décroît** ne fusionne pas par maximum
+   comme le carnet — il faudrait un compteur de gains par appareil (monotone,
+   lui) pour créditer sans compter deux fois.
 2. **PGlite en dépendance de développement**, pour que la validation du §9
    tourne en CI au lieu d'à la main.
 3. **`ancien_id`** de `performance` : à retirer après vérification en

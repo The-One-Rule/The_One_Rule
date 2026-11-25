@@ -16,9 +16,9 @@
  * l'appareil (`src/game/boutique.ts`, `st.coins`), et elle le reste : la
  * décision n°12 interdit qu'une fonctionnalité de jeu dépende du compte. Cette
  * route est la version liée au compte — le client sait l'appeler
- * (`src/compte/boutique.ts`), mais AUCUN écran ne le fait encore : décider que
- * le solde du compte remplace celui de l'appareil est une décision de produit,
- * écrite dans docs/BASE-DE-DONNEES.md avec ce qu'elle coûte.
+ * (`src/compte/boutique.ts`), mais AUCUN écran ne le fait, et c'est DÉCIDÉ
+ * (25/11/2026 : la boutique du compte reste côté serveur). La brancher
+ * demanderait une décision neuve — voir docs/BASE-DE-DONNEES.md §10.
  *
  * ⚠️ Les pièces importées sont des AFFIRMATIONS du client, comme le carnet
  * (décision n°14). Le grand livre les garantit contre la double comptabilité,

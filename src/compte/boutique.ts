@@ -7,7 +7,7 @@
  * même source que la route : le client et le serveur lisent une réponse avec
  * la même fonction.
  *
- * ⚠️ AUCUN ÉCRAN NE L'APPELLE ENCORE, et c'est une décision, pas un oubli. La
+ * ⚠️ AUCUN ÉCRAN NE L'APPELLE, et c'est une décision (25/11/2026), pas un oubli. La
  * boutique que le jeu lit est celle de l'APPAREIL (`st.coins`,
  * `st.boutique`) ; faire du compte la source du solde est un choix de produit
  * qui a un coût écrit dans docs/BASE-DE-DONNEES.md (§ « Ce qui reste à

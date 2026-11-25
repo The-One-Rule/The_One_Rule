@@ -785,9 +785,10 @@ dans `docs/BASE-DE-DONNEES.md` et l'ADR 0011 ; ce qui ne s'y lit pas :
   (comme `compte_cree`). Deux tests s'en servaient pour bannir ; ils passent
   par `DepotMemoire.remplace`, une aide de test.
 - **La boutique du COMPTE existe (route, dépôt, client) et aucun écran ne
-  l'appelle.** Le jeu lit la boutique de l'appareil (n°12). En faire la
-  source du solde est une décision de produit : une monnaie qui DÉCROÎT ne
-  fusionne pas par maximum. Voir §10 du document.
+  l'appelle — DÉCIDÉ ainsi (25/11) : elle reste côté serveur.** Le jeu lit
+  la boutique de l'appareil (n°12). Ne pas la brancher sans une décision
+  neuve : une monnaie qui DÉCROÎT ne fusionne pas par maximum. Voir §10 du
+  document.
 - Amis : AJOUTER 7 → 5 allers-retours en série, ACCEPTER 9 → 5
   (`tests/amis-profondeur`), et plus aucune fenêtre C4.
 - **À faire par Pierre** : sauvegarde, puis 0006 → 0009, puis fusion de la PR
