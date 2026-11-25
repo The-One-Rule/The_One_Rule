@@ -101,6 +101,7 @@ function enregistreur() {
       peint.push({ x, y, marge: mg, style });
     }
   };
+  const rect = (x: number, y: number, w: number, h: number) => (pt(x, y), pt(x + w, y), pt(x, y + h), pt(x + w, y + h));
   const ctx: Record<string, unknown> = {
     save: () => {
       pile.push(m);
@@ -127,18 +128,18 @@ function enregistreur() {
     arcTo: (a: number, b: number, x: number, y: number) => (pt(a, b), pt(x, y)),
     arc: (x: number, y: number, r: number) => pt(x, y, r),
     ellipse: (x: number, y: number, rx: number, ry: number) => pt(x, y, Math.max(rx, ry)),
-    rect: (x: number, y: number, w: number, h: number) => (pt(x, y), pt(x + w, y), pt(x, y + h), pt(x + w, y + h)),
+    rect,
     roundRect: (x: number, y: number, w: number, h: number) => (pt(x, y), pt(x + w, y), pt(x, y + h), pt(x + w, y + h)),
     fill: () => vide(0, etat.fillStyle),
     stroke: () => vide((etat.lineWidth / 2) * echelle(), etat.strokeStyle),
     fillRect: (x: number, y: number, w: number, h: number) => {
       chemin = [];
-      ctx.rect(x, y, w, h);
+      rect(x, y, w, h);
       vide(0, etat.fillStyle);
     },
     strokeRect: (x: number, y: number, w: number, h: number) => {
       chemin = [];
-      ctx.rect(x, y, w, h);
+      rect(x, y, w, h);
       vide((etat.lineWidth / 2) * echelle(), etat.strokeStyle);
     },
     clip: () => {
