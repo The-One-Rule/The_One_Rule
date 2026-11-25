@@ -12,11 +12,11 @@
  * Ce fichier tourne à l'identique dans le navigateur et dans la fonction edge.
  */
 
-import { mulberry32 } from "./rng";
-import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./rules";
-import { combineRules } from "./rules/combine";
-import { pileA, pileEscalade } from "./escalade";
-import { buildRound } from "./round";
+import { mulberry32 } from "./rng.js";
+import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./rules/index.js";
+import { combineRules } from "./rules/combine.js";
+import { pileA, pileEscalade } from "./escalade.js";
+import { buildRound } from "./round.js";
 import {
   INSTRUCTIONS,
   INSTRUCTIONS_SOLO,
@@ -24,10 +24,10 @@ import {
   TOUCH_INSTRUCTIONS,
   TOUCH_INSTRUCTIONS_SOLO,
   TOUCH_INSTRUCTIONS_SOLO_V2,
-} from "./instructions";
-import { resolveAction, resolveTimeout } from "./resolve";
-import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty";
-import type { Action, Entity, OneRule, Round, RoundProgress } from "./types";
+} from "./instructions/index.js";
+import { resolveAction, resolveTimeout } from "./resolve.js";
+import { DAILY_LENGTH, GRACE_ROUNDS, pardonnable } from "./difficulty.js";
+import type { Action, Entity, OneRule, Round, RoundProgress } from "./types.js";
 
 /** Une entrée journalisée. `t` est en ms depuis le début du run. */
 export type LoggedInput =

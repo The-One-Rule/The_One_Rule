@@ -1,5 +1,5 @@
 /**
- * Le compte de celui qui le demande — fonction edge Vercel.
+ * Le compte de celui qui le demande — fonction Vercel (runtime Node).
  *
  * ⚠️ CE QUI ARRIVE ICI N'EST PAS VÉRIFIÉ, ET C'EST ASSUMÉ.
  *
@@ -18,24 +18,24 @@
  * n'attend pas, y compris un carnet de dix mille entrées.
  */
 
-import { carteValide } from "../shared/profil";
+import { carteValide } from "../shared/profil.js";
 import {
   agregatsVides,
   apparenceAutorisee,
   fusionne,
   litApparence,
   normalisePseudo,
-} from "../shared/compte";
-import type { Agregats, CarnetEntree, EscalierEntree } from "../shared/compte";
-import { PALIER_SOMMET } from "../src/game/escalier";
-import { DAILY_ESSAIS } from "../src/engine/difficulty";
-import { consomme } from "./_debit";
-import { depotConfigure } from "./_depot";
-import type { Depot, Utilisateur } from "./_depot";
-import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton";
-import { GLYPH_COUNT } from "../src/net/glyph";
-import { cleanEnv } from "../src/env";
-import { litObjet } from "./_corps";
+} from "../shared/compte.js";
+import type { Agregats, CarnetEntree, EscalierEntree } from "../shared/compte.js";
+import { PALIER_SOMMET } from "../src/game/escalier.js";
+import { DAILY_ESSAIS } from "../src/engine/difficulty.js";
+import { consomme } from "./_debit.js";
+import { depotConfigure } from "./_depot-prisma.js";
+import type { Depot, Utilisateur } from "./_depot.js";
+import { jetonDeLaRequete, signeJeton, verifieJeton } from "./_jeton.js";
+import { GLYPH_COUNT } from "../src/net/glyph.js";
+import { cleanEnv } from "../src/env.js";
+import { litObjet } from "./_corps.js";
 
 /**
  * Nettoie `parAllure` : des clés d'allure connues, des entiers bornés.
@@ -54,7 +54,8 @@ function allures(v: unknown): Record<string, number> {
   return out;
 }
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
 /* ------------------------------------------------------------------ *
  * Bornes
@@ -406,5 +407,12 @@ export async function traite(
   return json({ error: "action inconnue" }, 404);
 }
 
-export default (req: Request): Promise<Response> =>
+const entree = (req: Request): Promise<Response> =>
   traite(req, process.env as Record<string, string | undefined>);
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

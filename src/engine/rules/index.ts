@@ -1,10 +1,10 @@
-import { MOTIFS } from "../motifs";
-import { rChance, rInt } from "../rng";
-import { STEP_MS } from "../difficulty";
-import { INSTRUCTIONS } from "../instructions";
-import { COLOR_IDS, FIELD_H, FIELD_W } from "../types";
-import type { ColorId, Entity, OneRule, Want } from "../types";
-import { VOWELS } from "../instructions";
+import { MOTIFS } from "../motifs.js";
+import { rChance, rInt } from "../rng.js";
+import { STEP_MS } from "../difficulty.js";
+import { INSTRUCTIONS } from "../instructions/index.js";
+import { COLOR_IDS, FIELD_H, FIELD_W } from "../types.js";
+import type { ColorId, Entity, OneRule, Want } from "../types.js";
+import { VOWELS } from "../instructions/index.js";
 
 /* ------------------------------------------------------------------ *
  * Helpers partagés

@@ -20,9 +20,9 @@
  * la même clé.
  */
 
-import { INSTRUCTIONS_SOLO } from "./instructions";
-import { ONE_RULES } from "./rules";
-import { DAILY_LENGTH, GRACE_ROUNDS, STEP_MS, windowMs } from "./difficulty";
+import { INSTRUCTIONS_SOLO } from "./instructions/index.js";
+import { ONE_RULES } from "./rules/index.js";
+import { DAILY_LENGTH, GRACE_ROUNDS, STEP_MS, windowMs } from "./difficulty.js";
 
 /**
  * FNV-1a 32 bits.

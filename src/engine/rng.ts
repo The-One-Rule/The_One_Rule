@@ -1,4 +1,4 @@
-import type { Rng } from "./types";
+import type { Rng } from "./types.js";
 
 /** PRNG déterministe, 32 bits, rapide. Même seed = même partie, partout. */
 export function mulberry32(seed: number): Rng {

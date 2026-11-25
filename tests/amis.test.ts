@@ -29,8 +29,7 @@ import type { Participant } from "../shared/amis";
 
 const ENV = {
   TOR_AUTH_SECRET: "secret-de-test-assez-long-pour-ne-pas-etre-ridicule",
-  SUPABASE_URL: "https://exemple.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "cle",
+  DATABASE_URL: "postgresql://test@127.0.0.1:1/aucune",
 };
 const JOUR = 300;
 const MAINTENANT = Date.UTC(2026, 0, 1) + JOUR * 86_400_000 + 12 * 3_600_000;

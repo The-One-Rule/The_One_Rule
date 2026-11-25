@@ -18,11 +18,11 @@
  * Le préfixe `_` empêche Vercel d'en faire un point d'entrée.
  */
 
-import type { Agregats } from "../shared/compte";
-import { ruleById } from "../src/engine/rules";
-import { estMaitrisee } from "../src/game/maitrise";
-import type { RuleRecord } from "../src/game/progress";
-import { CHAPITRES, NIVEAUX } from "../src/game/parcours";
+import type { Agregats } from "../shared/compte.js";
+import { ruleById } from "../src/engine/rules/index.js";
+import { estMaitrisee } from "../src/game/maitrise.js";
+import type { RuleRecord } from "../src/game/progress.js";
+import { CHAPITRES, NIVEAUX } from "../src/game/parcours.js";
 
 /** Une carte possédée, telle que `agregats_ecrit` l'attend. */
 export interface LigneCarte {

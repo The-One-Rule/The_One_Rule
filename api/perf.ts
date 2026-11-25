@@ -1,5 +1,5 @@
 /**
- * Enregistrement d'une performance — fonction edge Vercel.
+ * Enregistrement d'une performance — fonction Vercel (runtime Node).
  *
  * PRINCIPE, hérité de `api/ranked.ts` : le serveur ne fait jamais confiance à
  * un score. Il reçoit un JOURNAL D'ENTRÉES, le rejoue avec le moteur pur, et
@@ -37,20 +37,21 @@
  * n'aurait pas cette borne, et c'est pourquoi il n'en existe pas.
  */
 
-import { verifyRun } from "../src/engine/verify";
-import type { LoggedInput, RunClaim } from "../src/engine/verify";
-import { analyseReactions } from "../src/ranked/antibot";
-import { dailySeed, ruleOfDay } from "../src/game/daily";
-import { cleDuJour } from "../src/game/perfs";
-import { VERSION_CONTENU } from "../src/engine/version";
-import { consomme } from "./_debit";
-import { depotConfigure } from "./_depot";
-import type { Depot, Perf } from "./_depot";
-import { jetonDeLaRequete, verifieJeton } from "./_jeton";
-import { cleanEnv } from "../src/env";
-import { litObjet } from "./_corps";
+import { verifyRun } from "../src/engine/verify.js";
+import type { LoggedInput, RunClaim } from "../src/engine/verify.js";
+import { analyseReactions } from "../src/ranked/antibot.js";
+import { dailySeed, ruleOfDay } from "../src/game/daily.js";
+import { cleDuJour } from "../src/game/perfs.js";
+import { VERSION_CONTENU } from "../src/engine/version.js";
+import { consomme } from "./_debit.js";
+import { depotConfigure } from "./_depot-prisma.js";
+import type { Depot, Perf } from "./_depot.js";
+import { jetonDeLaRequete, verifieJeton } from "./_jeton.js";
+import { cleanEnv } from "../src/env.js";
+import { litObjet } from "./_corps.js";
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
 /** Même plafond que `api/ranked.ts` : un journal de 40 manches y tient large. */
 const MAX_BODY = 120_000;
@@ -311,7 +312,7 @@ export async function traite(
  * d'erreur de la plateforme. Le statut reste 500 : la file du client
  * (`src/compte/file.ts`) réessaie tout 5xx, c'est le comportement voulu.
  */
-export default async (req: Request): Promise<Response> => {
+const entree = async (req: Request): Promise<Response> => {
   try {
     return await traite(req, process.env as Record<string, string | undefined>);
   } catch (err) {
@@ -319,3 +320,10 @@ export default async (req: Request): Promise<Response> => {
     return json({ error: "interne" }, 500);
   }
 };
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

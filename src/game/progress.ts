@@ -1,12 +1,12 @@
-import { dayIndex } from "./daily";
-import { langueDuNavigateur } from "../i18n";
-import { cleEntrainement } from "./perfs";
-import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty";
-import { fusionne } from "../../shared/compte";
-import type { Agregats, EscalierEntree } from "../../shared/compte";
-import { litEtoiles } from "./parcours";
-import { litBoutique } from "./boutique";
-import type { EtatBoutique } from "./boutique";
+import { dayIndex } from "./daily.js";
+import { langueDuNavigateur } from "../i18n.js";
+import { cleEntrainement } from "./perfs.js";
+import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty.js";
+import { fusionne } from "../../shared/compte.js";
+import type { Agregats, EscalierEntree } from "../../shared/compte.js";
+import { litEtoiles } from "./parcours.js";
+import { litBoutique } from "./boutique.js";
+import type { EtatBoutique } from "./boutique.js";
 
 const KEY = "oneRule.save.v1";
 
@@ -75,8 +75,8 @@ export interface RuleRecord {
   etoiles?: number[];
 }
 
-import { litProfil } from "../../shared/profil";
-import type { Profil } from "../../shared/profil";
+import { litProfil } from "../../shared/profil.js";
+import type { Profil } from "../../shared/profil.js";
 
 export type Theme = "auto" | "clair" | "sombre";
 export const THEMES: readonly Theme[] = ["auto", "clair", "sombre"];

@@ -1,5 +1,5 @@
-import { MOTIFS } from "./motifs";
-import type { Action, Entity, Outcome, Round, RoundProgress, Step } from "./types";
+import { MOTIFS } from "./motifs.js";
+import type { Action, Entity, Outcome, Round, RoundProgress, Step } from "./types.js";
 
 /**
  * Une action satisfait-elle une etape ?

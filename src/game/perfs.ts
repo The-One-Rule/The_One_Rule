@@ -18,8 +18,8 @@
  * l'infrastructure qui en rendra un possible, rien de plus.
  */
 
-import { cleComparaison } from "../../shared/compte";
-import { VERSION_CONTENU } from "../engine/version";
+import { cleComparaison } from "../../shared/compte.js";
+import { VERSION_CONTENU } from "../engine/version.js";
 
 /**
  * Les modes qui produisent une performance enregistrable.

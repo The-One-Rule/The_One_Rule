@@ -1,6 +1,6 @@
-import { FIELD_H, FIELD_W, RADIUS } from "./types";
-import type { Entity, EntitySpec, Rng, SizeId } from "./types";
-import { rInt } from "./rng";
+import { FIELD_H, FIELD_W, RADIUS } from "./types.js";
+import type { Entity, EntitySpec, Rng, SizeId } from "./types.js";
+import { rInt } from "./rng.js";
 
 const COLS = 5;
 const ROWS = 3;

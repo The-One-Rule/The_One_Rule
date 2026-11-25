@@ -26,7 +26,7 @@
  * allure, cadence de pièges, annonce du piège) : `palierDeNiveau` en rend la
  * forme exacte, donc la plomberie de `main.ts` et de `Session` n'a pas bougé.
  */
-import type { Annonce, Palier } from "./escalier";
+import type { Annonce, Palier } from "./escalier.js";
 
 /* ------------------------------------------------------------------ *
  * Les chapitres

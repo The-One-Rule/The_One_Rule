@@ -19,8 +19,7 @@ import { signeJeton } from "../server/jeton";
 
 const ENV = {
   TOR_AUTH_SECRET: "secret-de-test-assez-long-pour-ne-pas-etre-ridicule",
-  SUPABASE_URL: "https://exemple.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "cle",
+  DATABASE_URL: "postgresql://test@127.0.0.1:1/aucune",
 };
 const K1 = "11111111-1111-4111-8111-111111111111";
 const K2 = "22222222-2222-4222-8222-222222222222";
