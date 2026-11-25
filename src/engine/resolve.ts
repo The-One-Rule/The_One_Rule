@@ -71,7 +71,7 @@ export function resolveAction(
   if (action.kind === "lift" && !leverAttendu(round, progress)) {
     return { outcome: { kind: "pending" }, progress };
   }
-  const violation = judge(action, { round, elapsedMs });
+  const violation = judge(action, { round, elapsedMs, previousColor: round.previousColor });
   if (violation) {
     return { outcome: { kind: "death", cause: "macro", reason: violation }, progress };
   }

@@ -21,6 +21,7 @@
  */
 import { ONE_RULES } from "./index.js";
 import type { Entity, OneRule, Round, Rng, Want } from "../types.js";
+import type { ColorId } from "../types.js";
 
 /**
  * Paires qui produisent des manches INJOUABLES, et non difficiles.
@@ -79,7 +80,8 @@ export function combineRules(rules: readonly OneRule[]): OneRule {
     brief: ordre.map((r) => r.brief).join(" "),
     // Une pile piège dès qu'UNE de ses règles piège.
     traps: ordre.some((r) => r.traps),
-    forbids: (want: Want, ents: Entity[]) => ordre.some((r) => r.forbids(want, ents)),
+    forbids: (want: Want, ents: Entity[], previousColor?: ColorId) =>
+      ordre.some((r) => r.forbids(want, ents, previousColor)),
     /*
      * Le PREMIER motif trouvé, dans l'ordre du catalogue.
      *

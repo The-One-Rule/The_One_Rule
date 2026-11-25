@@ -239,6 +239,8 @@ export interface Instruction {
 export interface Round {
   instructionId: string;
   text: string;
+  /** La couleur cliquée lors de la manche précédente, pour L'ÉCHO. */
+  previousColor?: ColorId;
   /** La consigne structuree, composee a l'affichage. Voir `Phrase`. */
   phrase?: Phrase;
   sousPhrase?: string;
@@ -266,6 +268,7 @@ export interface Round {
 export interface JudgeContext {
   round: Round;
   elapsedMs: number;
+  previousColor?: ColorId;
 }
 
 /**
@@ -288,7 +291,7 @@ export interface OneRule {
   brief: string;
   /** true si la règle peut piéger — sert à l'équilibrage et aux tests */
   traps: boolean;
-  forbids(want: Want, ents: Entity[]): boolean;
+  forbids(want: Want, ents: Entity[], previousColor?: ColorId): boolean;
   judge(action: Action, ctx: JudgeContext): string | null;
   transform?(round: Round, rng: Rng, level: number): Round;
   /** touche qui doit rester enfoncée toute la partie */

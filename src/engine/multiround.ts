@@ -31,7 +31,7 @@ import {
 import { place } from "./scene";
 import { plancherParGeste, poidsGestes, windowForSteps } from "./difficulty";
 import { compile } from "./round";
-import type { Instruction, OneRule, Round, Want } from "./types";
+import type { ColorId, Instruction, OneRule, Round, Want } from "./types";
 
 /** Partie commune d'une manche, avant application d'une règle. */
 export interface SharedRound {
@@ -122,9 +122,9 @@ export function draftShared(
  * doivent jamais fuir dans la scène d'un autre (le serveur applique les douze
  * règles sur la même manche pour juger tout le monde).
  */
-export function applyRule(shared: SharedRound, rule: OneRule, seed: number): Round {
+export function applyRule(shared: SharedRound, rule: OneRule, seed: number, previousColor?: ColorId): Round {
   const ents = shared.ents.map((e) => ({ ...e }));
-  const trap = rule.forbids(shared.want, ents);
+  const trap = rule.forbids(shared.want, ents, previousColor);
 
   let round: Round = {
     instructionId: shared.instructionId,
@@ -242,4 +242,5 @@ export const buildMultiRound = (
   rule: OneRule,
   pool?: Instruction[],
   tirage = 0,
-): Round => applyRule(draftShared(seed, idx, pool, tirage), rule, seed);
+  previousColor?: ColorId,
+): Round => applyRule(draftShared(seed, idx, pool, tirage), rule, seed, previousColor);

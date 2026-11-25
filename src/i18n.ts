@@ -1440,6 +1440,7 @@ const DYN: Record<Lang, Dyn> = {
     pickResteManches: (n) => `${n} MANCHE${n > 1 ? "S" : ""}`,
     pickRestePiege: "1 PIÈGE",
     pickMaitrisee: "MAÎTRISÉE",
+    /* --- le podium du jour --- */
     podiumRang: (r, sc) => `TU ES ${r}${r === 1 ? "ᵉʳ" : "ᵉ"} · ${sc} MANCHE${sc > 1 ? "S" : ""}`,
     podiumAbsent: "CRÉE UN COMPTE POUR Y FIGURER",
     pickPourMaitriser: (r) => `POUR LA MAÎTRISER : ${r}`,
@@ -1515,8 +1516,11 @@ const DYN: Record<Lang, Dyn> = {
     ariaImposteur: "Imposteur : une règle commune secrète, dix manches, personne n'est éliminé, un vote",
     ariaCoop: "Coop : une vie commune, une scène identique, chacun un interdit de cible, 12 vagues, 4 à 6 joueurs",
     ariaSigne: (n, total) => `Signe ${n} sur ${total}`,
+    /** Le choix « pas de carte de visite ». */
     carteAucune: "Aucune carte",
+    /** La photo choisie n'a pas pu être lue ou réduite. */
     photoIllisible: "CETTE IMAGE NE SE LIT PAS. ESSAIE UNE AUTRE PHOTO.",
+    /** Les amis : erreurs d'ajout, une par cause — chacune dit quoi faire. */
     amisErr: {
       code: "UN CODE FAIT SIX LETTRES OU CHIFFRES.",
       soi: "C'EST TON PROPRE CODE.",
@@ -1576,7 +1580,7 @@ const DYN: Record<Lang, Dyn> = {
     siegeHote: "HÔTE",
     siegeDebutant: "1RE PARTIE · +1 VIE",
     siegePret: "PRÊT",
-    siegeEnMatch: (v, sc) => `${v} VIE${v > 1 ? "S" : ""} · ${sc} MANCHES`,
+    siegeEnMatch: (vies, sc) => `${vies} VIE${vies > 1 ? "S" : ""} · ${sc} MANCHES`,
     tamponLent: "TROP LENT",
     tamponInfraction: "INFRACTION",
     tamponRate: "RATÉ",
@@ -1609,6 +1613,7 @@ const DYN: Record<Lang, Dyn> = {
     piedDepasse: "SUR TON MIEUX",
     objectifReste: (n) => `OBJECTIF · ${n} MANCHE${n > 1 ? "S" : ""}`,
     exerciceValide: "EXERCICE VALIDÉ",
+    /** Les cinq régimes du run (`TIER_NAMES`), annoncés toutes les 10 manches. */
     nomsPaliers: ["ÉCHAUFFEMENT", "PRESSION", "ÉTAU", "ASPHYXIE", "AU-DELÀ"],
     briefLongueur: "MANCHES",
     briefEssais: "ESSAIS",
@@ -1617,7 +1622,7 @@ const DYN: Record<Lang, Dyn> = {
     avanceParfaite: (regle) => `${regle} · PARFAITE · 6 / 6`,
     resteFait: (score, sur) => `Run du jour bouclé · ${score} sur ${sur} manches.`,
     resteEpuise: (score) => `Trois essais joués · ${score} manches retenues.`,
-    resteTravailler: (regle, et, max) => `TRAVAILLER ${regle} · ★ ${et}/${max}`,
+    resteTravailler: (regle, etoiles, max) => `TRAVAILLER ${regle} · ★ ${etoiles}/${max}`,
     coupureEtat: (essai, sur, s) => `ESSAI ${essai} SUR ${sur} · ${s} S RESTANTES`,
     sortieOuvrir: "OUVRIR LE MIEN",
     sortieRecharger: "RECHARGER",
@@ -1681,10 +1686,14 @@ const DYN: Record<Lang, Dyn> = {
      * 2nd, 3rd, 4th ». Deux fonctions separees, chacune dans sa langue — une
      * table commune aurait fini par produire « 2er » ou « 1th ».
      */
-    finTonRang: (place, total, manches) =>
-      `TU FINIS ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
-    finExAequo: (place, total, manches) =>
-      `EX ÆQUO ${place}${place === 1 ? "ᵉʳ" : "ᵉ"} SUR ${total} · MANCHE ${manches}`,
+    finTonRang: (place, total, manches) => {
+      const d = place % 10;
+      const c = place % 100;
+      const suf =
+        d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
+      return `TU FINIS ${place}${suf} SUR ${total} · MANCHE ${manches}`;
+    },
+    finExAequo: (place, total, manches) => `EX ÆQUO ${place}${rangSuffixe(place)} SUR ${total} · MANCHE ${manches}`,
     finReperRecord: (n) => `TON RECORD · ${n}`,
     finReperMediane: (n) => `MÉDIANE · ${n}`,
     finReperMeilleur: (n) => `RECORD · ${n}`,
@@ -1692,6 +1701,7 @@ const DYN: Record<Lang, Dyn> = {
     finLegPiege: "PIÈGE DÉJOUÉ",
     finLegFaute: "ÉCHAUFFEMENT",
     finLegChute: "CHUTE",
+    /** Les trois tuiles de bilan, sur l'écran de fin. */
     bilanQuetes: "QUÊTES",
     bilanSerie: "SÉRIE",
     bilanCarnet: "CARNET",
@@ -1771,513 +1781,6 @@ const DYN: Record<Lang, Dyn> = {
     prefMusique: "MUSIQUE",
     prefMotifs: "MOTIFS",
     prefMesure: "MESURE",
-    on: "ON",
-    off: "OFF",
-  },
-  en: {
-    compteSupprimer: "DELETE ACCOUNT",
-    compteNom: "CHANGE NAME",
-    carteCases: (n) => `${n} / 6 · MASTERY`,
-    carteParfaite: "PERFECT",
-    carteVerrouillee: "LOCKED",
-    carteDecouverte: "DISCOVERED",
-    carteEnCours: "IN PROGRESS",
-    carteMaitrisee: "MASTERED",
-    carteNouvelle: "NEW",
-    salleTitre: "MASTER YOUR RULES",
-    codexVide:
-      "No rule met yet. Start a run: a card unlocks by PLAYING, never by reading.",
-    filtreAMater: (n) => `TO MASTER · ${n}`,
-    filtreMaitrisees: (n) => `MASTERED · ${n}`,
-    filtreToutes: (n) => `ALL · ${n}`,
-    filtreInterdits: (n) => `FORBIDS · ${n}`,
-    filtreDeformations: (n) => `DISTORTIONS · ${n}`,
-    filtreContraintes: (n) => `CONSTRAINTS · ${n}`,
-    filtreVerrouillees: (n) => `LOCKED · ${n}`,
-    salleJamaisVues: (n) =>
-      n === 0
-        ? "You have met all sixteen rules."
-        : `${n} rule${n === 1 ? "" : "s"} you have never seen. They only come up by playing.`,
-    resisteNote: (runs, et, max) =>
-      `${runs} run${runs === 1 ? "" : "s"} under this rule · ★ ${et} / ${max} in the chapter.`,
-    resisteBouton: "WORK ON THAT ONE",
-    etatCollReste: (n) =>
-      `${n} rule${n === 1 ? "" : "s"} you have never seen. They only turn up by playing.`,
-    etatCollTout: "You have met them all.",
-    etatJourFait: (n) => `${n} ROUNDS`,
-    etatJourEpuise: "THREE TRIES PLAYED",
-    etatJourVierge: "NOT PLAYED YET",
-    etatJourReste: (n) => `${n} TR${n === 1 ? "Y" : "IES"} LEFT`,
-    etatJourNote: (essais, manches) =>
-      `${essais} TR${essais > 1 ? "IES" : "Y"} · ${manches} ROUNDS`,
-    etatGraceOui: "1 GRACE DAY AVAILABLE",
-    etatGraceNon: "GRACE DAY ALREADY USED",
-    filtreRien: "Nothing in this category yet.",
-    navAttend: "YOUR RULE IS WAITING",
-    famInterdit: "FORBIDS",
-    famDeformation: "DISTORTION",
-    famContrainte: "CONSTRAINT",
-    ficheTaux: (t) => `TRAPS ${t} OF ROUNDS`,
-    ficheMaitrise: (n) => `MASTERY · ${n} / 6`,
-    ficheMeilleur: "BEST",
-    ficheSerie: "STREAK",
-    fichePieges: "TRAPS",
-    casRencontree: "Met in a run",
-    casPiege: "One trap defused at least once",
-    casSerie: (n) => `${n} clean rounds in a row`,
-    casAllure: (nom, n) => `${n} rounds at ${nom} pace`,
-    casSansFaute: (n) => `A ${n}-round run without a single slip`,
-    ficheManqueManches: (n, allure) =>
-      `${n} more round${n === 1 ? "" : "s"} at ${allure} pace.`,
-    ficheManquePiege: "You still have a trap to defuse under this rule.",
-    ficheManqueSerie: (n) => `${n} more clean round${n === 1 ? "" : "s"} in a row.`,
-    ficheManqueSansFaute: (n) => `A ${n}-round run without a single slip.`,
-    ficheRienNeManque: "Nothing left. This rule is perfect.",
-    ficheEntraine: (allure) => `TRAIN · ${allure}`,
-    hudGeste: "1 MOVE",
-    hudTiens: "LET GO WHEN THE RING IS FULL",
-    hudGestes: (n) => `${n} MOVES`,
-    hudDerniereVie: "LAST LIFE",
-    butManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
-    butUnite: "ROUNDS",
-    butMieux: "Think you can do better?",
-    butDejaBattu: "You are already past that.",
-    butSien: (n) => `YOUR SCORE TODAY · ${n}`,
-    butModeJour: "DAILY RUN",
-    avanceRegle: (regle, cases) => `${regle} · MASTERY ${cases} / 6`,
-    avancePieges: (n) => `+${n} trap${n === 1 ? "" : "s"} defused.`,
-    avanceManches: (n, allure) => `Best at ${allure} pace: ${n} rounds.`,
-    avanceCase: "One more box.",
-    avanceRien: "Nothing new on this rule this time.",
-    avanceTravailler: (regle) => `WORK ON ${regle}`,
-    goutFaitAvancer: (quoi) => `This run advances: ${quoi}`,
-    goutRienAAvancer: "This card is perfect.",
-    cptConnecte: "SIGNED IN",
-    cptMeilleur: "BEST SCORE",
-    cptCourtRecord: "BEST",
-    cptCourtCartes: "CARDS",
-    cptCourtSerie: "STREAK",
-    cptRegleCarnet: "RULES IN CODEX",
-    cptMaitrisees: "MASTERED",
-    cptSerieEnCours: "CURRENT STREAK",
-    cptEnJours: (n) => `${n} D`,
-    cptRepartition: (p, m, d, v) =>
-      `${p} perfect · ${m} mastered · ${d} discovered · ${v} locked`,
-    cptJourFait: (score) => `${score} today`,
-    cptJourRang: (rang) => `#${rang} today · replayed by the server`,
-    cptJourRien: "Not played today yet.",
-    cptGarde: (score) => `KEEP THAT ${score}`,
-    cptGardeRien: "KEEP YOUR PROGRESS",
-    decouverteNote: (manche, vues, total) =>
-      `Met at round ${manche}. Added to the codex · ${vues} / ${total}.`,
-    butModeEntrainement: "TRAINING",
-    cptNomRate: "COULD NOT SAVE THE NAME — IT STILL WORKS ON THIS DEVICE",
-    compteConfirmer: "CONFIRM DELETION",
-    compteTitreConnecte: "YOUR ACCOUNT",
-    compteTitreAnonyme: "SAVE YOUR RUNS",
-    compteIndispo: "ACCOUNTS ARE NOT AVAILABLE RIGHT NOW.",
-    compteSuppressionKo: "DELETION FAILED FOR NOW. TRY AGAIN LATER.",
-    briefUneDePlus: "ONE MORE",
-    briefEspace: "PRESS SPACE AND HOLD IT DOWN TO START",
-    rankedRecherche: "SEARCHING…",
-    rankedNom: "RANKED",
-    rankedIndispo: "RANKED UNAVAILABLE",
-    rankedEnvoi: "SENDING THE RUN…",
-    rankedInjoignable: "SERVER UNREACHABLE · RUN NOT RANKED",
-    rankedEyebrow: (d, e) => `RANKED · ${d} · ${e}`,
-    goMaintiens: "HOLD SPACE",
-    goEntrer: "ENTER THE ARENA",
-    goDefi: "TAKE THE CHALLENGE",
-    quetesValidees: (p) => `QUESTS CLEARED · +${p} COINS`,
-    serieEnCours: "STREAK RUNNING",
-    defiRecu: "CHALLENGE RECEIVED",
-    defiDe: (q) => `CHALLENGE FROM ${q}`,
-    defiMemeOrdre: (m) => `SAME RUN, SAME ORDER · THEY HELD ${m} ROUNDS`,
-    defierAmi: "CHALLENGE A FRIEND",
-    defierHorsLigne: "OPEN THE GAME ONLINE TO CHALLENGE",
-    lienCopie: "LINK COPIED ✓",
-    partager: "SHARE",
-    copieOk: "COPIED ✓",
-    reactiverMessages: "Unmute their messages",
-    couperMessages: "Mute their messages",
-    reactiver: "Unmute",
-    couper: "Mute",
-    muet: "MUTED",
-    sourdine: "MUTE",
-    exclure: "KICK",
-    inviteQuelquun: "INVITE SOMEONE",
-    enAttente: "WAITING",
-    reglagesHote: "SETTINGS · HOST",
-    reglagesSalon: "ROOM SETTINGS",
-    connexion: "CONNECTING…",
-    ilFautUnNom: "YOU NEED A NAME SO THE OTHERS CAN SEE YOU",
-    codeCopie: (c) => `CODE ${c} COPIED`,
-    lienInvitation: "INVITE LINK · ONE CLICK TO COPY",
-    regleChange: "YOUR RULE CHANGES",
-    regleUnique: "YOUR ONE RULE",
-    duel: "DUEL",
-    elimineSous: (r) => `OUT · ${r}`,
-    matchTermine: "MATCH OVER",
-    egalite: "DRAW",
-    tuAsGagne: "YOU WON",
-    finGagne: (nom) => `${nom} WINS`,
-    vainqueur: "WINNER",
-    finDuMatch: "MATCH OVER",
-    modeDaily: (j) => `DAILY RUN · #${j}`,
-    modeEscalade: "THE STACK",
-    modeTraining: "TRAINING",
-    piedDaily: (j) => `DAY #${j}`,
-    piedSur: "OF",
-    piedRegles: "RULES",
-    piedRecord: "BEST",
-    piedScore: "SCORE",
-    briefEscalade: (p) =>
-      `You start with one rule. Every ${p} rounds another one is added — and you hold them all. How far?`,
-    briefDailyLignes: (m) => `${m} ROUNDS · YOUR BEST ATTEMPT COUNTS`,
-    briefEscaladeLignes: (m) => `${m} RULES AT MOST · YOUR SCORE IS WHAT YOU HOLD`,
-    briefTiens: "PRESS SPACE AND HOLD IT DOWN",
-    goCommencer: "START",
-    goUnSeulEssai: "START",
-    dailyEssaisRestants: (n) => `${n} ATTEMPT${n === 1 ? "" : "S"} LEFT`,
-    dailyEpuise: (sc) => `${sc} ROUND${sc === 1 ? "" : "S"} · COME BACK TOMORROW`,
-    dailyTermine: (sc) => `CLEARED · ${sc} ROUNDS`,
-    piedVies: "LIVES",
-    piedSpectateur: "SPECTATING",
-    piedMulti: "MULTI",
-    echauffement: "WARM-UP — YOU CANNOT DIE",
-    echauffementFini: "NOW IT COUNTS",
-    piegeDejoue: "TRAP AVOIDED",
-    tenu: "HELD",
-    faitMaj: "DONE",
-    cptSansNom: "NO NAME",
-    profilLocal: "ON THIS DEVICE",
-    profilTop: "PROFILE",
-    cptCarnet: "RULE BOOK",
-    cptRegles: (n, tot) => `${n} / ${tot} RULES`,
-    cptSerie: "STREAK",
-    cptJours: (n) => `${n} DAY${n === 1 ? "" : "S"}`,
-    cptRecordEntrainement: "TRAINING BEST",
-    cptManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
-    cptRunsEnregistres: "DAILY RUNS SAVED",
-    cptMeilleurRun: "BEST DAILY RUN",
-    dailyFait: "Done for today.",
-    dailyRevient: (n) => `${n} ROUND${n === 1 ? "" : "S"} · COME BACK TOMORROW`,
-    dailyUnEssai: "THREE ATTEMPTS",
-    escaladeEtat: "HOW FAR DO YOU HOLD?",
-    trainingNeuf: "START HERE · NOTHING TO LOSE",
-    trainingRecord: (n) => `BEST · ${n} ROUND${n === 1 ? "" : "S"}`,
-    teaserDefaut: "A rule is waiting for you.",
-    pickAleatoire: "RANDOM",
-    pickVerrouille: "— — —",
-    pickCompte: (v, t, m) => `${v} / ${t} · ${m} MASTERED`,
-    pickAideAleatoire:
-      "The game picks, unseen rules first — each joins the list once you have played it.",
-    pickAideChoisie: (r) => `You are training ${r}.`,
-    pickResteManches: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
-    pickRestePiege: "1 TRAP",
-    pickMaitrisee: "MASTERED",
-    podiumRang: (r, sc) => `YOU ARE ${r}${rangSuffixe(r)} · ${sc} ROUND${sc === 1 ? "" : "S"}`,
-    podiumAbsent: "CREATE AN ACCOUNT TO APPEAR HERE",
-    pickPourMaitriser: (r) => `TO MASTER IT: ${r}`,
-    carnetProgres: (v, t, k) => `${v} / ${t} MET · ${k} MASTERED`,
-    carnetJamais: "NEVER MET",
-    carnetMeilleur: (b) => `BEST ${b}`,
-    finReglesTenues: (n, sc) =>
-      `${n === 1 ? "RULE" : "RULES"} HELD · ${sc} ROUND${sc === 1 ? "" : "S"}`,
-    finSansFaute: "ROUNDS · FLAWLESS",
-    finSurTotal: (t) => `ROUNDS OUT OF ${t}`,
-    finManchesTenues: "ROUNDS HELD",
-    overCompRecord: (n) => `YOUR BEST · ${n}`,
-    overCompMediane: (n) => `MEDIAN · ${n}`,
-    overCompAbsolu: (n) => `RECORD · ${n}`,
-    finBattu: "YOU BEAT YOUR RECORD",
-    overAncien: (n) => `PREVIOUS · ${n}`,
-    overCarteRegle: (regle, pieges) =>
-      `${regle} · ${pieges} TRAP${pieges === 1 ? "" : "S"} DEFUSED`,
-    overManque: (n) =>
-      `YOU NEED ${n} MORE ROUND${n === 1 ? "" : "S"} TO MATCH THE RECORD`,
-    overManquePas: "YOU ARE PAST THE KNOWN RECORD",
-    finPartagerCarte: "SHARE THE CARD",
-    microDecouverte: "RULE DISCOVERED",
-    microMaitrisee: "RULE MASTERED",
-    microEchauffement: "WARM-UP IS OVER",
-    microEchauffementQuoi: "From now on, a mistake costs a life.",
-    microMaitriseQuoi:
-      "You held 15 rounds AND defused its traps. That is what mastering a rule means.",
-    microCarnet: (vues, total) => `IT ENTERS THE CODEX · ${vues} / ${total}`,
-    toastLien: "LINK COPIED",
-    toastEntre: (nom, n, max) => `${nom} JUST IN · ${n} / ${max}`,
-    toastAllure: "PACE",
-    pastilleSur: (n) => `+${n} OVER YOUR BEST`,
-    pastilleRecord: (n) => `RECORD BEATEN · ${n}`,
-    installerAndroid: "Add TOR to your home screen: no browser bar, more board.",
-    installerIos: "Tap Share, then “Add to Home Screen”: no browser bar, more board.",
-    installerCompris: "GOT IT",
-    hudVite: "FAST",
-    puceDe: (id) => (debout && id === "gaucher" ? GAUCHER_DEBOUT.en.puce : (PUCES.en[id] ?? "")),
-    allureRef: "REFERENCE PACE · THIS IS THE ONE THAT SETS YOUR BEST",
-    alluurePlus: (r) => `MORE TIME TO LEARN · ONLY ${r} SETS YOUR BEST`,
-    allureMoins: (r) => `LESS TIME THAN THE REFERENCE · ONLY ${r} SETS YOUR BEST`,
-    salonJoueurs: (n, max) => `${n} / ${max} PLAYERS`,
-    salonSeulHint: "THE MATCH STARTS AS SOON AS SOMEONE ARRIVES",
-    salonPlaceLibre: "FREE SLOT",
-    reglagesVerrouilles: "SETTINGS LOCKED DURING A MATCH",
-    reglagesTuDecides: "YOU DECIDE FOR THE WHOLE ROOM · TAP AN OPTION TO CHANGE IT",
-    reglagesInvite: "ONLY WHOEVER CREATED THE ROOM CAN CHANGE THESE SETTINGS",
-    vitesseQuoi: (nom, delta) =>
-      `${nom} · ${delta > 0 ? "+" : ""}${delta} MS ON ROUND 20`,
-    vitesseQuoiRef: (nom, ms) => `${nom} · ${ms} MS ON ROUND 20`,
-    rythmeImposteur: "THE PACE BELONGS TO THE MODE · DISCOVERY",
-    rythmeCoop: "THE PACE BELONGS TO THE MODE · 12 WAVES OF 20 TO 40 S",
-    optJamais: "NEVER",
-    optDuos: "DUOS",
-    optChacun: "EACH",
-    optImposteur: "IMPOSTOR",
-    optCoop: "COOP",
-    plaqueAgi: "ACTED",
-    plaqueRien: "WAIT",
-    observeTour: (n, sur) => `${n} / ${sur}`,
-    modeImposteurQuoi: "TEN ROUNDS · NOBODY IS ELIMINATED · ONE IMPOSTOR · ONE VOTE",
-    modeCoopQuoi: "ONE SHARED LIFE · EACH PLAYER A FORBID · 12 WAVES · 4 TO 6",
-    issueVillage: "THE VILLAGE FOUND THEM",
-    issueImposteur: "THE IMPOSTOR WALKS FREE",
-    imposteurEtait: (nom) => `THE IMPOSTOR WAS ${nom}`,
-    voteRecu: "VOTE IN",
-    ariaVitesse: (nom) => `Speed ${nom}`,
-    ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
-    ariaRotationJamais: "Rules never rotate",
-    ariaRotation: (n) => `Rotation every ${n} rounds`,
-    ariaDuos: "Duos: two players per team, one shared pool of lives",
-    ariaChacun: "Every player for themselves",
-    ariaImposteur: "Impostor: one secret shared rule, ten rounds, nobody is eliminated, one vote",
-    ariaCoop: "Co-op: one shared life, one identical scene, each player a target forbid, 12 waves, 4 to 6 players",
-    ariaSigne: (n, total) => `Sign ${n} of ${total}`,
-    carteAucune: "No card",
-    photoIllisible: "THIS IMAGE CANNOT BE READ. TRY ANOTHER PHOTO.",
-    amisErr: {
-      code: "A CODE IS SIX LETTERS OR DIGITS.",
-      soi: "THAT'S YOUR OWN CODE.",
-      inconnu: "NO PLAYER HAS THIS CODE. CHECK IT WITH THEM.",
-      plein: "LIST FULL: 50 FRIENDS AND 30 REQUESTS AT MOST.",
-      reseau: "NO ANSWER. TRY AGAIN IN A MOMENT.",
-    },
-    amisSeul: "GIVE YOUR CODE TO A FRIEND, OR TYPE THEIRS.",
-    murJourTitre: "DAILY RUN · THE SAME FOR EVERYONE",
-    murJourMien: (score, essais) =>
-      score !== null && score > 0
-        ? `YOUR BEST TODAY · ${score} / 40${essais > 0 ? ` · ${essais} ${essais === 1 ? "TRY" : "TRIES"} LEFT` : ""}`
-        : essais > 0
-          ? `NOT PLAYED YET · ${essais} ${essais === 1 ? "TRY" : "TRIES"}`
-          : "NO TRIES LEFT TODAY · SEE YOU TOMORROW",
-    recordJour: "DAILY RUN · TODAY",
-    recordAllure: (allure) => `TRAINING · ${allure}`,
-    recordPile: "THE STACK",
-    recordUnite: "ROUNDS",
-    recordUnitePile: "RULES HELD",
-    amisNote: "RANKED ON THE DAILY RUN — THE SAME FOR EVERYONE. THE BARS: THE LAST 7 DAYS. “30 D”: THE BEST OF THE MONTH.",
-    amisPasJoue: "NOT YET",
-    amisCopie: "COPIED",
-    amisAccepter: "ACCEPT",
-    amisRefuser: "NO",
-    amisAnnuler: "CANCEL",
-    amisEnAttente: "PENDING",
-    amisDemandee: (qui) => `REQUEST SENT${qui ? ` TO ${qui}` : ""}. IT WAITS FOR THEIR ANSWER.`,
-    amisLie: (qui) => `YOU AND ${qui || "THEM"}, FRIENDS. YOUR RUNS NOW COMPARE.`,
-    amisDemandes: (n) => (n === 1 ? "1 FRIEND REQUEST" : `${n} FRIEND REQUESTS`),
-    amisPartageTexte: (code) => `My friend code on The One Rule: ${code}`,
-    ariaAccepterAmi: (qui) => `Accept ${qui}`,
-    ariaRefuserAmi: (qui) => `Decline ${qui}`,
-    amisMeilleur: (n) => `30 D · ${n}`,
-    ariaRetirerAmi: (qui) => `Remove ${qui} from your friends`,
-    ariaSemaine: (qui, scores) => `${qui}, last 7 days: ${scores}`,
-    ariaCouper: (qui) => `Mute ${qui}`,
-    ariaReactiver: (qui) => `Unmute ${qui}`,
-    ariaExclure: (qui) => `Kick ${qui}`,
-    dicteLeCode: "SAY IT OUT LOUD: IT IS RIGHT ABOVE",
-    siegeHorsLigne: "RECONNECTING…",
-    siegeHote: "HOST",
-    siegeDebutant: "FIRST GAME · +1 LIFE",
-    siegePret: "READY",
-    siegeEnMatch: (v, sc) => `${v} ${v === 1 ? "LIFE" : "LIVES"} · ${sc} ROUND${sc === 1 ? "" : "S"}`,
-    tamponLent: "TOO SLOW",
-    tamponInfraction: "RULE BROKEN",
-    tamponRate: "MISSED",
-    tuEsElimine: "YOU ARE OUT",
-    tuPerdsUneVie: "YOU LOSE A LIFE",
-    elimine: "OUT",
-    viePerdue: "LIFE LOST",
-    sousRegle: (r) => `UNDER ${r}`,
-    ilsNeSontPlusQue: (n) => `ONLY ${n} LEFT`,
-    jeRegarde: (qui) => `WATCHING ${qui}`,
-    reglesTournent: (r) => `RULES ARE ROTATING · ${r}`,
-    titreReflexe: "FASTEST OF THE MATCH",
-    titreFlair: "FLAIR",
-    titreSerie: "STREAK",
-    titreBrulee: "HOTHEAD",
-    titreSurvivante: "SURVIVOR",
-    titrePremiereFois: "1st GAME",
-    rangEme: (n) => `${n}${rangSuffixe(n)}`,
-    manchesN: (n) => `${n} ROUND${n === 1 ? "" : "S"}`,
-    aRegarde: "WATCHED",
-    errDeconnecte: "DISCONNECTED — REJOIN TO TAKE YOUR SEAT BACK",
-    signeChoisis: (n) => `PICK YOUR SIGN · ${n} AVAILABLE`,
-    sortieRetaper: "TYPE IT AGAIN",
-    reconnexion: "RECONNECTING…",
-    perfRefusee: "THIS RUN WAS NOT RECORDED",
-    cptEcart: "NOT SYNCED YET",
-    cptEcartQuoi: "YOUR SCORE TODAY IS HIGHER HERE THAN ON THE SERVER",
-    piedDepasse: "OVER YOUR BEST",
-    objectifReste: (n) => `GOAL · ${n} ROUND${n === 1 ? "" : "S"}`,
-    exerciceValide: "EXERCISE CLEARED",
-    nomsPaliers: ["WARM-UP", "PRESSURE", "VICE", "SUFFOCATION", "BEYOND"],
-    briefLongueur: "ROUNDS",
-    briefEssais: "TRIES",
-    briefEchauffement: "RISK-FREE",
-    avanceMaitrisee: (regle) => `${regle} · MASTERED`,
-    avanceParfaite: (regle) => `${regle} · PERFECT · 6 / 6`,
-    resteFait: (score, sur) => `Daily run done · ${score} of ${sur} rounds.`,
-    resteEpuise: (score) => `Three tries played · ${score} rounds kept.`,
-    resteTravailler: (regle, et, max) => `WORK ON ${regle} · ★ ${et}/${max}`,
-    coupureEtat: (essai, sur, s) => `TRY ${essai} OF ${sur} · ${s} S LEFT`,
-    sortieOuvrir: "OPEN MY OWN",
-    sortieRecharger: "RELOAD",
-    errSalonInconnu:
-      "THAT ROOM IS GONE — EITHER THE CODE WAS MISTYPED (2 AND Z LOOK ALIKE), OR THE HOST CLOSED IT",
-    errSalonComplet: (max) => `ROOM FULL · ${max} PLAYERS`,
-    autoDans: (s) => `THE MATCH STARTS IN ${s}S`,
-    autoAttente: "WAITING FOR ANOTHER PLAYER · SEND THE LINK",
-    autoEnCours: "A MATCH IS ON · YOU PLAY THE NEXT ONE",
-    errRapide: "QUICK MATCH ISN'T AVAILABLE YET",
-    errNeedPlayers: (min, max) => `YOU NEED ${min} TO ${max} PLAYERS TO START`,
-    coopFinRang: (vagues, score) =>
-      vagues === 1 ? `1 WAVE · SCORE ${score}` : `${vagues} WAVES · SCORE ${score}`,
-    coopTenu: "HELD",
-    coopKo: "DRAINED",
-    errPasHote: "ONLY WHOEVER CREATED THE ROOM CAN START — ASK THEM",
-    errEnMatch: "MATCH IN PROGRESS — YOU JOIN THE NEXT ONE",
-    errVersion: "INCOMPATIBLE VERSION — RELOAD THE PAGE",
-    errExclu: "YOU WERE REMOVED FROM THE ROOM — YOU CAN CREATE ONE OF YOUR OWN",
-    errRemplace: "YOUR SEAT WAS TAKEN OVER ON ANOTHER SCREEN",
-    errInjoignable: "SERVER UNREACHABLE — CHECK YOUR CONNECTION, THEN TRY AGAIN",
-    errReconnexion: "CANNOT RECONNECT — TRY AGAIN",
-    errCode4: "A ROOM CODE IS EXACTLY 4 CHARACTERS",
-    errConnexionPerdue: "CONNECTION LOST — REJOIN TO TAKE YOUR SEAT BACK",
-    cptEnregistre: "Your progress is saved. It will follow you onto your other devices.",
-    cptSansCompte:
-      "The game works without one. An account only keeps what you do when you switch browser or device.",
-    cptCeQuiSerait:
-      "WHAT WOULD BE SAVED: YOUR RULE BOOK, YOUR STREAK AND YOUR BESTS. NOTHING ELSE.",
-    cptGoogle: "CONTINUE WITH GOOGLE",
-    cptDiscord: "CONTINUE WITH DISCORD",
-    cptSupprimerAvert1: "YOUR ACCOUNT, YOUR HISTORY AND YOUR SAVED RUNS WILL BE ERASED. ",
-    cptSupprimerAvert2: "YOUR PROGRESS ON THIS DEVICE STAYS. THIS IS FINAL.",
-    cptRecordLocal: "PERSONAL BEST · <b></b>. IT EXISTS ONLY IN THIS BROWSER.",
-    cptManchesLocal: "<b></b> ROUNDS. THIS BROWSER IS THE ONLY ONE THAT REMEMBERS.",
-    cptErrAnnule: "SIGN-IN CANCELLED.",
-    cptErrEchange: "THE PROVIDER REFUSED THE EXCHANGE. CHECK THE REDIRECT URI DECLARED THERE.",
-    cptErrExpire: "RETURN LINK EXPIRED OR OPENED TWICE. TRY AGAIN.",
-    cptErrSuspendu: "THIS ACCOUNT IS SUSPENDED.",
-    cptErrNonConfig: "ACCOUNTS ARE NOT CONFIGURED ON THIS DEPLOYMENT.",
-    cptErrRetour: (c) => `RETURN REFUSED (${c}).`,
-    finTenu: "HELD",
-    finRegleEnfreinte: "ONE RULE BROKEN",
-    finRompu: "BROKEN",
-    finElimine: "OUT",
-    multiRegleInconnue: "ROUND UNREADABLE — RELOAD THE PAGE",
-    hudPieges: (n) => `${n} trap${n === 1 ? "" : "s"} defused`,
-    finTonRang: (place, total, manches) => {
-      const d = place % 10;
-      const c = place % 100;
-      const suf =
-        d === 1 && c !== 11 ? "st" : d === 2 && c !== 12 ? "nd" : d === 3 && c !== 13 ? "rd" : "th";
-      return `YOU FINISH ${place}${suf} OF ${total} · ROUND ${manches}`;
-    },
-    finExAequo: (place, total, manches) => `TIED ${place}${rangSuffixe(place)} OF ${total} · ROUND ${manches}`,
-    finReperRecord: (n) => `YOUR BEST · ${n}`,
-    finReperMediane: (n) => `MEDIAN · ${n}`,
-    finReperMeilleur: (n) => `RECORD · ${n}`,
-    finLegTenue: "HELD",
-    finLegPiege: "TRAP DEFUSED",
-    finLegFaute: "WARM-UP",
-    finLegChute: "FALL",
-    bilanQuetes: "QUESTS",
-    bilanSerie: "STREAK",
-    bilanCarnet: "CODEX",
-
-    profJourRecord: (n) => `TO BEAT TODAY · ${n}`,
-    profJourABattre: "to beat",
-    profJourBattuCourt: "beaten!",
-    profJourBattu: (n) => `YOU ARE ABOVE ${n}`,
-    attractRegle: "YOUR RULE",
-    attractManche: (n) => `DEMO · ROUND ${n}`,
-    attractPersonne: "NOBODY IS PLAYING HERE",
-    attractTenu: "HELD",
-    attractPiege: "TRAP AVOIDED",
-    demoRegle: "YOUR RULE · NEVER RED",
-    demoConsigneA: "Click the blue circle",
-    demoConsigneB: "Click the red square",
-    demoVerdictA: "HELD",
-    demoVerdictB: "TRAP AVOIDED",
-    finRecordTitre: "YOU BEAT YOUR RECORD",
-    finRecordAncien: (n) => `PREVIOUS · ${n}`,
-    finRecordAvance: (n) => `+${n}`,
-    finEgaleTitre: "YOU MATCHED YOUR RECORD",
-    relanceUnite: (n, pile) => (pile ? (n === 1 ? "RULE HELD" : "RULES HELD") : n === 1 ? "ROUND" : "ROUNDS"),
-    relanceRecord: (n, jour) => (jour ? `TODAY'S BEST BEATEN · +${n}` : `NEW RECORD · +${n}`),
-    relanceEgale: (jour) => (jour ? "TODAY'S BEST MATCHED" : "RECORD MATCHED"),
-    relancePresque: (n, ancien, jour) =>
-      `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM ${jour ? "TODAY'S BEST" : "YOUR RECORD"} · ${ancien}`,
-    relanceLoin: (ancien, jour) => (jour ? `TODAY'S BEST · ${ancien}` : `YOUR RECORD · ${ancien}`),
-    relancePremier: "YOUR FIRST SCORE HERE",
-    relanceEssais: (n) => (n === 1 ? "LAST TRY TODAY" : `${n} TRIES LEFT TODAY`),
-    relanceGo: (toucher) => (toucher ? "TAP TO PLAY AGAIN" : "SPACE TO PLAY AGAIN"),
-    rivalDepasse: (noms) =>
-      noms.length === 1
-        ? `YOU PASSED ${noms[0]}`
-        : noms.length === 2
-          ? `YOU PASSED ${noms[0]} AND ${noms[1]}`
-          : `YOU PASSED ${noms[0]} AND ${noms.length - 1} OTHERS`,
-    rivalPresque: (nom, n) => `${n} ${n === 1 ? "ROUND" : "ROUNDS"} FROM PASSING ${nom}`,
-    rivalPart: (p) => `BETTER THAN ${p}% OF TODAY'S PLAYERS`,
-    piedTop: (top) => `TOP ${top}%`,
-    pastilleDepasse: (nom) => `YOU PASS ${nom}`,
-    pastilleDepasseSous: (v) => `THEIR SCORE TODAY · ${v}`,
-    pastilleTop: (top) => `TODAY'S TOP ${top}%`,
-    pastilleTopSous: "AMONG ALL PLAYERS",
-    finRecordCarte: (n) => `NEW RECORD · +${n}`,
-    finCarte: "SHAREABLE CARD",
-    finCartePrete: "CARD READY",
-    finCarteRatee: "NO CARD HERE",
-    slogan: "SOMETIMES, OBEYING IS THE MISTAKE",
-    modeClasse: "RANKED",
-    allureTxt: (a) => a.toFixed(1),
-    themeNom: (x) => (x === "auto" ? "AUTO" : x === "clair" ? "LIGHT" : "DARK"),
-    escAnnonce: "TRAP",
-    defiGagne: (sc, cible) => `WON · ${sc} AGAINST ${cible}`,
-    defiEgalite: (cible) => `DRAW · ${cible} EACH`,
-    defiPerdu: (sc, cible) => `LOST · ${sc} AGAINST ${cible}`,
-    finJours: (n) => `${n} DAY${n === 1 ? "" : "S"}`,
-    goMatchSuivant: "NEXT MATCH · R",
-    goRevanche: "REMATCH · R",
-    goReviensDemain: "COME BACK TOMORROW",
-    goRejouer: "AGAIN · R",
-    regleAjoutee: (r) => `+ ${r}`,
-    partageTexte: (sc, r, url) => `I held ${sc} rounds under ${r}. Same run, same order. ${url}`,
-    partageTitreJour: (j) => `THE ONE RULE #${j}`,
-    partageTitreEntrainement: "THE ONE RULE · TRAINING",
-    partageTenu: (tot) => `HELD · ${tot} rounds`,
-    partageRompu: (sc) => `broken at round ${sc}`,
-    promptPseudo: "Your name for the leaderboard (14 characters max):",
-    rankedContre: (qui, elo, sc) => `AGAINST ${qui} (${elo}) · THEY HELD ${sc} ROUNDS`,
-    rankedEtalon: "NO OPPONENT AVAILABLE · THIS RUN BECOMES THE BENCHMARK",
-    rankedPromotion: "PROMOTED",
-    rankedPlancher: "DIVISION FLOOR: NOTHING LOST",
-    rankedRunEtalon: (elo) => `BENCHMARK RUN SAVED · <b>${elo}</b>`,
-    rankedControle: (v) => `RUN REJECTED · CHECK: ${v}`,
-    prefSon: "SOUND",
-    prefMusique: "MUSIC",
-    prefMotifs: "PATTERNS",
-    prefMesure: "METRICS",
     on: "ON",
     off: "OFF",
   },
@@ -2426,20 +1929,6 @@ export function appliqueLangue(doc: Document, lang: Lang): void {
     const valeur = table[el.dataset.i18nAria ?? ""];
     if (valeur !== undefined) el.setAttribute("aria-label", valeur);
   }
-
-  // L'accroche de l'arrivée est une phrase (`data-i18n="vitrine.titre"`) :
-  // la maquette 1a a remplacé les trois lignes HTML d'avant.
-  poseHtml(doc.getElementById("reglagesFineprint"), t.fineprintReglagesHtml);
-  /*
-   * ⚠️ LA FAILLE A QUITTÉ L'ACCUEIL, ET SES TROIS LIGNES AVEC.
-   *
-   * L'objet fendu SOLO / MULTI était la vitrine du site ; il est remplacé par
-   * le MODE ATTRACT — « le fond EST le jeu » — et par la rangée de profondeur,
-   * qui porte les cinq modes au lieu de deux. Les chaînes `soloDesc`,
-   * `multiDesc` et `failleLabel` restent dans la table : le multijoueur les
-   * emploie encore ailleurs, et les retirer demanderait de vérifier chaque
-   * appelant pour un gain nul.
-   */
 
   const langBox = doc.getElementById("lang");
   if (langBox) langBox.setAttribute("aria-label", t.langAria);
@@ -2742,6 +2231,7 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
     jumeau: "Chaque action doit être faite deux fois de suite. Une seule ne compte pas.",
     acceleration: "Tout va 30 % plus vite, du début à la fin. Aucun interdit, juste moins de temps.",
     mainGauche: "Garde ESPACE enfoncée du début à la fin. Joue avec la souris et l'autre main.",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
   },
   en: {
     sang: "Never click on red. Sooner or later an order will ask you to.",
@@ -2755,12 +2245,12 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
     gaucher: "Never click the first column. It is hatched, and no click is tolerated there.",
     seconde: "Never act in the first 400 milliseconds of a round. Wait.",
     eclair: "The order shows for an instant, then vanishes. Read fast, remember.",
-    menteur:
-      "One order in five is false and corrects itself after a moment. Do not trust the first glance.",
-    daltonien: "Colour names appear in the wrong colour. Read the word, ignore the ink.",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
     jumeau: "Every action must be done twice in a row. Once does not count.",
     acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
     mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
   },
 };
 
@@ -2912,7 +2402,8 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
     daltonien: "Les noms mentent sur la couleur",
     jumeau: "Chaque geste deux fois",
     acceleration: "30 % plus vite",
-    mainGauche: "Garde ESPACE enfoncee",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
   },
   en: {
     sang: "Never red",
@@ -2931,228 +2422,1379 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
     jumeau: "Every move twice",
     acceleration: "30% faster",
     mainGauche: "Hold SPACE down",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
   },
 };
 
 /**
- * Le brief COURT d'une regle, pour le bandeau de jeu.
+ * Le nom d'une règle, dans la langue courante.
  *
- * Retombe sur le brief long quand la regle n'est pas dans la table — une pile
- * d'escalade a un identifiant compose (« pointe+sang ») qui n'y figure pas, et
- * un bandeau muet serait pire qu'un bandeau trop long.
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
  */
-export function briefCourtDeRegle(ruleId: string, secours: string): string {
-  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].court;
-  return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
 }
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
-export const BRIEFS_COURTS_REGLES = BRIEFS_COURTS;
-
-/* ------------------------------------------------------------------ *
- * L'ALLURE
- * ------------------------------------------------------------------ */
-
-const ALLURES: Record<Lang, Record<string, string>> = {
-  // Court, et pour une raison mesurée : la barre des allures est segmentée en
-  // `flex: 1 1 0` avec un plancher `max-content`, donc le libellé le plus long
-  // fixe la largeur de tous. Un quatrième segment resserre encore — vérifié à
-  // 375 px que chacun garde ses 44 px tactiles.
-  fr: { "2": "DÉBUT", "1.5": "DÉCOUVERTE", "1": "NORMAL", "0.8": "RAPIDE" },
-  en: { "2": "GENTLE", "1.5": "DISCOVERY", "1": "NORMAL", "0.8": "FAST" },
-};
-
-/** Le nom d'une allure. `secours` est l'étiquette française du moteur. */
-export function nomAllure(valeur: number, secours: string): string {
-  return ALLURES[courante][String(valeur)] ?? secours;
-}
+export const BRIEFS_REGLES = BRIEFS;
 
 /**
- * Compose une consigne dans la langue courante.
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
  *
- * `secours` est le texte français que le moteur produit déjà : une clé
- * inconnue rend ce texte plutôt qu'une chaîne vide. Une consigne muette au
- * milieu d'une partie serait pire qu'une consigne dans la mauvaise langue.
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
  */
-export function composePhrase(
-  phrase: { cle: string; couleur?: string; couleur2?: string; forme?: string; lettre?: string } | undefined,
-  secours: string,
-  lang: Lang = courante,
-): string {
-  if (!phrase) return secours;
-  const cle = debout ? (PHRASE_DEBOUT[phrase.cle] ?? phrase.cle) : phrase.cle;
-  const compo = PHRASES[lang][cle];
-  if (!compo) return secours;
-  const mots = MOTS[lang];
-  return compo({
-    couleur: phrase.couleur ? (mots.couleur[phrase.couleur] ?? phrase.couleur) : "",
-    couleur2: phrase.couleur2 ? (mots.couleur[phrase.couleur2] ?? phrase.couleur2) : "",
-    forme: phrase.forme ? (mots.forme[phrase.forme] ?? phrase.forme) : "",
-    lettre: phrase.lettre ?? "",
-  });
-}
-
-/** Le sous-titre d'une consigne, même principe. */
-export function composeSous(cle: string | undefined, secours: string, lang: Lang = courante): string {
-  if (!cle) return secours;
-  return SOUS[lang][cle] ?? secours;
-}
-
-/* ------------------------------------------------------------------ *
- * LES MOTIFS DE MORT
- *
- * Ce que le joueur lit à l'instant précis où il perd. Le moteur les produit
- * en français canonique (`engine/motifs.ts`) et les fait voyager tels quels
- * sur le fil ; la traduction est un dernier geste d'affichage.
- *
- * La table est indexée par `MotifId`, donc TypeScript refuse d'en oublier un.
- * C'est la seule raison pour laquelle les phrases ont quitté les règles : une
- * table indexée par des chaînes libres aurait accepté l'oubli en silence, et
- * un motif non traduit ne se voit pas — il ne s'affiche qu'au moment où l'on
- * regarde ailleurs, c'est-à-dire sa propre mort.
- * ------------------------------------------------------------------ */
-
-const MOTIFS_EN: Record<MotifId, string> = {
-  temps: "TIME IS UP",
-  sequence: "SEQUENCE UNFINISHED",
-  piegeRate: "THE ORDER BROKE YOUR ONE RULE — YOU HAD TO DO NOTHING",
-  rienFaire: "YOU HAD TO DO NOTHING",
-  fallaitTaper: "YOU HAD TO TYPE, NOT CLICK",
-  fallaitCliquer: "YOU HAD TO CLICK, NOT TYPE",
-  mauvaiseTouche: "WRONG KEY",
-  couleurInterdite: "YOU CLICKED THE FORBIDDEN COLOUR",
-  leVide: "YOU CLICKED EMPTY SPACE",
-  lacheTot: "YOU LET GO TOO SOON",
-  lacheAilleurs: "YOU DROPPED IT IN THE WRONG PLACE",
-  fallaitGlisser: "YOU HAD TO DRAG, NOT CLICK",
-  mauvaiseForme: "WRONG SHAPE",
-  mauvaiseCible: "WRONG TARGET",
-  rouge: "YOU CLICKED ON RED",
-  bleu: "YOU CLICKED ON BLUE",
-  rond: "YOU CLICKED A CIRCLE",
-  solitaire: "YOU CLICKED A ONE-OF-A-KIND COLOUR",
-  angle: "YOU CLICKED A CORNER",
-  triangle: "YOU CLICKED A TRIANGLE",
-  voyelle: "YOU TYPED A VOWEL",
-  plusGrosse: "YOU CLICKED THE BIGGEST SHAPE",
-  zoneInterdite: "YOU CLICKED THE FORBIDDEN ZONE",
-  tropTot: "YOU ACTED TOO SOON",
-  espace: "YOU RELEASED SPACE",
-  parti: "LEFT",
-};
-
-/**
- * Le français vers l'anglais, construit une fois au chargement du module.
- *
- * L'inverse d'une table constante : la clé de recherche est la phrase qui
- * voyage sur le fil, donc rien n'a besoin de changer côté protocole ni côté
- * serveur de salons.
- */
-const MOTIFS_VERS_EN = new Map<string, string>(
-  (Object.keys(MOTIFS) as MotifId[]).map((id) => [MOTIFS[id], MOTIFS_EN[id]]),
-);
-
-/**
- * Traduit un motif de mort. Un motif inconnu ressort TEL QUEL : un serveur
- * d'une version plus récente peut en nommer un que ce bundle ignore, et une
- * phrase étrangère vaut mieux qu'un champ vide au moment de comprendre
- * pourquoi on vient de mourir. Même doctrine que les clés `data-i18n`.
- */
-export function traduisMotif(motif: string): string {
-  if (courante === "fr") return motif;
-  return MOTIFS_VERS_EN.get(motif) ?? motif;
-}
-
-/** Exposée pour que les tests éprouvent la table sans passer par le DOM. */
-export const MOTIFS_ANGLAIS = MOTIFS_EN;
-
-/* ------------------------------------------------------------------ *
- * LE STATUT D'UN SIÈGE
- *
- * `render/seat.ts` décide QUOI dire — c'est une priorité, et elle est testée
- * comme telle. Ici on ne fait que l'écrire.
- * ------------------------------------------------------------------ */
-
-export function statutSiege(st: SeatStatus): string {
-  switch (st.id) {
-    case "horsLigne":
-      return t("siegeHorsLigne");
-    case "spectateur":
-      return t("piedSpectateur");
-    case "enMatch":
-      return t("siegeEnMatch")(st.lives, st.score);
-    case "hote":
-      return t("siegeHote");
-    case "debutant":
-      return t("siegeDebutant");
-    case "pret":
-      return t("siegePret");
-  }
-}
-
-/* ------------------------------------------------------------------ *
- * LES VITESSES DU SALON
- *
- * Cinq crans dans une barre segmentée : le libellé est ABRÉGÉ pour tenir, le
- * mot entier ne vit que dans l'`aria-label`. Les deux tables sont donc
- * distinctes, et ce n'est pas une redondance.
- * ------------------------------------------------------------------ */
-
-const VITESSES: Record<Lang, Record<string, [court: string, entier: string]>> = {
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
   fr: {
-    "1.7": ["DÉCOUV.", "Découverte"],
-    "1.3": ["LENT", "Lent"],
-    "1": ["NORMAL", "Normal"],
-    "0.8": ["RAPIDE", "Rapide"],
-    /*
-     * ⚠️ BRUTAL, et pas « ÉCLAIR ».
-     *
-     * L'ÉCLAIR est le nom d'une RÈGLE du catalogue. Deux objets differents qui
-     * portent le meme mot dans le meme ecran — la plaque annonce la regle, la
-     * barre annonce la vitesse — se confondent exactement au moment ou l'on
-     * n'a pas le temps de lire.
-     */
-    "0.65": ["BRUTAL", "Brutal"],
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
   },
   en: {
-    "1.7": ["EASY", "Discovery"],
-    "1.3": ["SLOW", "Slow"],
-    "1": ["NORMAL", "Normal"],
-    "0.8": ["FAST", "Fast"],
-    "0.65": ["BRUTAL", "Brutal"],
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
   },
 };
 
-/** Le libellé court d'une vitesse de salon, ou le nombre s'il est inconnu. */
-export function nomVitesse(valeur: number): string {
-  return VITESSES[courante][String(valeur)]?.[0] ?? String(valeur);
-}
-
-/** Le mot entier, pour l'`aria-label`, qui n'a pas de contrainte de largeur. */
-export function nomVitesseEntier(valeur: number): string {
-  return VITESSES[courante][String(valeur)]?.[1] ?? String(valeur);
-}
-
 /* ------------------------------------------------------------------ *
- * LES ÉMOTES DU SALON
+ * LE NOM DES RÈGLES
  *
- * Le fil ne transporte QUE l'index : les six libellés sont de l'interface,
- * donc chacun les lit dans sa langue sans que rien ne change côté serveur.
- * Deux joueurs de langues différentes voient le même bouton, au même rang, et
- * s'envoient donc bien la même chose.
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
  *
- * Le visuel est un glyphe commun, pas le mot : six libellés longs ne tiennent
- * pas une rangée de cibles `--tap` sur téléphone. `aria-label` garde le mot.
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
  * ------------------------------------------------------------------ */
 
-const EMOTES: Record<Lang, readonly string[]> = {
-  fr: ["SALUT", "BRAVO", "HA !", "AÏE", "VU VENIR", "NON…"],
-  en: ["HI", "NICE", "HA!", "OUCH", "SAW IT", "NO…"],
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
 };
 
-/** Même glyphe FR et EN. Le fil reste un index 0–5. */
-export const EMOTE_GLYPHE = ["👋", "👏", "😂", "💥", "👀", "🚫"] as const;
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
 
-export const emotes = (): readonly string[] => EMOTES[courante];
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
 
-export const emoteGlyphe = (k: number): string => EMOTE_GLYPHE[k] ?? "";
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    echo: "Never click the color you just clicked. Hold your last move.",
+  },
+};
+
+/* ------------------------------------------------------------------ *
+ * LE NOM DES RÈGLES
+ *
+ * Il est resté français quand tout le reste a été traduit, et l'argument était
+ * bon : c'est un NOM, et l'identifiant — jamais le nom — est la clé du carnet,
+ * des performances et de la comparabilité. Vérifié avant de changer d'avis :
+ * `rule.name` n'est utilisé nulle part ailleurs qu'à l'affichage, `calculeVersion`
+ * ne hache que `id` / `minLevel` / `weight` / `touch`, le fil ne transporte que
+ * `ruleId`, et toute la télémétrie envoie `rule.id`. Traduire le nom ne change
+ * donc RIEN de mesurable.
+ *
+ * Ce qui a fait pencher : le nom est affiché en permanence dans le bandeau,
+ * c'est l'ancre qu'on regarde pour se rappeler sa contrainte au milieu d'une
+ * fenêtre de 760 ms. « LE COLOSSE » ne dit rien à un anglophone — pire, posé
+ * au-dessus d'un brief anglais, il devient un intermédiaire à traduire dans sa
+ * tête au pire moment. Les trois testeurs anglophones ont abandonné sur du
+ * TEMPS, pas sur du vocabulaire.
+ *
+ * ⚠️ LES NOMS SONT CHOISIS POUR CE QUE LA RÈGLE FAIT, pas mot à mot.
+ *
+ *   · LA POINTE → THE SPIKE, et non « THE POINT » qui veut d'abord dire l'idée ;
+ *   · L'ACCÉLÉRATION → THE RUSH, parce que « THE ACCELERATION » est un mot de
+ *     manuel de physique, pas un nom qu'on lit en 200 ms ;
+ *   · LA SECONDE → THE BEAT : la règle demande d'attendre un temps, et « THE
+ *     SECOND » se lit comme un ordinal ;
+ *   · LE DALTONIEN → THE INK. C'est le seul qui s'éloigne vraiment, et c'est
+ *     délibéré : nommer une règle d'après un handicap passe mal en anglais, et
+ *     ce que la règle oppose est justement le MOT à l'ENCRE.
+ * ------------------------------------------------------------------ */
+
+const NOMS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "LE SANG",
+    azur: "L'AZUR",
+    pointe: "LA POINTE",
+    roue: "LA ROUE",
+    solitaire: "LE SOLITAIRE",
+    angles: "LES ANGLES",
+    voyelle: "LA VOYELLE",
+    colosse: "LE COLOSSE",
+    gaucher: "LE GAUCHER",
+    seconde: "LA SECONDE",
+    eclair: "L'ÉCLAIR",
+    menteur: "LE MENTEUR",
+    daltonien: "LE DALTONIEN",
+    jumeau: "LE JUMEAU",
+    acceleration: "L'ACCÉLÉRATION",
+    mainGauche: "LA MAIN GAUCHE",
+  },
+  en: {
+    sang: "THE BLOOD",
+    azur: "THE AZURE",
+    pointe: "THE SPIKE",
+    roue: "THE CIRCLE",
+    solitaire: "THE LONER",
+    angles: "THE CORNERS",
+    voyelle: "THE VOWEL",
+    colosse: "THE COLOSSUS",
+    gaucher: "THE SOUTHPAW",
+    seconde: "THE BEAT",
+    eclair: "THE FLASH",
+    menteur: "THE LIAR",
+    daltonien: "THE INK",
+    jumeau: "THE TWIN",
+    acceleration: "THE RUSH",
+    mainGauche: "THE OFF HAND",
+  },
+};
+
+/**
+ * Le nom d'une règle, dans la langue courante.
+ *
+ * Accepte aussi bien `"sang"` qu'une PILE d'escalade `"sang+pointe"` :
+ * `combineRules` compose son identifiant avec des `+`, donc on découpe,
+ * on traduit chaque part et on recompose. C'est ce qui évite d'avoir à faire
+ * remonter la langue jusque dans le moteur, qui n'en connaît aucune.
+ *
+ * `secours` est le nom que porte le moteur : une règle absente de la table
+ * s'affiche donc quand même, en français, plutôt que de laisser un bandeau
+ * vide. Un bandeau vide, c'est un joueur qui joue sans savoir ce qui lui est
+ * interdit — pire qu'un mot dans la mauvaise langue.
+ */
+export function nomDeRegle(id: string, secours: string): string {
+  const parts = id.split("+");
+  const traduits = parts.map((p) => NOMS[courante][p]);
+  if (traduits.some((n) => n === undefined)) return secours;
+  return traduits.join(" + ");
+}
+
+/** Exposée pour que les tests éprouvent les deux langues sans le DOM. */
+export const NOMS_REGLES = NOMS;
+
+/**
+ * Le brief d'une règle, dans la langue courante.
+ *
+ * `secours` est le français que porte le moteur : une règle absente de la
+ * table s'explique donc quand même, plutôt que de rester muette. Une règle
+ * sans explication serait pire qu'une règle mal traduite.
+ */
+export function briefDeRegle(ruleId: string, secours: string): string {
+  if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  return BRIEFS[courante][ruleId] ?? secours;
+}
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const BRIEFS_REGLES = BRIEFS;
+
+/**
+ * LE BRIEF COURT — celui du BANDEAU, pendant la partie.
+ *
+ * ⚠️ Ce n'est pas un doublon du brief long, c'est un autre objet.
+ *
+ * Le brief long s'explique : il est lu une fois, sur l'ecran d'annonce, ou
+ * l'on a tout le temps et toute la largeur. Le bandeau, lui, est relu d'un
+ * coup d'oeil au milieu d'une fenetre de 760 ms, sur une ligne de hauteur
+ * FIGEE — figee parce que tout ce qui grossit le bandeau rogne le terrain, et
+ * que la taille du champ est du gameplay (n°10).
+ *
+ * Mesure a 375 x 812 : la ligne dispose de 312 px a 10 px, soit environ 52
+ * caracteres. Les briefs longs vont jusqu'a 76, et quatre d'entre eux
+ * depassent meme en ne gardant que leur premiere phrase. Le bandeau affichait
+ * donc « Ne clique jamais la premiere colonne. Elle est h… » — une phrase
+ * coupee en plein mot, qui n'informe pas et signale surtout que l'ecran est
+ * trop petit pour son contenu.
+ *
+ * La maquette telephone tranche autrement, et c'est la bonne reponse :
+ * « Jamais de rouge · 2 pieges dejoues ». L'INTERDIT, en trois mots, plus ce
+ * que le joueur a deja gagne. Le reste appartient a l'ecran d'annonce.
+ *
+ * Aucune de ces formes ne depasse 31 caracteres.
+ */
+const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
+  fr: {
+    sang: "Jamais de rouge",
+    azur: "Jamais de bleu",
+    pointe: "Jamais de triangle",
+    roue: "Jamais de rond",
+    solitaire: "Jamais une forme unique",
+    angles: "Jamais dans les coins",
+    voyelle: "Jamais A E I O U Y",
+    colosse: "Jamais la plus grosse",
+    gaucher: "Jamais la premiere colonne",
+    seconde: "Rien avant 400 ms",
+    eclair: "La consigne s'efface",
+    menteur: "Une consigne sur cinq ment",
+    daltonien: "Les noms mentent sur la couleur",
+    jumeau: "Chaque geste deux fois",
+    acceleration: "30 % plus vite",
+    mainGauche: "Garde ESPACE enfoncée",
+    echo: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  },
+  en: {
+    sang: "Never red",
+    azur: "Never blue",
+    pointe: "Never a triangle",
+    roue: "Never a circle",
+    solitaire: "Never a lone shape",
+    angles: "Never the corners",
+    voyelle: "Never A E I O U Y",
+    colosse: "Never the biggest",
+    gaucher: "Never the first column",
+    seconde: "Nothing before 400 ms",
+    eclair: "The order vanishes",
+    menteur: "One order in five lies",
+    daltonien: "Colour names lie",
+    jumeau: "Every action must be done twice in a row. Once does not count.",
+    acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
+    mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",

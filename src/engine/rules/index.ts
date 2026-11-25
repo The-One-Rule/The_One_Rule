@@ -50,6 +50,24 @@ export function uniqueBiggest(ents: Entity[]): Entity | null {
 const noForbid = () => false;
 const noJudge = () => null;
 
+/**
+ * L'ÉCHO — mémoire du coup précédent.
+ * Sans couleur précédente, il n'y a aucun piège. Une manche sans clic remet
+ * la mémoire à zéro dans les hôtes de partie (solo, serveur et rejeu).
+ */
+const L_ECHO: OneRule = {
+  id: "echo",
+  name: "L'ÉCHO",
+  brief: "Ne clique jamais la couleur que tu viens de cliquer. Retiens ton dernier coup.",
+  traps: true,
+  forbids: (want, ents, previousColor) =>
+    !!previousColor && targets(want, ents).some((e) => e.color === previousColor),
+  judge: (a, ctx) =>
+    a.kind === "click" && a.ent && ctx.previousColor !== undefined && a.ent.color === ctx.previousColor
+      ? MOTIFS.echo
+      : null,
+};
+
 /* ================================================================== *
  * FAMILLE 1 — LES INTERDITS
  * Elles créent des pièges : quand la consigne demanderait de les
@@ -433,6 +451,7 @@ export const ONE_RULES: OneRule[] = [
   LE_JUMEAU,
   L_ACCELERATION,
   LA_MAIN_GAUCHE,
+  L_ECHO,
 ];
 
 export const ruleById = (id: string): OneRule | undefined => ONE_RULES.find((r) => r.id === id);

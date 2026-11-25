@@ -53,6 +53,7 @@ export const MOTIFS = {
   zoneInterdite: "TU AS CLIQUÉ DANS LA ZONE INTERDITE",
   tropTot: "TU AS AGI TROP TÔT",
   espace: "TU AS RELÂCHÉ ESPACE",
+  echo: "TU AS CLIQUÉ LA COULEUR DU COUP PRÉCÉDENT",
 
   /* --- le départ : posé par le serveur, jamais par le moteur --- */
   parti: "PARTI",
@@ -88,6 +89,7 @@ export const MOTIFS_REGLE: readonly string[] = [
   MOTIFS.zoneInterdite,
   MOTIFS.tropTot,
   MOTIFS.espace,
+  MOTIFS.echo,
 ];
 
 /** Toutes les phrases, pour éprouver une table de traduction d'un coup. */

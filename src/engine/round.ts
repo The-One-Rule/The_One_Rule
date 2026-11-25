@@ -2,6 +2,7 @@ import { pickInstruction } from "./instructions/index.js";
 import { place } from "./scene.js";
 import { FORCED_TRAP_ROUNDS, HOLD_MS, fenetreAllure, plancherParGeste, poidsGestes, windowForSteps } from "./difficulty.js";
 import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types.js";
+import type { ColorId } from "./types.js";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
 export function compile(want: Want): Step[] {
@@ -79,6 +80,7 @@ export function buildRound(
    * jamais : sans ce paramètre, le flux du RNG est exactement celui d'avant.
    */
   apresPiege = false,
+  previousColor?: ColorId,
 ): Round {
   /*
    * Piège garanti sur les manches d'ouverture.
@@ -107,7 +109,7 @@ export function buildRound(
     draft = instr.gen(rng, level);
     ents = place(rng, draft.specs);
     want = draft.wantFrom ? draft.wantFrom(ents) : draft.want;
-    trap = rule.forbids(want, ents);
+    trap = rule.forbids(want, ents, previousColor);
     if (refusePiege ? !trap : trap || !wantsTrap) break;
   }
 
@@ -116,6 +118,7 @@ export function buildRound(
   let round: Round = {
     instructionId: instr.id,
     text: draft.text,
+    previousColor,
     phrase: draft.phrase,
     sousPhrase: draft.sousPhrase,
     sub: draft.sub,

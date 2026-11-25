@@ -5,7 +5,7 @@ import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
 import { pileA } from "../engine/escalade";
 import { resolveAction, resolveTimeout } from "../engine/resolve";
-import type { Action, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
+import type { Action, ColorId, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
 import type { LoggedInput } from "../engine/verify";
 
 export type Mode = "daily" | "training" | "ranked" | "escalade";
@@ -83,6 +83,8 @@ export class Session {
   tierJustCrossed = false;
 
   private roundStart = 0;
+  /** Mémoire personnelle de L'ÉCHO : seule une pièce effectivement cliquée la met à jour. */
+  private echoMemory: ColorId | undefined;
   private freezeUntil = 0;
   private lastDeath: { cause: SessionEnd["cause"]; reason: string } = { cause: "wrong", reason: "" };
   /** manches d'échauffement restantes : elles ne tuent pas */
@@ -300,6 +302,7 @@ export class Session {
       this.pace,
       this.forcePiege,
       apresPiege,
+      this.echoMemory,
     );
     this.progress = { step: 0 };
     this.roundStart = now;
