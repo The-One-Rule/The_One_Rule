@@ -42,7 +42,10 @@ const imports = (f: string): string[] =>
   [...code(f).matchAll(/(?:\bfrom|\bimport\s*\(|\bimport)\s*["']([^"']+)["']/g)]
     .map((m) => m[1])
     .filter((m) => m.startsWith("."))
-    .map((m) => normalize(join(dirname(f), m)));
+    // En séparateurs POSIX : les couches se comparent à « src/engine/… », et
+    // `normalize` rend des « \ » sous Windows — tout import y passait pour
+    // une violation (les deux tests tombaient sur un poste Windows, verts en CI).
+    .map((m) => normalize(join(dirname(f), m)).split("\\").join("/"));
 
 /** Ce qui rend un calcul irreproductible, ou le lie à un navigateur. */
 const IMPUR: [RegExp, string][] = [
