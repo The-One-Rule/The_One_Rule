@@ -1,31 +1,52 @@
-# LE DÉPLOIEMENT DU SERVEUR DE SALONS — À LA MAIN, JAMAIS SEUL (phase 5, point 37).
+# LE DÉPLOIEMENT DU SERVEUR DE SALONS — à chaque fusion, ou à la main.
 #
-# Ce flux ne se déclenche QUE par « Run workflow » (workflow_dispatch) : aucun
-# push, aucune fusion ne déploie. Il refait, dans l'ordre et sans en sauter
-# une, la procédure du §10 de CLAUDE.md — c'est elle qu'on oublie à moitié
-# quand on la tape à la main :
+# Deux portes :
 #
-#   1. la vérification rapide (tsc, tests, image reconstituée et lancée) ;
-#   2. PERSONNE NE JOUE : un déploiement tue les salons en mémoire. S'il y en
-#      a, le flux s'arrête — sauf si l'on coche « forcer » ;
-#   3. `fly deploy`, puis `fly scale count 1` : Fly provisionne DEUX machines
-#      par défaut, et deux machines donnent « SALON INTROUVABLE » entre amis
-#      (27/08/2026) ;
+#   · AUTOMATIQUE — après chaque « Vérification » VERTE d'un push sur master
+#     (donc d'une fusion), SI le commit touche ce qui part dans l'image du
+#     serveur. Une fusion qui ne touche que le front ne redémarre pas les
+#     salons pour rien. Directive de Pierre (25/11/2026) : « que chaque merge
+#     déploie le Fly ». La vérification complète a déjà tourné sur ce commit
+#     exact : on ne la refait pas.
+#   · MANUELLE — « Run workflow », taper DEPLOYER (phase 5, point 37). Refait
+#     la vérification rapide, puisque rien ne garantit qu'elle a tourné.
+#
+# Dans les deux cas, la procédure du §10 de CLAUDE.md, sans en sauter une :
+#
+#   1. PERSONNE NE JOUE : un déploiement tue les salons en mémoire. À la main,
+#      le flux s'arrête s'il y en a (sauf « forcer ») ; en automatique, il
+#      ATTEND jusqu'à 30 minutes qu'ils se vident, puis abandonne — une
+#      fusion pendant une soirée de test ne coupe jamais une partie ;
+#   2. `fly deploy`, ÉTIQUETÉ du commit déployé : l'image en ligne dit d'où
+#      elle vient, et la porte automatique compare au commit en ligne plutôt
+#      qu'au seul commit précédent (un push de plusieurs commits ne laisse
+#      rien passer) ;
+#   3. `fly scale count 1` : Fly provisionne DEUX machines par défaut, et deux
+#      machines donnent « SALON INTROUVABLE » entre amis (27/08/2026) ;
 #   4. `check-salons` : une seule instance répond.
 #
 # La version qui tournait AVANT est écrite dans le résumé du flux : c'est
 # elle que « Retour arrière des salons » (point 38) redéploie.
 #
-# ⚠️ ORDRE : toute évolution du fil se déploie FLY D'ABORD, VERCEL ENSUITE
-# (§12, 30/09 : un front en avance sur les salons a tué la production). Le
-# front reste déployé par Pierre (`vercel --prod`).
+# ⚠️ ORDRE : toute évolution du fil devrait partir FLY D'ABORD, VERCEL ENSUITE
+# (§12, 30/09 : un front en avance sur les salons a tué la production). Or
+# Vercel déploie la fusion SUR-LE-CHAMP, et ce flux attend la fin de la
+# Vérification : le front passe donc en premier, de la durée de la CI. La
+# négociation du fil (`consignes`, absent = ancien) couvre ce trou pour les
+# évolutions écrites comme elle ; une évolution qui ne l'est pas doit encore
+# être déployée à la main, Fly d'abord.
 #
-# Prérequis côté Pierre : le secret FLY_API_TOKEN (`fly tokens create deploy`)
-# dans l'environnement « production » du dépôt, et — conseillé — une règle
-# « Required reviewers » sur cet environnement.
+# Prérequis : le secret FLY_API_TOKEN (`fly tokens create deploy`) dans
+# l'environnement « production » du dépôt. Une règle « Required reviewers »
+# sur cet environnement fait attendre CHAQUE déploiement automatique d'une
+# approbation : c'est un choix, pas un défaut.
 name: Déploiement des salons
 
 on:
+  workflow_run:
+    workflows: ["Vérification"]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
     inputs:
       confirmation:
@@ -41,6 +62,8 @@ on:
 permissions:
   contents: read
 
+# Un seul déploiement à la fois, et jamais annulé en route : un `fly deploy`
+# coupé laisse une machine à moitié remplacée.
 concurrency:
   group: deploiement-salons
   cancel-in-progress: false
@@ -48,42 +71,88 @@ concurrency:
 env:
   APP: the-one-rule-salons
   URL: https://the-one-rule-salons.fly.dev
+  # Le commit déployé : celui que la Vérification a jugé, pas le dernier de
+  # master (une fusion plus récente a sa propre Vérification, et son tour).
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  AUTO: ${{ github.event_name == 'workflow_run' }}
 
 jobs:
   deploie:
     name: fly deploy (the-one-rule-salons)
-    if: github.event.inputs.confirmation == 'DEPLOYER'
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.confirmation == 'DEPLOYER') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     environment: production
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ env.SHA }}
+          fetch-depth: 0
           persist-credentials: false
+
+      # Ce qui part dans l'image : les COPY du Dockerfile, plus le Dockerfile,
+      # fly.toml et .dockerignore. Garder la liste d'accord avec le Dockerfile.
+      - name: le serveur a-t-il changé ?
+        id: change
+        run: |
+          if [ "$AUTO" != "true" ]; then
+            echo "deployer=oui" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          image=$(curl -sf "$URL/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).image ?? "")}catch{console.log("")}})' || true)
+          # `FLY_IMAGE_REF` peut porter l'empreinte après l'étiquette
+          # (`…:<étiquette>@sha256:…`) : on la retire avant de lire l'étiquette.
+          sansempreinte=${image%%@*}
+          enligne=${sansempreinte##*:}
+          echo "Image en ligne : \`${image:-inconnue}\`" >> "$GITHUB_STEP_SUMMARY"
+          if echo "$enligne" | grep -Eq '^[0-9a-f]{40}$' && git cat-file -e "$enligne^{commit}" 2>/dev/null; then
+            base=$enligne
+          else
+            # Image posée à la main ou par une version antérieure de ce flux :
+            # on ne sait pas d'où elle vient, on compare au commit précédent.
+            base=$(git rev-parse "$SHA^1")
+          fi
+          if git diff --quiet "$base" "$SHA" -- Dockerfile fly.toml .dockerignore package.json package-lock.json tsconfig.json shared server src/engine src/net src/env.ts; then
+            echo "Rien de ce qui part dans l'image n'a changé depuis \`${base:0:7}\` : les salons ne sont pas redéployés." >> "$GITHUB_STEP_SUMMARY"
+            echo "deployer=non" >> "$GITHUB_OUTPUT"
+          else
+            echo "Le serveur a changé depuis \`${base:0:7}\` : déploiement de \`${SHA:0:7}\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "deployer=oui" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-node@v6
+        if: steps.change.outputs.deployer == 'oui'
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - if: steps.change.outputs.deployer == 'oui'
+        run: npm ci
 
-      - name: vérification rapide
+      - name: vérification rapide (à la main seulement)
+        if: steps.change.outputs.deployer == 'oui' && env.AUTO != 'true'
         run: |
           npx tsc --noEmit
           npx vitest run
           node scripts/integration-image.mjs
 
       - name: personne ne joue ?
-        if: github.event.inputs.forcer != 'true'
+        if: steps.change.outputs.deployer == 'oui' && github.event.inputs.forcer != 'true'
         run: |
-          h=$(curl -sf "$URL/health")
-          echo "$h"
-          salons=$(echo "$h" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).rooms ?? 0))')
-          if [ "$salons" != "0" ]; then
-            echo "::error::$salons salon(s) en cours : un déploiement les tuerait. Relancer plus tard, ou cocher « forcer »."
-            exit 1
-          fi
+          # À la main : un seul regard. En automatique : jusqu'à 30 minutes.
+          essais=1; [ "$AUTO" = "true" ] && essais=30
+          for i in $(seq 1 "$essais"); do
+            h=$(curl -sf "$URL/health" || echo '{}')
+            salons=$(echo "$h" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).rooms ?? 0))')
+            if [ "$salons" = "0" ]; then exit 0; fi
+            echo "$salons salon(s) en cours (essai $i sur $essais)"
+            [ "$i" -lt "$essais" ] && sleep 60
+          done
+          echo "::error::$salons salon(s) en cours : un déploiement les tuerait. Relancer plus tard (Run workflow), ou cocher « forcer »."
+          exit 1
 
       - name: installer flyctl
+        if: steps.change.outputs.deployer == 'oui'
         run: |
           curl -fsSL https://fly.io/install.sh | sh
           echo "$HOME/.fly/bin" >> "$GITHUB_PATH"
@@ -91,22 +160,26 @@ jobs:
       # Lue dans /health : le serveur y publie `FLY_IMAGE_REF`, que Fly pose sur
       # chaque machine. Aucun format de sortie de flyctl à deviner.
       - name: version en place (pour le retour arrière)
+        if: steps.change.outputs.deployer == 'oui'
         run: |
           avant=$(curl -sf "$URL/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).image ?? "inconnue (serveur antérieur au diagnostic)"))')
           echo "Image en place AVANT ce déploiement : \`$avant\`" >> "$GITHUB_STEP_SUMMARY"
           echo "→ à redonner à « Retour arrière des salons » si la nouvelle version casse." >> "$GITHUB_STEP_SUMMARY"
 
       - name: fly deploy
+        if: steps.change.outputs.deployer == 'oui'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-        run: flyctl deploy --remote-only --app "$APP"
+        run: flyctl deploy --remote-only --app "$APP" --image-label "$SHA"
 
       - name: une seule machine
+        if: steps.change.outputs.deployer == 'oui'
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
         run: flyctl scale count 1 --yes --app "$APP"
 
       - name: une seule instance répond
+        if: steps.change.outputs.deployer == 'oui'
         run: |
           for i in $(seq 1 30); do curl -sf "$URL/health" >/dev/null && break; sleep 2; done
           node scripts/check-salons.mjs "$URL"
