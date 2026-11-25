@@ -179,7 +179,7 @@ Get-ChildItem -Recurse -Include *.ts,*.mjs,*.css,*.html -Path src,server,shared,
 Vue d'ensemble pour un nouveau venu : `docs/ARCHITECTURE.md`. Les décisions
 structurantes ont chacune leur ADR dans `docs/adr/` (0002 moteur pur, 0003
 fil, 0004 instance unique, 0005 comptes, 0006 rejoué, 0007 HMAC, 0008
-négociation). Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
+négociation, 0011 base normalisée). La base : `docs/BASE-DE-DONNEES.md`. Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
 pas dans une ADR.
 
 ```
@@ -212,11 +212,15 @@ src/
   analytics/   file groupée, sendBeacon, transport injectable
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
-api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis
-               (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked` : le `_` les
-               exclut du routage)
+api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis,
+               boutique (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked`,
+               `_projection` : le `_` les exclut du routage)
 supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
-               0004 demandes d'ami · 0005 purge des comptes supprimés
+               0004 demandes d'ami · 0005 purge des comptes supprimés ·
+               0006 UUID · 0007 catalogue · 0008 progression, possession,
+               achats · 0009 fonctions transactionnelles
+supabase/retours/     retour arrière À LA MAIN (jamais appliqué par `db push`)
+scripts/base/  validation des migrations sur un vrai PostgreSQL (PGlite)
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
   brand/       le kit d'identité d'origine, son README et ses tokens
 scripts/       pull, report (mesure) · check-deploy, check-salons (production)
@@ -639,6 +643,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | `api/_ranked.ts` en `MemoryStore` | mode classé masqué ET hors routage (le `_`, depuis l'audit d'architecture du 07/10). **Ne pas le renommer tel quel** : `submit` accepte `body.id` sans aucune vérification, donc n'importe qui soumet et se renomme sous n'importe quelle identité. Le score de l'adversaire est désormais relu du stockage (`opponentRunId`), et `a=top` ne rend plus l'`id`. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
+| Logique d'écriture en deux exemplaires (SQL et `DepotMemoire`) | depuis 0009 : une fonction SQL modifiée sans son double en mémoire laisse les tests verts sur un dépôt qui ne tourne pas. PGlite hors dépendances : `scripts/base/` se lance à la main |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
 | Peu de filet sur la mise en page | jsdom ne calcule pas de layout. `e2e-navigateur.mjs` (Chromium, en CI depuis le point 33) couvre la reprise, deux onglets et le terrain derrière les menus — PAS les dimensions des écrans. Les relevés de mise en page restent faits À LA MAIN (scripts du scratchpad) |
 | Hôte coupé | bloque le lancement ≤ 25 s |
@@ -755,6 +760,39 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
+
+### La refonte de la base (25/11/2026) — branche `refonte/base-de-donnees`
+
+Directive : refonte complète de la base d'après un modèle MySQL fourni
+(référence d'INTENTION, truffé de FK inversées) et un projet NestJS généré
+(non repris : il ne compile pas et tourne en `synchronize: true`). Tout est
+dans `docs/BASE-DE-DONNEES.md` et l'ADR 0011 ; ce qui ne s'y lit pas :
+
+- ⚠️ **Une partie de la loi d'écriture vit en SQL** (fonctions de 0009). Elle
+  est reproduite dans `DepotMemoire` pour les tests : **toute fonction SQL
+  modifiée doit l'être aussi en mémoire**, sinon les tests passent sur le
+  dépôt qui ne tourne pas — l'audit d'architecture a déjà payé ça deux fois.
+  `scripts/base/` l'éprouve sur un vrai PostgreSQL (PGlite, `npm i
+  --no-save`) : à relancer après toute retouche d'une migration.
+- ⚠️ **Deux défauts trouvés en EXÉCUTANT 0006, aucun en relisant** : le CHECK
+  `utilisateur_id <> ami_id` interdit de convertir les colonnes d'une paire
+  l'une après l'autre (42883) ; une colonne de clé primaire ne perd pas son
+  NOT NULL avant que la clé ne déménage.
+- ⚠️ **`decoupe` normalise `sub`** (`u_<hex>` → UUID) : c'est le seul point de
+  lecture d'un jeton, pour l'API, Fly et le client. Sans lui, tout jeton émis
+  avant la migration rendrait « inconnu » pendant 24 h + 30 jours.
+- ⚠️ **`cree` ne remplace plus** un compte dont le lien existe : il le rend
+  (comme `compte_cree`). Deux tests s'en servaient pour bannir ; ils passent
+  par `DepotMemoire.remplace`, une aide de test.
+- **La boutique du COMPTE existe (route, dépôt, client) et aucun écran ne
+  l'appelle.** Le jeu lit la boutique de l'appareil (n°12). En faire la
+  source du solde est une décision de produit : une monnaie qui DÉCROÎT ne
+  fusionne pas par maximum. Voir §10 du document.
+- Amis : AJOUTER 7 → 5 allers-retours en série, ACCEPTER 9 → 5
+  (`tests/amis-profondeur`), et plus aucune fenêtre C4.
+- **À faire par Pierre** : sauvegarde, puis 0006 → 0009, puis fusion de la PR
+  SANS ATTENDRE (entre les deux, les comptes ne marchent pas), puis `fly
+  deploy`. Détail : §8 du document.
 
 ### La migration React : la branche de Camille (25/11/2026)
 

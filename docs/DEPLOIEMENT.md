@@ -107,7 +107,10 @@ Sans ces réglages, le bouton de connexion reste masqué et le jeu se comporte
 exactement comme sans comptes : aucune fonctionnalité de jeu n'en dépend.
 
 1. Un projet **Supabase**, puis les migrations **dans l'ordre** :
-   `supabase/migrations/0001_comptes.sql` → `0005_purge_performances_supprimees.sql`.
+   `supabase/migrations/0001_comptes.sql` → `0009_transactions.sql`.
+   ⚠️ **0006 à 0009 se posent JUSTE AVANT de déployer le code qui les attend**,
+   sauvegarde faite : entre les deux, les comptes ne marchent pas (le jeu, si).
+   Ordre, retour arrière et validation : [BASE-DE-DONNEES.md](BASE-DE-DONNEES.md) §8.
 2. Deux applications OAuth (**Google**, **Discord**), avec pour URL de retour
    `https://www.theonerule.party/api/authcb`.
 3. Les variables, côté **Vercel** : `TOR_AUTH_SECRET`, `TOR_APP_URL`,
