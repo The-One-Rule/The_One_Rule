@@ -136,8 +136,8 @@ interface Client {
    */
   consignes: number;
   /**
-   * Son code d'ami, annoncé par `{ t: "ami" }` — accepté seulement avec un
-   * compte. Sert à lui remettre une invitation (`server/invitation.ts`).
+   * Son code d'ami, annoncé par `{ t: "ami" }`. Sert à lui remettre une
+   * invitation (`server/invitation.ts`). Il n'est pas vérifié.
    */
   codeAmi: string | null;
   /** L'instant de sa dernière invitation envoyée — borne le débit. */
@@ -1428,8 +1428,12 @@ wss.on("connection", (ws, req) => {
       }
 
       case "ami": {
-        // Un code d'ami n'a de sens qu'avec un compte : sans lui, rien.
-        if (!client.compte) return;
+        /*
+         * Le code n'est PAS conditionné au compte : §6 n°12, le compte ne
+         * décide de rien sur ce serveur (`invariants-compte.test.ts`). En
+         * pratique seul un client avec compte a une liste d'amis à annoncer,
+         * et le code n'est vérifié par personne (`server/invitation.ts`).
+         */
         client.codeAmi = codeAmiValide(msg.code) ?? null;
         return;
       }

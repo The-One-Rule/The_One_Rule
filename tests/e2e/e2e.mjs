@@ -682,10 +682,10 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
  * INVITER UN AMI — sur le fil (`server/invitation.ts`).
  *
  * Le serveur n'a pas de base : il remet l'invitation à la socket qui a
- * annoncé le code visé, et SEULEMENT si elle a un compte. Trois cas : l'ami
- * connecté la reçoit (avec le salon et le nom de l'inviteur), un anonyme qui
- * prétend un code n'est pas joignable, un code que personne ne porte est
- * « absent » — le client se rabat alors sur le lien.
+ * annoncé le code visé. Le compte n'y décide de rien (§6 n°12) : un client
+ * sans compte qui annonce un code est joignable comme un autre. Deux cas
+ * vérifiés : l'ami connecté la reçoit (salon et nom de l'inviteur), un code
+ * que personne ne porte est « absent » — le client se rabat sur le lien.
  */
 {
   const { signeJeton } = await import("../../server/jeton.ts");
@@ -723,8 +723,8 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   await sleep(300);
   const rAnonyme = hote.recus.filter((m) => m.t === "invite_ami_res").at(-1);
   ok(
-    rAnonyme?.livre === false && rAnonyme.pourquoi === "absent" && !anonyme.recus.some((m) => m.t === "invitation"),
-    `un anonyme ne peut pas annoncer de code : rien ne lui est remis (${JSON.stringify(rAnonyme)})`,
+    rAnonyme?.livre === true && anonyme.recus.some((m) => m.t === "invitation"),
+    `le compte ne décide de rien : un client sans compte qui annonce un code est joignable (${JSON.stringify(rAnonyme)})`,
   );
 
   await sleep(1600);

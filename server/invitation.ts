@@ -3,8 +3,9 @@
  * liste depuis le salon ».
  *
  * ⚠️ LE SERVEUR DE SALONS N'A PAS DE BASE. Il ne connaît ni les amitiés ni les
- * codes d'ami : c'est le CLIENT qui, connecté avec un compte, annonce le sien
- * (`{ t: "ami", code }`), une fois sa liste lue chez Vercel. Le serveur se
+ * codes d'ami : c'est le CLIENT qui annonce le sien (`{ t: "ami", code }`),
+ * une fois sa liste lue chez Vercel — en pratique, seul un client avec compte
+ * en a une. Le serveur ne conditionne RIEN au compte (§6 n°12). Le serveur se
  * contente de remettre une invitation à la socket qui porte ce code.
  *
  * Ce que ça veut dire, et c'est écrit sur la carte :

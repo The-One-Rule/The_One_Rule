@@ -474,8 +474,8 @@ export type ClientMsg =
   | { t: "emote"; k: number }
   /**
    * L'INVITATION D'UN AMI (`server/invitation.ts`). `ami` annonce SON code
-   * d'ami — lu chez Vercel, le serveur de salons n'a pas de base ; accepté
-   * seulement d'un client connecté avec un compte. `invite_ami` demande de
+   * d'ami — lu chez Vercel, le serveur de salons n'a pas de base ; non
+   * vérifié, et indépendant du compte (§6 n°12). `invite_ami` demande de
    * remettre une invitation au salon courant à l'ami qui porte `code`.
    * Un serveur d'avant les ignore : l'inviteur n'a pas de réponse et retombe
    * sur le lien. `PROTOCOL_VERSION` inchangée, doctrine de `quick`.
