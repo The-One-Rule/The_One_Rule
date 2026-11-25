@@ -133,6 +133,11 @@ interface Client {
    * défaut — le catalogue d'origine —, bornée par celle du serveur.
    */
   consignes: number;
+  /**
+   * Le son est allumé chez ce joueur — annoncé au `hello`, absent vaut non.
+   * LE GONG n'entre au pool que si TOUS les sièges l'ont annoncé.
+   */
+  son: boolean;
   /** Il comprend `remplace` (voir le `hello`) — absent vaut non. */
   reprise: boolean;
   /**
@@ -533,6 +538,12 @@ function startMatch(room: Room): void {
     CONSIGNES_VERSION,
     ...ids.map((id) => room.clients.get(id)?.consignes ?? 1),
   );
+  /*
+   * LE GONG ne se joue qu'à l'oreille : il n'entre au pool que si TOUT LE
+   * MONDE a annoncé le son. Un seul siège muet (ou d'une version qui ne le
+   * dit pas) et la table s'en passe — sinon il serait inerte chez lui.
+   */
+  const son = ids.length > 0 && ids.every((id) => room.clients.get(id)?.son === true);
   room.match = new MatchLogic(
     seed,
     ids,
@@ -541,6 +552,7 @@ function startMatch(room: Room): void {
     clavier,
     room.settings.duo,
     consignes,
+    son,
   );
 
   const rules = room.match.reglesPubliques(0);
@@ -1017,6 +1029,7 @@ wss.on("connection", (ws, req) => {
     rookie: false,
     clavier: false,
     consignes: 1,
+    son: false,
     reprise: false,
     compte: null,
     adresse: adresseDe(req.headers, req.socket.remoteAddress),
@@ -1071,6 +1084,7 @@ wss.on("connection", (ws, req) => {
           Number.isInteger(msg.consignes) && (msg.consignes as number) >= 1
             ? Math.min(msg.consignes as number, CONSIGNES_VERSION)
             : 1;
+        client.son = msg.son === true;
         client.glyph = parseGlyph(msg.glyph, client.id);
         client.reprise = msg.reprise === true;
 

@@ -717,8 +717,13 @@ export const VERSION_DE_CONSIGNE: Readonly<Record<string, number>> = {
  * consigne, mais la négociation est exactement la même : un client qui ne sait
  * pas lire `rancune:rond` ne doit jamais la recevoir. Le pool de consignes de
  * la version 5 est identique à celui de la 4.
+ *
+ * 6 = le pool de RÈGLES gagne les règles de salon du kanban (`VERSION_SALON`,
+ * `rules/salon.ts`) : LE MIROIR, L'INSOUMIS, LA FOULE, LE VOISIN,
+ * L'IMMOBILE, L'INCONNUE — et LE GONG si toute la table a le son. Même
+ * raisonnement que la 5, et même garantie : les consignes ne bougent pas.
  */
-export const CONSIGNES_VERSION = 5;
+export const CONSIGNES_VERSION = 6;
 
 /**
  * « NE FAIS RIEN » et son appât — RETIRÉES du jeu (directive de Pierre, 01/10).

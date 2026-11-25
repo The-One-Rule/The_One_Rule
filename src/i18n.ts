@@ -23,7 +23,16 @@
 import { MOTIFS } from "./engine/motifs.js";
 import type { MotifId } from "./engine/motifs.js";
 import type { SeatStatus } from "./render/seat.js";
-import { familleDeRegle, formeDeRancune } from "./engine/rules/rancune.js";
+import { familleDeRegle as familleRancune, formeDeRancune } from "./engine/rules/rancune.js";
+import { estInconnue, INCONNUE } from "./engine/rules/salon.js";
+
+/**
+ * L'identifiant de FAMILLE d'une règle : `rancune:rond` → `rancune`,
+ * `inconnue:sang` → `inconnue`. Le nom et le brief se lisent sur la famille ;
+ * L'INCONNUE ne dit JAMAIS ici ce qu'elle cache — la révélation est une
+ * décision du salon (`multi.ts`), qui passe alors la règle cachée elle-même.
+ */
+const familleDeRegle = (id: string): string => (estInconnue(id) ? INCONNUE : familleRancune(id));
 import type { ShapeId } from "./engine/types.js";
 
 import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours.js";
@@ -2747,6 +2756,13 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
     jumeau: "Chaque action doit être faite deux fois de suite. Une seule ne compte pas.",
     acceleration: "Tout va 30 % plus vite, du début à la fin. Aucun interdit, juste moins de temps.",
     mainGauche: "Garde ESPACE enfoncée du début à la fin. Joue avec la souris et l'autre main.",
+    immobile: "Ne clique jamais une forme qui bouge, même quand la consigne la désigne.",
+    voisin: "Ne clique jamais une forme collée par un côté à une forme rouge. Le rouge lui-même ne compte pas.",
+    foule: "Ne clique jamais la couleur la plus nombreuse de l'écran. Compte avant d'agir.",
+    miroir: "Gauche veut dire droite, et l'inverse. Le plus gros veut dire le plus petit. Fais ce que dit le miroir.",
+    insoumis: "Une consigne écrite en ROUGE dit le contraire : touche n'importe quoi, SAUF ce qu'elle désigne.",
+    gong: "Quand le gong sonne à l'ouverture d'une manche, ne fais rien. Garde le son allumé.",
+    inconnue: "Ta règle est cachée. Elle se révèle au premier piège raté, ou après cinq manches.",
   },
   en: {
     sang: "Never click on red. Sooner or later an order will ask you to.",
@@ -2766,6 +2782,13 @@ const BRIEFS: Record<Lang, Record<string, string>> = {
     jumeau: "Every action must be done twice in a row. Once does not count.",
     acceleration: "Everything runs 30 % faster, start to finish. Nothing forbidden, just less time.",
     mainGauche: "Hold SPACE down from start to finish. Play with the mouse and your other hand.",
+    immobile: "Never click a shape that moves, even when the order points at it.",
+    voisin: "Never click a shape touching a red shape along a side. The red one itself does not count.",
+    foule: "Never click the most common colour on screen. Count before you act.",
+    miroir: "Left means right, and right means left. The biggest means the smallest. Do what the mirror says.",
+    insoumis: "An order written in RED means the opposite: touch anything EXCEPT what it points at.",
+    gong: "When the gong sounds as a round opens, do nothing. Keep the sound on.",
+    inconnue: "Your rule is hidden. It reveals itself on your first missed trap, or after five rounds.",
   },
 };
 
@@ -2818,6 +2841,13 @@ const NOMS: Record<Lang, Record<string, string>> = {
     acceleration: "L'ACCÉLÉRATION",
     mainGauche: "LA MAIN GAUCHE",
     rancune: "LA RANCUNE",
+    immobile: "L'IMMOBILE",
+    voisin: "LE VOISIN",
+    foule: "LA FOULE",
+    miroir: "LE MIROIR",
+    insoumis: "L'INSOUMIS",
+    gong: "LE GONG",
+    inconnue: "L'INCONNUE",
   },
   en: {
     sang: "THE BLOOD",
@@ -2837,6 +2867,13 @@ const NOMS: Record<Lang, Record<string, string>> = {
     acceleration: "THE RUSH",
     mainGauche: "THE OFF HAND",
     rancune: "THE GRUDGE",
+    immobile: "THE STATUE",
+    voisin: "THE NEIGHBOUR",
+    foule: "THE CROWD",
+    miroir: "THE MIRROR",
+    insoumis: "THE REBEL",
+    gong: "THE GONG",
+    inconnue: "THE UNKNOWN",
   },
 };
 
@@ -2876,7 +2913,7 @@ export function briefDeRegle(ruleId: string, secours: string): string {
   if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
   const rancune = formeDeRancune(ruleId);
   if (rancune) return RANCUNE_TXT[courante].long(rancune);
-  return BRIEFS[courante][ruleId] ?? secours;
+  return BRIEFS[courante][familleDeRegle(ruleId)] ?? secours;
 }
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
@@ -2924,6 +2961,13 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
     jumeau: "Chaque geste deux fois",
     acceleration: "30 % plus vite",
     mainGauche: "Garde ESPACE enfoncee",
+    immobile: "Jamais ce qui bouge",
+    voisin: "Jamais colle au rouge",
+    foule: "Jamais la couleur en nombre",
+    miroir: "Gauche veut dire droite",
+    insoumis: "Consigne rouge : le contraire",
+    gong: "Gong : ne fais rien",
+    inconnue: "Ta regle est cachee",
   },
   en: {
     sang: "Never red",
@@ -2942,6 +2986,13 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
     jumeau: "Every move twice",
     acceleration: "30% faster",
     mainGauche: "Hold SPACE down",
+    immobile: "Never what moves",
+    voisin: "Never next to red",
+    foule: "Never the commonest colour",
+    miroir: "Left means right",
+    insoumis: "Red order: do the opposite",
+    gong: "Gong: do nothing",
+    inconnue: "Your rule is hidden",
   },
 };
 
@@ -2956,7 +3007,7 @@ export function briefCourtDeRegle(ruleId: string, secours: string): string {
   if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].court;
   const rancune = formeDeRancune(ruleId);
   if (rancune) return RANCUNE_TXT[courante].court(rancune);
-  return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
+  return BRIEFS_COURTS[courante][familleDeRegle(ruleId)] ?? briefDeRegle(ruleId, secours);
 }
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
@@ -3088,6 +3139,12 @@ const MOTIFS_EN: Record<MotifId, string> = {
   tropTot: "YOU ACTED TOO SOON",
   espace: "YOU RELEASED SPACE",
   rancune: "YOU CLICKED YOUR GRUDGE",
+  immobile: "YOU CLICKED A MOVING SHAPE",
+  voisin: "YOU CLICKED A NEIGHBOUR OF RED",
+  foule: "YOU CLICKED THE MOST COMMON COLOUR",
+  miroir: "THE MIRROR: IT WAS ON THE OTHER SIDE",
+  insoumis: "YOU OBEYED A RED ORDER",
+  gong: "THE GONG RANG — YOU HAD TO DO NOTHING",
   parti: "LEFT",
 };
 

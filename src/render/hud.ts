@@ -417,7 +417,17 @@ export class Hud {
       this.instr.textContent = shown || "\u00a0";
       this.lastText = shown;
     }
-    ecrisClasse(this.instr, round.glyph && !hidden ? "is-glyph" : "");
+    /*
+     * L'INSOUMIS : l'encre rouge ET un soulignement ondulé. La couleur seule
+     * serait muette pour un daltonien — le second canal vaut pour tout le
+     * monde, comme les trames du mode MOTIFS. Écrit dans la même chaîne de
+     * classe que `is-glyph` : `ecrisClasse` remplace tout, une `bascule` à
+     * part serait effacée à l'image suivante.
+     */
+    const classes = [round.glyph && !hidden ? "is-glyph" : "", round.insoumise && !hidden ? "is-insoumise" : ""]
+      .filter(Boolean)
+      .join(" ");
+    ecrisClasse(this.instr, classes);
     this.instr.style.color = round.inkColor ? colorHex(round.inkColor) : "";
 
     /*

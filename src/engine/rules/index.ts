@@ -7,6 +7,7 @@ import type { ColorId, Entity, OneRule } from "../types.js";
 import { VOWELS } from "../instructions/index.js";
 import { targets } from "./cibles.js";
 import { regleRancuneDepuisId } from "./rancune.js";
+import { regleCachee, regleSalonDepuisId } from "./salon.js";
 
 /* ------------------------------------------------------------------ *
  * Helpers partagés
@@ -423,6 +424,14 @@ export const ONE_RULES: OneRule[] = [
  * et `VERSION_CONTENU`) : elle ne vit qu'en salon, et son identifiant porte sa
  * cible (`rancune:rond`). C'est le serveur qui la fixe ; le client la LIT,
  * il ne la déduit jamais de l'historique (n°3).
+ *
+ * Les règles de SALON (`salon.ts`) suivent la même porte : hors catalogue,
+ * négociées sur le fil, résolues ici pour que le client lise ce que le
+ * serveur lui attribue.
  */
 export const ruleById = (id: string): OneRule | undefined =>
-  ONE_RULES.find((r) => r.id === id) ?? regleRancuneDepuisId(id);
+  ONE_RULES.find((r) => r.id === id) ??
+  regleRancuneDepuisId(id) ??
+  regleSalonDepuisId(id) ??
+  // L'INCONNUE voile une autre règle : `inconnue:sang` se résout par celle qu'elle cache.
+  regleCachee(id, ruleById);

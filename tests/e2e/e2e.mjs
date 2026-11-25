@@ -93,7 +93,7 @@ const serres = [];
  */
 const DELAI_PILOTE = 460;
 
-function client(name, key, rookie = false, clavier = false, consignes = undefined) {
+function client(name, key, rookie = false, clavier = false, consignes = undefined, son = undefined) {
   const ws = new WebSocket("ws://localhost:8797");
   const c = {
     name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {},
@@ -168,7 +168,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
         // exactement ce que fait le vrai client, et c'est ce qui garantit que les
         // deux cotes du fil reconstruisent la meme manche.
         round = buildMultiRound(c.seed, m.idx, rule, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1), c.tirages[m.idx]);
-        c.pieges[m.idx] = { trap: round.trap, instr: round.instructionId };
+        c.pieges[m.idx] = { trap: round.trap, instr: round.instructionId, gong: round.gong === true };
       }
       const at = () => Date.now() + c.offset;
       /*
@@ -259,7 +259,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
     if (m.t === "error") c.errors.push(m);
   });
   ws.on("close", (code) => { c.ferme = code; });
-  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, reprise: true, ...(consignes === undefined ? {} : { consignes }) })); setTimeout(() => res(c), 120); }));
+  return new Promise((res) => ws.on("open", () => { ws.send(JSON.stringify({ t: "hello", v: 1, name, key, rookie, clavier, reprise: true, ...(consignes === undefined ? {} : { consignes }), ...(son === undefined ? {} : { son }) })); setTimeout(() => res(c), 120); }));
 }
 
 const [alice, bob, chloe] = await Promise.all([client("ALICE"), client("BOB"), client("CHLOE")]);
@@ -811,6 +811,82 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
 }
 
 /*
+ * LES RÈGLES DE SALON (kanban) — L'IMMOBILE, LE VOISIN, LA FOULE, LE MIROIR,
+ * L'INSOUMIS, L'INCONNUE et LE GONG, jouées sur un vrai serveur.
+ *
+ * Ce que les unitaires ne prouvent pas : que le serveur ATTRIBUE ces règles à
+ * une table en version 6, que leurs identifiants (`inconnue:sang`) voyagent et
+ * se résolvent chez le client, et que le pilote — qui joue ce qu'IL
+ * reconstruit, miroir et encre rouge compris — ne meure jamais sur une manche
+ * que le serveur juge autrement (n°3). Toute la table annonce le son : LE GONG
+ * peut sortir.
+ *
+ * Dix sièges, vingt-deux règles : une règle de salon tombe presque à chaque
+ * lancement. On relance quand même jusqu'à l'obtenir, borné et nommé (§11).
+ */
+{
+  const SALON = /^(immobile|voisin|foule|miroir|insoumis|gong|inconnue:)/;
+  const tab = [];
+  for (let i = 0; i < 10; i++) tab.push(await client("S" + i, "cle-S" + i, false, false, CONSIGNES_VERSION, true));
+  tab[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = tab[0].room.code;
+  for (const c of tab.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(120); }
+  tab[0].ws.send(JSON.stringify({ t: "settings", settings: { lives: 5 } }));
+  await sleep(300);
+
+  let porteurs = [];
+  let essais = 0;
+  for (; essais < 6 && porteurs.length === 0; essais++) {
+    for (const c of tab) { c.rules = {}; c.ended = null; c.verdicts = []; }
+    tab[0].ws.send(JSON.stringify({ t: "start" }));
+    await sleep(500);
+    porteurs = tab.filter((c) => SALON.test(String(c.rules[c.id] ?? "")));
+    if (porteurs.length) break;
+    for (const c of tab) c.manuel = true;
+    const finMatch = Date.now() + 30000;
+    while (!tab[0].ended && Date.now() < finMatch) await sleep(150);
+    for (const c of tab) c.manuel = false;
+    await sleep(400);
+  }
+  ok(porteurs.length > 0, `une table en version 6 tire des règles de salon (${essais + 1} lancement(s))`);
+  ok(
+    tab.every((c) => !String(c.rules[c.id] ?? "x").match(/^inconnue$/) && ruleById(String(c.rules[c.id] ?? "")) !== undefined),
+    "chaque identifiant attribué se résout chez le client — aucun représentant du pool ne voyage",
+  );
+
+  // Au-delà d'une rotation (manche 8) : chaque siège change de règle une fois.
+  const debut = Date.now();
+  while (tab[0].roundIdx < 12 && Date.now() - debut < APRES_DEPART + 80000) await sleep(250);
+  await sleep(2600);
+  const horloge = new Set([MOTIFS.temps, MOTIFS.sequence]);
+  const portees = new Set();
+  const fautes = [];
+  let joues = 0;
+  for (const c of tab) {
+    for (const v of c.verdicts) {
+      const o = v.outcomes?.[c.id];
+      if (!o) continue;
+      joues++;
+      if (o.kind === "death" && !horloge.has(o.reason)) fautes.push(`${c.name}@${v.idx} : ${o.reason}`);
+    }
+    for (const r of Object.values(c.rules)) if (SALON.test(String(r))) portees.add(String(r));
+  }
+  for (const r of porteurs.map((c) => String(c.rules[c.id]))) portees.add(r);
+  info(`règles de salon portées : ${[...portees].join(", ")}`);
+  ok(
+    joues > 0 && fautes.length === 0,
+    `règles de salon : le pilote joue ce que juge le serveur (${joues} verdicts, ${fautes.length} faute(s)` +
+      (fautes.length ? ` : ${fautes.join(" | ")})` : ")"),
+  );
+  const gongs = tab.reduce((n, c) => n + Object.values(c.pieges).filter((p) => p.gong).length, 0);
+  info(`gongs sonnés chez les porteurs : ${gongs}`);
+
+  for (const c of tab) c.ws.close();
+  await sleep(220);
+}
+
+/*
  * DUO : deux joueurs, une reserve — verifie sur le fil.
  *
  * La propriete centrale du mode ne peut pas se prouver en unitaire : il faut
@@ -1281,7 +1357,7 @@ const lisErreurs = () =>
 const erreursAvant = (await lisErreurs())?.erreurs;
 const HOSTILES = [null, undefined, true, -1, 1e308, Number.NaN, "", "__proto__", "x".repeat(2000), [], {}, [null], { __proto__: { x: 1 } }];
 const CHAMPS = {
-  hello: ["v", "name", "key", "glyph", "tok", "rookie", "clavier", "consignes", "reprise"],
+  hello: ["v", "name", "key", "glyph", "tok", "rookie", "clavier", "consignes", "son", "reprise"],
   ping: ["sent"],
   profil: ["carte", "photo"],
   join: ["code"],

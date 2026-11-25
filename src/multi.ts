@@ -28,6 +28,8 @@ import { windowMs } from "./engine/difficulty";
 import { leverAttendu, resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import { estRancune } from "./engine/rules/rancune";
+import { estInconnue, MANCHES_INCONNUE, sousLInconnue } from "./engine/rules/salon";
+import { MOTIFS_REGLE } from "./engine/motifs";
 import * as P from "./game/progress";
 import { jetonPourSalon } from "./compte";
 import { signeAffiche } from "./compte/revendication";
@@ -48,7 +50,7 @@ import { paintCursors } from "./render/cursors";
 import type { CurseurAffiche } from "./render/cursors";
 import { seatClasses, seatStatus } from "./render/seat";
 import { ATTENTES_REPRISE_MS, ESSAIS_REPRISE } from "./net/reprise";
-import { musicApi, sfx, unlock } from "./audio";
+import { isEnabled as sonAllume, musicApi, sfx, unlock } from "./audio";
 /*
  * Importee sous un autre nom : `multi.ts` a deja plusieurs `t` locaux — un
  * minuteur, une ligne de titre, un horodatage. Un import nomme `t` les
@@ -1508,7 +1510,33 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     match.rule = rule;
     match.round = buildMultiRound(match.seed, match.idx, rule, poolMulti(match.clavier, match.consignes), match.tirage);
-    hud.setRule(rule);
+    hud.setRule(viewId === net.myId ? regleAffichee(rule, match.idx) : rule);
+  }
+
+  /**
+   * L'INCONNUE — ce que MA règle laisse voir d'elle.
+   *
+   * Le voile (`inconnue:sang`) juge et piège comme la règle qu'il cache ; le
+   * bandeau, lui, dit « L'INCONNUE » jusqu'à la révélation : au premier
+   * piège raté (un verdict de mort sur SA règle, `MOTIFS_REGLE`), ou après
+   * `MANCHES_INCONNUE` manches tenues sous elle. Le piège n'est donc révélé
+   * qu'après la mort (n°5). Les AUTRES ne voient jamais ce qu'elle cache :
+   * leur plaque dit « L'INCONNUE », et seule la kill-cam montre le motif.
+   *
+   * Une décision d'AFFICHAGE seulement : rien de ce qui est jugé n'en dépend,
+   * le serveur n'en sait rien et n'a rien à en savoir.
+   */
+  let voile: { id: string; depuis: number; revelee: boolean } | null = null;
+
+  function regleAffichee(rule: OneRule, idx: number): OneRule {
+    if (!estInconnue(rule.id)) {
+      voile = null;
+      return rule;
+    }
+    if (!voile || voile.id !== rule.id) voile = { id: rule.id, depuis: idx, revelee: false };
+    if (idx - voile.depuis >= MANCHES_INCONNUE) voile.revelee = true;
+    if (!voile.revelee) return rule;
+    return ruleById(sousLInconnue(rule.id) ?? "") ?? rule;
   }
 
   function renderWatchBar(): void {
@@ -2333,6 +2361,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
     rebuildViewRound();
     /*
+     * LE GONG : il sonne à l'ouverture de la manche, chez celui qui le porte
+     * et seulement chez lui — c'est SA règle. Un spectateur qui regarde ce
+     * joueur l'entend aussi : il voit sa manche, il doit voir le même piège.
+     */
+    if (match.round?.gong) sfx.gong();
+    /*
      * La règle a pu raccourcir la fenêtre personnelle : la barre doit le dire,
      * sinon elle promet du temps que le serveur ne donne pas.
      *
@@ -2378,6 +2412,8 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     } else if (mine?.kind === "death") {
       sfx.fail();
       queueFx({ mort: true });
+      // L'INCONNUE se révèle au premier piège raté — sur SA règle, pas au temps.
+      if (voile && MOTIFS_REGLE.includes(mine.reason)) voile.revelee = true;
       // Le tampon est posé plus bas, une fois qu'on sait si un panneau va
       // occuper le centre : le poser ici le faisait clignoter sous la kill-cam.
     }
@@ -3409,6 +3445,9 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         // état normal. Aucune attente, aucun contrôle préalable — le compte ne
         // doit rien ajouter au chemin « code/lien → rejoindre → jouer ».
         jetonPourSalon(),
+        // LE GONG ne se joue qu'à l'oreille : on annonce le son tel qu'il est
+        // à l'entrée. Absent ou faux, la table s'en passe (`multiRulesFor`).
+        sonAllume(),
       );
       // Une connexion neuve : le départ subi de la précédente est réglé.
       departSubi = false;
