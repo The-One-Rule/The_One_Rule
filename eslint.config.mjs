@@ -22,7 +22,7 @@ import tseslint from "typescript-eslint";
 import globals from "globals";
 
 export default tseslint.config(
-  { ignores: ["dist/**", "coverage/**", "node_modules/**", "public/**"] },
+  { ignores: ["dist/**", "coverage/**", "node_modules/**", "public/**", "prisma/client/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

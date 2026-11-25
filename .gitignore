@@ -7,3 +7,6 @@ dist
 .vercel
 .env*.local
 coverage/
+
+# Client Prisma, régénéré par `prisma generate` (postinstall)
+prisma/client/

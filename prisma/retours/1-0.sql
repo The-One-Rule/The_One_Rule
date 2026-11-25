@@ -1,35 +1,57 @@
 -- ===================================================================
--- 0009 — les écritures à plusieurs lignes deviennent des TRANSACTIONS.
+-- RETOUR ARRIÈRE de 1_fonctions_en_typescript → 0_ligne_de_base.
 --
--- Refonte de la base, étape 4 sur 4 (voir docs/BASE-DE-DONNEES.md).
+-- ⚠️ CE FICHIER N'EST PAS UNE MIGRATION : il vit hors de `prisma/migrations/`
+-- pour que `prisma migrate deploy` ne l'applique jamais. Il se lance à la
+-- main (`psql "$DIRECT_URL" -f prisma/retours/1-0.sql`), sur décision de
+-- Pierre, APRÈS avoir redéployé le code d'avant Prisma (les fonctions `api/`
+-- en edge, qui appellent ces fonctions par PostgREST).
 --
--- Les fonctions edge parlent à Supabase par PostgREST (pas de socket TCP en
--- runtime edge). Une requête REST = une transaction ; une suite de requêtes
--- n'en est PAS une. Mesuré dans `api/_depot.ts` avant cette migration :
+-- Il ne détruit AUCUNE donnée : il recrée les treize fonctions et le
+-- déclencheur de la ligne de base (texte recopié à l'identique), la colonne
+-- générée `termine` (recalculée par Postgres) et la clé du style porté en
+-- `SET NULL (skin_porte_id)`, puis efface la trace de la migration 1 dans
+-- `_prisma_migrations` pour que Prisma la sache non appliquée.
 --
---   · créer un compte = 2 requêtes (compte, puis lien) : un échec entre les
---     deux laissait un compte ORPHELIN, qu'aucune connexion ne retrouvait ;
---   · supprimer un compte = 7 requêtes : une panne au milieu laissait un
---     compte à moitié effacé (liens partis, scores encore publiés…) ;
---   · accepter un ami = lire, lier, RECOMPTER, défaire si dépassement
---     (audit C4) — un contournement de l'absence de verrou.
---
--- Chaque fonction ci-dessous est appelée par `POST /rest/v1/rpc/<nom>` :
--- PostgREST l'exécute dans UNE transaction. Tout réussit, ou rien n'a lieu.
--- Les verrous de ligne (`for update`) sérialisent ce qui touche le même
--- compte — deux onglets, deux acceptations croisées, deux achats.
---
--- ⚠️ CE QUI N'EST PAS ICI, DÉLIBÉRÉMENT : la FUSION des agrégats. Elle reste
--- écrite une fois, en TypeScript (`fusionne`), et `agregats_ecrit` ne fait
--- que poser le résultat sous compare-and-swap. Une seconde implémentation en
--- plpgsql divergerait, et le symptôme serait un carnet qui rétrécit.
---
--- ⚠️ ACCÈS : Postgres accorde EXECUTE à PUBLIC par défaut. Sans le `revoke`
--- final, la clé publique du navigateur pourrait appeler `boutique_achete`
--- pour n'importe quel compte. Seule la clé de service (fonctions edge) les
--- exécute.
+-- Éprouvé le 25/11/2026 sur PostgreSQL 16 : après 1 puis ce retour, le schéma
+-- (pg_dump --schema-only) est celui de la ligne de base seule, à UNE
+-- différence près, sans effet : `termine` revient en DERNIÈRE colonne de
+-- `progression_chapitre` (un `add column` ne sait pas l'insérer ailleurs).
 -- ===================================================================
 
+begin;
+
+alter table utilisateur drop constraint if exists utilisateur_skin_porte_fkey;
+alter table utilisateur add constraint utilisateur_skin_porte_fkey
+  foreign key (id, skin_porte_id) references skin_utilisateur(utilisateur_id, skin_id)
+  on delete set null (skin_porte_id);
+
+alter table progression_chapitre
+  add column if not exists termine boolean generated always as (etoiles[5] > 0) stored;
+
+-- Le déclencheur de la bannière (0008), puis un rattrapage : des apparences
+-- ont pu changer pendant que le dépôt dérivait la colonne lui-même.
+create or replace function utilisateur_derive_banniere() returns trigger
+language plpgsql as $$
+begin
+  new.carte_banniere_id := (
+    select c.id from carte c join regle r on r.id = c.regle_id
+    where r.code = new.apparence ->> 'carte'
+  );
+  return new;
+end $$;
+
+drop trigger if exists utilisateur_banniere on utilisateur;
+create trigger utilisateur_banniere
+  before insert or update of apparence on utilisateur
+  for each row execute function utilisateur_derive_banniere();
+
+
+update utilisateur u set carte_banniere_id = c.id
+from carte c join regle r on r.id = c.regle_id
+where r.code = u.apparence ->> 'carte' and u.carte_banniere_id is distinct from c.id;
+
+-- Les fonctions transactionnelles (0009), texte d'origine.
 -- -------------------------------------------------------------------
 -- Comptes
 -- -------------------------------------------------------------------
@@ -444,3 +466,7 @@ begin
     end if;
   end loop;
 end $$;
+
+delete from _prisma_migrations where migration_name = '1_fonctions_en_typescript';
+
+commit;

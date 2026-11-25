@@ -15,7 +15,12 @@
     "server": "tsx server/index.ts",
     "e2e": "tsx tests/e2e/e2e.mjs",
     "e2e:navigateur": "tsx tests/e2e/e2e-navigateur.mjs",
-    "integration": "node scripts/integration-image.mjs"
+    "integration": "node scripts/integration-image.mjs",
+    "postinstall": "prisma generate",
+    "base:genere": "prisma generate",
+    "base:migre": "prisma migrate deploy",
+    "base:etat": "prisma migrate status",
+    "base:derive": "prisma migrate diff --from-migrations prisma/migrations --to-schema prisma/schema.prisma --exit-code"
   },
   "keywords": [],
   "author": "",
@@ -26,6 +31,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.5",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@types/ws": "^8.18.1",
@@ -34,6 +40,7 @@
     "globals": "^15.15.0",
     "jsdom": "^30.0.1",
     "playwright-core": "^1.56.1",
+    "prisma": "7.10.1",
     "typescript": "5.9",
     "typescript-eslint": "^8.71.1",
     "vite": "^8.2.1",
@@ -43,6 +50,9 @@
   "dependencies": {
     "@fontsource/fredoka": "^5.3.0",
     "@fontsource/nunito": "^5.3.0",
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "pg": "8.23.1",
     "qrcode-generator": "^2.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
