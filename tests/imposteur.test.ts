@@ -261,7 +261,7 @@ describe("acte live — AGI / RIEN", () => {
   });
 
   it("le serveur émet t: acted au premier input — dents", () => {
-    const src = readFileSync("server/index.ts", "utf8")
+    const src = readFileSync("server/messages/index.ts", "utf8")
       .split(/\r?\n/)
       .filter((l) => !/^\s*\/\//.test(l))
       .join("\n");
@@ -416,7 +416,7 @@ describe("fil — journal une fois, pas dans le verdict, pas de match_end", () =
   });
 
   it("après les 10 manches le serveur ouvre observe, pas match_end", () => {
-    const src = readFileSync("server/index.ts", "utf8");
+    const src = readFileSync("server/salon.ts", "utf8");
     const close = src.slice(src.indexOf("function closeRound"), src.indexOf("Connexions"));
     const iImp = close.search(/over && match\.imposteur/);
     const iJournal = close.search(/t:\s*"journal"/);
@@ -584,7 +584,7 @@ describe("un seul vote", () => {
     const proto = readFileSync("shared/protocol.ts", "utf8");
     expect(proto).toMatch(/t: "vote"; playerId: string/);
     expect(proto).toMatch(/t: "vote_result"/);
-    const srv = readFileSync("server/index.ts", "utf8");
+    const srv = readFileSync("server/messages/index.ts", "utf8") + readFileSync("server/salon.ts", "utf8");
     expect(srv).toMatch(/case "vote"/);
     expect(srv).toMatch(/function clotureVote/);
     const iEnd = srv.indexOf("function clotureVote");

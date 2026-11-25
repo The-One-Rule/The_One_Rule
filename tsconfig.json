@@ -8,12 +8,13 @@
       "DOM"
     ],
     "strict": true,
-    "noUncheckedIndexedAccess": false,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
     "noImplicitOverride": true,
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
+    "jsx": "react-jsx",
     "types": [
       "vite/client",
       "node"

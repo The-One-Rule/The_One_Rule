@@ -213,8 +213,8 @@ src/
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
 api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis
-               (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked` : le `_` les
-               exclut du routage)
+               (`_jeton`, `_depot`, `_debit`, `_corps` : le `_` les exclut
+               du routage ; `_ranked` est retiré)
 supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
                0004 demandes d'ami · 0005 purge des comptes supprimés
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
@@ -636,7 +636,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
 | **Front et salons déployés séparément** — ⚠️ **a planté la prod le 30/09** (§12) | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
-| `api/_ranked.ts` en `MemoryStore` | mode classé masqué ET hors routage (le `_`, depuis l'audit d'architecture du 07/10). **Ne pas le renommer tel quel** : `submit` accepte `body.id` sans aucune vérification, donc n'importe qui soumet et se renomme sous n'importe quelle identité. Le score de l'adversaire est désormais relu du stockage (`opponentRunId`), et `a=top` ne rend plus l'`id`. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
+| ~~`api/_ranked.ts`~~ | **retiré** — le fichier acceptait une identité non vérifiée. Le podium vivant est `api/perf.ts`. `src/ranked/elo.ts` et `antibot.ts` restent : le nom local (`Save.ranked`) et l'anti-triche du jour s'en servent. `VITE_RANKED_URL` reste vide. |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
@@ -755,6 +755,27 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
+
+### React par étranglement : Réglages et Boutique (25/11/2026)
+
+ADR 0010 et `docs/audits/INVENTAIRE-REFONTE.md` (lots 0 à 2 : délais
+réseau, codes de salon par `node:crypto`, `_ranked` retiré,
+`noUncheckedIndexedAccess`, `valideClient`). React 19 n'entre que là où il
+POSSÈDE un écran : `src/nav.ts` est le seul à poser `hidden`, un écran migré
+vit dans `src/features/<écran>/` et `main.ts` ne cite plus ses ids. Entrée
+110,8 → 179,1 Ko gzip, plafond 190. La branche `test_migration_react` de
+Camille n'est PAS fusionnée (Shell statique, `flushSync` au démarrage).
+
+⚠️ **Un composant React ne peut pas compter sur `appliqueLangue`** : il
+monte APRÈS son passage. La boutique écrivait l'anglais du HTML d'origine
+dans ses `data-i18n` et s'affichait « SHOP » sur un site français (mesuré
+dans le navigateur, invisible aux tests qui ne lisaient pas la langue). Le
+texte statique se peint depuis la table (`STATIQUE_PARCOURS[langue()]`) ;
+`data-i18n` reste pour une bascule écran ouvert. Tout écran migré ensuite
+doit avoir le même test (`tests/boutique-react.test.tsx`, éprouvé).
+
+⚠️ `AGENTS.md` est une COPIE de ce fichier pour un autre agent : deux
+mémoires qui divergeront. Corriger les deux, ou n'en garder qu'une.
 
 ### Phase 3 de l'audit : les tests (08/10/2026)
 

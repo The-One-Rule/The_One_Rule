@@ -22,6 +22,7 @@
 import { decoupe, fraicheur, renouvelable } from "../../shared/jeton";
 import type { Agregats } from "../../shared/compte";
 import { cleanEnv } from "../env";
+import { avecDelai } from "../reseau";
 import { glyphFromIndex } from "../net/glyph";
 import type { Glyph } from "../../shared/protocol";
 
@@ -189,13 +190,16 @@ export function litRetourConnexion(maintenant: number = Date.now()): RetourConne
 async function appel<T>(chemin: string, init: RequestInit = {}): Promise<T | null> {
   try {
     const jeton = compte()?.jeton;
-    const res = await fetch(`${POINT}${chemin}`, {
-      ...init,
-      headers: {
-        ...(init.headers ?? {}),
-        ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
-      },
-    });
+    const res = await fetch(
+      `${POINT}${chemin}`,
+      avecDelai({
+        ...init,
+        headers: {
+          ...(init.headers ?? {}),
+          ...(jeton ? { Authorization: `Bearer ${jeton}` } : {}),
+        },
+      }),
+    );
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -267,10 +271,13 @@ async function renouvelle(maintenant: number): Promise<void> {
 
   let res: Response;
   try {
-    res = await fetch(`${POINT}?a=refresh`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${jeton}` },
-    });
+    res = await fetch(
+      `${POINT}?a=refresh`,
+      avecDelai({
+        method: "POST",
+        headers: { Authorization: `Bearer ${jeton}` },
+      }),
+    );
   } catch {
     return; // hors ligne : on réessaiera, le jeton reste où il est
   }
@@ -342,14 +349,17 @@ async function appelMoi<T>(chemin: string, init: RequestInit = {}): Promise<T | 
   try {
     const jeton = compte()?.jeton;
     if (!jeton) return null;
-    const res = await fetch(`${POINT_MOI}${chemin}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(init.headers ?? {}),
-        Authorization: `Bearer ${jeton}`,
-      },
-    });
+    const res = await fetch(
+      `${POINT_MOI}${chemin}`,
+      avecDelai({
+        ...init,
+        headers: {
+          "Content-Type": "application/json",
+          ...(init.headers ?? {}),
+          Authorization: `Bearer ${jeton}`,
+        },
+      }),
+    );
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
@@ -416,9 +426,12 @@ async function appelPerf<T>(suffixe: string): Promise<T | null> {
   // absence n'annule pas l'appel — le podium se regarde sans compte.
   const j = compte()?.jeton;
   try {
-    const r = await fetch(`${POINT_PERF}${suffixe}`, {
-      headers: j ? { Authorization: `Bearer ${j}` } : {},
-    });
+    const r = await fetch(
+      `${POINT_PERF}${suffixe}`,
+      avecDelai({
+        headers: j ? { Authorization: `Bearer ${j}` } : {},
+      }),
+    );
     if (!r.ok) return null;
     return (await r.json()) as T;
   } catch {
