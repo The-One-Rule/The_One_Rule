@@ -672,10 +672,14 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 Front **Vercel**, servi sur **`www.theonerule.party`** (l'apex répond 308 vers
 `www` ; `the-one-rule-rho.vercel.app` reste actif) · salons **Fly**
 (`the-one-rule-salons.fly.dev`). Deux déploiements distincts, **par Pierre**.
-Les salons peuvent aussi partir de GitHub, par deux flux MANUELS
-(« Déploiement des salons », « Retour arrière des salons » — §12, points 37
-et 38), qui refont la procédure ci-dessous sans en sauter une étape. Détail :
-`docs/DEPLOIEMENT.md`.
+Les salons partent de GitHub **à chaque fusion sur `master`** (directive de
+Pierre, 25/11/2026) : « Déploiement des salons » suit la Vérification verte,
+seulement si l'image du serveur change, et attend jusqu'à 30 min que les
+salons se vident. Il se lance aussi à la main, comme « Retour arrière des
+salons » (§12, points 37 et 38) ; les deux refont la procédure ci-dessous sans
+en sauter une étape. ⚠️ Vercel déploie la fusion tout de suite et Fly après la
+CI : le front passe en PREMIER, l'inverse de la règle du 30/09 — tenu par la
+négociation du fil, pas par l'ordre. Détail : `docs/DEPLOIEMENT.md`.
 
 ```bash
 vercel --prod --yes
