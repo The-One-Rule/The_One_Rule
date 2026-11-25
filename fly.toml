@@ -12,6 +12,7 @@ primary_region = 'cdg'
 [env]
   NODE_ENV = 'production'
   PORT = '8080'
+  METRICS_PORT = '9091'
 
 [http_service]
   internal_port = 8080
@@ -45,3 +46,7 @@ primary_region = 'cdg'
   memory = '512mb'
   cpus = 1
   memory_mb = 512
+
+[metrics]
+  port = 9091
+  path = '/metrics'
