@@ -36,6 +36,11 @@ on:
         type: boolean
         default: false
 
+# Le dépôt n'est que lu ; le droit de déploiement vient de FLY_API_TOKEN,
+# limité aux étapes qui appellent Fly.
+permissions:
+  contents: read
+
 concurrency:
   group: deploiement-salons
   cancel-in-progress: false
@@ -53,6 +58,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22

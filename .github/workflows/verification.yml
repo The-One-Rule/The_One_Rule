@@ -16,6 +16,11 @@ on:
   push:
     branches: [master]
 
+# Les vérifications n'ont besoin que de lire le dépôt. En particulier, aucun
+# script lancé depuis une PR ne doit recevoir de droit d'écriture via GITHUB_TOKEN.
+permissions:
+  contents: read
+
 concurrency:
   group: verification-${{ github.ref }}
   cancel-in-progress: true
@@ -27,6 +32,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -61,6 +68,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -88,6 +97,8 @@ jobs:
       VITE_AMIS_URL: /api/amis
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -124,6 +135,8 @@ jobs:
       CHROMIUM_PATH: /usr/bin/google-chrome
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -141,6 +154,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22

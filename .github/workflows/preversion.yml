@@ -18,6 +18,9 @@ name: Préversion
 on:
   deployment_status:
 
+permissions:
+  contents: read
+
 jobs:
   verifie:
     name: vérificateur de déploiement (préversion)
@@ -27,11 +30,25 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.deployment.sha }}
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-      - name: câblage de la préversion
+      - name: vérifier la cible Vercel
+        env:
+          CIBLE: ${{ github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}
+        run: |
+          node --input-type=module -e '
+            const cible = process.env.CIBLE;
+            if (!cible) throw new Error("URL de préversion absente de l’événement GitHub.");
+            const url = new URL(cible);
+            if (url.protocol !== "https:" || !url.hostname.endsWith(".vercel.app")) {
+              throw new Error(`Cible refusée : ${url.origin}. Une préversion HTTPS Vercel est attendue.`);
+            }
+          '
+
+      - name: vérifier le câblage de la préversion
         env:
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           CIBLE: ${{ github.event.deployment_status.target_url || github.event.deployment_status.environment_url }}
