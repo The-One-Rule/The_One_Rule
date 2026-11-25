@@ -22,6 +22,7 @@ import { adresseDe, EchecsParAdresse, REFUS_AVANT_COUPURE, SEAU_CAPACITE, SEAU_P
 import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
+import { formatMetrics } from "./metrics";
 import { MatchLogic, MULTI_RULES } from "./match";
 import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
 import {
@@ -202,6 +203,12 @@ const rooms = new Map<string, Room>();
  */
 const clients = new Set<Client>();
 const now = (): number => Date.now();
+
+function nombreJoueurs(): number {
+  let joueurs = 0;
+  for (const room of rooms.values()) joueurs += room.clients.size;
+  return joueurs;
+}
 
 /**
  * Enveloppe un gestionnaire d'événement pour qu'une exception n'emporte pas
@@ -871,15 +878,13 @@ const httpServer = createServer((req, res) => {
     res.end("not found");
     return;
   }
-  let players = 0;
-  for (const room of rooms.values()) players += room.clients.size;
   res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
   res.end(
     JSON.stringify({
       ok: true,
       instance: INSTANCE,
       rooms: rooms.size,
-      players,
+      players: nombreJoueurs(),
       uptime: Math.round((Date.now() - STARTED_AT) / 1000),
       // De quoi diagnostiquer sans accès à la machine : quand elle a démarré
       // (un redémarrage récent = une panne ou un déploiement), ce qu'elle
@@ -953,6 +958,35 @@ const wss = new WebSocketServer({
    * messages (`round`, `pong`, émotes), que zlib grossirait.
    */
   perMessageDeflate: { threshold: 256, serverNoContextTakeover: true, clientNoContextTakeover: true },
+});
+
+const METRICS_PORT = Number(process.env.METRICS_PORT) || 9091;
+const METRICS_HOST = PRODUCTION ? "0.0.0.0" : "127.0.0.1";
+const metricsServer = createServer((req, res) => {
+  const path = (req.url ?? "").split("?")[0];
+  if (req.method !== "GET" || path !== "/metrics") {
+    res.writeHead(404, { "Content-Type": "text/plain" });
+    res.end("not found");
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/plain; version=0.0.4; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  res.end(
+    formatMetrics({
+      rooms: rooms.size,
+      players: nombreJoueurs(),
+      websocketConnections: wss.clients.size,
+      uptimeSeconds: Math.floor(process.uptime()),
+      residentMemoryBytes: process.memoryUsage().rss,
+      caughtErrors: erreursRattrapees,
+    }),
+  );
+});
+metricsServer.on("error", (err) => {
+  console.error(`metrics_server_error ${err.stack ?? err.message}`);
+  process.exit(1);
 });
 
 wss.on("connection", (ws, req) => {
@@ -1697,6 +1731,7 @@ function shutdown(): void {
   // serveur, et non comme une erreur de connexion.
   for (const ws of wss.clients) ws.close(1001, "shutdown");
   wss.close();
+  metricsServer.close();
   httpServer.close(() => process.exit(0));
   // Filet : une socket récalcitrante ne doit pas nous faire dépasser le délai
   // de grâce, sinon l'hébergeur nous tue quand même et on n'a rien gagné.
@@ -1717,4 +1752,7 @@ httpServer.listen(PORT, () => {
       `${MULTI_RULES.length} règles en rotation · ${MAX_PLAYERS} joueurs max · fenêtre lvl0 ${windowMs(0)} ms\n` +
       origins,
   );
+});
+metricsServer.listen(METRICS_PORT, METRICS_HOST, () => {
+  console.log(`Métriques Prometheus sur http://${METRICS_HOST}:${METRICS_PORT}/metrics`);
 });

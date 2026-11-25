@@ -4,6 +4,7 @@
  * ALICE joue juste · BOB clique tout · CHLOE ne répond jamais.
  */
 process.env.PORT = "8797";
+process.env.METRICS_PORT = "8798";
 import WebSocket from "ws";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -1236,6 +1237,19 @@ const notFound = await fetch(`http://127.0.0.1:${process.env.PORT}/`)
   .then((r) => r.status)
   .catch(() => 0);
 ok(notFound === 404, `hors /health : 404 et non 200 (got ${notFound})`);
+const metricsPublic = await fetch(`http://127.0.0.1:${process.env.PORT}/metrics`)
+  .then((r) => r.status)
+  .catch(() => 0);
+ok(metricsPublic === 404, `les métriques ne sont pas exposées sur le port public (got ${metricsPublic})`);
+const metrics = await fetch(`http://127.0.0.1:${process.env.METRICS_PORT}/metrics`)
+  .then(async (r) => (r.ok ? r.text() : null))
+  .catch(() => null);
+ok(
+  metrics?.includes("# TYPE tor_rooms gauge") &&
+    metrics.includes("tor_websocket_connections ") &&
+    metrics.includes("# TYPE tor_caught_errors_total counter"),
+  "le port dédié expose des métriques Prometheus sans étiquettes variables",
+);
 
 /* ------------------------------------------------------------------ *
  * COOP — curseur décoratif. Le clic est jugé sur l'index, pas sur x,y.

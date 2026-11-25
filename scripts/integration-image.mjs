@@ -106,12 +106,28 @@ if (urlDonnee) {
   const dossier = mkdtempSync(join(tmpdir(), "tor-image-"));
   for (const sources of copies) for (const s of sources) cpSync(s, join(dossier, s), { recursive: true });
   console.log(`image reconstituée dans ${dossier} : ${copies.flat().join(", ")}`);
-  execFileSync("npm", ["ci", "--omit=dev", "--ignore-scripts", "--no-audit", "--no-fund"], { cwd: dossier, stdio: "ignore" });
+  const argsNpm = ["ci", "--omit=dev", "--optional=true", "--ignore-scripts", "--no-audit", "--no-fund"];
+  if (process.platform === "win32") {
+    execFileSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/s", "/c", `npm.cmd ${argsNpm.join(" ")}`], {
+      cwd: dossier,
+      env: { ...process.env, npm_config_optional: "true" },
+      stdio: "ignore",
+    });
+  } else {
+    execFileSync("npm", argsNpm, { cwd: dossier, stdio: "ignore" });
+  }
 
   const port = 18080;
+  const metricsPort = 18081;
   const proc = spawn(cmd[0], cmd.slice(1), {
     cwd: dossier,
-    env: { ...process.env, NODE_ENV: "production", PORT: String(port), ALLOWED_ORIGINS: ORIGINE },
+    env: {
+      ...process.env,
+      NODE_ENV: "production",
+      PORT: String(port),
+      METRICS_PORT: String(metricsPort),
+      ALLOWED_ORIGINS: ORIGINE,
+    },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let journal = "";
@@ -130,6 +146,19 @@ if (urlDonnee) {
     console.log(`\nINTÉGRATION : ${echecs} échec(s)`);
     process.exit(1);
   }
+
+  const metricsReady = await attends(async () => (await fetch(`http://127.0.0.1:${metricsPort}/metrics`)).ok, 5000);
+  const metrics = metricsReady
+    ? await fetch(`http://127.0.0.1:${metricsPort}/metrics`).then((r) => r.text())
+    : null;
+  dit(
+    metrics?.includes("# TYPE tor_rooms gauge") &&
+      metrics.includes("tor_websocket_connections ") &&
+      metrics.includes("# TYPE tor_caught_errors_total counter"),
+    "le port dédié expose les métriques Prometheus",
+  );
+  const metricsPublic = await fetch(`${base}/metrics`).then((r) => r.status);
+  dit(metricsPublic === 404, "le port public du serveur n'expose pas /metrics");
 
   // ── L'arrêt propre : une socket ouverte doit recevoir 1001, puis sortie 0.
   const ws = new WebSocket(`ws://127.0.0.1:${port}`, { headers: { Origin: ORIGINE } });

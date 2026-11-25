@@ -54,6 +54,35 @@ Cette sonde est servie **sur le même port que la WebSocket** : `fly.toml` la
 tape toutes les 30 s, et une instance qui n'y répond pas est déclarée morte et
 redémarrée en boucle.
 
+### Prometheus et Grafana Fly
+
+`fly.toml` configure le collecteur Fly pour lire `/metrics` sur le port 9091.
+Ce port est distinct du port 8080 de la WebSocket et n'est pas déclaré dans
+`[http_service]` : il ne devient donc pas une route publique. Le serveur
+n'écoute sur toutes les interfaces pour ce port qu'en production. Les
+métriques publiées sont :
+
+| Métrique | Type | Signification |
+|---|---|---|
+| `tor_rooms` | jauge | salons actuellement actifs |
+| `tor_players` | jauge | joueurs présents dans les salons |
+| `tor_websocket_connections` | jauge | connexions WebSocket actives, salons ou non |
+| `tor_process_uptime_seconds` | jauge | durée de fonctionnement du processus |
+| `tor_process_resident_memory_bytes` | jauge | mémoire résidente du processus |
+| `tor_caught_errors_total` | compteur | exceptions rattrapées depuis le démarrage |
+
+Ouvre [fly-metrics.net](https://fly-metrics.net/) et sélectionne l'application
+pour consulter les métriques de plateforme et les métriques `tor_*`. Les
+compteurs repartent à zéro au redémarrage du processus ; interprète-les comme
+des compteurs Prometheus, avec les fonctions de taux adaptées, et surveille
+également l'uptime et les redémarrages.
+
+Fly ne configure pas à lui seul les alertes sur ces métriques. Pour recevoir
+des notifications, configure un contact point et des règles d'alerte dans
+Grafana. La disponibilité du front Vercel et la réussite réelle d'une poignée
+de main WebSocket nécessitent en plus une sonde synthétique : les métriques de
+la machine ne prouvent pas que le parcours joueur fonctionne.
+
 Puis **verrouille les origines**. Tant que ce secret n'est pas posé, le serveur
 refuse toute connexion navigateur en production — c'est volontaire, et c'est
 testé (`tests/origin.test.ts`) :

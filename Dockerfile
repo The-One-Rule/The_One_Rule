@@ -21,7 +21,7 @@ WORKDIR /app
 #   de plateforme @esbuild/linux-x64 ; son script d'installation ne sert à rien
 #   ici et télécharger à la construction serait un point de panne en plus.
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev --optional=true --ignore-scripts
 
 # Uniquement ce dont le serveur a besoin — le front est déployé ailleurs.
 # src/engine pour rejouer exactement les mêmes scènes que le client,
