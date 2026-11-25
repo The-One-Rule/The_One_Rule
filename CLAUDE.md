@@ -79,6 +79,8 @@ npm run e2e                  # tests/e2e/e2e.mjs : salons réels, clients ws
 npm run e2e:navigateur       # tests/e2e/e2e-navigateur.mjs : le VRAI client dans Chromium
 npm run coverage             # cliquet sur engine, game, shared, api
 npx vite build
+# le contrat du dépôt sur un VRAI PostgreSQL (base JETABLE : elle est effacée)
+TOR_BASE_TEST_URL=postgresql://… npx vitest run tests/depot-contrat.test.ts
 ```
 
 ### Les quatre pièges de mesure, tous déjà payés
@@ -134,7 +136,14 @@ Trois environnements ont porté ce dépôt, et chacun a ses pièges :
   (`engines`) ;
 - **les sessions cloud** : Linux, pas de démon Docker (d'où le mode sans Docker
   de `scripts/integration-image.mjs`), Fly et le registre de déploiements
-  GitHub injoignables ;
+  GitHub injoignables ; ⚠️ **le moteur de schéma de Prisma aussi**
+  (`binaries.prisma.sh` refusé par le proxy) : `migrate dev`, `migrate diff`
+  et `db pull` n'y tournent pas. `generate` et `validate` n'en ont pas besoin
+  mais la CLI le réclame au démarrage : `PRISMA_SCHEMA_ENGINE_BINARY=/bin/false
+  npx prisma generate` passe. En revanche un **PostgreSQL 16** est installé
+  (`pg_ctlcluster 16 main start`), et `vercel build` tourne hors ligne avec un
+  `.vercel/project.json` écrit à la main — c'est ainsi qu'on charge une
+  fonction CONSTRUITE pour vérifier qu'elle démarre (§12, Prisma) ;
 - **l'ancien poste Windows, PowerShell 5.1** — pas de `&&`, pas de ternaire,
   pas de `??`. La section qui suit vient de lui, et le piège reste vrai pour
   quiconque édite depuis Windows.
@@ -179,7 +188,7 @@ Get-ChildItem -Recurse -Include *.ts,*.mjs,*.css,*.html -Path src,server,shared,
 Vue d'ensemble pour un nouveau venu : `docs/ARCHITECTURE.md`. Les décisions
 structurantes ont chacune leur ADR dans `docs/adr/` (0002 moteur pur, 0003
 fil, 0004 instance unique, 0005 comptes, 0006 rejoué, 0007 HMAC, 0008
-négociation, 0011 base normalisée). La base : `docs/BASE-DE-DONNEES.md`. Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
+négociation, 0011 base normalisée, 0012 Prisma). La base : `docs/BASE-DE-DONNEES.md`. Ce qui suit est l'arborescence détaillée et ce qui ne s'écrit
 pas dans une ADR.
 
 ```
@@ -212,15 +221,17 @@ src/
   analytics/   file groupée, sendBeacon, transport injectable
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
-api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis,
-               boutique (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked`,
-               `_projection` : le `_` les exclut du routage)
-supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
-               0004 demandes d'ami · 0005 purge des comptes supprimés ·
-               0006 UUID · 0007 catalogue · 0008 progression, possession,
-               achats · 0009 fonctions transactionnelles
-supabase/retours/     retour arrière À LA MAIN (jamais appliqué par `db push`)
-scripts/base/  validation des migrations sur un vrai PostgreSQL (PGlite)
+api/           fonctions Vercel : collect (EDGE) ; auth, authcb, moi, perf,
+               amis, boutique (NODE, Prisma — imports relatifs en `.js`)
+               (`_jeton`, `_depot` = interface + mémoire, `_depot-prisma`,
+               `_debit`, `_corps`, `_ranked`, `_projection` : le `_` les
+               exclut du routage)
+prisma/
+  schema.prisma  LE schéma, source de vérité (ADR 0012)
+  migrations/    0_ligne_de_base (= 0001→0009 d'avant Prisma, mot pour mot) ·
+                 1_fonctions_en_typescript · puis ce que `migrate dev` écrit
+  retours/       retours arrière À LA MAIN (jamais appliqués par `migrate`)
+  client/        client GÉNÉRÉ (`postinstall`), ignoré par git
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
   brand/       le kit d'identité d'origine, son README et ses tokens
 scripts/       pull, report (mesure) · check-deploy, check-salons (production)
@@ -643,7 +654,8 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | `api/_ranked.ts` en `MemoryStore` | mode classé masqué ET hors routage (le `_`, depuis l'audit d'architecture du 07/10). **Ne pas le renommer tel quel** : `submit` accepte `body.id` sans aucune vérification, donc n'importe qui soumet et se renomme sous n'importe quelle identité. Le score de l'adversaire est désormais relu du stockage (`opponentRunId`), et `a=top` ne rend plus l'`id`. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
-| Logique d'écriture en deux exemplaires (SQL et `DepotMemoire`) | depuis 0009 : une fonction SQL modifiée sans son double en mémoire laisse les tests verts sur un dépôt qui ne tourne pas. PGlite hors dépendances : `scripts/base/` se lance à la main |
+| ~~Logique d'écriture en deux exemplaires (SQL et `DepotMemoire`)~~ | **transformée** par Prisma (ADR 0012) : plus de SQL à doubler, la loi vit dans `DepotPrisma` ; le double en mémoire reste, mais `tests/depot-contrat` fait passer la MÊME suite sur les deux — une divergence fait tomber l'un des deux |
+| Schéma ↔ migrations jamais comparés hors CI | le moteur de schéma de Prisma ne se télécharge pas dans les sessions cloud (§3) : `npm run base:derive` ne tourne qu'en CI (job `base`) et sur le poste de Pierre |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |
 | Peu de filet sur la mise en page | jsdom ne calcule pas de layout. `e2e-navigateur.mjs` (Chromium, en CI depuis le point 33) couvre la reprise, deux onglets et le terrain derrière les menus — PAS les dimensions des écrans. Les relevés de mise en page restent faits À LA MAIN (scripts du scratchpad) |
 | Hôte coupé | bloque le lancement ≤ 25 s |
@@ -668,6 +680,7 @@ et 38), qui refont la procédure ci-dessous sans en sauter une étape. Détail :
 ```bash
 vercel --prod --yes
 fly deploy
+DIRECT_URL=… npm run base:migre   # la base : APRÈS le code si la migration retire, AVANT s'il en a besoin
 node scripts/check-deploy.mjs https://www.theonerule.party
 node scripts/check-salons.mjs https://the-one-rule-salons.fly.dev
 node scripts/pull.mjs | node scripts/report.mjs
@@ -761,6 +774,49 @@ Deux façons propres de s'en passer, toutes deux en place :
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
 
+### Prisma (25/11/2026) — branche `refonte/prisma`
+
+Directive de Pierre : « mettre en place une ORM (Prisma) pour éviter les
+migrations de la base dans le code ». Périmètre choisi par lui : schéma ET
+accès, runtime Node, fonctions SQL réécrites en TypeScript. Tout est dans
+l'ADR 0012 et `docs/BASE-DE-DONNEES.md` §6, §8, §9 ; ce qui ne s'y lit pas :
+
+- ⚠️ **PASSER EN RUNTIME NODE AURAIT MIS TOUTES LES ROUTES DE COMPTE EN 500.**
+  En edge, Vercel regroupe chaque fonction ; en Node, il transpile fichier
+  par fichier, et Node refuse un import ESM sans extension. Reproduit ici avec
+  `vercel build` puis en chargeant `moi.func` : `ERR_MODULE_NOT_FOUND …
+  shared/profil`. Build, `tsc` et 1 422 tests verts pendant ce temps. Remède :
+  `.js` sur les 137 imports relatifs des 43 fichiers atteints, et le client
+  Prisma généré en `importFileExtension = "js"`. `tests/imports-node.test.ts`
+  parcourt le graphe de chaque fonction Node ; éprouvé en retirant une
+  extension de `shared/compte.ts`, six fonctions tombent en la nommant.
+- ⚠️ **UN TEST DE CONCURRENCE QUI NE JOUE QU'UNE COURSE NE PROUVE RIEN.**
+  Joués une fois, ceux de `depot-contrat` passaient AUSSI sans leur verrou,
+  deux fois sur trois : la première transaction finissait avant que la
+  seconde ne lise. Chaque course est rejouée 25 fois sur des comptes neufs ;
+  chaque verrou retiré fait alors tomber son test 3 fois sur 3 (18/18).
+- ⚠️ **Vite servait `api/*.ts` au navigateur.** Sans `VITE_*_URL`, le client
+  appelle `/api/moi` ; Vite lit une adresse sans extension comme un MODULE,
+  servait le fichier et pré-transformait ses imports — désormais jusqu'à
+  Prisma : dépendance neuve, ré-optimisation, RECHARGEMENT de la page.
+  L'e2e navigateur tombait 4 fois sur 4 à froid (10 assertions, « Failed to
+  fetch dynamically imported module … qr.ts »), 0 sur 3 sur master. Le
+  plugin `pasDApiEnDev` (vite.config.ts) répond 404 à `/api/` en dev. **Le
+  premier passage de l'e2e navigateur d'une session se fait à FROID** : un
+  cache Vite chaud cachait la panne.
+- **Le contrat a trouvé une divergence au premier passage**, antérieure :
+  `DepotMemoire.parId` rendait un compte SUPPRIMÉ, la production `null`.
+- **`api/_depot-prisma.ts` est séparé de `api/_depot.ts`** : les tests des
+  routes n'y touchent pas, et sans base il sort SEUL du cliquet de couverture
+  (sortir tout `_depot.ts` emportait `DepotMemoire` : 82,6 % < 85).
+- **Ordre de mise en production : le CODE, puis la migration 1.** Mesuré : le
+  nouveau code passe les 39 tests sur une base qui n'a que la ligne de base
+  (`TOR_BASE_JUSQUA=0_ligne_de_base`). La procédure est au §8 du document.
+- **À faire par Pierre** : `DATABASE_URL` (pooler, mode transaction) sur
+  Vercel ; `migrate resolve --applied 0_ligne_de_base` ; fusionner ;
+  `npm run base:migre`. Non éprouvé d'ici : Supavisor avec `pg`, et le
+  premier passage du job `base` de la CI.
+
 ### La refonte de la base (25/11/2026) — branche `refonte/base-de-donnees`
 
 Directive : refonte complète de la base d'après un modèle MySQL fourni
@@ -768,12 +824,9 @@ Directive : refonte complète de la base d'après un modèle MySQL fourni
 (non repris : il ne compile pas et tourne en `synchronize: true`). Tout est
 dans `docs/BASE-DE-DONNEES.md` et l'ADR 0011 ; ce qui ne s'y lit pas :
 
-- ⚠️ **Une partie de la loi d'écriture vit en SQL** (fonctions de 0009). Elle
-  est reproduite dans `DepotMemoire` pour les tests : **toute fonction SQL
-  modifiée doit l'être aussi en mémoire**, sinon les tests passent sur le
-  dépôt qui ne tourne pas — l'audit d'architecture a déjà payé ça deux fois.
-  `scripts/base/` l'éprouve sur un vrai PostgreSQL (PGlite, `npm i
-  --no-save`) : à relancer après toute retouche d'une migration.
+- ~~Une partie de la loi d'écriture vit en SQL (fonctions de 0009)~~ —
+  **plus depuis Prisma** (voir au-dessus) : elle vit dans `DepotPrisma`, et
+  `scripts/base/` (PGlite) est parti avec elle.
 - ⚠️ **Deux défauts trouvés en EXÉCUTANT 0006, aucun en relisant** : le CHECK
   `utilisateur_id <> ami_id` interdit de convertir les colonnes d'une paire
   l'une après l'autre (42883) ; une colonne de clé primaire ne perd pas son

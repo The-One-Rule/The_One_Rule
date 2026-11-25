@@ -54,8 +54,8 @@ src/       le client (Vite, TypeScript)
   engine/  moteur PUR : aucun DOM, aucune horloge, aucun hasard non seedé
 server/    serveur de salons WebSocket (Fly.io)
 shared/    protocole et logique pure partagés client ↔ serveur ↔ API
-api/       fonctions edge Vercel (mesure, comptes, performances, amis)
-supabase/  migrations SQL de la base des comptes
+api/       fonctions Vercel (mesure en edge ; comptes, performances, amis en Node)
+prisma/    schéma de la base (source de vérité), migrations, retours arrière
 tests/     tests unitaires et d'intégration (vitest) ; e2e/ : les deux scénarios de bout en bout
 scripts/   vérification de déploiement, mesure, taille du paquet
 docs/      déploiement, audits, archives
@@ -77,10 +77,11 @@ portent se tait, et le reste du jeu tourne.
 | front (build) | `VITE_WS_URL` | serveur de salons ; **`wss://`** en production |
 | front (build) | `VITE_COLLECT_URL` | collecteur de mesure (`/api/collect`) |
 | salons (Fly) | `ALLOWED_ORIGINS` | liste blanche des origines — **obligatoire** en production |
-| salons + edge | `TOR_AUTH_SECRET` | signature des jetons de compte, la même des deux côtés |
-| edge (Vercel) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | base des comptes |
-| edge (Vercel) | `GOOGLE_CLIENT_ID/SECRET`, `DISCORD_CLIENT_ID/SECRET`, `TOR_APP_URL` | connexion OAuth |
-| edge (Vercel) | `KV_REST_API_URL/TOKEN` (ou `UPSTASH_REDIS_REST_*`) | stockage de la mesure, limites de débit |
+| salons + api | `TOR_AUTH_SECRET` | signature des jetons de compte, la même des deux côtés |
+| api (Vercel) | `DATABASE_URL` | base des comptes, par Prisma — pooler Supabase en mode transaction |
+| api (Vercel) | `GOOGLE_CLIENT_ID/SECRET`, `DISCORD_CLIENT_ID/SECRET`, `TOR_APP_URL` | connexion OAuth |
+| api (Vercel) | `KV_REST_API_URL/TOKEN` (ou `UPSTASH_REDIS_REST_*`) | stockage de la mesure, limites de débit |
+| poste | `DIRECT_URL`, `SHADOW_DATABASE_URL`, `TOR_BASE_TEST_URL` | migrations (`npm run base:migre`), contrôle du schéma, contrat du dépôt sur un vrai PostgreSQL |
 
 ⚠️ Les `VITE_*` sont lues **à la compilation** : les changer sans redéployer ne
 fait rien.

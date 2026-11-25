@@ -1,6 +1,9 @@
 # La base de données — refonte du 25/11/2026
 
-Migrations `0006` à `0009`, ADR [0011](adr/0011-base-normalisee-transactions-par-fonctions.md).
+Migrations `0006` à `0009`, ADR [0011](adr/0011-base-normalisee-transactions-par-fonctions.md) ;
+puis **Prisma** le même jour : le schéma devient `prisma/schema.prisma`, les
+écritures quittent le SQL pour `api/_depot-prisma.ts`, ADR
+[0012](adr/0012-prisma-schema-source-et-runtime-node.md) — §6, §8 et §9.
 Ce document dit **ce que la base contient, pourquoi elle a cette forme, et
 comment on l'a éprouvée**. Pour l'architecture d'ensemble :
 [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -9,8 +12,9 @@ comment on l'a éprouvée**. Pour l'architecture d'ensemble :
 
 ## 1. Ce qui a été visé, et ce qui ne l'a pas été
 
-La refonte vise **ce dépôt** : fonctions edge Vercel (`api/`), dépôt d'accès
-(`api/_depot.ts`), Supabase/PostgreSQL atteint par PostgREST.
+La refonte vise **ce dépôt** : fonctions Vercel (`api/`), dépôt d'accès
+(`api/_depot.ts`), Supabase/PostgreSQL — atteint par PostgREST au moment de la
+refonte, par Prisma depuis (ADR 0012).
 
 Le projet « NestJS + React CRUD » fourni à côté **n'a pas été repris**. C'est un
 échafaudage généré par un outil (« MCD Creator ») à partir du même modèle, et
@@ -178,34 +182,50 @@ rattachés à une ligne sans pseudo.
 
 ## 6. Transactions
 
-Le runtime edge ne peut pas ouvrir de socket Postgres : une requête PostgREST
-est la seule transaction disponible. Chaque écriture à plusieurs lignes est
-donc une **fonction SQL** appelée en RPC (`POST /rest/v1/rpc/<nom>`).
+⚠️ **Depuis Prisma (ADR 0012), elles sont en TypeScript**, dans
+`api/_depot-prisma.ts`, sous `$transaction`. Les fonctions `api/` tournent en
+runtime Node et ouvrent une vraie connexion Postgres ; la raison d'être des
+fonctions SQL de 0009 (« une requête PostgREST = la seule transaction
+disponible en edge ») a disparu avec l'edge, et la migration
+`1_fonctions_en_typescript` les a retirées. Leur texte reste lisible dans
+`prisma/migrations/0_ligne_de_base`.
 
-| opération | fonction | avant |
-|---|---|---|
-| créer un compte | `compte_cree` | 2 requêtes ; un échec laissait un compte **orphelin** |
-| supprimer un compte | `compte_supprime` | 7 requêtes ; une panne laissait un compte **à moitié** effacé |
-| progression + maîtrise | `agregats_ecrit` | CAS seul ; aucune table de progression |
-| score, record, statistique | `performance_pose` | POST puis PATCH en cas de doublon |
-| demander un ami | `amitie_demande` | 4 lectures, écriture, **relecture**, défaire (audit C4) |
-| accepter un ami | `amitie_accepte` | lire, lier, recompter, défaire |
-| acheter | `boutique_achete` | n'existait pas |
-| importer un appareil | `boutique_importe` | n'existait pas |
-| porter un style | `boutique_porte` | n'existait pas |
+| opération | méthode de `DepotPrisma` | ex-fonction SQL | avant 0009 |
+|---|---|---|---|
+| créer un compte | `cree` | `compte_cree` | 2 requêtes ; un échec laissait un compte **orphelin** |
+| supprimer un compte | `supprime` | `compte_supprime` | 7 requêtes ; une panne laissait un compte **à moitié** effacé |
+| progression + maîtrise | `majAgregats` | `agregats_ecrit` | CAS seul ; aucune table de progression |
+| score, record, statistique | `posePerf` | `performance_pose` | POST puis PATCH en cas de doublon |
+| demander un ami | `demandeAmi` | `amitie_demande` | 4 lectures, écriture, **relecture**, défaire (audit C4) |
+| accepter un ami | `accepteAmi` | `amitie_accepte` | lire, lier, recompter, défaire |
+| acheter | `acheteSkin` | `boutique_achete` | n'existait pas |
+| importer un appareil | `importeBoutique` | `boutique_importe` | n'existait pas |
 
-Verrous : `for update` sur la ligne `utilisateur` (achat, import,
-suppression), sur les deux comptes d'une paire **dans un ordre fixe** (amis :
-pas d'interblocage), et un verrou consultatif sur le lien (création).
+Verrous, inchangés : `for update` sur la ligne `utilisateur` (achat, import,
+suppression, performance), sur les deux comptes d'une paire **dans un ordre
+fixe** — celui de la base, `order by id` (amis : pas d'interblocage) — et un
+verrou consultatif sur le lien (création). Prisma n'a pas de `for update` :
+ces verrous sont les seuls `$queryRaw` du dépôt. Chacun a un test de
+concurrence qui tombe quand on le retire (§9).
 
-⚠️ **La fusion n'est PAS en SQL.** Elle reste écrite une fois en TypeScript
-(`fusionne`) ; `agregats_ecrit` ne fait que poser le résultat sous
-compare-and-swap, et ses projections prennent le maximum — la même loi, sur
-des valeurs déjà fusionnées.
+⚠️ **La fusion n'est toujours PAS dans la base.** Elle reste écrite une fois
+(`fusionne`) ; `majAgregats` pose le résultat sous compare-and-swap, et ses
+projections prennent le maximum — la même loi, sur des valeurs déjà fusionnées.
 
-⚠️ **Accès.** Postgres accorde `EXECUTE` à `PUBLIC` par défaut. Sans le
-`revoke` de 0009, la clé publique du navigateur pourrait appeler
-`boutique_achete` pour n'importe quel compte. Seul `service_role` les exécute.
+**Ce qui a changé de forme avec Prisma** (migration 1), parce que Prisma ne
+sait pas le décrire et finirait par le défaire :
+- `carte_banniere_id` reste DÉRIVÉE de `apparence.carte`, mais par le dépôt,
+  dans la même écriture — plus par un déclencheur ;
+- `progression_chapitre.termine` n'est plus une colonne générée : « terminé »
+  se lit `etoiles[5] > 0` ;
+- la clé du style porté est `NO ACTION` et non `SET NULL (skin_porte_id)` :
+  la suppression du compte remet le style porté à NULL avant de retirer les
+  possessions, comme le faisait déjà `compte_supprime`.
+
+**Accès.** La connexion de Prisma porte les droits du PROPRIÉTAIRE des tables ;
+le RLS sans politique de chaque table ne bloque que la clé publique du
+navigateur (PostgREST), qui n'a plus aucun usage dans le jeu. `DATABASE_URL`
+ne quitte jamais le serveur.
 
 ---
 
@@ -225,33 +245,80 @@ Deux familles, qui ne se mélangent jamais (décision n°14) :
 
 ## 8. Migration
 
-**Non destructive.** 0006 convertit `u_<32 hex>` → uuid sans perte (c'était
-un UUID sans tirets), garde l'ancien numéro de performance dans `ancien_id`,
-et s'arrête AVANT tout changement si une seule valeur sort du format. 0008
-archive les demandes croisées qu'il retire. Chaque migration est rejouable
-sans effet.
+### Le schéma est `prisma/schema.prisma` (ADR 0012)
 
-**Retour arrière** — `supabase/retours/0009-0006.sql`, hors du dossier des
-migrations pour que `supabase db push` ne l'applique jamais. Il restaure le
-schéma de 0005 et les identifiants à l'octet ; il **détruit** ce qui est né
-après (achats, soldes, records) : sauvegarder d'abord.
+On ne rédige plus de migration à la main. On modifie le schéma, puis :
 
-**Développement** — une base locale (`supabase start`, puis
-`supabase db reset`, qui rejoue 0001 → 0009). Sans base, le dépôt en mémoire
-(`DepotMemoire`) reproduit la loi de chaque fonction et fait tourner les tests.
+```bash
+# une base locale jetable suffit ; SHADOW_DATABASE_URL en est une seconde
+DIRECT_URL=postgresql://…/tor_dev SHADOW_DATABASE_URL=postgresql://…/tor_fantome \
+  npx prisma migrate dev --create-only --name <sujet>
+```
 
-**Production — à faire par Pierre, dans cet ordre, quand personne ne joue :**
+et on **relit** le `migration.sql` produit avant de le committer. Trois choses
+que Prisma n'écrit jamais, et qu'il faut ajouter à la main dans la migration :
+
+- `alter table <t> enable row level security;` pour toute table neuve
+  (`tests/migrations.test.ts` le refuse sinon) ;
+- les `check` (Prisma ne les décrit pas, il ne les défait pas non plus) ;
+- le remplissage du catalogue (une règle neuve = une ligne dans `regle` et
+  `carte` ; `tests/depot-contrat` compare la base au code).
+
+⚠️ **Ce que Prisma voit mal, et qu'une migration générée peut vouloir défaire**
+— le lire avant d'accepter : l'index d'expression `demande_ami_paire`
+(`least`, `greatest`), les clés `NOT VALID` de 0007, la table
+`archive_demande_ami_0008` (`@@ignore`). La CI (`npm run base:derive`) dit si
+le schéma et les migrations divergent.
+
+### L'histoire, gardée
+
+`prisma/migrations/0_ligne_de_base` est la **concaténation exacte** des neuf
+migrations écrites à la main (0001 → 0009, retirées de `supabase/`). 0006
+convertit `u_<32 hex>` → uuid sans perte et s'arrête avant tout changement si
+une valeur sort du format ; 0008 archive les demandes croisées qu'il retire.
+Chaque bloc est rejouable sans effet.
+
+**Retours arrière** — dans `prisma/retours/`, hors du dossier des migrations
+pour que `migrate deploy` ne les applique jamais :
+- `1-0.sql` défait la migration 1 (recrée fonctions, déclencheur, colonne
+  générée, clé `SET NULL`), sans perte ;
+- `0009-0006.sql` (historique) défait 0009 → 0006 et **détruit** ce qui est né
+  après 0008 (achats, soldes, records) : sauvegarder d'abord.
+
+**Développement** — une base PostgreSQL locale (Postgres.app, Docker, ou
+`supabase start`), puis `DIRECT_URL=… npm run base:migre`. Sans base, le dépôt
+en mémoire (`DepotMemoire`) fait tourner les tests ; `TOR_BASE_TEST_URL` fait
+passer la même suite sur une vraie base (⚠️ elle est EFFACÉE).
+
+### Production — à faire par Pierre, une fois, dans cet ordre
+
+La production est à 0009 (appliquée fichier par fichier, avant Prisma).
+**L'ordre sans trou est : le CODE d'abord, la migration ensuite.** Le nouveau
+code n'appelle aucune fonction SQL et ne lit pas `termine` : il tourne sur la
+base d'aujourd'hui — mesuré, les 39 tests du contrat passent sur une base qui
+n'a reçu que `0_ligne_de_base` (`TOR_BASE_JUSQUA=0_ligne_de_base`). L'ancien
+code, lui, casse dès que la migration 1 a retiré les fonctions qu'il appelle.
 
 1. sauvegarde (`pg_dump`, ou une sauvegarde Supabase) ;
-2. `supabase db push` (ou l'éditeur SQL : 0006, 0007, 0008, 0009 dans l'ordre),
-   et lire les avertissements de 0007 (contraintes laissées `NOT VALID`) ;
-3. **aussitôt après**, fusionner la PR : Vercel déploie le front et les
-   fonctions. ⚠️ Entre les deux, les comptes ne marchent pas : l'ancien code
-   écrit des identifiants `u_…` dans une colonne uuid, le nouveau appelle des
-   fonctions qui n'existent pas encore. Le jeu, lui, tourne (n°12) ;
-4. `fly deploy` : le serveur de salons lit désormais les jetons à l'ancienne
-   forme comme les neufs (`idCompte`). Sans ce déploiement, un même compte a
-   deux identités dans un salon pendant 24 h — sans effet sur le jeu.
+2. poser `DATABASE_URL` sur Vercel (pooler Supabase, **mode transaction**,
+   port 6543) — voir docs/DEPLOIEMENT.md. Sans elle, les comptes se taisent
+   (« indisponibles ») mais le jeu tourne (n°12) ;
+3. dire à Prisma que la ligne de base est déjà là — elle ne s'exécute PAS :
+   ```bash
+   DIRECT_URL="<connexion directe>" npx prisma migrate resolve --applied 0_ligne_de_base
+   ```
+4. fusionner la PR : Vercel déploie les fonctions en runtime Node ;
+5. **ensuite**, appliquer la migration 1 :
+   ```bash
+   DIRECT_URL="<connexion directe>" npm run base:migre
+   ```
+6. vérifier : `DIRECT_URL=… npm run base:etat` dit que la base est à jour, et
+   `DIRECT_URL=… npx prisma migrate diff --from-config-datasource --to-schema
+   prisma/schema.prisma --exit-code` rend 0.
+
+Pour la suite, la règle reste celle-ci : une migration qui RETIRE quelque chose
+part APRÈS le code qui ne s'en sert plus ; une migration qui AJOUTE ce dont le
+code a besoin part AVANT lui.
 
 Les jetons déjà émis (`sub: "u_…"`) restent valides : `decoupe`
 (`shared/jeton.ts`) normalise l'identifiant au seul point de lecture d'un jeton.
@@ -262,33 +329,21 @@ Les jetons déjà émis (`sub: "u_…"`) restent valides : `decoupe`
 
 | quoi | où | résultat |
 |---|---|---|
-| migrations exécutées sur **PostgreSQL 17** (PGlite) avec des données « d'avant » (`u_…`, demandes croisées) | hors dépôt¹ | 71 vérifications, 0 échec |
-| 0006 sur un identifiant hors format | hors dépôt¹ | refus, schéma intact (`text`, `bigint`) |
-| rejouer 0001 → 0009 | hors dépôt¹ | rien de dupliqué ni de perdu |
-| retour arrière puis réapplication | hors dépôt¹ | schéma de 0005, identifiants à l'octet, puis 0006→0009 repassent |
-| le VRAI `DepotSupabase` contre ces fonctions (faux PostgREST qui traduit `rpc/` en arguments nommés) | hors dépôt¹ | 19 vérifications, 0 échec |
-| dents : solde négatif, `EXECUTE` rendu à `PUBLIC`, record qui recule, argument RPC renommé | hors dépôt¹ | chacun fait tomber sa vérification |
-| texte des migrations (RLS, `revoke`, `on delete` explicites, `compte_supprime`, catalogue = code) | `tests/migrations-sql.test.ts` | en CI |
-| requêtes émises par `DepotSupabase` | `tests/depot-supabase.test.ts` | en CI |
-| loi des fonctions reproduite en mémoire, routes | `tests/boutique-compte`, `collection-base`, `boutique-client` | en CI |
+| la ligne de base sur une base vide = la prod (0001→0009 fichier par fichier) | PostgreSQL 16, à la main (25/11) | `pg_dump --schema-only` identique |
+| la migration 1 sur la prod et sur la ligne de base | idem | schémas identiques ; 0 fonction SQL restante |
+| retour `1-0.sql` après la migration 1 | idem | schéma de la ligne de base (seule `termine` change de position) |
+| le **contrat** du dépôt : 15 scénarios communs aux deux dépôts, plus 9 propres à PostgreSQL | `tests/depot-contrat.test.ts` | en CI (service `postgres:16`) |
+| le nouveau code sur la base d'AVANT la migration 1 (fonctions SQL encore là) | idem, `TOR_BASE_JUSQUA=0_ligne_de_base` | 39 tests sur 39 (25/11) |
+| concurrence : demandes croisées, double acceptation, double achat, double création, même révision, deux runs — chaque course rejouée 25 fois | idem | dents : chaque verrou retiré fait tomber son test 3 fois sur 3 |
+| le catalogue en base = le code, après toutes les migrations | idem | en CI |
+| schéma Prisma ↔ migrations (`migrate diff`, base fantôme, puis base neuve déployée) | job `base` de `verification.yml` | ⚠️ jamais vu tourner au 25/11 : le moteur de schéma ne se télécharge pas dans les sessions cloud (§3 de CLAUDE.md) |
+| texte : RLS de toute table, plus aucune fonction SQL, `onDelete` et `map:` explicites, catalogue | `tests/migrations.test.ts` | en CI |
+| les fonctions CONSTRUITES par `vercel build` (runtime Node) se chargent et lisent/écrivent par Prisma | à la main (25/11) | 6 fonctions chargées ; `moi`, `boutique`, `amis` répondent 200 sur PostgreSQL |
+| imports relatifs `.js` sur le graphe de chaque fonction Node | `tests/imports-node.test.ts` | en CI |
 
-¹ `scripts/base/` — `migrations.mjs`, `refus-0006.mjs`, `retour.mjs`,
-`depot.ts`. PGlite n'est pas une dépendance du dépôt (l'ajouter a été refusé
-dans la session de refonte : c'est une décision à prendre, §10). Pour les
-lancer sans toucher `package.json` :
-
-```bash
-npm i --no-save @electric-sql/pglite@0.3
-node scripts/base/migrations.mjs supabase/migrations
-node scripts/base/refus-0006.mjs supabase/migrations
-node scripts/base/retour.mjs supabase/migrations supabase/retours/0009-0006.sql
-npx vite-node scripts/base/depot.ts .
-```
-
-**Ce qui n'a PAS été vérifié** : une vraie instance Supabase (PostgREST réel,
-rôles `anon` / `service_role`, version de Postgres de l'hébergeur) ; la
-concurrence réelle (PGlite n'a qu'une connexion : les verrous sont écrits et
-relus, pas mis en compétition).
+**Ce qui n'a PAS été vérifié** : une vraie instance Supabase (pooler
+Supavisor en mode transaction avec `pg`, version de Postgres de l'hébergeur),
+et le premier passage du job `base` en CI.
 
 ---
 
@@ -301,8 +356,8 @@ relus, pas mis en compétition).
    vrai problème : une monnaie qui **décroît** ne fusionne pas par maximum
    comme le carnet — il faudrait un compteur de gains par appareil (monotone,
    lui) pour créditer sans compter deux fois.
-2. **PGlite en dépendance de développement**, pour que la validation du §9
-   tourne en CI au lieu d'à la main.
+2. ~~PGlite en dépendance de développement.~~ **Sans objet depuis Prisma** :
+   la CI fournit un vrai PostgreSQL au contrat du dépôt.
 3. **`ancien_id`** de `performance` : à retirer après vérification en
    production (une migration de « contraction »).
 4. **`meilleur_score` du run du jour** compare des jours différents (graines

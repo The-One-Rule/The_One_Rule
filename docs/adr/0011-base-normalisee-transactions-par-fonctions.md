@@ -1,6 +1,6 @@
 # 0011 — Base normalisée en UUID ; les écritures multiples sont des fonctions SQL
 
-- **Statut** : Proposée
+- **Statut** : Acceptée ; point 3 (les fonctions SQL) **remplacé par [0012](0012-prisma-schema-source-et-runtime-node.md)** le même jour
 - **Date** : 25/11/2026
 - **Décideur** : directive de refonte de la base (modèle cible fourni), à accepter par Pierre
 

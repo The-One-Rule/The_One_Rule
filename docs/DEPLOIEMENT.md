@@ -4,7 +4,7 @@ Deux services séparés, et ils ne peuvent pas vivre au même endroit :
 
 | | où | pourquoi |
 |---|---|---|
-| Front (jeu, solo, API edge) | **Vercel** | statique + fonctions edge |
+| Front (jeu, solo, API) | **Vercel** | statique + fonctions (Node pour les comptes, edge pour la collecte) |
 | Serveur de salons (WebSocket) | **Fly.io** ou Railway | Vercel ne maintient pas de WebSocket ouverte |
 
 ---
@@ -106,18 +106,40 @@ Les routes des comptes (`VITE_AUTH_URL`, `VITE_MOI_URL`, `VITE_PERF_URL`,
 Sans ces réglages, le bouton de connexion reste masqué et le jeu se comporte
 exactement comme sans comptes : aucune fonctionnalité de jeu n'en dépend.
 
-1. Un projet **Supabase**, puis les migrations **dans l'ordre** :
-   `supabase/migrations/0001_comptes.sql` → `0009_transactions.sql`.
-   ⚠️ **0006 à 0009 se posent JUSTE AVANT de déployer le code qui les attend**,
-   sauvegarde faite : entre les deux, les comptes ne marchent pas (le jeu, si).
-   Ordre, retour arrière et validation : [BASE-DE-DONNEES.md](BASE-DE-DONNEES.md) §8.
+1. Un projet **Supabase** (PostgreSQL), et son schéma posé par **Prisma**
+   (ADR 0012) :
+   ```bash
+   DIRECT_URL="<connexion directe, port 5432>" npm run base:migre
+   ```
+   Sur une base NEUVE, cela rejoue `0_ligne_de_base` puis chaque migration.
+   ⚠️ **Sur la production d'avant Prisma (déjà à 0009)**, la ligne de base ne
+   doit PAS s'exécuter : la marquer d'abord (`npx prisma migrate resolve
+   --applied 0_ligne_de_base`), et ne poser la migration 1 qu'APRÈS le
+   déploiement du code. Ordre, retour arrière et validation :
+   [BASE-DE-DONNEES.md](BASE-DE-DONNEES.md) §8.
 2. Deux applications OAuth (**Google**, **Discord**), avec pour URL de retour
    `https://www.theonerule.party/api/authcb`.
 3. Les variables, côté **Vercel** : `TOR_AUTH_SECRET`, `TOR_APP_URL`,
-   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `GOOGLE_CLIENT_ID/SECRET`,
-   `DISCORD_CLIENT_ID/SECRET` — et côté **Fly** : `TOR_AUTH_SECRET`, **le même**
-   (le serveur de salons vérifie les jetons sans base). `fly secrets set`
-   redémarre la machine : à faire quand personne ne joue.
+   `DATABASE_URL`, `GOOGLE_CLIENT_ID/SECRET`, `DISCORD_CLIENT_ID/SECRET` — et
+   côté **Fly** : `TOR_AUTH_SECRET`, **le même** (le serveur de salons vérifie
+   les jetons sans base). `fly secrets set` redémarre la machine : à faire
+   quand personne ne joue. `SUPABASE_URL` et `SUPABASE_SERVICE_ROLE_KEY` ne
+   servent plus (l'API REST n'est plus appelée) : les retirer une fois la
+   migration 1 posée.
+
+   **`DATABASE_URL`, et pas n'importe laquelle.** Supabase → *Connect* →
+   **Transaction pooler** (port **6543**, utilisateur `postgres.<projet>`).
+   Une fonction Vercel peut avoir des dizaines d'instances : la connexion
+   directe (5432) les laisserait épuiser les connexions de la base. Le pool
+   côté fonction est volontairement petit (3, `api/_depot-prisma.ts`), le
+   multiplexage est le travail du pooler. ⚠️ Non éprouvé avant la mise en
+   ligne : `pg` y envoie des requêtes préparées SANS nom, que le mode
+   transaction accepte — à confirmer sur la première connexion réelle
+   (`GET /api/moi` connecté doit rendre 200).
+
+   **`DIRECT_URL`** ne se pose PAS sur Vercel : elle ne sert qu'aux migrations,
+   lancées depuis un poste (connexion directe, 5432, ou pooler en mode
+   *session*).
 
 ---
 
