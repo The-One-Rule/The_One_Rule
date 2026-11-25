@@ -213,8 +213,8 @@ src/
   compte/      client du compte : jeton local, revendication, file PERSISTÉE
   env.ts       cleanEnv() — nettoie BOM/blancs des variables de build
 api/           fonctions edge Vercel : collect, auth, authcb, moi, perf, amis
-               (`_jeton`, `_depot`, `_debit`, `_corps`, `_ranked` : le `_` les
-               exclut du routage)
+               (`_jeton`, `_depot`, `_debit`, `_corps` : le `_` les exclut
+               du routage ; `_ranked` est retiré)
 supabase/migrations/  0001 identité · 0002 performances · 0003 amis ·
                0004 demandes d'ami · 0005 purge des comptes supprimés
 public/        servi tel quel à la racine — favicon, icônes, og.png, manifeste
@@ -636,7 +636,7 @@ c'est-à-dire un correctif inefficace. Découpé, il dit l'inverse.
 | Salons en mémoire | un `fly deploy` tue les parties en cours |
 | **Front et salons déployés séparément** — ⚠️ **a planté la prod le 30/09** (§12) | Vercel et Fly ne bougent pas ensemble : le serveur peut nommer une règle absente du bundle d'un client resté sur l'onglet de la veille. Le jeu ne gèle plus (§12, playtest 247) mais la manche reste illisible pour lui. `multi_manche_illisible` le mesure ; toute valeur non nulle au rapport veut dire « redéployer celui des deux qui est en retard » |
 | ~~Pas de comptes~~ | **levée** — comptes optionnels livrés (§12). Reste à configurer : sans les variables, tout se comporte comme avant |
-| `api/_ranked.ts` en `MemoryStore` | mode classé masqué ET hors routage (le `_`, depuis l'audit d'architecture du 07/10). **Ne pas le renommer tel quel** : `submit` accepte `body.id` sans aucune vérification, donc n'importe qui soumet et se renomme sous n'importe quelle identité. Le score de l'adversaire est désormais relu du stockage (`opponentRunId`), et `a=top` ne rend plus l'`id`. Le vrai chemin est `api/perf.ts`, qui exige un jeton |
+| ~~`api/_ranked.ts`~~ | **retiré** — le fichier acceptait une identité non vérifiée. Le podium vivant est `api/perf.ts`. `src/ranked/elo.ts` et `antibot.ts` restent : le nom local (`Save.ranked`) et l'anti-triche du jour s'en servent. `VITE_RANKED_URL` reste vide. |
 | ~~Pas de version de génération sur les runs stockés~~ | **levée** — `VERSION_CONTENU` est calculée depuis le contenu (§12) |
 | Jeton révoqué encore valable en salon ≤ 24 h | le serveur Fly n'a pas de base, donc il ne peut pas vérifier `version_jeton` : la péremption du jeton EST la fenêtre de révocation. Assumé, borné, documenté dans `shared/jeton.ts` |
 | Agrégats non vérifiables | carnet, série et records montent du client sans preuve. Sans conséquence tant qu'ils ne servent qu'au joueur — **fatal le jour où ils toucheraient un classement** (décision n°14) |

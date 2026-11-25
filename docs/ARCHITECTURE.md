@@ -146,8 +146,8 @@ sequenceDiagram
 | `amis` | codes d'ami, demandes, cercle |
 
 Les fichiers préfixés `_` ne sont pas routés : `_depot` (Supabase ou mémoire),
-`_jeton`, `_debit`, `_corps`, et `_ranked` (le mode classé, hors service —
-CLAUDE.md §9).
+`_jeton`, `_debit`, `_corps`. L'ancien `_ranked` est retiré : il acceptait une
+identité non vérifiée. Le podium passe par `perf`.
 
 **Ce qui est opposable est rejoué** — ADR [0006](adr/0006-opposable-signifie-rejoue.md).
 Les jetons sont vérifiés de deux façons, synchrone sur Fly et asynchrone sur

@@ -59,7 +59,7 @@ describe("aucune fonctionnalité de jeu ne dépend du compte", () => {
   });
 
   it("le serveur de salons n'utilise le compte que pour l'identité affichée", () => {
-    const src = lit("server/index.ts");
+    const src = lit("server/salon.ts") + lit("server/messages/index.ts");
     // Le champ existe...
     expect(src).toMatch(/compte:\s*string \| null/);
     // ...mais il ne décide de RIEN. Aucune comparaison, aucun test dessus :
@@ -99,7 +99,7 @@ describe("protocole", () => {
      * jamais un effet de bord.
      */
     expect(PROTOCOL_VERSION).toBe(1);
-    expect(lit("server/index.ts")).toContain("msg.v !== PROTOCOL_VERSION");
+    expect(lit("server/messages/index.ts")).toContain("msg.v !== PROTOCOL_VERSION");
   });
 
   it("`tok` est facultatif dans le hello", () => {

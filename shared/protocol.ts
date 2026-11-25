@@ -10,6 +10,8 @@
  * ping (voir net/clock.ts) et ne fait jamais autorité sur le temps.
  */
 
+import { litProfil } from "./profil";
+
 export const PROTOCOL_VERSION = 1;
 
 /** Tolérance réseau : un input reçu jusqu'à 120 ms après l'échéance est
@@ -726,10 +728,131 @@ export type ServerMsg =
 
 export const encode = (m: ClientMsg | ServerMsg): string => JSON.stringify(m);
 
+function objetMsg(v: unknown): Record<string, unknown> | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  return v as Record<string, unknown>;
+}
+
+function texteMsg(v: unknown, max: number): string | null {
+  return typeof v === "string" ? v.slice(0, max) : null;
+}
+
+function finiMsg(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+function entierMsg(v: unknown): number | null {
+  return typeof v === "number" && Number.isInteger(v) ? v : null;
+}
+
+/** Même bornes que `parseGlyph` côté serveur (`PATTERN_COUNT` = 6). */
+function glypheMsg(v: unknown): Glyph | undefined {
+  const g = objetMsg(v);
+  if (!g) return undefined;
+  if (g.shape !== "carre" && g.shape !== "rond" && g.shape !== "triangle") return undefined;
+  const color = entierMsg(g.color);
+  const pattern = entierMsg(g.pattern);
+  if (color === null || color < 0 || color >= 8) return undefined;
+  if (pattern === null || pattern < 0 || pattern >= 6) return undefined;
+  return { shape: g.shape, color, pattern };
+}
+
+function actionMsg(v: unknown): Extract<ClientMsg, { t: "input" }>["action"] | null {
+  const a = objetMsg(v);
+  if (!a) return null;
+  if (a.k === "c" || a.k === "l") {
+    if (a.i === null || a.i === undefined) return { k: a.k, i: null };
+    const i = entierMsg(a.i);
+    if (i === null) return null;
+    return { k: a.k, i };
+  }
+  if (a.k === "k" || a.k === "r") return { k: a.k, key: texteMsg(a.key, 16) ?? "" };
+  return null;
+}
+
+/**
+ * Forme d'un message déjà parsé. `null` : l'appelant ne change rien.
+ *
+ * Les clés inconnues sont ignorées. Un champ facultatif peut arriver sans
+ * que `PROTOCOL_VERSION` bouge ; le rejeter couperait un client plus récent.
+ * Une valeur du mauvais type ne passe pas.
+ */
+export function valideClient(m: unknown): ClientMsg | null {
+  const o = objetMsg(m);
+  if (!o || typeof o.t !== "string") return null;
+
+  switch (o.t) {
+    case "hello": {
+      const key = texteMsg(o.key, 32);
+      const tok = texteMsg(o.tok, 4096);
+      const glyph = glypheMsg(o.glyph);
+      const consignes = entierMsg(o.consignes);
+      return {
+        t: "hello",
+        v: finiMsg(o.v) ?? -1,
+        name: texteMsg(o.name, 14) ?? "",
+        ...(key !== null ? { key } : {}),
+        ...(glyph ? { glyph } : {}),
+        ...(tok !== null ? { tok } : {}),
+        rookie: o.rookie === true,
+        clavier: o.clavier === true,
+        ...(consignes !== null && consignes >= 1 ? { consignes } : {}),
+        reprise: o.reprise === true,
+      };
+    }
+    case "create":
+    case "quick":
+    case "leave":
+    case "start":
+      return { t: o.t };
+    case "join":
+      return { t: "join", code: texteMsg(o.code, 8) ?? "" };
+    case "settings":
+      return { t: "settings", settings: (objetMsg(o.settings) ?? {}) as Partial<RoomSettings> };
+    case "watch":
+      return { t: "watch", playerId: texteMsg(o.playerId, 16) ?? "" };
+    case "emote": {
+      const k = entierMsg(o.k);
+      if (k === null || k < 0 || k >= EMOTE_COUNT) return null;
+      return { t: "emote", k };
+    }
+    case "cursor": {
+      const x = finiMsg(o.x);
+      const y = finiMsg(o.y);
+      if (x === null || y === null) return null;
+      return { t: "cursor", x, y };
+    }
+    case "chat": {
+      const text = texteMsg(o.text, CHAT_MAX_LEN);
+      if (text === null) return null;
+      return { t: "chat", text };
+    }
+    case "kick":
+      return { t: "kick", playerId: texteMsg(o.playerId, 16) ?? "" };
+    case "ping": {
+      const sent = finiMsg(o.sent);
+      if (sent === null) return null;
+      return { t: "ping", sent };
+    }
+    case "profil":
+      return { t: "profil", ...litProfil(o) };
+    case "vote":
+      return { t: "vote", playerId: texteMsg(o.playerId, 16) ?? "" };
+    case "input": {
+      const round = entierMsg(o.round);
+      const at = finiMsg(o.at);
+      const action = actionMsg(o.action);
+      if (round === null || at === null || action === null) return null;
+      return { t: "input", round, at, action };
+    }
+    default:
+      return null;
+  }
+}
+
 export function decodeClient(raw: unknown): ClientMsg | null {
   try {
-    const m = JSON.parse(String(raw)) as ClientMsg;
-    return typeof m === "object" && m !== null && typeof m.t === "string" ? m : null;
+    return valideClient(JSON.parse(String(raw)));
   } catch {
     return null;
   }

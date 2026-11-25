@@ -7,6 +7,7 @@
  * comptes au déploiement, il se tait.
  */
 import { cleanEnv } from "../env";
+import { avecDelai } from "../reseau";
 import { codeAmiValide } from "../../shared/amis";
 import type { Demandeur, LigneAmi } from "../../shared/amis";
 import { compte } from "./index";
@@ -36,11 +37,14 @@ async function appel(
   const jeton = compte()?.jeton;
   if (!jeton) return { ok: false, refus: "reseau" };
   try {
-    const r = await fetch(action ? `${POINT}?a=${action}` : POINT, {
-      method: methode,
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
-      body: corps === undefined ? undefined : JSON.stringify(corps),
-    });
+    const r = await fetch(
+      action ? `${POINT}?a=${action}` : POINT,
+      avecDelai({
+        method: methode,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${jeton}` },
+        body: corps === undefined ? undefined : JSON.stringify(corps),
+      }),
+    );
     const j = (await r.json().catch(() => ({}))) as Partial<Cercle> & { error?: string };
     if (r.ok && typeof j.code === "string" && Array.isArray(j.amis)) {
       return {

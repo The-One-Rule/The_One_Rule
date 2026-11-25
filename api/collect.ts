@@ -81,6 +81,7 @@ export const ALLOWED = new Set([
   "avis_mot",
   "installer",
   "amis_partage",
+  "erreur",
 ]);
 
 /**

@@ -9,6 +9,7 @@
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
+import { peintReglagesPourTest } from "../src/features/reglages/peint-test";
 import {
   appliqueLangue,
   estLang,
@@ -21,6 +22,8 @@ import {
 beforeAll(() => {
   const html = readFileSync("index.html", "utf8");
   document.documentElement.innerHTML = html.replace(/<script[\s\S]*?<\/script>/g, "");
+  const hote = document.getElementById("reglages");
+  if (hote) peintReglagesPourTest(hote);
 });
 
 /** Tous les fichiers TypeScript sous un dossier, récursivement. */
@@ -28,7 +31,7 @@ function filsDe(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory()
       ? filsDe(`${dir}/${e.name}`)
-      : e.name.endsWith(".ts")
+      : e.name.endsWith(".ts") || e.name.endsWith(".tsx")
         ? [`${dir}/${e.name}`]
         : [],
   );
@@ -152,10 +155,11 @@ describe("les chaînes statiques", () => {
    * champs sont restés français pendant toute la traduction pour cette seule
    * raison — dont le premier que remplit quelqu'un arrivé par un lien.
    */
+  const sources = [html, ...filsDe("src").filter((f) => f.endsWith(".tsx")).map((f) => readFileSync(f, "utf8"))].join("\n");
   const clesPosees = [
-    ...[...html.matchAll(/data-i18n="([^"]+)"/g)],
-    ...[...html.matchAll(/data-i18n-ph="([^"]+)"/g)],
-    ...[...html.matchAll(/data-i18n-aria="([^"]+)"/g)],
+    ...[...sources.matchAll(/data-i18n="([^"]+)"/g)],
+    ...[...sources.matchAll(/data-i18n-ph="([^"]+)"/g)],
+    ...[...sources.matchAll(/data-i18n-aria="([^"]+)"/g)],
   ].map((m) => m[1]!);
 
   it("il y en a beaucoup — sinon les tests suivants sont vides", () => {
@@ -198,7 +202,7 @@ describe("les chaînes statiques", () => {
      * ANGLAIS, sinon la première image ment sur ce qui suit.
      */
     const ecarts: string[] = [];
-    for (const m of html.matchAll(
+    for (const m of sources.matchAll(
       /<(p|span|h1|h2|h3|button|label|li)\b[^>]*data-i18n="([^"]+)"[^>]*>([^<>]*)<\/\1>/g,
     )) {
       const [, , cle, texte] = m;
@@ -582,8 +586,8 @@ describe("les accords, qui ne se ressemblent pas d'une langue à l'autre", () =>
     const orphelins: string[] = [];
     const re = /<(p|span|h1|h2|h3|button|b|small)\b([^>]*)>([^<]{3,})<\/\1>/g;
     for (const m of html.matchAll(re)) {
-      const attrs = m[2];
-      const txt = m[3].trim();
+      const attrs = m[2] ?? "";
+      const txt = (m[3] ?? "").trim();
       if (attrs.includes("data-i18n")) continue;
       // Trois lettres d'affilée : un chiffre, un « · » ou un sigle ne se
       // traduisent pas, et n'ont donc rien à faire dans ce filet.

@@ -6,6 +6,7 @@
  * elles renvoient `null` et l'appelant retombe sur l'entraînement.
  */
 
+import { avecDelai } from "../reseau";
 import { divisionOf, START_RATING } from "./elo";
 import type { Division } from "./elo";
 import type { LoggedInput } from "../engine/verify";
@@ -51,11 +52,14 @@ export interface SubmitResult {
 async function post<T>(action: string, body: Record<string, unknown>): Promise<T | null> {
   if (!ENDPOINT) return null;
   try {
-    const res = await fetch(`${ENDPOINT}?a=${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const res = await fetch(
+      `${ENDPOINT}?a=${action}`,
+      avecDelai({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {
