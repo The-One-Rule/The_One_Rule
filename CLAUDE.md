@@ -816,6 +816,19 @@ Ce qui ne se lit pas dans le code :
   fait maintenant comme le vrai client. Scénario dédié, assertions [042] à
   [047] : une faute commandée, la nouvelle cible dans le verdict, trois manches
   jouées dessous sans faute.
+- ⚠️ **UN SCÉNARIO QUI RELANCE DES MATCHS DOIT VIDER SES VERDICTS.** Les index
+  de manche repartent de 0 : le scénario a d'abord lu, pour « la manche
+  fautive », le verdict de même index d'un match de relance. Tombé en CI au
+  4e lancement, et un passage local « cassé exprès » avait été pris à tort
+  pour la preuve des dents — c'était ce verdict périmé. Signature : deux
+  assertions à la MÊME milliseconde. Les dents de l'annonce sont désormais
+  dans `reglesAAnnoncer` (pure, `server/match.ts`), éprouvées par un test.
+- ⚠️ **Sur ce poste, en soirée, l'e2e local ment sur le temps.** Minuteries
+  étirées d'environ 8 fois (1 060 s pour [018]), trous de 17 min dans le
+  journal, même au premier plan et sous `caffeinate -i` — probablement le
+  sommeil des applications de macOS. Signe : `ps` montre le processus e2e
+  quasi inactif, charge basse. Dans ce cas, ne conclure d'aucun délai : la
+  CI tranche.
 - **Taux de pièges** : identique à sa règle de forme, manche par manche
   (rond = LA ROUE, triangle = LA POINTE, carré entre les deux). ⚠️ Mesuré en
   passant : en salon TACTILE v5, au tirage 0, LA ROUE et LA POINTE piègent
