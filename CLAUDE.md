@@ -791,9 +791,26 @@ dans `docs/BASE-DE-DONNEES.md` et l'ADR 0011 ; ce qui ne s'y lit pas :
   document.
 - Amis : AJOUTER 7 → 5 allers-retours en série, ACCEPTER 9 → 5
   (`tests/amis-profondeur`), et plus aucune fenêtre C4.
-- **À faire par Pierre** : sauvegarde, puis 0006 → 0009, puis fusion de la PR
-  SANS ATTENDRE (entre les deux, les comptes ne marchent pas), puis `fly
-  deploy`. Détail : §8 du document.
+- **EN PRODUCTION depuis le 25/11/2026** : sauvegarde (hors dépôt,
+  `~/Documents/TOR-sauvegardes/`), répétition sur les vraies données, puis
+  `supabase db push` (0001 → 0009 : l'historique distant était vide, 0001 à
+  0005 avaient été passées à la main et se sont rejouées sans effet), fusion
+  de #39 aussitôt, `fly deploy` par le flux « Déploiement des salons ».
+  Vérifié après : 14 comptes en UUID, 83 performances, 0 fonction appelable
+  par `anon`, RLS sur 19 tables, une seule instance Fly.
+- ⚠️ **`supabase db dump -f` écrit RELATIF À `--workdir`**, pas au dossier
+  courant : la première sauvegarde est tombée dans le worktree (données de
+  joueurs à deux doigts d'un commit). Toujours un chemin ABSOLU.
+
+### Le dépôt a changé de propriétaire (25/11/2026)
+
+`Alexestgrand/The_One_Rule` → **`The-One-Rule/The_One_Rule`** (organisation,
+pour les collaborateurs). Transféré, pas importé : historique, PR, secrets
+d'Actions (`VERCEL_AUTOMATION_BYPASS_SECRET` au dépôt, `FLY_API_TOKEN` dans
+`production`) et environnements ont suivi — vérifié. L'ancienne adresse
+redirige. ⚠️ **Le dépôt est désormais PUBLIC** (il était privé avant le
+transfert) : à garder en tête avant de verser quoi que ce soit dans
+l'historique.
 
 ### La migration React : la branche de Camille (25/11/2026)
 
@@ -1108,7 +1125,7 @@ couverture, build à vide et de production, taille, audits, e2e salons, e2e
 navigateur, image Docker) sur chaque PR et chaque push sur `master` ;
 `preversion.yml` sur les déploiements Vercel ; deux flux MANUELS pour les
 salons. Premier passage sur GitHub : la PR
-[Alexestgrand/The_One_Rule#18](https://github.com/Alexestgrand/The_One_Rule/pull/18).
+[The-One-Rule/The_One_Rule#18](https://github.com/The-One-Rule/The_One_Rule/pull/18).
 
 ### Phase 6 de l'audit : le nettoyage (09/10/2026)
 
