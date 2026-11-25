@@ -58,6 +58,28 @@ export interface ProfilPublic {
   creeLe: number;
 }
 
+/**
+ * L'identifiant d'un compte est un UUID (migration 0006).
+ *
+ * Avant, `nouvelId()` écrivait `u_` suivi des 32 hexadécimaux d'un UUID sans
+ * tirets. La base a été convertie sans perte ; cette fonction fait la même
+ * conversion pour ce qui circule encore sous l'ancienne forme — les jetons
+ * émis avant le déploiement, les sauvegardes qui ont noté `revendiquePar`.
+ * Toute autre chaîne est rendue telle quelle : ce n'est pas un validateur.
+ */
+const ID_HERITE = /^u_([0-9a-f]{32})$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function idCompte(brut: string): string {
+  const m = ID_HERITE.exec(brut);
+  if (!m) return brut;
+  const h = m[1]!;
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** Un UUID tel que Postgres l'écrit (minuscules, tirets). */
+export const estIdCompte = (s: unknown): s is string => typeof s === "string" && UUID.test(s);
+
 /** Normalisation du pseudo — la même des deux côtés du fil. */
 export const PSEUDO_MAX = 14;
 

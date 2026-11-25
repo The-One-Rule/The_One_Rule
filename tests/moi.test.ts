@@ -327,7 +327,7 @@ describe("drapeaux", () => {
 
   it("un compte banni n'accède plus à rien", async () => {
     const u = (await depot.parId(id))!;
-    await depot.cree({ ...u, banniLe: Date.now() }, { fournisseur: "google", idExterne: "g1" });
+    depot.remplace({ ...u, banniLe: Date.now() });
     expect((await appel("")).status).toBe(403);
   });
 });

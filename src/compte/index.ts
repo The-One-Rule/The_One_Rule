@@ -404,6 +404,26 @@ export async function mesPerfs(): Promise<PerfPublique[]> {
 }
 
 /**
+ * La collection telle que la BASE la tient (migrations 0008 et 0009).
+ *
+ * Les cartes et chapitres y sont une PROJECTION du carnet que cet appareil a
+ * déjà envoyé ; les records et la statistique viennent des seuls runs
+ * rejoués. L'écran lit toujours la sauvegarde locale, plus riche et sans
+ * aller-retour : cette lecture sert à vérifier ce que le compte a retenu.
+ */
+export interface CollectionCompte {
+  cartes: Array<{ regle: string; meilleur: number; pieges: number; runs: number; maitrisee: boolean }>;
+  chapitres: Array<{ regle: string; numero: number; etoiles: number[]; termine: boolean }>;
+  meilleurs: Array<{ mode: string; valeur: number; valeur2: number }>;
+  statistique: { runsVerifies: number; joursClasses: number } | null;
+}
+
+export async function collectionDuCompte(): Promise<CollectionCompte | null> {
+  const r = await appelMoi<{ collection?: CollectionCompte }>("?a=collection");
+  return r?.collection ?? null;
+}
+
+/**
  * Un appel à `api/perf`, calqué sur celui de `api/moi`.
  *
  * Le point d'entrée est réglable par variable de build comme les autres : un

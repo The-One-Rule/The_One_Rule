@@ -91,23 +91,23 @@ async function monde() {
 }
 
 describe("la profondeur des routes d'amis", () => {
-  it("AJOUTER : au plus 7 allers-retours en série (11 avant)", async () => {
+  it("AJOUTER : au plus 5 allers-retours en série (11, puis 7, avant la transaction)", async () => {
     const { memoire, autre, appel, mesure } = await monde();
     const code = await memoire.codeAmi(autre, () => 0.7);
     let statut = 0;
     const n = await mesure(async () => (statut = (await appel("ajoute", code)).status));
     expect(statut).toBe(200);
-    expect(n).toBeLessThanOrEqual(7);
+    expect(n).toBeLessThanOrEqual(5);
   });
 
-  it("ACCEPTER : au plus 9 allers-retours en série (13 avant)", async () => {
+  it("ACCEPTER : au plus 5 allers-retours en série (13, puis 9, avant la transaction)", async () => {
     const { memoire, moi, autre, appel, mesure } = await monde();
     await memoire.demande(autre, moi);
     const code = await memoire.codeAmi(autre, () => 0.7);
     let statut = 0;
     const n = await mesure(async () => (statut = (await appel("accepte", code)).status));
     expect(statut).toBe(200);
-    expect(n).toBeLessThanOrEqual(9);
+    expect(n).toBeLessThanOrEqual(5);
   });
 
   it("LIRE : au plus 3 allers-retours en série (4 avant)", async () => {
