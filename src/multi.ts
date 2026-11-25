@@ -28,6 +28,7 @@ import { windowMs } from "./engine/difficulty";
 import { leverAttendu, resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
 import * as P from "./game/progress";
+import * as REC from "./game/recompenses";
 import { jetonPourSalon } from "./compte";
 import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
@@ -2138,8 +2139,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.setMeta("");
   }
 
+  /** Manches où J'AI reçu un verdict ce match — « 0,25 pièce par manche jouée ». */
+  let manchesJoueesMoi = 0;
+
   function beginMatch(msg: Extract<ServerMsg, { t: "match_start" }>): void {
     if (!net) return;
+    manchesJoueesMoi = 0;
     /*
      * Un SPECTATEUR n'a pas de règle à lui — il n'a pas de siège.
      *
@@ -2353,6 +2358,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const mine = msg.outcomes[net.myId];
     match.authority = mine ?? null;
+    if (mine) manchesJoueesMoi++;
     const myDeathSfx = mine?.kind === "death";
 
     if (mine?.kind === "survive") {
@@ -2753,6 +2759,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     /* Lu avant `clearMatch()`, et reutilise plus bas par la ligne de rang. */
     const manchesTenues = match?.idx ?? 0;
     const etaitCoop = match?.modeCoop === true;
+    const etaitImposteur = match?.modeImposteur === true;
     const scoreCoop = msg.score ?? match?.score ?? 0;
     const tenuCoop = msg.tenu === true;
     const vaguesCoop = etaitCoop ? manchesTenues + 1 : 0;
@@ -2883,6 +2890,36 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       : moi
         ? (moi.exAequo ? tr("finExAequo") : tr("finTonRang"))(moi.rang, classes.length, manchesJouees)
         : "";
+
+    /*
+     * LES PIÈCES DU MATCH (kanban : « en multijoueur », « selon le classement
+     * final », « par manche jouée »). La place se lit sur le MÊME classement
+     * que la ligne de rang au-dessus — des ex æquo partagent leur rang, donc
+     * leur récompense. Le coop n'a pas de classement (un score de groupe),
+     * l'imposteur non plus (un vote) : ils ne touchent que leurs manches. Un
+     * spectateur ne touche rien. Plafond du jour : `game/recompenses.ts`.
+     */
+    const piecesEl = $("multiEndPieces");
+    piecesEl.textContent = "";
+    if (moi && manchesJoueesMoi > 0) {
+      const rangPieces = etaitCoop || etaitImposteur ? 0 : REC.piecesDeRang(moi.rang, classes.length);
+      let credit: ReturnType<typeof REC.crediteParties> | null = null;
+      P.mutate((st) => {
+        credit = REC.crediteParties(st.bourse, P.today(), rangPieces, REC.QUARTS_PAR_MANCHE * manchesJoueesMoi);
+        st.bourse = credit.bourse;
+        st.coins += credit.pieces;
+      });
+      const c = credit as ReturnType<typeof REC.crediteParties> | null;
+      if (c) {
+        piecesEl.textContent = [
+          c.pieces > 0 ? (rangPieces > 0 ? tr("piecesClassement")(c.pieces, moi.rang) : tr("piecesPartie")(c.pieces)) : "",
+          c.plafonne ? tr("piecesPlafond") : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        if (c.pieces > 0) track("pieces_match", { pieces: c.pieces, rang: moi.rang, plafonne: c.plafonne });
+      }
+    }
 
     renderTitles(msg.players, msg.winnerId);
     renderPodium(msg.players, msg.winnerId);

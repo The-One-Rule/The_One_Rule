@@ -706,6 +706,11 @@ type Dyn = {
   goEntrer: string;
   goDefi: string;
   quetesValidees: (pieces: number) => string;
+  /* --- les pièces de partie (kanban) --- */
+  piecesPartie: (pieces: number) => string;
+  piecesPlafond: string;
+  piecesClassement: (pieces: number, rang: number) => string;
+  comboPieces: (mult: number) => string;
   serieEnCours: string;
   defiRecu: string;
   defiDe: (qui: string) => string;
@@ -1342,6 +1347,10 @@ const DYN: Record<Lang, Dyn> = {
     goEntrer: "ENTRER EN LICE",
     goDefi: "RELEVER LE DÉFI",
     quetesValidees: (p) => `QUÊTES VALIDÉES · +${p} PIÈCES`,
+    piecesPartie: (p) => `PARTIE · +${p} ${p > 1 ? "PIÈCES" : "PIÈCE"}`,
+    piecesPlafond: "PLAFOND DU JOUR ATTEINT",
+    piecesClassement: (p, r) => `+${p} PIÈCES · ${r === 1 ? "1RE" : `${r}E`} PLACE`,
+    comboPieces: (m) => `COMBO ×${String(m).replace(".", ",")}`,
     serieEnCours: "SÉRIE EN COURS",
     defiRecu: "DÉFI REÇU",
     defiDe: (q) => `DÉFI DE ${q}`,
@@ -1889,6 +1898,10 @@ const DYN: Record<Lang, Dyn> = {
     goEntrer: "ENTER THE ARENA",
     goDefi: "TAKE THE CHALLENGE",
     quetesValidees: (p) => `QUESTS CLEARED · +${p} COINS`,
+    piecesPartie: (p) => `RUN · +${p} ${p === 1 ? "COIN" : "COINS"}`,
+    piecesPlafond: "DAILY CAP REACHED",
+    piecesClassement: (p, r) => `+${p} COINS · ${r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`} PLACE`,
+    comboPieces: (m) => `COMBO ×${m}`,
     serieEnCours: "STREAK RUNNING",
     defiRecu: "CHALLENGE RECEIVED",
     defiDe: (q) => `CHALLENGE FROM ${q}`,

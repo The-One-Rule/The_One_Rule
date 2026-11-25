@@ -48,6 +48,7 @@ export const ALLOWED = new Set([
   "relance_rejoue",
   "relance_bilan",
   "salon_rapide",
+  "pieces_match",
   "niveau_fin",
   "boutique_achat",
   "duel_sent",

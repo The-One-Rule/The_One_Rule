@@ -34,6 +34,12 @@ export function MultiEnd() {
             */}
             <p className="end__issue" id="multiEndIssue" />
             <p className="end__rang" id="multiEndRang" />
+            {/*
+               LES PIÈCES DU MATCH (kanban) : la place finale et les manches
+               jouées. Vide — donc masquée par `.end__rang:empty` — pour un
+               spectateur, ou quand le plafond du jour est déjà atteint.
+            */}
+            <p className="end__rang end__pieces" id="multiEndPieces" />
           </div>
           <div className="col end__podium">
             <div className="lobby" id="multiPodium" />
