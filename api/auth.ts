@@ -1,5 +1,5 @@
 /**
- * Connexion — fonction edge Vercel.
+ * Connexion — fonction Vercel (runtime Node).
  *
  * Google et Discord, rien d'autre. Aucun mot de passe n'est stocké, donc
  * aucun secret à protéger, aucun flux de réinitialisation à écrire, et une
@@ -13,7 +13,7 @@
  *     les journaux du serveur, ni dans le `Referer`, ni dans l'historique des
  *     proxys. Le client le lit et l'efface aussitôt.
  *
- *   · L'état anti-CSRF est SIGNÉ, pas stocké. Une fonction edge n'a pas de
+ *   · L'état anti-CSRF est SIGNÉ, pas stocké. Une fonction Vercel n'a pas de
  *     mémoire entre deux requêtes, et poser une ligne en base pour trente
  *     secondes de validité serait une table de plus pour rien.
  *
@@ -23,13 +23,15 @@
  *     chemin de jeu.
  */
 
-import { b64url, deB64url } from "../shared/jeton";
-import { depotConfigure, nouvelId, utilisateurNeuf } from "./_depot";
-import type { Depot, Lien, Utilisateur } from "./_depot";
-import { jetonDeLaRequete, signeJeton, verifieJeton, verifieJetonRenouvelable } from "./_jeton";
-import { cleanEnv } from "../src/env";
+import { b64url, deB64url } from "../shared/jeton.js";
+import { nouvelId, utilisateurNeuf } from "./_depot.js";
+import { depotConfigure } from "./_depot-prisma.js";
+import type { Depot, Lien, Utilisateur } from "./_depot.js";
+import { jetonDeLaRequete, signeJeton, verifieJeton, verifieJetonRenouvelable } from "./_jeton.js";
+import { cleanEnv } from "../src/env.js";
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
 /* ------------------------------------------------------------------ *
  * Fournisseurs
@@ -360,5 +362,12 @@ export async function traite(
   return json({ error: "action inconnue" }, 404);
 }
 
-export default (req: Request): Promise<Response> =>
+const entree = (req: Request): Promise<Response> =>
   traite(req, process.env as Record<string, string | undefined>);
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

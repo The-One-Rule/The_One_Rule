@@ -41,9 +41,9 @@
  * Il ne rend que des identifiants et des nombres. La table ci-dessous est la
  * SEULE vérité.
  */
-import { PACE_CHOICES } from "../engine/difficulty";
-import { fusionneEscalier } from "../../shared/compte";
-import type { EscalierEntree } from "../../shared/compte";
+import { PACE_CHOICES } from "../engine/difficulty.js";
+import { fusionneEscalier } from "../../shared/compte.js";
+import type { EscalierEntree } from "../../shared/compte.js";
 
 /*
  * L'ÉTAT VIT DANS `shared/compte.ts`, PAS ICI — et ce n'est pas un caprice de

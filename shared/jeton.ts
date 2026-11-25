@@ -22,7 +22,7 @@
  * serait un format non relu.
  */
 
-import { idCompte } from "./compte";
+import { idCompte } from "./compte.js";
 
 /* ------------------------------------------------------------------ *
  * Constantes

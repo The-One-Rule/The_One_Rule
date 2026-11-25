@@ -26,4 +26,5 @@ Les ADR 0002 à 0008 sont **rétro-documentées** (phase 6 de l'audit,
 | [0008](0008-negociation-sur-le-fil-et-ordre-de-deploiement.md) | Tout ce qui voyage est négocié ; Fly d'abord | Acceptée |
 | [0009](0009-historique-publie-non-reecrit.md) | L'historique publié ne se réécrit pas | Acceptée |
 | [0010](0010-react-par-etranglement.md) | React par étranglement : le DOM d'abord, l'état écran par écran | Acceptée |
-| [0011](0011-base-normalisee-transactions-par-fonctions.md) | Base normalisée en UUID ; les écritures multiples sont des fonctions SQL | Proposée |
+| [0011](0011-base-normalisee-transactions-par-fonctions.md) | Base normalisée en UUID ; les écritures multiples sont des fonctions SQL | Acceptée, point 3 remplacé par 0012 |
+| [0012](0012-prisma-schema-source-et-runtime-node.md) | Prisma : le schéma est la source, les fonctions de compte tournent en Node | Acceptée |

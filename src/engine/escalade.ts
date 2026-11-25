@@ -40,10 +40,10 @@
  * réflexe. Le plafond à 4 est un pari, pas une certitude : c'est la première
  * chose à regarder en soirée, et `PALIER_MAX` est le bouton pour le corriger.
  */
-import { ONE_RULES } from "./rules";
-import { compatibleAvec } from "./rules/combine";
-import { rShuffle } from "./rng";
-import type { OneRule, Rng } from "./types";
+import { ONE_RULES } from "./rules/index.js";
+import { compatibleAvec } from "./rules/combine.js";
+import { rShuffle } from "./rng.js";
+import type { OneRule, Rng } from "./types.js";
 
 /** Manches entre deux paliers. Aligné sur la rotation du multi, qui est réglée. */
 export const PALIER = 8;

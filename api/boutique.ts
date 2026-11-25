@@ -1,5 +1,5 @@
 /**
- * La boutique du COMPTE — fonction edge Vercel.
+ * La boutique du COMPTE — fonction Vercel (runtime Node).
  *
  *   GET                → { boutique: { pieces, porte, possedes } }
  *   POST ?a=achete     → { skin, cle } : achète (cle = UUID choisi par le
@@ -25,20 +25,21 @@
  * pas contre l'invention : rien ici ne doit jamais toucher un classement.
  */
 
-import { cleanEnv } from "../src/env";
+import { cleanEnv } from "../src/env.js";
 import {
   appareilValide,
   cleAchatValide,
   codeSkinValide,
   MAX_IMPORT_PIECES,
-} from "../shared/boutique";
-import { consomme } from "./_debit";
-import { depotConfigure } from "./_depot";
-import type { Depot } from "./_depot";
-import { jetonDeLaRequete, verifieJeton } from "./_jeton";
-import { litObjet } from "./_corps";
+} from "../shared/boutique.js";
+import { consomme } from "./_debit.js";
+import { depotConfigure } from "./_depot-prisma.js";
+import type { Depot } from "./_depot.js";
+import { jetonDeLaRequete, verifieJeton } from "./_jeton.js";
+import { litObjet } from "./_corps.js";
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
 const MAX_BODY = 2000;
 /** Autant de styles qu'un appareil peut en porter, avec de la marge. */
@@ -120,7 +121,7 @@ export async function traite(
  * Une panne de la base rend une réponse JSON et une ligne de journal, comme
  * `api/perf.ts` : la plateforme n'affiche pas sa page d'erreur au client.
  */
-export default async (req: Request): Promise<Response> => {
+const entree = async (req: Request): Promise<Response> => {
   try {
     return await traite(req, process.env as Record<string, string | undefined>);
   } catch (err) {
@@ -128,3 +129,10 @@ export default async (req: Request): Promise<Response> => {
     return json({ error: "interne" }, 500);
   }
 };
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

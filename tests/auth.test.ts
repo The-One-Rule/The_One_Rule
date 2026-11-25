@@ -22,8 +22,7 @@ import { decoupe } from "../shared/jeton";
 const ENV = {
   TOR_AUTH_SECRET: "secret-de-test-assez-long-pour-ne-pas-etre-ridicule",
   TOR_APP_URL: "https://www.theonerule.party",
-  SUPABASE_URL: "https://exemple.supabase.co",
-  SUPABASE_SERVICE_ROLE_KEY: "cle-de-service",
+  DATABASE_URL: "postgresql://test@127.0.0.1:1/aucune",
   GOOGLE_CLIENT_ID: "google-id",
   GOOGLE_CLIENT_SECRET: "google-secret",
   DISCORD_CLIENT_ID: "discord-id",

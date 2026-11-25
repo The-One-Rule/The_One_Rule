@@ -30,6 +30,22 @@ jobs:
     name: tsc · vitest · build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Le contrat du dépôt (`tests/depot-contrat.test.ts`) tourne aussi contre un
+    # VRAI PostgreSQL : c'est la seule moitié qui exerce Prisma, ses
+    # transactions et ses verrous. `TOR_BASE_EXIGEE` le rend obligatoire — sans
+    # base, le test LÈVE au lieu de ne tourner qu'en mémoire.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: tor_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      TOR_BASE_TEST_URL: postgresql://postgres:postgres@localhost:5432/tor_test
+      TOR_BASE_EXIGEE: "1"
     steps:
       - uses: actions/checkout@v7
         with:
@@ -61,6 +77,54 @@ jobs:
       # Plafonds gzip et encodeur QR hors du paquet principal (phase 4, point 26).
       - name: taille du paquet
         run: node scripts/taille-paquet.mjs
+
+  # LE SCHÉMA ET LES MIGRATIONS DISENT-ILS LA MÊME CHOSE ? (ADR 0012)
+  #
+  # `prisma/schema.prisma` est la source ; les migrations en sont la trace.
+  # Si l'un bouge sans l'autre, le prochain `migrate dev` écrira une migration
+  # qui défait ce qu'on croyait acquis. Deux contrôles :
+  #   · `base:derive` rejoue les migrations dans une base FANTÔME et compare au
+  #     schéma (code 2 = une différence, et le journal la nomme) ;
+  #   · `migrate deploy` sur une base neuve, puis le même diff contre ELLE :
+  #     ce qui partira en production s'applique, dans l'ordre, et aboutit au
+  #     schéma.
+  # Ces deux commandes demandent le moteur de schéma de Prisma, qui se
+  # télécharge ici ; les sessions de travail cloud ne le peuvent pas (§3).
+  base:
+    name: schéma Prisma ↔ migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: psql -h localhost -U postgres -c "create database fantome" -c "create database neuve"
+      - run: npx prisma validate
+      - name: les migrations aboutissent au schéma (base fantôme)
+        run: npm run base:derive
+        env:
+          SHADOW_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fantome
+      - name: migrate deploy sur une base neuve
+        run: npm run base:migre
+        env:
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/neuve
+      - name: la base déployée est le schéma
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+        env:
+          DIRECT_URL: postgresql://postgres:postgres@localhost:5432/neuve
 
   e2e:
     name: e2e (salons réels)

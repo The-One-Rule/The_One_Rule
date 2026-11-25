@@ -1,5 +1,5 @@
 /**
- * Les amis — fonction edge Vercel.
+ * Les amis — fonction Vercel (runtime Node).
  *
  *   GET                 → son code, le classement de son cercle (soi compris),
  *                         les demandes reçues et envoyées
@@ -30,8 +30,8 @@
  * compte : le CODE sert de poignée, et c'est lui qu'on a choisi de donner.
  */
 
-import { cleDuJour } from "../src/game/perfs";
-import { cleanEnv } from "../src/env";
+import { cleDuJour } from "../src/game/perfs.js";
+import { cleanEnv } from "../src/env.js";
 import {
   classementDesAmis,
   codeAmiValide,
@@ -39,16 +39,17 @@ import {
   MAX_AMIS,
   MAX_DEMANDES,
   semaineDe,
-} from "../shared/amis";
-import type { Demandeur, LigneAmi, Participant } from "../shared/amis";
-import { carteValide } from "../shared/profil";
-import { consomme } from "./_debit";
-import { depotConfigure } from "./_depot";
-import type { Ami, Depot, Perf, Utilisateur } from "./_depot";
-import { jetonDeLaRequete, verifieJeton } from "./_jeton";
-import { litObjet } from "./_corps";
+} from "../shared/amis.js";
+import type { Demandeur, LigneAmi, Participant } from "../shared/amis.js";
+import { carteValide } from "../shared/profil.js";
+import { consomme } from "./_debit.js";
+import { depotConfigure } from "./_depot-prisma.js";
+import type { Ami, Depot, Perf, Utilisateur } from "./_depot.js";
+import { jetonDeLaRequete, verifieJeton } from "./_jeton.js";
+import { litObjet } from "./_corps.js";
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
 /** La fenêtre lue pour « meilleur » : un mois. Assez pour dire quelque chose, assez court pour rester une requête. */
 const FENETRE_JOURS = 30;
@@ -228,5 +229,12 @@ export async function traite(
   return json({ error: "action inconnue" }, 404);
 }
 
-export default (req: Request): Promise<Response> =>
+const entree = (req: Request): Promise<Response> =>
   traite(req, process.env as Record<string, string | undefined>);
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

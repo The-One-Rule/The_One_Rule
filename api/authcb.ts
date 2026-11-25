@@ -17,14 +17,22 @@
  * tests exercent, et le retirer ne gagnerait rien.
  */
 
-import { traite } from "./auth";
+import { traite } from "./auth.js";
 
-export const config = { runtime: "edge" };
+// Runtime NODE (le défaut de Vercel) : le dépôt ouvre une connexion
+// PostgreSQL par Prisma, ce que le runtime edge ne sait pas faire (ADR 0012).
 
-export default (req: Request): Promise<Response> => {
+const entree = (req: Request): Promise<Response> => {
   const url = new URL(req.url);
   url.searchParams.set("a", "callback");
   // La requête est un GET sans corps : la reconstruire sur une nouvelle URL
   // est sans effet de bord.
   return traite(new Request(url, req), process.env as Record<string, string | undefined>);
 };
+
+/**
+ * Le format `fetch` : en runtime Node, Vercel lirait une fonction exportée
+ * seule comme un handler `(req, res)` à la Node, et la requête n'arriverait
+ * jamais sous forme de `Request`.
+ */
+export default { fetch: entree };

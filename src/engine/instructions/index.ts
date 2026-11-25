@@ -1,7 +1,7 @@
-import { rChance, rInt, rPick } from "../rng";
-import { fillCount, rollSize } from "../scene";
-import { COLOR_IDS, SHAPE_IDS } from "../types";
-import type { ColorId, EntitySpec, Entity, Instruction, Rng, ShapeId } from "../types";
+import { rChance, rInt, rPick } from "../rng.js";
+import { fillCount, rollSize } from "../scene.js";
+import { COLOR_IDS, SHAPE_IDS } from "../types.js";
+import type { ColorId, EntitySpec, Entity, Instruction, Rng, ShapeId } from "../types.js";
 
 /* ------------------------------------------------------------------ *
  * Étiquettes d'affichage

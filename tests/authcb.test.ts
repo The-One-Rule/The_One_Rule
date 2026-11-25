@@ -15,11 +15,10 @@ describe("le point d'entrée du retour OAuth", () => {
   it("rejoue le retour de `api/auth.ts`, sans paramètre d'action", async () => {
     vi.stubEnv("TOR_AUTH_SECRET", "secret-de-test-assez-long-pour-ne-pas-etre-ridicule");
     vi.stubEnv("TOR_APP_URL", "https://www.theonerule.party");
-    vi.stubEnv("SUPABASE_URL", "https://exemple.supabase.co");
-    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "cle");
+    vi.stubEnv("DATABASE_URL", "postgresql://test@127.0.0.1:1/aucune");
     vi.stubEnv("GOOGLE_CLIENT_ID", "google-id");
     vi.stubEnv("GOOGLE_CLIENT_SECRET", "google-secret");
-    const res = await authcb(new Request("https://www.theonerule.party/api/authcb?code=c&state=forge"));
+    const res = await authcb.fetch(new Request("https://www.theonerule.party/api/authcb?code=c&state=forge"));
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toContain("#compte=etat_invalide");
   });

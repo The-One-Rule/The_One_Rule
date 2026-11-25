@@ -20,12 +20,12 @@
  * C'est un réglage d'appareil, pas un agrégat de compte : il ne voyage pas.
  */
 
-import { MOTIFS } from "./engine/motifs";
-import type { MotifId } from "./engine/motifs";
-import type { SeatStatus } from "./render/seat";
+import { MOTIFS } from "./engine/motifs.js";
+import type { MotifId } from "./engine/motifs.js";
+import type { SeatStatus } from "./render/seat.js";
 
-import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours";
-import type { TextesParcours } from "./i18n-parcours";
+import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours.js";
+import type { TextesParcours } from "./i18n-parcours.js";
 
 export type Lang = "fr" | "en";
 

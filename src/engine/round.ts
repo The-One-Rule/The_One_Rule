@@ -1,7 +1,7 @@
-import { pickInstruction } from "./instructions";
-import { place } from "./scene";
-import { FORCED_TRAP_ROUNDS, HOLD_MS, fenetreAllure, plancherParGeste, poidsGestes, windowForSteps } from "./difficulty";
-import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types";
+import { pickInstruction } from "./instructions/index.js";
+import { place } from "./scene.js";
+import { FORCED_TRAP_ROUNDS, HOLD_MS, fenetreAllure, plancherParGeste, poidsGestes, windowForSteps } from "./difficulty.js";
+import type { Entity, Instruction, OneRule, Rng, Round, Step, Want } from "./types.js";
 
 /** Compile la forme AUTEUR (`Want`) en liste d'étapes uniformes. */
 export function compile(want: Want): Step[] {

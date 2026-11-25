@@ -15,8 +15,8 @@
  * pour qu'un salon de dix n'ait aucune collision visible.
  */
 
-import { hashStr } from "../engine/rng";
-import type { Glyph } from "../../shared/protocol";
+import { hashStr } from "../engine/rng.js";
+import type { Glyph } from "../../shared/protocol.js";
 
 /** Teintes de signature — distinctes de la palette JOUABLE, qui porte la
  *  mécanique et ne doit jamais être confondue avec de la décoration. */

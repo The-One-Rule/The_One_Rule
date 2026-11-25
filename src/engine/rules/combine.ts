@@ -19,8 +19,8 @@
  * multijoueur pourrait la transporter. C'est ce qui fait tenir ce mode en un
  * fichier au lieu d'une refonte.
  */
-import { ONE_RULES } from "./index";
-import type { Entity, OneRule, Round, Rng, Want } from "../types";
+import { ONE_RULES } from "./index.js";
+import type { Entity, OneRule, Round, Rng, Want } from "../types.js";
 
 /**
  * Paires qui produisent des manches INJOUABLES, et non difficiles.

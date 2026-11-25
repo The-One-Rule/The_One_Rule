@@ -1,0 +1,402 @@
+// ===================================================================
+// LE SCHÉMA DE LA BASE — source de vérité depuis le 25/11/2026.
+//
+// Il remplace les migrations écrites à la main (`supabase/migrations/`,
+// 0001 à 0009) : on modifie CE fichier, puis `npx prisma migrate dev
+// --create-only --name <sujet>` écrit la migration, qu'on RELIT avant de la
+// committer. Voir docs/BASE-DE-DONNEES.md §8 et l'ADR 0012.
+//
+// Les noms de tables et de colonnes ne bougent pas : chaque modèle porte son
+// `@@map`, chaque champ son `@map`, chaque contrainte et index son `map:`.
+// Un nom par défaut de Prisma qui différerait de celui de la base ferait
+// écrire à `migrate dev` un DROP suivi d'un CREATE, pour rien.
+//
+// ⚠️ CE QUE PRISMA NE SAIT PAS DÉCRIRE, et qui vit donc dans le SQL des
+// migrations seulement (la CI vérifie qu'aucune migration générée ne le
+// défait — voir `npm run base:derive`) :
+//   · les CHECK (solde positif, étoiles 0..3, motif d'un mouvement…) ;
+//   · le RLS sans politique de chaque table (la clé publique de Supabase ne
+//     lit rien ; Prisma se connecte en propriétaire des tables) ;
+//   · l'index d'EXPRESSION `demande_ami_paire` (least, greatest) qui interdit
+//     deux demandes croisées en double ;
+//   · le remplissage du catalogue (miroir du code, `tests/migrations-sql`).
+// ===================================================================
+
+generator client {
+  provider            = "prisma-client"
+  output              = "./client"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  /// `.js` et non `.ts` : en runtime Node, Vercel transpile fichier par
+  /// fichier, et Node ne charge pas un import qui nomme un `.ts`.
+  importFileExtension = "js"
+  previewFeatures     = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// -------------------------------------------------------------------
+// Identité — trois couches jamais confondues (shared/compte.ts) :
+// l'appareil (anonId), le compte TOR (Utilisateur), la plateforme (Lien).
+// -------------------------------------------------------------------
+
+model Utilisateur {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Non unique, délibérément : deux joueurs du même nom se distinguent par leur glyphe.
+  pseudo          String    @default("")
+  /// Sac OUVERT : { glyphe, carte… }. Validé par `apparenceAutorisee`.
+  apparence       Json      @default("{\"glyphe\": 0}")
+  /// Carnet, série, records — AFFIRMÉS par le client (décision n°14).
+  agregats        Json      @default("{}")
+  /// Concurrence optimiste : la fusion reste en TypeScript (`fusionne`).
+  revision        Int       @default(0)
+  /// « Se déconnecter partout » = +1.
+  versionJeton    Int       @default(0) @map("version_jeton")
+  drapeaux        Int       @default(0)
+  creeLe          DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+  vuLe            DateTime  @default(now()) @map("vu_le") @db.Timestamptz(6)
+  banniLe         DateTime? @map("banni_le") @db.Timestamptz(6)
+  /// Suppression LOGIQUE : la ligne reste, ce qui est personnel part.
+  supprimeLe      DateTime? @map("supprime_le") @db.Timestamptz(6)
+  codeAmi         String?   @map("code_ami")
+  /// Ne bouge que par la boutique, journalisé dans MouvementPieces. CHECK >= 0.
+  pieces          Int       @default(0)
+  /// DÉRIVÉE de `apparence.carte`, écrite par le dépôt dans la même requête.
+  carteBanniereId String?   @map("carte_banniere_id") @db.Uuid
+  /// Le style porté : une clé composée vers la POSSESSION (on ne porte que ce qu'on a).
+  skinPorteId     String?   @map("skin_porte_id") @db.Uuid
+
+  carteBanniere Carte?           @relation(fields: [carteBanniereId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "utilisateur_carte_banniere_id_fkey")
+  skinPorte     SkinUtilisateur? @relation("SkinPorte", fields: [id, skinPorteId], references: [utilisateurId, skinId], onDelete: NoAction, onUpdate: NoAction, map: "utilisateur_skin_porte_fkey")
+
+  liens          LienPlateforme[]
+  performances   Performance[]
+  amities        Amitie[]              @relation("AmitieDe")
+  amitiesRecues  Amitie[]              @relation("AmitieVers")
+  demandesFaites DemandeAmi[]          @relation("DemandeDe")
+  demandesRecues DemandeAmi[]          @relation("DemandeVers")
+  skins          SkinUtilisateur[]     @relation("Possession")
+  achats         Achat[]
+  mouvements     MouvementPieces[]
+  cartes         CarteUtilisateur[]
+  chapitres      ProgressionChapitre[]
+  statistique    Statistique?
+  meilleurs      MeilleurScore[]
+
+  @@unique([codeAmi], map: "utilisateur_code_ami", where: raw("(code_ami IS NOT NULL)"))
+  @@map("utilisateur")
+}
+
+model LienPlateforme {
+  /// 'google' | 'discord' aujourd'hui ; 'steam' un jour, sans rien d'autre à changer.
+  fournisseur   String
+  idExterne     String   @map("id_externe")
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  creeLe        DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "lien_plateforme_utilisateur_id_fkey")
+
+  @@id([fournisseur, idExterne], map: "lien_plateforme_pkey")
+  @@index([utilisateurId], map: "lien_plateforme_utilisateur")
+  @@map("lien_plateforme")
+}
+
+// -------------------------------------------------------------------
+// L'OPPOSABLE — ne contient que du REJOUÉ par `verifyRun` (décision n°14).
+// -------------------------------------------------------------------
+
+model Performance {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// L'ancien `bigserial` d'avant 0006, gardé et lu par personne.
+  ancienId       BigInt?  @map("ancien_id")
+  utilisateurId  String   @map("utilisateur_id") @db.Uuid
+  mode           String
+  /// La clé de comparabilité : mode + régime + version de contenu + jour.
+  cle            String
+  versionContenu String   @map("version_contenu")
+  jour           Int?
+  graine         BigInt
+  regle          String
+  valeur         Int
+  /// Le départage : la durée, croissante.
+  valeur2        Int      @default(0)
+  verifiee       Boolean  @default(true)
+  verdictBot     String   @default("humain") @map("verdict_bot")
+  creeLe         DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur     @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "performance_utilisateur_id_fkey")
+  modeJeu     ModeJeu         @relation(fields: [mode], references: [code], onDelete: Restrict, onUpdate: Cascade, map: "performance_mode_fkey")
+  regleJeu    Regle           @relation(fields: [regle], references: [code], onDelete: Restrict, onUpdate: Cascade, map: "performance_regle_fkey")
+  meilleurs   MeilleurScore[]
+
+  /// UNE performance par compte et par clé : une soumission par jour au run du jour.
+  @@unique([utilisateurId, cle], map: "performance_unique")
+  @@index([cle, valeur(sort: Desc), valeur2], map: "performance_classement", where: raw("verifiee"))
+  @@index([utilisateurId, jour], map: "performance_par_jour")
+  @@map("performance")
+}
+
+model Statistique {
+  utilisateurId String   @id @map("utilisateur_id") @db.Uuid
+  runsVerifies  Int      @default(0) @map("runs_verifies")
+  joursClasses  Int      @default(0) @map("jours_classes")
+  majLe         DateTime @default(now()) @map("maj_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "statistique_utilisateur_id_fkey")
+
+  @@map("statistique")
+}
+
+model MeilleurScore {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  modeJeuId     String   @map("mode_jeu_id") @db.Uuid
+  valeur        Int
+  valeur2       Int      @default(0)
+  performanceId String?  @map("performance_id") @db.Uuid
+  obtenuLe      DateTime @default(now()) @map("obtenu_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur  @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "meilleur_score_utilisateur_id_fkey")
+  modeJeu     ModeJeu      @relation(fields: [modeJeuId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "meilleur_score_mode_jeu_id_fkey")
+  performance Performance? @relation(fields: [performanceId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "meilleur_score_performance_id_fkey")
+
+  @@unique([utilisateurId, modeJeuId], map: "meilleur_score_utilisateur_id_mode_jeu_id_key")
+  @@index([performanceId], map: "meilleur_score_par_performance")
+  @@map("meilleur_score")
+}
+
+// -------------------------------------------------------------------
+// Les amis — une amitié est stockée dans les DEUX sens ; une demande, une fois.
+// -------------------------------------------------------------------
+
+model Amitie {
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  amiId         String   @map("ami_id") @db.Uuid
+  creeLe        DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation("AmitieDe", fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "amitie_utilisateur_id_fkey")
+  ami         Utilisateur @relation("AmitieVers", fields: [amiId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "amitie_ami_id_fkey")
+
+  @@id([utilisateurId, amiId], map: "amitie_pkey")
+  @@map("amitie")
+}
+
+/// Orientée (de → à). L'index d'expression `demande_ami_paire` (SQL seulement)
+/// interdit A→B et B→A ensemble.
+model DemandeAmi {
+  deId   String   @map("de_id") @db.Uuid
+  aId    String   @map("a_id") @db.Uuid
+  creeLe DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  de Utilisateur @relation("DemandeDe", fields: [deId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "demande_ami_de_id_fkey")
+  a  Utilisateur @relation("DemandeVers", fields: [aId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "demande_ami_a_id_fkey")
+
+  @@id([deId, aId], map: "demande_ami_pkey")
+  @@index([aId], map: "demande_ami_par_destinataire")
+  @@map("demande_ami")
+}
+
+/// Ce que 0008 a retiré des demandes croisées, gardé plutôt qu'effacé. Sans clé
+/// primaire : hors du client, conservée telle quelle.
+model ArchiveDemandeAmi0008 {
+  deId      String   @map("de_id") @db.Uuid
+  aId       String   @map("a_id") @db.Uuid
+  creeLe    DateTime @map("cree_le") @db.Timestamptz(6)
+  archiveLe DateTime @default(now()) @map("archive_le") @db.Timestamptz(6)
+
+  @@map("archive_demande_ami_0008")
+  @@ignore
+}
+
+// -------------------------------------------------------------------
+// Le catalogue — MIROIR du code, qui reste la source (moteur pur, rejeu).
+// On ne supprime jamais une ligne : `retireLe`, et RESTRICT partout.
+// -------------------------------------------------------------------
+
+model Regle {
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code     String    @unique(map: "regle_code_key")
+  piege    Boolean
+  maintien Boolean   @default(false)
+  retireLe DateTime? @map("retire_le") @db.Timestamptz(6)
+  creeLe   DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  carte        Carte?
+  modes        ModeJeuRegle[]
+  chapitres    Chapitre[]
+  performances Performance[]
+
+  @@map("regle")
+}
+
+model Carte {
+  id      String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  regleId String   @unique(map: "carte_regle_id_key") @map("regle_id") @db.Uuid
+  image   String
+  creeLe  DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  regle       Regle              @relation(fields: [regleId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "carte_regle_id_fkey")
+  possesseurs CarteUtilisateur[]
+  bannieres   Utilisateur[]
+
+  @@map("carte")
+}
+
+model Skin {
+  id       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code     String    @unique(map: "skin_code_key")
+  prix     Int
+  ordre    Int       @unique(map: "skin_ordre_key") @db.SmallInt
+  retireLe DateTime? @map("retire_le") @db.Timestamptz(6)
+  creeLe   DateTime  @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  possessions SkinUtilisateur[]
+  achats      Achat[]
+
+  @@map("skin")
+}
+
+model ModeJeu {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code      String   @unique(map: "mode_jeu_code_key")
+  /// Ses résultats sont-ils OPPOSABLES ? Seul le run du jour.
+  classable Boolean  @default(false)
+  creeLe    DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  regles       ModeJeuRegle[]
+  chapitres    Chapitre[]
+  performances Performance[]
+  meilleurs    MeilleurScore[]
+
+  @@map("mode_jeu")
+}
+
+model ModeJeuRegle {
+  modeJeuId String @map("mode_jeu_id") @db.Uuid
+  regleId   String @map("regle_id") @db.Uuid
+
+  modeJeu ModeJeu @relation(fields: [modeJeuId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "mode_jeu_regle_mode_jeu_id_fkey")
+  regle   Regle   @relation(fields: [regleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "mode_jeu_regle_regle_id_fkey")
+
+  @@id([modeJeuId, regleId], map: "mode_jeu_regle_pkey")
+  @@index([regleId], map: "mode_jeu_regle_par_regle")
+  @@map("mode_jeu_regle")
+}
+
+model Chapitre {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modeJeuId String   @map("mode_jeu_id") @db.Uuid
+  regleId   String   @map("regle_id") @db.Uuid
+  numero    Int      @db.SmallInt
+  creeLe    DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  modeJeu      ModeJeu               @relation(fields: [modeJeuId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "chapitre_mode_jeu_id_fkey")
+  regle        Regle                 @relation(fields: [regleId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "chapitre_regle_id_fkey")
+  progressions ProgressionChapitre[]
+
+  @@unique([modeJeuId, numero], map: "chapitre_mode_jeu_id_numero_key")
+  @@unique([modeJeuId, regleId], map: "chapitre_mode_jeu_id_regle_id_key")
+  @@index([regleId], map: "chapitre_par_regle")
+  @@map("chapitre")
+}
+
+// -------------------------------------------------------------------
+// Possession, achats, grand livre.
+// -------------------------------------------------------------------
+
+model SkinUtilisateur {
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  skinId        String   @map("skin_id") @db.Uuid
+  /// 'offert' | 'achat' | 'import' (CHECK).
+  origine       String
+  acquisLe      DateTime @default(now()) @map("acquis_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur   @relation("Possession", fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "skin_utilisateur_utilisateur_id_fkey")
+  skin        Skin          @relation(fields: [skinId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "skin_utilisateur_skin_id_fkey")
+  porteePar   Utilisateur[] @relation("SkinPorte")
+
+  @@id([utilisateurId, skinId], map: "skin_utilisateur_pkey")
+  @@index([skinId], map: "skin_utilisateur_par_skin")
+  @@map("skin_utilisateur")
+}
+
+/// L'historique : il SURVIT au compte (restrict) et au style (set null).
+model Achat {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  utilisateurId  String   @map("utilisateur_id") @db.Uuid
+  skinId         String?  @map("skin_id") @db.Uuid
+  skinCode       String   @map("skin_code")
+  prixPaye       Int      @map("prix_paye")
+  /// Fournie par le client : rejouer la même requête rend le MÊME achat.
+  cleIdempotence String   @map("cle_idempotence") @db.Uuid
+  acheteLe       DateTime @default(now()) @map("achete_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur       @relation(fields: [utilisateurId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "achat_utilisateur_id_fkey")
+  skin        Skin?             @relation(fields: [skinId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "achat_skin_id_fkey")
+  mouvements  MouvementPieces[]
+
+  @@unique([utilisateurId, cleIdempotence], map: "achat_utilisateur_id_cle_idempotence_key")
+  @@index([skinId], map: "achat_par_skin")
+  @@map("achat")
+}
+
+/// Le grand livre du solde : somme(delta) = utilisateur.pieces.
+model MouvementPieces {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  delta         Int
+  /// 'import' | 'achat' (CHECK, et un débit est toujours un achat).
+  motif         String
+  /// « import:<appareil> » ou « achat:<clé> » : unique par compte.
+  cle           String
+  achatId       String?  @map("achat_id") @db.Uuid
+  creeLe        DateTime @default(now()) @map("cree_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "mouvement_pieces_utilisateur_id_fkey")
+  achat       Achat?      @relation(fields: [achatId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "mouvement_pieces_achat_id_fkey")
+
+  @@unique([utilisateurId, cle], map: "mouvement_pieces_utilisateur_id_cle_key")
+  @@index([achatId], map: "mouvement_pieces_par_achat")
+  @@map("mouvement_pieces")
+}
+
+// -------------------------------------------------------------------
+// Projections du carnet — AFFIRMÉES, écrites avec les agrégats, au MAXIMUM.
+// -------------------------------------------------------------------
+
+model CarteUtilisateur {
+  utilisateurId String   @map("utilisateur_id") @db.Uuid
+  carteId       String   @map("carte_id") @db.Uuid
+  meilleur      Int      @default(0)
+  pieges        Int      @default(0)
+  runs          Int      @default(0)
+  maitrisee     Boolean  @default(false)
+  obtenueLe     DateTime @default(now()) @map("obtenue_le") @db.Timestamptz(6)
+  majLe         DateTime @default(now()) @map("maj_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "carte_utilisateur_utilisateur_id_fkey")
+  carte       Carte       @relation(fields: [carteId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "carte_utilisateur_carte_id_fkey")
+
+  @@id([utilisateurId, carteId], map: "carte_utilisateur_pkey")
+  @@index([carteId], map: "carte_utilisateur_par_carte")
+  @@map("carte_utilisateur")
+}
+
+model ProgressionChapitre {
+  utilisateurId String    @map("utilisateur_id") @db.Uuid
+  chapitreId    String    @map("chapitre_id") @db.Uuid
+  /// Les étoiles des cinq niveaux, 0 à 3 (CHECK). Terminé = boss étoilé.
+  etoiles       Int[]     @default([0, 0, 0, 0, 0]) @db.SmallInt
+  termineLe     DateTime? @map("termine_le") @db.Timestamptz(6)
+  debloqueLe    DateTime  @default(now()) @map("debloque_le") @db.Timestamptz(6)
+  majLe         DateTime  @default(now()) @map("maj_le") @db.Timestamptz(6)
+
+  utilisateur Utilisateur @relation(fields: [utilisateurId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "progression_chapitre_utilisateur_id_fkey")
+  chapitre    Chapitre    @relation(fields: [chapitreId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "progression_chapitre_chapitre_id_fkey")
+
+  @@id([utilisateurId, chapitreId], map: "progression_chapitre_pkey")
+  @@index([chapitreId], map: "progression_chapitre_par_chapitre")
+  @@map("progression_chapitre")
+}

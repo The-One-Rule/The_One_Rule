@@ -1,7 +1,50 @@
 import { defineConfig } from "vitest/config";
+import type { Plugin } from "vite";
+
+/*
+ * `DepotPrisma` (api/_depot-prisma.ts) ne s'exerce que contre un VRAI PostgreSQL
+ * (`TOR_BASE_TEST_URL`, voir tests/depot-contrat.test.ts). Sans base, ses
+ * lignes ne peuvent pas être couvertes, et le cliquet `api/**` tomberait sur
+ * un poste qui n'a pas de PostgreSQL — sans qu'aucune logique ait perdu son
+ * test. Il sort donc du calcul, ET on le dit. La CI, elle, a une base et
+ * `TOR_BASE_EXIGEE=1` : le cliquet y porte sur tout.
+ */
+const AVEC_BASE = !!process.env.TOR_BASE_TEST_URL?.trim();
+if (!AVEC_BASE && process.argv.includes("--coverage")) {
+  console.warn("couverture : sans TOR_BASE_TEST_URL, api/_depot-prisma.ts est hors du calcul (la CI le compte).");
+}
+
+/**
+ * EN DEV, `/api/` N'EST PAS SERVI PAR VITE.
+ *
+ * Il n'y a pas de fonctions Vercel en local, et le client appelle par défaut
+ * `/api/auth`, `/api/moi`… Or Vite lit une adresse SANS extension comme un
+ * MODULE : il servait `api/auth.ts` transformé (200, du JavaScript que le
+ * client ne savait pas lire comme du JSON) et pré-transformait ses imports.
+ * Sans conséquence tant qu'ils étaient tous relatifs ; depuis Prisma, ils
+ * mènent à `@prisma/client` : Vite découvre une dépendance neuve, ré-optimise
+ * et RECHARGE la page. Mesuré le 25/11 : l'e2e navigateur tombait 4 fois sur 4
+ * à froid (10 assertions, « Failed to fetch dynamically imported module …
+ * qr.ts »), 0 sur 3 sur master. Un 404 net dit la vérité : pas de comptes ici.
+ */
+const pasDApiEnDev: Plugin = {
+  name: "tor-pas-d-api-en-dev",
+  configureServer(serveur) {
+    serveur.middlewares.use((req, res, suite) => {
+      if (req.url?.startsWith("/api/")) {
+        res.statusCode = 404;
+        res.setHeader("Content-Type", "application/json");
+        res.end(JSON.stringify({ disponible: false }));
+        return;
+      }
+      suite();
+    });
+  },
+};
 
 export default defineConfig({
   base: "./",
+  plugins: [pasDApiEnDev],
   build: { target: "es2022", assetsInlineLimit: 4096, cssCodeSplit: false },
   test: {
     environment: "node",
@@ -30,6 +73,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**", "server/**", "shared/**", "api/**"],
+      exclude: AVEC_BASE ? [] : ["api/_depot-prisma.ts"],
       reporter: ["text-summary", "json-summary"],
       thresholds: {
         "src/engine/**": { lines: 97, branches: 92 },

@@ -6,8 +6,8 @@
  * compiler si une langue oublie une clé. Les chaînes STATIQUES (celles des
  * attributs `data-i18n`) sont versées dans la table commune par `i18n.ts`.
  */
-import type { Lang } from "./i18n";
-import type { NiveauId } from "./game/parcours";
+import type { Lang } from "./i18n.js";
+import type { NiveauId } from "./game/parcours.js";
 
 export const STATIQUE_PARCOURS: Record<Lang, Record<string, string>> = {
   fr: {

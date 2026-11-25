@@ -19,7 +19,7 @@
  * Le préfixe `_` empêche Vercel d'en faire un point d'entrée.
  */
 
-import { cleanEnv } from "../src/env";
+import { cleanEnv } from "../src/env.js";
 
 export interface Quota {
   /** Nombre d'écritures autorisées dans la fenêtre. */

@@ -25,8 +25,8 @@
  * D'où la condition en deux temps, qui tient en une phrase : il faut avoir
  * tenu, ET avoir déjoué un piège quand la règle sait en poser.
  */
-import type { OneRule } from "../engine/types";
-import type { RuleRecord } from "./progress";
+import type { OneRule } from "../engine/types.js";
+import type { RuleRecord } from "./progress.js";
 
 /**
  * Le palier de manches. C'est un PREMIER CHIFFRE, pas une mesure.

@@ -14,8 +14,8 @@
  * tout fichier de `api/` qui n'en porte pas. Ce module n'est pas une route.
  */
 
-import { assemble, corps, decoupe, fraicheur, renouvelable, revendicationsPour } from "../shared/jeton";
-import type { Frappe, Revendications } from "../shared/jeton";
+import { assemble, corps, decoupe, fraicheur, renouvelable, revendicationsPour } from "../shared/jeton.js";
+import type { Frappe, Revendications } from "../shared/jeton.js";
 
 const ENC = new TextEncoder();
 

@@ -15,7 +15,7 @@ import { estMaitrisee } from "../src/game/maitrise";
 import { ONE_RULES } from "../src/engine/rules";
 
 const SECRET = "secret-de-test-assez-long-pour-ne-pas-etre-ridicule";
-const ENV = { TOR_AUTH_SECRET: SECRET, SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "cle" };
+const ENV = { TOR_AUTH_SECRET: SECRET, DATABASE_URL: "postgresql://test@127.0.0.1:1/aucune" };
 const ag = (carnet: Agregats["carnet"]): Agregats => ({ ...agregatsVides(), carnet });
 
 describe("identifiant de compte", () => {

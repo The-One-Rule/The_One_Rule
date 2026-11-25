@@ -22,7 +22,7 @@
  *      c'est elle qui empêchera l'historique de mentir en silence.
  */
 
-import { carteValide } from "./profil";
+import { carteValide } from "./profil.js";
 
 /* ------------------------------------------------------------------ *
  * Identité

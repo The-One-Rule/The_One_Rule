@@ -1,6 +1,6 @@
-import { mulberry32, rShuffle } from "../engine/rng";
-import { ONE_RULES } from "../engine/rules";
-import type { OneRule } from "../engine/types";
+import { mulberry32, rShuffle } from "../engine/rng.js";
+import { ONE_RULES } from "../engine/rules/index.js";
+import type { OneRule } from "../engine/types.js";
 
 /** Jour 1 = 1er janvier 2026, en UTC. Tout le monde change de jour au même instant. */
 const EPOCH = Date.UTC(2026, 0, 1);

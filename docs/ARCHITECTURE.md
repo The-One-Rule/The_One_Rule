@@ -16,7 +16,7 @@ flowchart LR
   end
   subgraph Vercel
     S[front statique · dist/]
-    E[fonctions edge · api/]
+    E[fonctions Vercel · api/]
   end
   subgraph Fly.io["Fly.io — UNE instance"]
     W[serveur de salons · server/]
@@ -67,7 +67,7 @@ flowchart TB
 **La règle** : une flèche ne remonte jamais vers le haut. Le moteur ne
 connaît ni le DOM, ni l'heure, ni le réseau ; c'est ce qui permet :
 
-- au **serveur edge** de *rejouer* un run du jour avec le même code que le
+- aux **fonctions `api/`** de *rejouer* un run du jour avec le même code que le
   client (`verifyRun`, `src/engine/verify.ts`) — ADR [0002](adr/0002-moteur-pur-et-rejeu-serveur.md) ;
 - au **multijoueur** de reconstruire chaque manche depuis `{ seed, idx }`
   sans transmettre de scène — ADR [0003](adr/0003-netcode-graine-et-index.md).
@@ -135,7 +135,13 @@ sequenceDiagram
 - **Défenses** : liste blanche d'origines (`origin.ts`), limites de débit
   (`debit.ts`), écouteur `error` sur chaque socket, minuteries gardées.
 
-## 5. Les fonctions edge (`api/`)
+## 5. Les fonctions Vercel (`api/`)
+
+`collect` tourne en **edge** (Upstash par REST). Les autres tournent en
+**Node** depuis Prisma (ADR [0012](adr/0012-prisma-schema-source-et-runtime-node.md)) :
+elles ouvrent une connexion PostgreSQL, donc de vraies transactions. ⚠️ En
+Node, Vercel ne regroupe pas les fichiers : tout import relatif porte son
+extension `.js` (`tests/imports-node.test.ts`).
 
 | route | rôle |
 |---|---|
@@ -145,13 +151,14 @@ sequenceDiagram
 | `perf` | run du jour : soumis, **rejoué** par `verifyRun`, classé |
 | `amis` | codes d'ami, demandes, cercle |
 
-Les fichiers préfixés `_` ne sont pas routés : `_depot` (Supabase ou mémoire),
+Les fichiers préfixés `_` ne sont pas routés : `_depot` (l'interface et le
+double en mémoire), `_depot-prisma` (PostgreSQL),
 `_jeton`, `_debit`, `_corps`, et `_ranked` (le mode classé, hors service —
 CLAUDE.md §9).
 
 **Ce qui est opposable est rejoué** — ADR [0006](adr/0006-opposable-signifie-rejoue.md).
-Les jetons sont vérifiés de deux façons, synchrone sur Fly et asynchrone sur
-l'edge, avec le même noyau — ADR [0007](adr/0007-deux-hmac-synchrone-et-asynchrone.md).
+Les jetons sont vérifiés de deux façons, synchrone sur Fly et asynchrone dans
+`api/`, avec le même noyau — ADR [0007](adr/0007-deux-hmac-synchrone-et-asynchrone.md).
 
 ## 6. Données
 
@@ -164,7 +171,10 @@ l'edge, avec le même noyau — ADR [0007](adr/0007-deux-hmac-synchrone-et-async
 | Supabase `amitie`, `demande_ami` | le cercle (le code d'ami vit sur `utilisateur`) | `api/amis` |
 | Upstash | événements de mesure (listes par jour, 40 jours), compteurs de débit | `api/collect`, `api/_debit` |
 
-Migrations : `supabase/migrations/0001` à `0005`, à appliquer dans l'ordre.
+Le schéma est `prisma/schema.prisma` ; les migrations, générées par Prisma et
+relues, vivent dans `prisma/migrations/` (la première est la ligne de base :
+les neuf migrations écrites à la main avant Prisma). Détail :
+[BASE-DE-DONNEES.md](BASE-DE-DONNEES.md).
 
 ## 7. Vérification et livraison
 

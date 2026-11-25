@@ -1,7 +1,12 @@
 -- ===================================================================
 -- RETOUR ARRIÈRE de 0009 → 0006, à la main, en dernier recours.
 --
--- ⚠️ CE FICHIER N'EST PAS UNE MIGRATION. Il vit hors de
+-- ⚠️ HISTORIQUE (25/11/2026) : écrit avant Prisma, quand les migrations
+-- vivaient dans `supabase/migrations/`. Il défait 0009 → 0006, qui sont
+-- aujourd'hui DANS `prisma/migrations/0_ligne_de_base`. S'il fallait un jour
+-- s'en servir, défaire D'ABORD la migration 1 (`prisma/retours/1-0.sql`).
+--
+-- ⚠️ CE FICHIER N'EST PAS UNE MIGRATION. Il vivait hors de
 -- `supabase/migrations/` précisément pour que `supabase db push` ne
 -- l'applique jamais. Il se lance à la main (`psql -f`), sur décision de
 -- Pierre, APRÈS avoir redéployé le code d'avant (ADR 0011 : le code d'avant
