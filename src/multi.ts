@@ -27,6 +27,7 @@ import { retour } from "./histoire";
 import { windowMs } from "./engine/difficulty";
 import { leverAttendu, resolveAction } from "./engine/resolve";
 import { ruleById } from "./engine/rules";
+import { estRancune } from "./engine/rules/rancune";
 import * as P from "./game/progress";
 import { jetonPourSalon } from "./compte";
 import { signeAffiche } from "./compte/revendication";
@@ -1363,8 +1364,19 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     dramaEl.classList.add("drama--rule");
     dramaEl.classList.toggle("drama--rotation", rotation);
     dramaEl.setAttribute("aria-hidden", "false");
-    dramaEyebrow.textContent = rotation ? tr("regleChange") : tr("regleUnique");
-    if (rotation && match.ancienneRegle && match.ancienneRegle.id !== rule.id) {
+    /*
+     * LA RANCUNE qui change de cible n'est pas une NOUVELLE règle : barrer
+     * « LA RANCUNE » au-dessus de « LA RANCUNE » se lirait comme un bug. Le
+     * titre dit ce qui arrive, le brief dit la forme désormais interdite.
+     */
+    const rancuneBouge =
+      rotation && !!match.ancienneRegle && estRancune(match.ancienneRegle.id) && estRancune(rule.id);
+    dramaEyebrow.textContent = rancuneBouge
+      ? tr("rancuneChange")
+      : rotation
+        ? tr("regleChange")
+        : tr("regleUnique");
+    if (!rancuneBouge && rotation && match.ancienneRegle && match.ancienneRegle.id !== rule.id) {
       dramaOld.textContent = nomDeRegle(match.ancienneRegle.id, match.ancienneRegle.name);
       dramaOld.classList.remove("hidden");
     } else {
@@ -2407,13 +2419,25 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
      * des pertes de vies venaient de là. Le serveur allonge maintenant
      * l'interlude et joint les règles à venir : on a le temps de lire.
      */
+    /*
+     * Les règles de la manche qui vient de se JUGER — celles de la kill-cam.
+     *
+     * `nextRules` remplace `match.rules` juste en dessous. La kill-cam
+     * reconstruisait la manche fatale avec la règle de la manche SUIVANTE : à
+     * une rotation, la victime voyait sa mort rejouée sous une autre
+     * contrainte, piège compris. Défaut d'avant LA RANCUNE, mais elle le rend
+     * courant : sa cible change justement à chaque vie perdue.
+     */
+    const reglesJugees = match.rules;
     if (msg.nextRules && net) {
       const ancienne = ruleById(match.rules[net.myId] ?? "");
       match.rules = { ...msg.nextRules };
       const mienne = ruleById(msg.nextRules[net.myId] ?? "");
       // On MÉMORISE, on n'affiche pas encore : une kill-cam peut occuper le
       // centre. syncFrame passera de l'une à l'autre au bon moment.
-      match.rotationRule = mienne && !isSpectating() ? mienne : null;
+      // Seulement si MA règle change : `nextRules` part aussi quand la rancune
+      // d'un AUTRE bouge, et lui annoncer une règle inchangée serait du bruit.
+      match.rotationRule = mienne && !isSpectating() && mienne.id !== ancienne?.id ? mienne : null;
       match.ancienneRegle =
         ancienne && mienne && ancienne.id !== mienne.id ? ancienne : null;
     }
@@ -2485,7 +2509,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     if (pauseMs > 1800 && victims.length > 0) {
       const focus = victims[0]!;
-      const rid = match.rules[focus.player.id] ?? focus.player.ruleId;
+      const rid = reglesJugees[focus.player.id] ?? focus.player.ruleId;
       const focusRule = ruleById(rid);
       if (!focusRule && mine?.kind === "death") hud.showStamp(stampFor(mine));
       if (focusRule) {

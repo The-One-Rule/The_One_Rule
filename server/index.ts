@@ -756,6 +756,9 @@ function closeRound(room: Room): void {
   if (!match || !room.roundOpen) return;
   room.roundOpen = false;
 
+  // Les règles de la manche qui se ferme, lues AVANT que `closeRound` ne
+  // déplace une rancune : c'est la seule façon de savoir qu'elle a bougé.
+  const reglesAvant = match.reglesPubliques(match.roundIdx);
   const { outcomes, matchOver, winnerId, interludeMs } = match.closeRound();
   const out: Record<string, RoundOutcome> = {};
   for (const [id, o] of outcomes) out[id] = o;
@@ -788,8 +791,19 @@ function closeRound(room: Room): void {
     players: publicPlayers(room),
     nextRoundAt,
   };
-  if (rotation) {
-    verdict.nextRules = match.reglesPubliques(prochaineIdx);
+  /*
+   * Les règles à venir partent aussi quand une RANCUNE a changé de cible.
+   *
+   * Pas de pause allongée pour elle : elle ne change que sur une vie perdue,
+   * donc l'interlude est déjà celui d'une vie perdue (2,4 s), et le client
+   * l'annonce en plein cadre comme une rotation. Un salon sans LA RANCUNE ne
+   * voit jamais la différence : ses règles ne bougent qu'aux rotations.
+   */
+  const reglesApres = over ? null : match.reglesPubliques(prochaineIdx);
+  const rancuneBouge =
+    !!reglesApres && Object.keys(reglesApres).some((id) => reglesApres[id] !== reglesAvant[id]);
+  if (reglesApres && (rotation || rancuneBouge)) {
+    verdict.nextRules = reglesApres;
   }
   broadcast(room, verdict);
 

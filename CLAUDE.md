@@ -295,7 +295,9 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 `mainGauche` est exclue dans les deux cas : tenir ESPACE en recevant la
 consigne par rotation reste injouable même au clavier. `voyelle` ne sort que du
 pool TACTILE : elle ne piège que sur des consignes clavier, donc là-bas elle
-serait inerte, c'est-à-dire un avantage gratuit.
+serait inerte, c'est-à-dire un avantage gratuit. **Un de plus en version 5**
+(`multiRulesFor(clavier, consignes)`) : LA RANCUNE, qui n'est PAS dans
+`ONE_RULES` — voir §12. Sans le second argument, le pool est celui d'hier.
 
 ⚠️ **LA BIJECTION EST MORTE, et elle était exploitée.** Le pool tactile faisait
 exactement 10 règles pour 10 sièges : à effectif plein, chaque règle tombait une
@@ -773,6 +775,56 @@ Deux façons propres de s'en passer, toutes deux en place :
 
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
+
+### LA RANCUNE (25/11/2026) — branche `feat/regle-rancune`, jamais vue par un joueur
+
+Directive de Pierre : implémenter la tâche « Consigne LA RANCUNE : jamais la
+forme qui t'a coûté une vie ». C'est une RÈGLE unique, pas une consigne, et
+la seule dont l'interdit dépend de l'histoire du joueur
+(`src/engine/rules/rancune.ts`, pur). Les trois questions ouvertes de la
+tâche, tranchées :
+
+- **Départ** : une forme tirée de la graine, PAR ÉQUIPE (`formeDeDepart`) —
+  sinon inerte pendant une partie parfaite (n°1).
+- **Mort au temps** : la pièce que l'étape demandait. Ordre complet dans
+  `formeQuiACoute` : pièce touchée, puis cible de l'étape, puis cible d'origine
+  d'un piège, sinon rien (consigne clavier, « n'importe où »).
+- **Run du jour** : elle n'est PAS dans `ONE_RULES`. Salon seulement, là où
+  l'on a des vies. Solo, `VERSION_CONTENU`, carnet, cartes, rejeu : intacts.
+  L'ouvrir au solo est une DÉCISION de Pierre — un solo à une vie en ferait
+  LA ROUE sous un autre nom, et il lui faudrait une carte illustrée.
+
+Ce qui ne se lit pas dans le code :
+
+- ⚠️ **LE CLIENT NE DÉDUIT JAMAIS LA RANCUNE.** Le serveur la tient par équipe
+  (`Team.rancune`, même hors porteur : on hérite de son passé par rotation) et
+  la CIBLE VOYAGE DANS L'IDENTIFIANT : `rancune:rond`. `ruleById` le résout,
+  `nomDeRegle` le ramène à sa famille, les briefs se composent avec la forme.
+  Aucun champ de protocole neuf.
+- **Négociée** : `CONSIGNES_VERSION` 4 → **5** (`VERSION_RANCUNE`). Le pool de
+  consignes de la 5 est celui de la 4 (testé). Un siège ancien referme tout.
+  Jamais en imposteur (aucune vie ne s'y perd).
+- **`verdict.nextRules` part aussi quand une rancune change**, plus seulement
+  aux rotations ; le client n'annonce plus que si SA règle change, et dit « TA
+  RANCUNE CHANGE » sans barrer « LA RANCUNE » au-dessus d'elle-même.
+- ⚠️ **Trouvé en route, antérieur** : la kill-cam reconstruisait la manche
+  fatale avec les règles de la manche SUIVANTE (`nextRules` appliqué avant
+  elle). À une rotation, la victime voyait sa mort rejouée sous une autre
+  règle. Elle lit désormais les règles JUGÉES.
+- ⚠️ **Le pilote de l'e2e ignorait `nextRules`** et cherchait sa règle dans
+  `ONE_RULES` : sous LA RANCUNE il aurait joué l'ancienne cible, ou rien. Il
+  fait maintenant comme le vrai client. Scénario dédié, assertions [042] à
+  [047] : une faute commandée, la nouvelle cible dans le verdict, trois manches
+  jouées dessous sans faute.
+- **Taux de pièges** : identique à sa règle de forme, manche par manche
+  (rond = LA ROUE, triangle = LA POINTE, carré entre les deux). ⚠️ Mesuré en
+  passant : en salon TACTILE v5, au tirage 0, LA ROUE et LA POINTE piègent
+  déjà **32-33 %** des manches (25-26 % au clavier) — au-dessus des 28 % que
+  le dépôt tient pour un plafond, qui sont une mesure SOLO. Le tirage
+  anti-double-piège du serveur en retire une partie ; non mesuré de bout en
+  bout. Constaté, pas corrigé.
+- Non vu à l'écran : l'annonce « TA RANCUNE CHANGE » et le bandeau qui change
+  de forme. Couverts par la logique et l'e2e des salons, pas par un navigateur.
 
 ### Prisma (25/11/2026) — branche `refonte/prisma`
 

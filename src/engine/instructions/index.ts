@@ -712,8 +712,13 @@ export const VERSION_DE_CONSIGNE: Readonly<Record<string, number>> = {
  * enchaîner deux pièges à un joueur (`draftShared`, paramètre `tirage`). Un client l'annonce
  * dans son `hello`, le serveur retient le minimum de la table et du sien. On
  * ne la DÉCRÉMENTE jamais, et chaque ajout à `CONSIGNES_MULTI` la fait monter.
+ *
+ * 5 = le pool de RÈGLES gagne LA RANCUNE (`VERSION_RANCUNE`). Ce n'est pas une
+ * consigne, mais la négociation est exactement la même : un client qui ne sait
+ * pas lire `rancune:rond` ne doit jamais la recevoir. Le pool de consignes de
+ * la version 5 est identique à celui de la 4.
  */
-export const CONSIGNES_VERSION = 4;
+export const CONSIGNES_VERSION = 5;
 
 /**
  * « NE FAIS RIEN » et son appât — RETIRÉES du jeu (directive de Pierre, 01/10).

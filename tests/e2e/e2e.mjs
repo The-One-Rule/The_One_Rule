@@ -28,7 +28,7 @@ const { buildMultiRound, poolMulti, applyRule, draftShared } = await import("../
 const { draftImposteur, SANS_REGLE } = await import("../../src/engine/imposteur.ts");
 const { INSTRUCTIONS, CONSIGNES_VERSION } = await import("../../src/engine/instructions/index.ts");
 const { HOLD_MS } = await import("../../src/engine/difficulty.ts");
-const { ONE_RULES } = await import("../../src/engine/rules/index.ts");
+const { ONE_RULES, ruleById } = await import("../../src/engine/rules/index.ts");
 const { MOTIFS } = await import("../../src/engine/motifs.ts");
 const { COUNTDOWN_MS, INTERLUDE_MS, MAX_ROUND_MS } = await import("../../shared/protocol.ts");
 const { ECHECS_JOIN_MAX } = await import("../../server/debit.ts");
@@ -99,7 +99,7 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
     name, key, rookie, clavier, ws, id: "", room: null, seed: 0, roundIdx: -1, rules: {},
     verdicts: [], ended: null, offset: 0, offsets: [], emotes: [], chats: [], errors: [],
     rounds: [], recus: [], clavierMatch: null, consignesMatch: null, manuel: false,
-    tirages: {}, pieges: {},
+    tirages: {}, pieges: {}, faute: false, fauteFaite: null,
     imposteur: false, mode: null, acted: [], journals: [], observes: [], voteResults: [],
     coopClics: [], cursorsMsgs: [], chargesCoop: [], photos: [], ferme: null,
   };
@@ -158,7 +158,10 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
         const shared = draftImposteur(c.seed, m.idx, commune, poolMulti(c.clavierMatch === true, c.consignesMatch ?? 1));
         round = applyRule(shared, rule, c.seed);
       } else {
-        const rule = ONE_RULES.find((r) => r.id === c.rules[c.id]);
+        // `ruleById` et non `ONE_RULES` : LA RANCUNE n'est pas au catalogue
+        // solo, et son identifiant porte sa cible (`rancune:rond`). Le vrai
+        // client fait exactement ça.
+        const rule = ruleById(c.rules[c.id] ?? "");
         if (!rule) return;
         regleJouee = rule;
         // Le pool vient du drapeau RECU dans `match_start`, jamais deduit : c'est
@@ -168,6 +171,23 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
         c.pieges[m.idx] = { trap: round.trap, instr: round.instructionId };
       }
       const at = () => Date.now() + c.offset;
+      /*
+       * LA FAUTE COMMANDÉE (scénario LA RANCUNE) : une fois, sur la première
+       * manche qui s'y prête, le pilote touche une MAUVAISE pièce — d'une
+       * forme qui n'est ni sa rancune actuelle ni celle de la cible. C'est la
+       * seule façon de savoir d'avance quelle forme doit devenir la rancune.
+       */
+      if (c.faute && !round.trap && round.steps[0]?.kind === "click") {
+        const visee = round.ents[round.steps[0].idx];
+        const actuelle = String(regleJouee.id).split(":")[1];
+        const fi = round.ents.findIndex((e) => e !== visee && e.shape !== actuelle && e.shape !== visee.shape);
+        if (fi >= 0) {
+          c.faute = false;
+          c.fauteFaite = { idx: m.idx, forme: round.ents[fi].shape, visee: visee.shape, avant: regleJouee.id, regles: { ...c.rules } };
+          setTimeout(() => ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: fi } })), DELAI_PILOTE);
+          return;
+        }
+      }
       setTimeout(() => {
         if (name === "BOB") { ws.send(JSON.stringify({ t: "input", round: m.idx, at: at(), action: { k: "c", i: 0 } })); return; }
         if (round.steps.length === 0) return; // piège : silence
@@ -223,7 +243,16 @@ function client(name, key, rookie = false, clavier = false, consignes = undefine
         });
       }, DELAI_PILOTE);
     }
-    if (m.t === "verdict") c.verdicts.push(m);
+    if (m.t === "verdict") {
+      c.verdicts.push(m);
+      /*
+       * Les règles de la manche SUIVANTE, comme le vrai client
+       * (`multi.ts`). Elles n'arrivaient qu'aux rotations, où `round.rules`
+       * les redonne aussi ; depuis LA RANCUNE elles arrivent SEULES quand une
+       * cible change — un pilote qui les ignorerait jouerait l'ancienne.
+       */
+      if (m.nextRules) c.rules = m.nextRules;
+    }
     if (m.t === "match_end") c.ended = m;
     if (m.t === "emote") c.emotes.push(m);
     if (m.t === "chat") c.chats.push(m);
@@ -672,6 +701,105 @@ ok(!alice.room?.players?.some((p) => p.id === chloe.id), "hôte exclut CHLOÉ : 
   );
 
   for (const c of [...recents, ...mixte, ...futur]) c.ws.close();
+  await sleep(220);
+}
+
+/*
+ * LA RANCUNE — la cible change sur le fil, et le client la suit.
+ *
+ * Le serveur tient la rancune par équipe ; le client ne la DÉDUIT jamais, il
+ * la lit dans l'identifiant de règle (`rancune:rond`) que porte
+ * `verdict.nextRules`. Trois choses à voir de bout en bout : la table récente
+ * peut la tirer, une faute en change la cible dans le verdict même, et le
+ * pilote — qui joue ce qu'il a reçu — survit ensuite sous la NOUVELLE cible.
+ * S'il jouait l'ancienne, un piège sur la nouvelle forme le tuerait.
+ */
+{
+  const tab = [];
+  for (let i = 0; i < 6; i++) tab.push(await client("R" + i, "cle-R" + i, false, false, CONSIGNES_VERSION));
+  tab[0].ws.send(JSON.stringify({ t: "create" }));
+  await sleep(250);
+  const code = tab[0].room.code;
+  for (const c of tab.slice(1)) { c.ws.send(JSON.stringify({ t: "join", code })); await sleep(140); }
+  // Deux vies : la faute en coûte une, et le porteur doit jouer après elle.
+  tab[0].ws.send(JSON.stringify({ t: "settings", settings: { lives: 2 } }));
+  await sleep(300);
+
+  /*
+   * Six sièges, quinze règles au pool tactile : LA RANCUNE tombe sur un siège
+   * quatre lancements sur dix. Même doctrine que LE GAUCHER — on relance,
+   * borné, et l'échec se nomme.
+   */
+  let porteur = null;
+  let essais = 0;
+  for (; essais < 20 && !porteur; essais++) {
+    for (const c of tab) { c.rules = {}; c.ended = null; }
+    tab[0].ws.send(JSON.stringify({ t: "start" }));
+    await sleep(500);
+    porteur = tab.find((c) => String(c.rules[c.id] ?? "").startsWith("rancune:")) ?? null;
+    if (porteur) break;
+    for (const c of tab) c.manuel = true;
+    const finMatch = Date.now() + 30000;
+    while (!tab[0].ended && Date.now() < finMatch) await sleep(150);
+    for (const c of tab) c.manuel = false;
+    await sleep(400);
+  }
+  info(`LA RANCUNE obtenue en ${essais + 1} lancement(s) — ${porteur ? porteur.rules[porteur.id] : "aucune"}`);
+  ok(!!porteur, "une table en version 5 peut tirer LA RANCUNE");
+
+  if (porteur) {
+    const depart = String(porteur.rules[porteur.id]);
+    porteur.faute = true;
+    const limite = Date.now() + APRES_DEPART + 40000;
+    while (!porteur.fauteFaite && Date.now() < limite) await sleep(100);
+    const faute = porteur.fauteFaite;
+    ok(!!faute, "le porteur a trouvé une manche où se tromper de pièce");
+    if (faute) {
+      const fin = Date.now() + 8000;
+      while (!porteur.verdicts.some((v) => v.idx === faute.idx) && Date.now() < fin) await sleep(60);
+      const v = porteur.verdicts.find((x) => x.idx === faute.idx);
+      const mien = v?.outcomes?.[porteur.id];
+      ok(mien?.kind === "death", `la mauvaise pièce coûte une vie (${mien?.kind ?? "aucun verdict"}${mien?.reason ? " " + mien.reason : ""})`);
+      /*
+       * ⚠️ Sous charge, le clic peut arriver après l'échéance : la mort est
+       * alors au TEMPS, et la rancune devient la pièce VISÉE — c'est la règle
+       * (`formeQuiACoute`), pas un échec. Vu une fois, l'e2e tournant à côté
+       * d'une couverture et d'un build.
+       */
+      const attendue = mien?.reason === MOTIFS.temps ? faute.visee : faute.forme;
+      ok(
+        v?.nextRules?.[porteur.id] === `rancune:${attendue}`,
+        `le verdict annonce la nouvelle rancune : ${faute.avant} → ${v?.nextRules?.[porteur.id] ?? "rien"} (attendu rancune:${attendue}, départ ${depart})`,
+      );
+      // Hors rotation, les AUTRES gardent leur règle : seule la cible bouge.
+      if (v?.nextRules && (faute.idx + 1) % 8 !== 0) {
+        const autres = tab.filter((c) => c !== porteur && v.nextRules[c.id] !== undefined);
+        const changees = autres.filter((c) => v.nextRules[c.id] !== faute.regles[c.id]);
+        ok(
+          changees.length === 0 && autres.length > 0,
+          `hors rotation, seule la règle du porteur change (${changees.map((c) => `${faute.regles[c.id]}→${v.nextRules[c.id]}`).join(", ") || "aucune autre"})`,
+        );
+      }
+
+      // Trois manches de plus, jouées par le pilote sous la NOUVELLE cible.
+      const apres = faute.idx + 3;
+      const fin2 = Date.now() + 30000;
+      while (porteur.verdicts.every((x) => x.idx < apres) && !porteur.ended && Date.now() < fin2) await sleep(120);
+      const horloge = new Set([MOTIFS.temps, MOTIFS.sequence]);
+      const suite = porteur.verdicts
+        .filter((x) => x.idx > faute.idx)
+        .map((x) => x.outcomes?.[porteur.id])
+        .filter((o) => o && o.kind !== "idle");
+      const fautes = suite.filter((o) => o.kind === "death" && !horloge.has(o.reason));
+      ok(
+        suite.length > 0 && fautes.length === 0,
+        `sous sa nouvelle rancune, le pilote joue ce que juge le serveur (${suite.length} manche(s), ${fautes.length} faute(s)` +
+          (fautes.length ? ` : ${fautes.map((o) => o.reason).join(" | ")})` : ")"),
+      );
+    }
+  }
+
+  for (const c of tab) c.ws.close();
   await sleep(220);
 }
 
