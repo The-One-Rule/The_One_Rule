@@ -145,6 +145,20 @@ describe("les chaînes statiques", () => {
   const html = pageHtml();
 
   /**
+   * Le document est rendu par React (`renderToStaticMarkup`), qui écrit
+   * l'apostrophe `&#x27;`. Le navigateur la lit comme `'` : on compare donc
+   * le texte DÉCODÉ, celui que voit le joueur, pas l'octet du balisage.
+   */
+  const decode = (x: string): string =>
+    x
+      .replace(/&#x([0-9a-f]+);/gi, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+      .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&");
+
+  /**
    * Les clés réellement posées dans le document.
    *
    * LES TROIS FORMES, pas seulement le texte. Un `placeholder` et un
@@ -204,8 +218,8 @@ describe("les chaînes statiques", () => {
     )) {
       const [, , cle, texte] = m;
       const attendu = CHAINES.en[cle!];
-      if (attendu !== undefined && texte!.trim() !== attendu) {
-        ecarts.push(`${cle} : document « ${texte!.trim()} » ≠ dictionnaire « ${attendu} »`);
+      if (attendu !== undefined && decode(texte!.trim()) !== attendu) {
+        ecarts.push(`${cle} : document « ${decode(texte!.trim())} » ≠ dictionnaire « ${attendu} »`);
       }
     }
     expect(ecarts, `le document et le dictionnaire divergent :\n${ecarts.join("\n")}`).toEqual([]);
@@ -227,7 +241,8 @@ describe("les chaînes statiques", () => {
       const re = new RegExp(`<[^>]*${attr}="([^"]+)"[^>]*>`, "g");
       for (const m of html.matchAll(re)) {
         const cle = m[1]!;
-        const valeur = new RegExp(`${prop}="([^"]*)"`).exec(m[0])?.[1];
+        const brut = new RegExp(`${prop}="([^"]*)"`).exec(m[0])?.[1];
+        const valeur = brut === undefined ? undefined : decode(brut);
         const attendu = CHAINES.en[cle];
         if (attendu !== undefined && valeur !== undefined && valeur !== attendu) {
           ecarts.push(`${cle} : document « ${valeur} » ≠ dictionnaire « ${attendu} »`);
