@@ -112,6 +112,8 @@ export class NetClient {
      * le salon. La connexion ne doit JAMAIS attendre après lui.
      */
     tok?: string,
+    /** Le son est allumé : LE GONG peut entrer au pool. Défaut prudent : non. */
+    son = false,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       let settled = false;
@@ -158,6 +160,7 @@ export class NetClient {
           // Ce que CE bundle sait reconstruire. Le serveur retient le minimum
           // de la table : voir `poolMulti`.
           consignes: CONSIGNES_VERSION,
+          son,
           // Ce bundle sait céder sa place sans la reprendre (`remplace`).
           reprise: true,
         });

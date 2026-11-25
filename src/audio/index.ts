@@ -471,6 +471,27 @@ export const sfx = {
     });
   },
 
+  /**
+   * LE GONG (règle de salon) — le SEUL son qui porte une information de jeu,
+   * l'exception assumée à la doctrine de l'en-tête : il dit « ne fais rien ».
+   *
+   * Un gong et non un bip : des partiels INHARMONIQUES (2,76 et 5,4 fois la
+   * fondamentale, ceux d'une plaque de métal) qui ne ressemblent à aucun
+   * autre son du jeu, et une frappe bruitée qui s'entend sur un haut-parleur
+   * de téléphone, où le 98 Hz seul ne sort pas.
+   */
+  gong(): void {
+    if (!ac || !sfxBus) return;
+    safely(() => {
+      const t = ac!.currentTime;
+      voice(sfxBus!, t, 98, 1.6, "sine", 0.17);
+      voice(sfxBus!, t, 98 * 2.76, 1.1, "sine", 0.09);
+      voice(sfxBus!, t, 98 * 5.4, 0.6, "sine", 0.05);
+      voice(sfxBus!, t, 196, 1.3, "triangle", 0.05);
+      noise(sfxBus!, t, 0.09, 0.09, 1800, 0.7);
+    });
+  },
+
   /** Un palier de la montée est franchi : une marche, vers le haut. */
   palier(n: number): void {
     if (!ac || !sfxBus) return;

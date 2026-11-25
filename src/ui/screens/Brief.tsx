@@ -184,6 +184,24 @@ export function Brief() {
           <p className="settings__hint hidden" id="briefPaceHint" />
         </div>
         {/*
+           LE CAMÉLÉON — LA PILE seulement : les règles S'AJOUTENT (la pile
+           d'origine) ou CHANGENT toutes les dix manches (le caméléon). Un
+           réglage et non un mode : même graine, même score en règles tenues,
+           mais chacun son record (`cleEscalade`). Même place et même forme
+           que l'allure, qu'il remplace sur cet écran.
+        */}
+        <div
+          className="settings settings--foot hidden"
+          id="briefPile"
+          aria-label="Rules stack up or swap"
+          data-i18n-aria="aria.pileRegles"
+        >
+          <div className="settings__row">
+            <span className="settings__label" data-i18n="brief.regles">RULES</span>
+            <div className="settings__opts" id="optPile" />
+          </div>
+        </div>
+        {/*
            CHOISIR SA RÈGLE — entraînement uniquement.
 
            REPLIÉE, et volontairement la même mécanique que COMMENT ÇA

@@ -261,6 +261,18 @@ export interface Round {
   hideTextAtMs?: number;
   /** couleur d'affichage du mot de couleur, volontairement fausse (LE DALTONIEN) */
   inkColor?: ColorId;
+  /**
+   * La pièce que la consigne DÉSIGNE en toutes lettres, quand la règle veut
+   * qu'on fasse autre chose (LE MIROIR, L'INSOUMIS). La toucher tue, avec le
+   * motif de la règle et non un « mauvaise cible » anonyme.
+   */
+  leurre?: number;
+  /** La touche que la consigne nomme, quand LE MIROIR en demande une autre. */
+  leurreTouche?: string;
+  /** L'INSOUMIS : la consigne est écrite en rouge, il faut faire le contraire. */
+  insoumise?: true;
+  /** LE GONG : un gong sonne à l'ouverture de la manche — ne rien faire. */
+  gong?: true;
 }
 
 export interface JudgeContext {

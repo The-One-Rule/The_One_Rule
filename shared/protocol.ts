@@ -432,6 +432,13 @@ export type ClientMsg =
        */
       consignes?: number;
       /**
+       * Le son est allumé chez ce joueur. ABSENT VAUT NON, comme `clavier` :
+       * LE GONG ne se joue qu'à l'oreille, et il n'entre au pool que si
+       * tous les sièges l'annoncent. Lu au `hello` : couper le son APRÈS
+       * s'être assis ne le retire pas du match en cours.
+       */
+      son?: boolean;
+      /**
        * Ce client comprend `remplace` et ne reprend PAS sa place tout seul
        * après l'avoir reçu. Absent vaut non : le serveur ne remplace alors
        * jamais une connexion encore ouverte, sinon deux vieux onglets du même
