@@ -756,6 +756,40 @@ Deux façons propres de s'en passer, toutes deux en place :
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
 
+### La migration React : la branche de Camille (25/11/2026)
+
+Directive de Pierre : « on part sur la branche de Camille ». Une première
+tentative (PR #36 : React seulement pour Réglages et Boutique, plus les
+lots 0 à 2 de l'audit) a été fusionnée puis ANNULÉE (#37). Les lots 0 à 2
+(délais réseau, codes de salon par `node:crypto`, `_ranked` retiré,
+`valideClient`) sont partis avec : ils vivent dans `e02a82f`.
+
+Ce qui est en place (ADR 0010, phase 1) : `index.html` ne garde que le
+`<head>` et `<div id="app"></div>` ; `src/monte.tsx` rend `src/ui/Shell`
+(composants STATIQUES) en `flushSync`, puis `src/entry.tsx` importe
+`main.ts`, qui pilote ce DOM comme avant. **L'ordre des deux imports est le
+contrat** (`tests/ui.test.ts`). Les tests qui lisaient `index.html` lisent
+`pageHtml()` (`tests/helpers/page.ts`). Entrée 190,3 Ko gzip, plafond 195.
+
+⚠️ **Le HTML servi n'a plus de corps** : la page est vide jusqu'à
+l'exécution du JS, et un robot qui n'exécute pas de JS ne voit plus rien.
+Le test « l'anglais du dictionnaire est celui du document » vérifie
+maintenant un rendu SIMULÉ, plus ce qui part sur le fil.
+
+⚠️ **Deux pièges payés en l'intégrant** : la branche ajoutait React à
+`package.json` sans toucher le verrou, donc `npm ci` (CI, image Fly)
+refusait tout ; et `renderToStaticMarkup` écrit l'apostrophe `&#x27;`, que
+`tests/i18n.test.ts` comparait brute — il décode désormais.
+`migration-react.patch` (6 357 lignes) est un artefact de la branche, pas
+du code.
+
+⚠️ **Une fusion sur `master` DÉPLOIE LE FRONT EN PRODUCTION** : mesuré le
+25/11, Vercel a créé un déploiement « Production » pour le commit de
+fusion de #36, sans `vercel --prod`. Et rien n'exige une CI verte avant de
+fusionner (`allow_auto_merge` est faux, aucune protection de branche) :
+`gh pr merge --auto` a fusionné SUR-LE-CHAMP, CI en cours. Vérifier en
+local AVANT de fusionner, ou poser une protection de branche.
+
 ### Phase 3 de l'audit : les tests (08/10/2026)
 
 Directive de Pierre : « je te laisse choisir ces décisions », puis les phases
