@@ -105,6 +105,15 @@ export function MultiLobby() {
                 <p className="settings__quoi" id="speedQuoi" />
               </div>
               {/*
+                 LA DIFFICULTÉ DES CONSIGNES (kanban) : DOUCES, TOUTES, CORSÉES.
+                 Elle ne touche pas au temps — c'est la vitesse, au-dessus —
+                 mais à CE QUE demandent les consignes. `engine/difficulte.ts`.
+              */}
+              <div className="settings__row" data-key="difficulte">
+                <span className="settings__label" data-i18n="salon.consignes">ORDERS</span>
+                <div className="settings__opts" id="optDifficulte" />
+              </div>
+              {/*
                  Deux réglages à trois ou quatre valeurs courtes : côte à côte
                  ils tiennent sur une ligne, et la colonne respire.
               */}

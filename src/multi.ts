@@ -15,6 +15,7 @@ import {
   MAX_PLAYERS,
   RECONNECT_GRACE_MS,
   ROTATION_CHOICES,
+  DIFFICULTE_CHOICES,
   SPEED_CHOICES,
   lireMode,
 } from "../shared/protocol";
@@ -842,6 +843,20 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     disabled: fige,
   });
 
+  /*
+   * LA DIFFICULTÉ DES CONSIGNES. Jauge montante : DOUCES allume un cran,
+   * CORSÉES trois. Figée en imposteur et coop, comme la vitesse : ces modes
+   * ont leur propre tirage.
+   */
+  fill("optDifficulte", DIFFICULTE_CHOICES, settings.difficulte ?? 1, {
+    label: (n) => tr("nomsDifficulte")[n] ?? "",
+    aria: (n) => tr("ariaDifficulte")(tr("nomsDifficulte")[n] ?? ""),
+    icon: "bars",
+    level: (n) => n + 1,
+    steps: DIFFICULTE_CHOICES.length,
+    disabled: fige,
+  });
+  $("optDifficulte").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optSpeed").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optLives").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
@@ -4277,7 +4292,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const chip = (ev.target as HTMLElement).closest("button.opt") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const row = chip.closest(".settings__row") as HTMLElement | null;
-    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "mode" | undefined;
+    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "mode" | "difficulte" | undefined;
     if (!key) return;
     const value = Number(chip.dataset.value);
     if (!Number.isFinite(value)) return;

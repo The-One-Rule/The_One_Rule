@@ -348,6 +348,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.vote": "CONFIRMER",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
+    "salon.consignes": "CONSIGNES",
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "LANCER LA PARTIE",
@@ -561,6 +562,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.vote": "CONFIRM",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
+    "salon.consignes": "ORDERS",
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "START THE MATCH",
@@ -896,6 +898,9 @@ type Dyn = {
   voteRecu: string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
+  /** DOUCES, TOUTES, CORSÉES — dans l'ordre de `DIFFICULTES`. */
+  nomsDifficulte: readonly string[];
+  ariaDifficulte: (nom: string) => string;
   ariaRotationJamais: string;
   ariaRotation: (n: number) => string;
   ariaDuos: string;
@@ -1534,6 +1539,8 @@ const DYN: Record<Lang, Dyn> = {
     voteRecu: "VOIX ENREGISTRÉE",
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
+    nomsDifficulte: ["DOUCES", "TOUTES", "CORSÉES"],
+    ariaDifficulte: (n) => `Consignes ${n.toLowerCase()}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
     ariaRotation: (n) => `Rotation toutes les ${n} manches`,
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
@@ -2080,6 +2087,8 @@ const DYN: Record<Lang, Dyn> = {
     voteRecu: "VOTE IN",
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
+    nomsDifficulte: ["EASY", "ALL", "HARD"],
+    ariaDifficulte: (n) => `${n.toLowerCase()} orders`,
     ariaRotationJamais: "Rules never rotate",
     ariaRotation: (n) => `Rotation every ${n} rounds`,
     ariaDuos: "Duos: two players per team, one shared pool of lives",

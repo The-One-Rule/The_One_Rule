@@ -221,6 +221,16 @@ export interface RoomSettings {
    * ancien n'envoie que `duo` ; `sanitizeSettings` en déduit alors `duo`.
    */
   mode?: ModeSalon;
+  /**
+   * LA DIFFICULTÉ DES CONSIGNES (`engine/difficulte.ts`) : un index de
+   * `DIFFICULTES` — 0 DOUCES, 1 TOUTES, 2 CORSÉES. FACULTATIF, absent vaut 1.
+   *
+   * Elle ne voyage que dans les réglages : le serveur l'applique en CHOISISSANT
+   * le tirage de chaque manche, que le client reçoit déjà (`round.tirage`).
+   * Un client qui ne la connaît pas reconstruit donc la bonne manche sans le
+   * savoir. Pas de `PROTOCOL_VERSION`, pas de version de consignes.
+   */
+  difficulte?: number;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -246,6 +256,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
 export const SPEED_CHOICES = [1.7, 1.3, 1, 0.8, 0.65] as const;
 export const LIVES_CHOICES = [1, 3, 5] as const;
 export const ROTATION_CHOICES = [4, 8, 16, 999] as const;
+/** Index de `DIFFICULTES` (`engine/difficulte.ts`) : DOUCES, TOUTES, CORSÉES. */
+export const DIFFICULTE_CHOICES = [0, 1, 2] as const;
 
 export function lireMode(r: Partial<RoomSettings>): ModeSalon {
   if (
@@ -270,6 +282,8 @@ export function sanitizeSettings(raw: unknown): RoomSettings {
     speed: pick(r.speed, SPEED_CHOICES, 1),
     lives: pick(r.lives, LIVES_CHOICES, 3),
     rotationEvery: pick(r.rotationEvery, ROTATION_CHOICES, 8),
+    // Absente ou TOUTES : le champ est omis, un salon d'hier reste à l'identique.
+    ...(pick(r.difficulte, DIFFICULTE_CHOICES, 1) !== 1 ? { difficulte: pick(r.difficulte, DIFFICULTE_CHOICES, 1) } : {}),
     mode,
     // Les modes ne se cumulent jamais : duo force le booléen à true, tout
     // le reste (classique, imposteur, coop) le force à false. Un client
