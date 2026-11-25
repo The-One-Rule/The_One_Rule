@@ -49,6 +49,9 @@ export const QUOTAS: Record<string, Quota> = {
   // assez bas pour qu'essayer des codes au hasard ne mène nulle part — un
   // code sur 887 millions, soixante essais par heure.
   amis: { max: 60, fenetreS: 3600 },
+  // Acheter, porter, importer : des gestes de boutique. Une session de
+  // boutique fait quelques appels ; soixante par heure n'arrête qu'une boucle.
+  boutique: { max: 60, fenetreS: 3600 },
 };
 
 interface Config {

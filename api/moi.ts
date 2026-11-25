@@ -309,6 +309,17 @@ export async function traite(
     });
   }
 
+  /*
+   * La collection telle que la BASE la tient (migrations 0008 et 0009) :
+   * cartes et chapitres projetés du carnet, records et statistique nourris
+   * par les seules performances rejouées. Lecture seule, et seulement la
+   * sienne — comme `perfs`, il n'existe pas de route vers celle d'un autre.
+   */
+  if (action === "collection") {
+    if (req.method !== "GET") return json({ error: "method" }, 405);
+    return json({ collection: await depot.collection(u.id) });
+  }
+
   if (req.method !== "POST") return json({ error: "method" }, 405);
   const brut = await req.text();
   if (brut.length > MAX_BODY) return json({ error: "too large" }, 413);

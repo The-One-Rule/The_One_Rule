@@ -172,7 +172,8 @@ describe("retour du fournisseur", () => {
     // le serveur de salons devra accepter.
     const r = verifieJeton(jeton, ENV.TOR_AUTH_SECRET);
     expect(r).not.toBeNull();
-    expect(r!.sub).toMatch(/^u_[0-9a-f]{32}$/);
+    // Un UUID depuis la migration 0006 — la forme que la colonne exige.
+    expect(r!.sub).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(r!.psd).toBe("");
     expect(r!.vj).toBe(0);
   });
@@ -235,7 +236,7 @@ describe("retour du fournisseur", () => {
     googleRepond("banni");
     await appel(`?a=callback&code=a&state=${encodeURIComponent(await etatDeStart())}`);
     const u = (await depot.parLien({ fournisseur: "google", idExterne: "banni" }))!;
-    await depot.cree({ ...u, banniLe: Date.now() }, { fournisseur: "google", idExterne: "banni" });
+    depot.remplace({ ...u, banniLe: Date.now() });
     const res = await appel(`?a=callback&code=b&state=${encodeURIComponent(await etatDeStart())}`);
     expect(fragment(res)).toBe("banni");
   });

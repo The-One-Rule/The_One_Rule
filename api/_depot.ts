@@ -17,8 +17,14 @@
  * Le préfixe `_` empêche Vercel de transformer ce module en point d'entrée.
  */
 
-import { agregatsVides, litApparence } from "../shared/compte";
+import { agregatsVides, estIdCompte, litApparence } from "../shared/compte";
 import type { Agregats, Apparence } from "../shared/compte";
+import { litEtatBoutique, litReponseAchat } from "../shared/boutique";
+import type { EtatBoutiqueCompte, ReponseAchat, ReponseImport } from "../shared/boutique";
+import { projette } from "./_projection";
+import { SKINS, SKIN_DEFAUT } from "../src/game/boutique";
+import { CHAPITRES } from "../src/game/parcours";
+import type { LigneCarte, LigneChapitre } from "./_projection";
 import { cleanEnv } from "../src/env";
 import { MAX_AMIS, MAX_DEMANDES, nouveauCodeAmi } from "../shared/amis";
 
@@ -167,16 +173,22 @@ export interface Depot {
   parCodeAmi(code: string): Promise<Utilisateur | null>;
   /** Les amis d'un compte — les deux sens étant stockés, un seul côté suffit. */
   amisDe(id: string): Promise<Ami[]>;
-  /** Lie deux comptes, dans les deux sens. Idempotent. */
-  lie(a: string, b: string): Promise<void>;
+  /**
+   * Demande `de → a`, EN UNE TRANSACTION (migration 0009, `amitie_demande`).
+   *
+   * Contrôle des plafonds et écriture se font sous le même verrou : la
+   * fenêtre de l'audit C4 (vérifier, écrire, recompter, défaire) n'existe
+   * plus. Une demande croisée vaut accord et rend `lie`.
+   */
+  demandeAmi(de: string, a: string, maxAmis: number, maxDemandes: number): Promise<IssueDemande>;
+  /** Accepte ce que `moi` a REÇU de `autre`, et seulement ça. Une transaction. */
+  accepteAmi(moi: string, autre: string, maxAmis: number): Promise<IssueAccepte>;
   /** Délie deux comptes, dans les deux sens. Idempotent. */
   delie(a: string, b: string): Promise<void>;
   /** Les demandes d'ami REÇUES par un compte (qui me demande). */
   demandesVers(id: string): Promise<Ami[]>;
   /** Les demandes d'ami ENVOYÉES par un compte (à qui j'ai demandé). */
   demandesDe(id: string): Promise<Ami[]>;
-  /** Pose une demande `de → a`. Idempotent. */
-  demande(de: string, a: string): Promise<void>;
   /** Retire la demande `de → a`, et elle seule. Idempotent. */
   retireDemande(de: string, a: string): Promise<void>;
   /**
@@ -185,6 +197,38 @@ export interface Depot {
    * un run que l'anti-triche a écarté.
    */
   perfsDepuis(ids: readonly string[], depuisJour: number): Promise<Perf[]>;
+
+  /* --- la boutique du COMPTE (migrations 0008 et 0009) --- */
+
+  /** Solde, style porté, styles possédés — ou `null` pour un compte inconnu. */
+  boutique(id: string): Promise<EtatBoutiqueCompte | null>;
+  /**
+   * Achète un style : débit, possession, historique, grand livre et style
+   * porté, en UNE transaction. Rejouer la même `cle` rend le même achat,
+   * jamais un second débit.
+   */
+  acheteSkin(id: string, code: string, cle: string): Promise<ReponseAchat>;
+  /** Porte un style possédé. `false` s'il ne l'est pas. */
+  porteSkin(id: string, code: string): Promise<boolean>;
+  /**
+   * Fait entrer le portefeuille d'un APPAREIL dans le compte, une fois par
+   * appareil : ses pièces sont créditées, ses styles importés sans débit.
+   */
+  importeBoutique(id: string, appareil: string, pieces: number, codes: readonly string[]): Promise<ReponseImport>;
+
+  /** La collection projetée, les records et la statistique, en une lecture. */
+  collection(id: string): Promise<Collection>;
+}
+
+export type IssueDemande = "soi" | "deja" | "lie" | "demande" | "plein";
+export type IssueAccepte = "inconnu" | "plein" | "lie";
+
+/** Ce que la base sait d'un compte, en lignes (lecture seule, pour le joueur). */
+export interface Collection {
+  cartes: LigneCarte[];
+  chapitres: Array<LigneChapitre & { numero: number; termine: boolean }>;
+  meilleurs: Array<{ mode: string; valeur: number; valeur2: number }>;
+  statistique: { runsVerifies: number; joursClasses: number } | null;
 }
 
 /** Un ami, tel que le dépôt le rend. L'identifiant ne quitte jamais le serveur. */
@@ -210,13 +254,14 @@ export const utilisateurNeuf = (id: string, maintenant: number): Utilisateur => 
 });
 
 /**
- * Un identifiant de compte.
+ * Un identifiant de compte : un UUID (migration 0006).
  *
- * Opaque, non devinable, non ordonné de façon exploitable. `crypto.randomUUID`
- * est disponible dans les deux runtimes ; on retire les tirets pour tenir dans
- * les 64 caractères que `shared/jeton.ts` accepte, avec de la marge.
+ * Opaque, non devinable, non ordonné de façon exploitable. Il s'écrivait
+ * `u_` + 32 hexadécimaux, c'est-à-dire déjà un UUID sans ses tirets ; la base
+ * l'a converti sans perte et `idCompte` (shared/compte.ts) lit encore
+ * l'ancienne forme là où elle circule.
  */
-export const nouvelId = (): string => `u_${crypto.randomUUID().replace(/-/g, "")}`;
+export const nouvelId = (): string => crypto.randomUUID();
 
 /* ------------------------------------------------------------------ *
  * Mémoire — tests et développement local
@@ -224,6 +269,9 @@ export const nouvelId = (): string => `u_${crypto.randomUUID().replace(/-/g, "")
 
 /** Plafond de lignes lues pour le rang anonyme. */
 export const SCORES_MAX = 5000;
+
+/** Le style possédé d'emblée, comme `BOUTIQUE_VIERGE` sur l'appareil. */
+const SKIN_OFFERT: string = SKIN_DEFAUT;
 
 export class DepotMemoire implements Depot {
   private users = new Map<string, Utilisateur>();
@@ -247,17 +295,60 @@ export class DepotMemoire implements Depot {
   }
 
   async cree(u: Utilisateur, l: Lien): Promise<Utilisateur> {
+    // Même contrat que `compte_cree` : un lien déjà posé rend SON compte.
+    const deja = this.liens.get(DepotMemoire.cle(l));
+    if (deja) return structuredClone(this.users.get(deja)!);
     this.users.set(u.id, structuredClone(u));
     this.liens.set(DepotMemoire.cle(l), u.id);
+    this.possedes.set(u.id, new Map([[SKIN_OFFERT, "offert"]]));
     return structuredClone(u);
+  }
+
+  /**
+   * AIDE DE TEST : remplace un compte existant (le bannir, par exemple).
+   * `cree` ne le fait plus : comme `compte_cree`, il rend le compte d'un lien
+   * déjà posé au lieu de l'écraser.
+   */
+  remplace(u: Utilisateur): void {
+    this.users.set(u.id, structuredClone(u));
   }
 
   async majAgregats(id: string, revisionAttendue: number, a: Agregats): Promise<boolean> {
     const u = this.users.get(id);
-    if (!u || u.revision !== revisionAttendue) return false;
+    if (!u || u.revision !== revisionAttendue || u.supprimeLe) return false;
     u.agregats = structuredClone(a);
     u.revision += 1;
+    this.projetteEnMemoire(id, a);
     return true;
+  }
+
+  /*
+   * Les projections, avec la loi de `agregats_ecrit` : maximum, jamais
+   * affectation. Écrites ici pour que les tests exercent ce que la base fait.
+   */
+  private cartes = new Map<string, Map<string, LigneCarte>>();
+  private chapitres = new Map<string, Map<string, number[]>>();
+
+  private projetteEnMemoire(id: string, a: Agregats): void {
+    const p = projette(a);
+    const cartes = this.cartes.get(id) ?? new Map<string, LigneCarte>();
+    for (const c of p.cartes) {
+      const x = cartes.get(c.regle);
+      cartes.set(c.regle, x ? {
+        regle: c.regle,
+        meilleur: Math.max(x.meilleur, c.meilleur),
+        pieges: Math.max(x.pieges, c.pieges),
+        runs: Math.max(x.runs, c.runs),
+        maitrisee: x.maitrisee || c.maitrisee,
+      } : { ...c });
+    }
+    this.cartes.set(id, cartes);
+    const ch = this.chapitres.get(id) ?? new Map<string, number[]>();
+    for (const c of p.chapitres) {
+      const x = ch.get(c.regle) ?? [0, 0, 0, 0, 0];
+      ch.set(c.regle, x.map((v, k) => Math.max(v, c.etoiles[k] ?? 0)));
+    }
+    this.chapitres.set(id, ch);
   }
 
   async majIdentite(id: string, pseudo: string, apparence: Apparence): Promise<void> {
@@ -290,6 +381,13 @@ export class DepotMemoire implements Depot {
     for (const k of [...this.amities]) if (k.startsWith(`${id}→`) || k.endsWith(`→${id}`)) this.amities.delete(k);
     for (const k of [...this.demandes]) if (k.startsWith(`${id}→`) || k.endsWith(`→${id}`)) this.demandes.delete(k);
     this.codes.delete(id);
+    // Comme `compte_supprime` : la progression part, l'historique d'achats reste.
+    this.cartes.delete(id);
+    this.chapitres.delete(id);
+    this.meilleurs.delete(id);
+    this.stats.delete(id);
+    this.possedes.delete(id);
+    this.portes.delete(id);
   }
 
   async touche(id: string): Promise<void> {
@@ -301,19 +399,36 @@ export class DepotMemoire implements Depot {
 
   private perfs: Perf[] = [];
 
+  private stats = new Map<string, { runsVerifies: number; joursClasses: number }>();
+  private meilleurs = new Map<string, Map<string, { valeur: number; valeur2: number }>>();
+
+  /** La loi de `performance_pose`, sans `await` intermédiaire : donc atomique. */
   async posePerf(p: Perf): Promise<boolean> {
     const i = this.perfs.findIndex((x) => x.utilisateurId === p.utilisateurId && x.cle === p.cle);
-    if (i < 0) {
+    const st = this.stats.get(p.utilisateurId) ?? { runsVerifies: 0, joursClasses: 0 };
+    st.runsVerifies += 1;
+    if (i < 0) st.joursClasses += 1;
+    this.stats.set(p.utilisateurId, st);
+    if (i >= 0) {
+      const avant = this.perfs[i]!;
+      // Le même ordre que l'index de classement : valeur décroissante, puis
+      // départage croissant sur la durée.
+      const mieux =
+        p.valeur > avant.valeur || (p.valeur === avant.valeur && p.valeur2 < avant.valeur2);
+      if (!mieux) return false;
+      this.perfs[i] = { ...p };
+    } else {
       this.perfs.push({ ...p });
-      return true;
     }
-    const avant = this.perfs[i]!;
-    // Le même ordre que l'index de classement : valeur décroissante, puis
-    // départage croissant sur la durée.
-    const mieux =
-      p.valeur > avant.valeur || (p.valeur === avant.valeur && p.valeur2 < avant.valeur2);
-    if (!mieux) return false;
-    this.perfs[i] = { ...p };
+    // Le record ne se nourrit que de l'HUMAIN (décision n°14).
+    if (p.verdictBot === "humain") {
+      const parMode = this.meilleurs.get(p.utilisateurId) ?? new Map<string, { valeur: number; valeur2: number }>();
+      const m = parMode.get(p.mode);
+      if (!m || p.valeur > m.valeur || (p.valeur === m.valeur && p.valeur2 < m.valeur2)) {
+        parMode.set(p.mode, { valeur: p.valeur, valeur2: p.valeur2 });
+      }
+      this.meilleurs.set(p.utilisateurId, parMode);
+    }
     return true;
   }
 
@@ -416,10 +531,46 @@ export class DepotMemoire implements Depot {
     return out;
   }
 
+  /**
+   * AIDE DE TEST : lie deux comptes sans contrôle. Hors de l'interface
+   * `Depot` — en production, une amitié ne naît que par `demandeAmi` ou
+   * `accepteAmi`, sous leurs plafonds.
+   */
   async lie(a: string, b: string): Promise<void> {
     if (a === b) return;
     this.amities.add(`${a}→${b}`);
     this.amities.add(`${b}→${a}`);
+  }
+
+  private nbAmis = (id: string): number => [...this.amities].filter((k) => k.startsWith(`${id}→`)).length;
+
+  /** `amitie_lie` : plafonds des DEUX côtés, puis les deux sens, puis les demandes rangées. */
+  private lieSousPlafond(a: string, b: string, maxAmis: number): "lie" | "plein" {
+    if (this.nbAmis(a) >= maxAmis || this.nbAmis(b) >= maxAmis) return "plein";
+    this.amities.add(`${a}→${b}`);
+    this.amities.add(`${b}→${a}`);
+    this.demandes.delete(`${a}→${b}`);
+    this.demandes.delete(`${b}→${a}`);
+    return "lie";
+  }
+
+  // Aucun `await` entre la lecture et l'écriture : la même atomicité que le
+  // verrou de `amitie_demande`.
+  async demandeAmi(de: string, a: string, maxAmis: number, maxDemandes: number): Promise<IssueDemande> {
+    if (de === a) return "soi";
+    if (this.amities.has(`${de}→${a}`)) return "deja";
+    if (this.demandes.has(`${a}→${de}`)) return this.lieSousPlafond(de, a, maxAmis);
+    if (this.demandes.has(`${de}→${a}`)) return "demande";
+    const envoyees = [...this.demandes].filter((k) => k.startsWith(`${de}→`)).length;
+    const recues = [...this.demandes].filter((k) => k.endsWith(`→${a}`)).length;
+    if (envoyees >= maxDemandes || recues >= maxDemandes) return "plein";
+    this.demandes.add(`${de}→${a}`);
+    return "demande";
+  }
+
+  async accepteAmi(moi: string, autre: string, maxAmis: number): Promise<IssueAccepte> {
+    if (!this.demandes.has(`${autre}→${moi}`)) return "inconnu";
+    return this.lieSousPlafond(moi, autre, maxAmis);
   }
 
   async delie(a: string, b: string): Promise<void> {
@@ -455,6 +606,7 @@ export class DepotMemoire implements Depot {
     return out;
   }
 
+  /** AIDE DE TEST : pose une demande sans contrôle (hors interface `Depot`). */
   async demande(de: string, a: string): Promise<void> {
     if (de !== a) this.demandes.add(`${de}→${a}`);
   }
@@ -475,6 +627,80 @@ export class DepotMemoire implements Depot {
           p.verdictBot === "humain",
       )
       .map((p) => ({ ...p }));
+  }
+
+  /* --- boutique : la loi de `boutique_achete` / `boutique_importe` --- */
+
+  private pieces = new Map<string, number>();
+  private possedes = new Map<string, Map<string, "offert" | "achat" | "import">>();
+  private portes = new Map<string, string>();
+  /** L'historique : il survit à la suppression du compte (restrict). */
+  readonly achats: Array<{ id: string; code: string; prix: number; cle: string }> = [];
+  private imports = new Set<string>();
+
+  private vivant(id: string): boolean {
+    const u = this.users.get(id);
+    return !!u && !u.supprimeLe;
+  }
+
+  private etat(id: string): EtatBoutiqueCompte {
+    const codes = SKINS.map((x): string => x.id).filter((c) => this.possedes.get(id)?.has(c));
+    const porte = this.portes.get(id) ?? null;
+    return { pieces: this.pieces.get(id) ?? 0, porte: porte && codes.includes(porte) ? porte : null, possedes: codes };
+  }
+
+  async boutique(id: string): Promise<EtatBoutiqueCompte | null> {
+    return this.vivant(id) ? this.etat(id) : null;
+  }
+
+  async acheteSkin(id: string, code: string, cle: string): Promise<ReponseAchat> {
+    if (!this.vivant(id)) return litReponseAchat({ issue: "inconnu" });
+    if (this.achats.some((x) => x.id === id && x.cle === cle)) return { ...this.etat(id), issue: "ok", rejoue: true };
+    const prix = SKINS.find((x) => x.id === code)?.prix;
+    if (prix === undefined) return { ...this.etat(id), issue: "inconnu" };
+    const mien = this.possedes.get(id) ?? new Map<string, "offert" | "achat" | "import">();
+    if (mien.has(code)) return { ...this.etat(id), issue: "deja" };
+    const solde = this.pieces.get(id) ?? 0;
+    if (solde < prix) return { ...this.etat(id), issue: "pauvre", manque: prix - solde };
+    this.achats.push({ id, code, prix, cle });
+    this.pieces.set(id, solde - prix);
+    mien.set(code, "achat");
+    this.possedes.set(id, mien);
+    this.portes.set(id, code);
+    return { ...this.etat(id), issue: "ok" };
+  }
+
+  async porteSkin(id: string, code: string): Promise<boolean> {
+    if (!this.vivant(id) || !this.possedes.get(id)?.has(code)) return false;
+    this.portes.set(id, code);
+    return true;
+  }
+
+  async importeBoutique(id: string, appareil: string, pieces: number, codes: readonly string[]): Promise<ReponseImport> {
+    if (!this.vivant(id)) return { pieces: 0, porte: null, possedes: [], issue: "inconnu" };
+    const cle = `${id}|import:${appareil}`;
+    if (this.imports.has(cle)) return { ...this.etat(id), issue: "deja" };
+    this.imports.add(cle);
+    if (pieces > 0) this.pieces.set(id, (this.pieces.get(id) ?? 0) + pieces);
+    const mien = this.possedes.get(id) ?? new Map<string, "offert" | "achat" | "import">();
+    for (const c of codes) if (SKINS.some((x) => x.id === c) && !mien.has(c)) mien.set(c, "import");
+    this.possedes.set(id, mien);
+    return { ...this.etat(id), issue: "ok" };
+  }
+
+  async collection(id: string): Promise<Collection> {
+    const numero = (r: string) => CHAPITRES.indexOf(r) + 1;
+    const st = this.stats.get(id);
+    return {
+      cartes: [...(this.cartes.get(id)?.values() ?? [])].sort((a, b) => a.regle.localeCompare(b.regle)),
+      chapitres: [...(this.chapitres.get(id)?.entries() ?? [])]
+        .map(([regle, etoiles]) => ({ regle, etoiles, numero: numero(regle), termine: (etoiles[4] ?? 0) > 0 }))
+        .sort((a, b) => a.numero - b.numero),
+      meilleurs: [...(this.meilleurs.get(id)?.entries() ?? [])]
+        .map(([mode, m]) => ({ mode, ...m }))
+        .sort((a, b) => a.mode.localeCompare(b.mode)),
+      statistique: st ? { ...st } : null,
+    };
   }
 }
 
@@ -542,6 +768,17 @@ export class DepotSupabase implements Depot {
     });
   }
 
+  /**
+   * Un appel de FONCTION (migration 0009) : PostgREST l'exécute dans UNE
+   * transaction. C'est la seule transaction à plusieurs écritures dont le
+   * runtime edge dispose — il ne peut pas ouvrir de socket Postgres.
+   */
+  private async rpc<T>(nom: string, args: Record<string, unknown>): Promise<T> {
+    const res = await this.req(`rpc/${nom}`, { method: "POST", body: JSON.stringify(args) });
+    if (!res.ok) throw new Error(`supabase ${nom} ${res.status}`);
+    return (await res.json()) as T;
+  }
+
   private async une(chemin: string): Promise<Utilisateur | null> {
     const res = await this.req(chemin);
     if (!res.ok) throw new Error(`supabase ${res.status}`);
@@ -552,6 +789,9 @@ export class DepotSupabase implements Depot {
   }
 
   async parId(id: string): Promise<Utilisateur | null> {
+    // La colonne est un UUID : une autre chaîne ferait répondre 400 à
+    // PostgREST, donc lever. Ce n'est pas une panne, c'est « personne ».
+    if (!estIdCompte(id)) return null;
     return this.une(`utilisateur?id=eq.${encodeURIComponent(id)}&limit=1`);
   }
 
@@ -566,46 +806,38 @@ export class DepotSupabase implements Depot {
     return id ? this.parId(id) : null;
   }
 
+  /**
+   * Le compte ET son lien, en une transaction (`compte_cree`). Avant 0009,
+   * deux requêtes : un échec entre les deux laissait un compte orphelin.
+   * Si le lien existe déjà (deux onglets), la base rend le compte existant.
+   */
   async cree(u: Utilisateur, l: Lien): Promise<Utilisateur> {
-    const res = await this.req("utilisateur", {
-      method: "POST",
-      headers: { Prefer: "return=representation" },
-      body: JSON.stringify({
-        id: u.id,
-        pseudo: u.pseudo,
-        apparence: u.apparence,
-        agregats: u.agregats,
-      }),
+    const ligne = await this.rpc<LigneUtilisateur | null>("compte_cree", {
+      p_id: u.id,
+      p_pseudo: u.pseudo,
+      p_apparence: u.apparence,
+      p_agregats: u.agregats,
+      p_fournisseur: l.fournisseur,
+      p_id_externe: l.idExterne,
     });
-    if (!res.ok) throw new Error(`supabase creation ${res.status}`);
-
-    const lien = await this.req("lien_plateforme", {
-      method: "POST",
-      body: JSON.stringify({
-        fournisseur: l.fournisseur,
-        id_externe: l.idExterne,
-        utilisateur_id: u.id,
-      }),
-    });
-    if (!lien.ok) throw new Error(`supabase lien ${lien.status}`);
-
-    const lignes = (await res.json()) as LigneUtilisateur[];
-    return lignes[0] ? litLigne(lignes[0]) : u;
+    return ligne ? litLigne(ligne) : u;
   }
 
+  /**
+   * Compare-and-swap sur la révision ET projections (cartes, chapitres), en
+   * une transaction (`agregats_ecrit`). La projection est calculée ici, en
+   * TypeScript, depuis les agrégats DÉJÀ fusionnés : la base ne refusionne
+   * rien, elle range.
+   */
   async majAgregats(id: string, revisionAttendue: number, a: Agregats): Promise<boolean> {
-    // Le compare-and-swap tient dans le filtre : si la révision a bougé, la
-    // requête ne touche aucune ligne et l'appelant refusionne.
-    const res = await this.req(
-      `utilisateur?id=eq.${encodeURIComponent(id)}&revision=eq.${revisionAttendue}`,
-      {
-        method: "PATCH",
-        headers: { Prefer: "return=representation" },
-        body: JSON.stringify({ agregats: a, revision: revisionAttendue + 1 }),
-      },
-    );
-    if (!res.ok) throw new Error(`supabase agregats ${res.status}`);
-    return ((await res.json()) as unknown[]).length > 0;
+    const p = projette(a);
+    return (await this.rpc<boolean>("agregats_ecrit", {
+      p_id: id,
+      p_revision: revisionAttendue,
+      p_agregats: a,
+      p_cartes: p.cartes,
+      p_chapitres: p.chapitres,
+    })) === true;
   }
 
   async majIdentite(id: string, pseudo: string, apparence: Apparence): Promise<void> {
@@ -628,53 +860,17 @@ export class DepotSupabase implements Depot {
     return suivant;
   }
 
+  /**
+   * La suppression LOGIQUE en une transaction (`compte_supprime`).
+   *
+   * Avant 0009 c'était sept requêtes : liens, performances, compte, amitiés,
+   * demandes, code, révocation — une panne au milieu laissait un compte à
+   * moitié effacé (liens partis, scores encore publiés). Ce que la fonction
+   * retire et garde est écrit dans la migration ; l'historique d'achats
+   * reste, sans pseudo.
+   */
   async supprime(id: string): Promise<void> {
-    // Les liens partent en PREMIER et pour de bon : les garder laisserait une
-    // reconnexion ressusciter un compte supprimé, ce qui est exactement ce
-    // qu'une demande de suppression interdit.
-    const liens = await this.req(
-      `lien_plateforme?utilisateur_id=eq.${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
-    if (!liens.ok) throw new Error(`supabase liens ${liens.status}`);
-
-    /*
-     * ⚠️ LES PERFORMANCES, À LA MAIN, comme les amitiés plus bas.
-     *
-     * `performance.utilisateur_id` est bien `on delete cascade` (0002), mais
-     * la suppression est LOGIQUE : la ligne `utilisateur` reste, donc la
-     * cascade ne joue jamais. Les scores d'un compte supprimé restaient sur
-     * le podium, sous un pseudo vide — alors que `DepotMemoire`, le seul que
-     * les tests exercent, les retirait. Une donnée personnelle publiée après
-     * une demande de suppression.
-     */
-    const perfs = await this.req(
-      `performance?utilisateur_id=eq.${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
-    if (!perfs.ok) throw new Error(`supabase performances ${perfs.status}`);
-
-    const res = await this.req(`utilisateur?id=eq.${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify({
-        supprime_le: new Date().toISOString(),
-        pseudo: "",
-        agregats: agregatsVides(),
-      }),
-    });
-    if (!res.ok) throw new Error(`supabase suppression ${res.status}`);
-    // L'effacement est logique : `on delete cascade` ne jouera donc pas. Les
-    // amitiés partent à la main, et le code cesse d'ouvrir quoi que ce soit.
-    const e = encodeURIComponent(id);
-    const amis = await this.req(`amitie?or=(utilisateur_id.eq.${e},ami_id.eq.${e})`, { method: "DELETE" });
-    if (!amis.ok) throw new Error(`supabase amities ${amis.status}`);
-    const dem = await this.req(`demande_ami?or=(de_id.eq.${e},a_id.eq.${e})`, { method: "DELETE" });
-    if (!dem.ok) throw new Error(`supabase demandes ${dem.status}`);
-    // Vérifié comme les autres : un code resté posé ouvrirait encore une
-    // demande d'ami vers un compte supprimé.
-    const code = await this.req(`utilisateur?id=eq.${e}`, { method: "PATCH", body: JSON.stringify({ code_ami: null }) });
-    if (!code.ok) throw new Error(`supabase code ${code.status}`);
-    await this.revoque(id);
+    await this.rpc<boolean>("compte_supprime", { p_id: id, p_agregats_vides: agregatsVides() });
   }
 
   async touche(id: string): Promise<void> {
@@ -687,44 +883,31 @@ export class DepotSupabase implements Depot {
     }).catch(() => undefined);
   }
 
+  /**
+   * Pose ou améliore une performance, et tient `statistique` et
+   * `meilleur_score` dans la même transaction (`performance_pose`).
+   *
+   * La loi n'a pas bougé : améliorer, jamais remplacer par moins bien — même
+   * ordre que l'index de classement (valeur décroissante, puis durée
+   * croissante) et que `DepotMemoire`. Elle est désormais écrite dans le
+   * `on conflict … where` de la fonction, en une seule instruction : plus de
+   * POST suivi d'un PATCH en cas de doublon.
+   */
   async posePerf(p: Perf): Promise<boolean> {
-    const ligne = {
-      utilisateur_id: p.utilisateurId,
-      mode: p.mode,
-      cle: p.cle,
-      version_contenu: p.versionContenu,
-      jour: p.jour,
-      graine: p.graine,
-      regle: p.regle,
-      valeur: p.valeur,
-      valeur2: p.valeur2,
-      verifiee: true,
-      verdict_bot: p.verdictBot,
-    };
-
-    // On tente l'insertion. L'index unique (utilisateur, clé) refuse le
-    // doublon — c'est lui qui borne le run du jour à une soumission par
-    // compte et par jour, gratuitement.
-    const insert = await this.req("performance", { method: "POST", body: JSON.stringify(ligne) });
-    if (insert.ok) return true;
-    if (insert.status !== 409) throw new Error(`supabase perf ${insert.status}`);
-
-    // Doublon : on n'écrase que si c'est MIEUX. Le filtre porte la
-    // comparaison, donc la décision est prise par la base et non par une
-    // lecture suivie d'une écriture — deux onglets ne peuvent pas se
-    // marcher dessus.
-    const maj = await this.req(
-      `performance?utilisateur_id=eq.${encodeURIComponent(p.utilisateurId)}` +
-        `&cle=eq.${encodeURIComponent(p.cle)}` +
-        // ⚠️ Le même ordre que l'index de classement ET que `DepotMemoire` :
-        // valeur décroissante, PUIS durée croissante. Le filtre ne gardait que
-        // `valeur=lt.` — une égalité plus rapide n'était jamais retenue en
-        // production, alors que les tests (sur la mémoire) disaient l'inverse.
-        `&or=(valeur.lt.${p.valeur},and(valeur.eq.${p.valeur},valeur2.gt.${p.valeur2}))`,
-      { method: "PATCH", headers: { Prefer: "return=representation" }, body: JSON.stringify(ligne) },
-    );
-    if (!maj.ok) throw new Error(`supabase perf maj ${maj.status}`);
-    return ((await maj.json()) as unknown[]).length > 0;
+    return (await this.rpc<boolean>("performance_pose", {
+      p: {
+        utilisateur_id: p.utilisateurId,
+        mode: p.mode,
+        cle: p.cle,
+        version_contenu: p.versionContenu,
+        jour: p.jour,
+        graine: p.graine,
+        regle: p.regle,
+        valeur: p.valeur,
+        valeur2: p.valeur2,
+        verdict_bot: p.verdictBot,
+      },
+    })) === true;
   }
 
   async mesPerfs(utilisateurId: string, limite: number): Promise<Perf[]> {
@@ -886,17 +1069,17 @@ export class DepotSupabase implements Depot {
       }));
   }
 
-  async lie(a: string, b: string): Promise<void> {
-    if (a === b) return;
-    const res = await this.req("amitie", {
-      method: "POST",
-      headers: { Prefer: "resolution=ignore-duplicates" },
-      body: JSON.stringify([
-        { utilisateur_id: a, ami_id: b },
-        { utilisateur_id: b, ami_id: a },
-      ]),
+  demandeAmi(de: string, a: string, maxAmis: number, maxDemandes: number): Promise<IssueDemande> {
+    return this.rpc<IssueDemande>("amitie_demande", {
+      p_de: de,
+      p_a: a,
+      p_max_amis: maxAmis,
+      p_max_demandes: maxDemandes,
     });
-    if (!res.ok) throw new Error(`supabase lie ${res.status}`);
+  }
+
+  accepteAmi(moi: string, autre: string, maxAmis: number): Promise<IssueAccepte> {
+    return this.rpc<IssueAccepte>("amitie_accepte", { p_moi: moi, p_autre: autre, p_max_amis: maxAmis });
   }
 
   async delie(a: string, b: string): Promise<void> {
@@ -941,15 +1124,6 @@ export class DepotSupabase implements Depot {
     return this.demandesPar("de_id", id);
   }
 
-  async demande(de: string, a: string): Promise<void> {
-    if (de === a) return;
-    const res = await this.req("demande_ami", {
-      method: "POST",
-      headers: { Prefer: "resolution=ignore-duplicates" },
-      body: JSON.stringify([{ de_id: de, a_id: a }]),
-    });
-    if (!res.ok) throw new Error(`supabase demande ${res.status}`);
-  }
 
   async retireDemande(de: string, a: string): Promise<void> {
     const res = await this.req(
@@ -983,6 +1157,62 @@ export class DepotSupabase implements Depot {
       verdictBot: String(l.verdict_bot ?? "humain"),
       creeLe: Date.parse(String(l.cree_le)) || Date.now(),
     }));
+  }
+
+  /* --- boutique et collection : une fonction, une transaction --- */
+
+  async boutique(id: string): Promise<EtatBoutiqueCompte | null> {
+    if (!estIdCompte(id)) return null;
+    return litEtatBoutique(await this.rpc<unknown>("boutique_etat", { p_id: id }));
+  }
+
+  async acheteSkin(id: string, code: string, cle: string): Promise<ReponseAchat> {
+    return litReponseAchat(await this.rpc<unknown>("boutique_achete", { p_id: id, p_skin: code, p_cle: cle }));
+  }
+
+  async porteSkin(id: string, code: string): Promise<boolean> {
+    return (await this.rpc<boolean>("boutique_porte", { p_id: id, p_skin: code })) === true;
+  }
+
+  async importeBoutique(id: string, appareil: string, pieces: number, codes: readonly string[]): Promise<ReponseImport> {
+    const brut = await this.rpc<Record<string, unknown>>("boutique_importe", {
+      p_id: id,
+      p_appareil: appareil,
+      p_pieces: pieces,
+      p_skins: codes,
+    });
+    const etat = litEtatBoutique(brut) ?? { pieces: 0, porte: null, possedes: [] };
+    const issue = brut?.issue === "ok" || brut?.issue === "deja" ? brut.issue : "inconnu";
+    return { ...etat, issue };
+  }
+
+  async collection(id: string): Promise<Collection> {
+    const o = (await this.rpc<Record<string, unknown> | null>("compte_collection", { p_id: id })) ?? {};
+    const liste = (v: unknown): Record<string, unknown>[] => (Array.isArray(v) ? v : []);
+    const st = o.statistique as Record<string, unknown> | null | undefined;
+    return {
+      cartes: liste(o.cartes).map((c) => ({
+        regle: String(c.regle),
+        meilleur: Number(c.meilleur) || 0,
+        pieges: Number(c.pieges) || 0,
+        runs: Number(c.runs) || 0,
+        maitrisee: c.maitrisee === true,
+      })),
+      chapitres: liste(o.chapitres).map((c) => ({
+        regle: String(c.regle),
+        numero: Number(c.numero) || 0,
+        etoiles: Array.isArray(c.etoiles) ? c.etoiles.map((x) => Number(x) || 0) : [],
+        termine: c.termine === true,
+      })),
+      meilleurs: liste(o.meilleurs).map((m) => ({
+        mode: String(m.mode),
+        valeur: Number(m.valeur) || 0,
+        valeur2: Number(m.valeur2) || 0,
+      })),
+      statistique: st
+        ? { runsVerifies: Number(st.runsVerifies) || 0, joursClasses: Number(st.joursClasses) || 0 }
+        : null,
+    };
   }
 }
 

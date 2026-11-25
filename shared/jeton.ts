@@ -22,6 +22,8 @@
  * serait un format non relu.
  */
 
+import { idCompte } from "./compte";
+
 /* ------------------------------------------------------------------ *
  * Constantes
  * ------------------------------------------------------------------ */
@@ -202,7 +204,16 @@ export function decoupe(jeton: unknown): Decoupe | null {
   }
   if (!estRevendications(r)) return null;
 
-  return { corps: `${entete}.${charge}`, signature, revendications: r };
+  /*
+   * ⚠️ L'identifiant est NORMALISÉ ici, au seul point de lecture d'un jeton
+   * (API edge, serveur de salons, client). Depuis la migration 0006, un
+   * compte s'appelle `0123…-…` (UUID) ; les jetons émis avant portent encore
+   * `u_0123…`. Les deux désignent le même compte, et sans cette ligne un
+   * jeton de la veille rendrait « inconnu » pendant ses 24 h — puis sa
+   * fenêtre de renouvellement de 30 jours. La signature porte sur `corps`,
+   * pas sur l'objet relu : la normaliser ne change rien à sa vérification.
+   */
+  return { corps: `${entete}.${charge}`, signature, revendications: { ...r, sub: idCompte(r.sub) } };
 }
 
 function estRevendications(r: unknown): r is Revendications {

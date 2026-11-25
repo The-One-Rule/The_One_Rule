@@ -178,28 +178,20 @@ export async function traite(
   const action = new URL(req.url).searchParams.get("a");
   const [monCode, autre] = await Promise.all([monCodeP, depot.parCodeAmi(code)]);
 
-  /** Lie deux comptes, plafond vérifié DES DEUX CÔTÉS, et range les demandes. */
-  const lieSiPlace = async (x: Utilisateur): Promise<Response | null> => {
-    // Le plafond vaut aussi pour L'AUTRE : sinon n'importe qui pourrait
-    // gonfler la liste d'un inconnu au-delà de ce qu'elle sait afficher.
-    const [miens, siens] = await Promise.all([depot.amisDe(u.id), depot.amisDe(x.id)]);
-    if (miens.length >= MAX_AMIS || siens.length >= MAX_AMIS) return json({ error: "plein" }, 400);
-    await depot.lie(u.id, x.id);
-    /*
-     * ⚠️ Vérifier PUIS écrire laisse une fenêtre (audit C4) : deux
-     * acceptations simultanées passaient toutes deux le contrôle et
-     * dépassaient `MAX_AMIS`. On recompte APRÈS avoir lié, et on défait si
-     * la limite est franchie. Deux requêtes qui se croisent peuvent alors
-     * TOUTES DEUX défaire : c'est un refus de trop, jamais une liste trop
-     * longue — le seul sens acceptable pour une limite.
-     */
-    const [miensApres, siensApres] = await Promise.all([depot.amisDe(u.id), depot.amisDe(x.id)]);
-    if (miensApres.length > MAX_AMIS || siensApres.length > MAX_AMIS) {
-      await depot.delie(u.id, x.id);
-      return json({ error: "plein" }, 400);
-    }
-    await Promise.all([depot.retireDemande(u.id, x.id), depot.retireDemande(x.id, u.id)]);
-    return null;
+  /*
+   * ⚠️ PLUS DE « VÉRIFIER PUIS ÉCRIRE ». Les plafonds, la demande croisée et
+   * l'écriture se jugent dans UNE transaction, sous le verrou des deux
+   * comptes (`amitie_demande`, `amitie_accepte` — migration 0009). Avant,
+   * cette route lisait quatre listes, écrivait, RECOMPTAIT et défaisait si
+   * deux requêtes s'étaient croisées (audit C4) : un refus de trop était le
+   * meilleur résultat possible. Les issues sont les mêmes ; la fenêtre n'existe
+   * plus.
+   */
+  const issue = (i: "soi" | "deja" | "lie" | "demande" | "plein" | "inconnu"): Promise<Response> | Response => {
+    if (i === "plein") return json({ error: "plein" }, 400);
+    if (i === "inconnu") return json({ error: "inconnu" }, 404);
+    if (i === "soi") return json({ error: "soi" }, 400);
+    return etat(depot, u, monCode, jour, i === "demande" ? "demande" : "lie").then((e) => json(e));
   };
 
   if (action === "ajoute") {
@@ -207,48 +199,15 @@ export async function traite(
     // Un code inconnu et un compte banni répondent PAREIL : sinon la route
     // dirait à qui essaie des codes lesquels appartiennent à un banni.
     if (!autre || autre.banniLe) return json({ error: "inconnu" }, 404);
-    // Les quatre lectures de contrôle, ensemble ; les décisions, dans le même ordre.
-    const [miens, recues, envoyees, sesRecues] = await Promise.all([
-      depot.amisDe(u.id),
-      depot.demandesVers(u.id),
-      depot.demandesDe(u.id),
-      depot.demandesVers(autre.id),
-    ]);
-    if (miens.some((a) => a.id === autre.id)) {
-      return json(await etat(depot, u, monCode, jour, "lie"));
-    }
-    // DEUX DEMANDES CROISÉES VALENT ACCORD : l'autre m'a déjà demandé, je
-    // tape son code — nous voulons la même chose, inutile d'attendre.
-    if (recues.some((a) => a.id === autre.id)) {
-      const refus = await lieSiPlace(autre);
-      return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
-    }
-    if (!envoyees.some((a) => a.id === autre.id)) {
-      if (envoyees.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
-      if (sesRecues.length >= MAX_DEMANDES) return json({ error: "plein" }, 400);
-      await depot.demande(u.id, autre.id);
-    }
-    /*
-     * ⚠️ DEUX DEMANDES CROISÉES ET SIMULTANÉES (audit C4). Chacun a vu
-     * « aucune demande reçue » avant que l'autre n'écrive la sienne : sans ce
-     * second regard, elles restaient toutes deux en attente, alors que la
-     * règle dit que deux demandes croisées valent accord.
-     */
-    if ((await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
-      const refus = await lieSiPlace(autre);
-      return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
-    }
-    return json(await etat(depot, u, monCode, jour, "demande"));
+    // DEUX DEMANDES CROISÉES VALENT ACCORD : la transaction le tranche.
+    return issue(await depot.demandeAmi(u.id, autre.id, MAX_AMIS, MAX_DEMANDES));
   }
 
   if (action === "accepte") {
     // On n'accepte que ce qu'on a REÇU : sinon « accepter » un code serait
     // exactement l'ajout sans consentement qu'on vient de retirer.
-    if (!autre || !(await depot.demandesVers(u.id)).some((a) => a.id === autre.id)) {
-      return json({ error: "inconnu" }, 404);
-    }
-    const refus = await lieSiPlace(autre);
-    return refus ?? json(await etat(depot, u, monCode, jour, "lie"));
+    if (!autre) return json({ error: "inconnu" }, 404);
+    return issue(await depot.accepteAmi(u.id, autre.id, MAX_AMIS));
   }
 
   if (action === "refuse") {
