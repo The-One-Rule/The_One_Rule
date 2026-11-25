@@ -193,6 +193,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "J'Y VAIS",
     "brief.training": "D'ABORD S'ENTRAÎNER",
     "brief.allure": "ALLURE",
+    "salon.amisTitre": "INVITER UN AMI",
+    "invitami.oui": "REJOINDRE",
+    "invitami.non": "PLUS TARD",
     "brief.regles": "LES RÈGLES",
     "commun.retour": "RETOUR",
     "commun.menu": "MENU",
@@ -358,6 +361,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.vote": "CONFIRMER",
     "salon.vitesse": "VITESSE",
     "salon.vies": "VIES",
+    "salon.consignes": "CONSIGNES",
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "LANCER LA PARTIE",
@@ -405,6 +409,9 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "brief.go": "I'M IN",
     "brief.training": "TRAIN FIRST",
     "brief.allure": "PACE",
+    "salon.amisTitre": "INVITE A FRIEND",
+    "invitami.oui": "JOIN",
+    "invitami.non": "LATER",
     "brief.regles": "RULES",
     "commun.retour": "BACK",
     "commun.menu": "MENU",
@@ -570,6 +577,7 @@ const STATIQUE: Record<Lang, Record<string, string>> = {
     "observe.vote": "CONFIRM",
     "salon.vitesse": "SPEED",
     "salon.vies": "LIVES",
+    "salon.consignes": "ORDERS",
     "salon.rotation": "ROTATION",
     "salon.mode": "MODE",
     "salon.lancer": "START THE MATCH",
@@ -721,6 +729,17 @@ type Dyn = {
   goEntrer: string;
   goDefi: string;
   quetesValidees: (pieces: number) => string;
+  /* --- les pièces de partie (kanban) --- */
+  piecesPartie: (pieces: number) => string;
+  /* --- l'invitation d'un ami (kanban) --- */
+  invitamiTexte: (de: string, salon: string) => string;
+  inviteAmi: string;
+  inviteEnvoyee: string;
+  inviteAbsent: string;
+  inviteOccupe: string;
+  piecesPlafond: string;
+  piecesClassement: (pieces: number, rang: number) => string;
+  comboPieces: (mult: number) => string;
   serieEnCours: string;
   defiRecu: string;
   defiDe: (qui: string) => string;
@@ -901,6 +920,9 @@ type Dyn = {
   voteRecu: string;
   ariaVitesse: (nom: string) => string;
   ariaVies: (n: number) => string;
+  /** DOUCES, TOUTES, CORSÉES — dans l'ordre de `DIFFICULTES`. */
+  nomsDifficulte: readonly string[];
+  ariaDifficulte: (nom: string) => string;
   ariaRotationJamais: string;
   ariaRotation: (n: number) => string;
   ariaDuos: string;
@@ -1364,6 +1386,15 @@ const DYN: Record<Lang, Dyn> = {
     goEntrer: "ENTRER EN LICE",
     goDefi: "RELEVER LE DÉFI",
     quetesValidees: (p) => `QUÊTES VALIDÉES · +${p} PIÈCES`,
+    piecesPartie: (p) => `PARTIE · +${p} ${p > 1 ? "PIÈCES" : "PIÈCE"}`,
+    piecesPlafond: "PLAFOND DU JOUR ATTEINT",
+    invitamiTexte: (de, s) => `${de} T'INVITE · SALON ${s}`,
+    inviteAmi: "INVITER",
+    inviteEnvoyee: "INVITÉ",
+    inviteAbsent: "PAS EN LIGNE · LIEN COPIÉ",
+    inviteOccupe: "EN PARTIE · LIEN COPIÉ",
+    piecesClassement: (p, r) => `+${p} PIÈCES · ${r === 1 ? "1RE" : `${r}E`} PLACE`,
+    comboPieces: (m) => `COMBO ×${String(m).replace(".", ",")}`,
     serieEnCours: "SÉRIE EN COURS",
     defiRecu: "DÉFI REÇU",
     defiDe: (q) => `DÉFI DE ${q}`,
@@ -1537,6 +1568,8 @@ const DYN: Record<Lang, Dyn> = {
     voteRecu: "VOIX ENREGISTRÉE",
     ariaVitesse: (nom) => `Vitesse ${nom}`,
     ariaVies: (n) => `${n} vie${n > 1 ? "s" : ""}`,
+    nomsDifficulte: ["DOUCES", "TOUTES", "CORSÉES"],
+    ariaDifficulte: (n) => `Consignes ${n.toLowerCase()}`,
     ariaRotationJamais: "Les règles ne tournent jamais",
     ariaRotation: (n) => `Rotation toutes les ${n} manches`,
     ariaDuos: "Duos : deux joueurs par équipe, une réserve de vies commune",
@@ -1918,6 +1951,15 @@ const DYN: Record<Lang, Dyn> = {
     goEntrer: "ENTER THE ARENA",
     goDefi: "TAKE THE CHALLENGE",
     quetesValidees: (p) => `QUESTS CLEARED · +${p} COINS`,
+    piecesPartie: (p) => `RUN · +${p} ${p === 1 ? "COIN" : "COINS"}`,
+    piecesPlafond: "DAILY CAP REACHED",
+    invitamiTexte: (de, s) => `${de} INVITES YOU · ROOM ${s}`,
+    inviteAmi: "INVITE",
+    inviteEnvoyee: "INVITED",
+    inviteAbsent: "OFFLINE · LINK COPIED",
+    inviteOccupe: "IN A GAME · LINK COPIED",
+    piecesClassement: (p, r) => `+${p} COINS · ${r === 1 ? "1st" : r === 2 ? "2nd" : r === 3 ? "3rd" : `${r}th`} PLACE`,
+    comboPieces: (m) => `COMBO ×${m}`,
     serieEnCours: "STREAK RUNNING",
     defiRecu: "CHALLENGE RECEIVED",
     defiDe: (q) => `CHALLENGE FROM ${q}`,
@@ -2081,6 +2123,8 @@ const DYN: Record<Lang, Dyn> = {
     voteRecu: "VOTE IN",
     ariaVitesse: (nom) => `Speed ${nom}`,
     ariaVies: (n) => `${n} live${n === 1 ? "" : "s"}`,
+    nomsDifficulte: ["EASY", "ALL", "HARD"],
+    ariaDifficulte: (n) => `${n.toLowerCase()} orders`,
     ariaRotationJamais: "Rules never rotate",
     ariaRotation: (n) => `Rotation every ${n} rounds`,
     ariaDuos: "Duos: two players per team, one shared pool of lives",

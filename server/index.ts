@@ -24,6 +24,8 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { formatMetrics } from "./metrics";
 import { MatchLogic, MULTI_RULES, reglesAAnnoncer } from "./match";
+import { routeInvitation } from "./invitation";
+import { codeAmiValide } from "../shared/amis";
 import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
 import {
   fautSignalerActe,
@@ -133,6 +135,13 @@ interface Client {
    * défaut — le catalogue d'origine —, bornée par celle du serveur.
    */
   consignes: number;
+  /**
+   * Son code d'ami, annoncé par `{ t: "ami" }`. Sert à lui remettre une
+   * invitation (`server/invitation.ts`). Il n'est pas vérifié.
+   */
+  codeAmi: string | null;
+  /** L'instant de sa dernière invitation envoyée — borne le débit. */
+  derniereInvite: number;
   /**
    * Le son est allumé chez ce joueur — annoncé au `hello`, absent vaut non.
    * LE GONG n'entre au pool que si TOUS les sièges l'ont annoncé.
@@ -1029,6 +1038,8 @@ wss.on("connection", (ws, req) => {
     rookie: false,
     clavier: false,
     consignes: 1,
+    codeAmi: null,
+    derniereInvite: -Infinity,
     son: false,
     reprise: false,
     compte: null,
@@ -1437,6 +1448,45 @@ wss.on("connection", (ws, req) => {
         if (t - client.lastEmoteAt < EMOTE_COOLDOWN_MS) return;
         client.lastEmoteAt = t;
         broadcast(room, { t: "emote", playerId: client.id, k });
+        return;
+      }
+
+      case "ami": {
+        /*
+         * Le code n'est PAS conditionné au compte : §6 n°12, le compte ne
+         * décide de rien sur ce serveur (`invariants-compte.test.ts`). En
+         * pratique seul un client avec compte a une liste d'amis à annoncer,
+         * et le code n'est vérifié par personne (`server/invitation.ts`).
+         */
+        client.codeAmi = codeAmiValide(msg.code) ?? null;
+        return;
+      }
+
+      case "invite_ami": {
+        const t = now();
+        const salon = client.room?.code ?? null;
+        const issue = routeInvitation(
+          { id: client.id, codeAmi: client.codeAmi, salon, derniereInvite: client.derniereInvite },
+          msg.code,
+          [...clients].map((c) => ({
+            id: c.id,
+            codeAmi: c.codeAmi,
+            enPartie:
+              (!!c.room?.match && c.room.match.seats.some((s) => s.id === c.id && !s.eliminated)) ||
+              (!!c.room?.coop && c.room.coop.seats.some((s) => s.id === c.id)),
+          })),
+          t,
+        );
+        const code = String(msg.code ?? "").slice(0, 12);
+        if (issue.livre) {
+          client.derniereInvite = t;
+          const ami = [...clients].find((c) => c.id === issue.a);
+          if (ami && salon) send(ami, { t: "invitation", de: client.name, glyph: client.glyph, salon });
+          send(client, { t: "invite_ami_res", code, livre: true });
+        } else {
+          if (issue.pourquoi !== "trop_vite") client.derniereInvite = t;
+          send(client, { t: "invite_ami_res", code, livre: false, pourquoi: issue.pourquoi });
+        }
         return;
       }
 

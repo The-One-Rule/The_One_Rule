@@ -129,6 +129,13 @@ export function drawNeedBadge(
 /** Hitbox 22 % plus large que le visuel. Rater un clic de 3 px fait désinstaller. */
 const HIT = 1.22;
 
+/**
+ * Durée de la réponse d'une pièce touchée. Courte exprès : une réponse plus
+ * longue que l'intervalle entre deux clics d'une séquence (55 à 150 ms au
+ * JUMEAU) brouillerait le second.
+ */
+export const TOUCHE_MS = 180;
+
 // La gouttière vit avec la géométrie du champ : voir `render/orientation.ts`.
 export { FIELD_GUTTER };
 
@@ -224,6 +231,16 @@ export class SceneRenderer {
     matchMedia("(prefers-reduced-motion: reduce)").matches;
   /** flash de retour au clic : parti avant même la validation logique */
   private pulse: { x: number; y: number; t: number } | null = null;
+  /**
+   * LA PIÈCE TOUCHÉE — elle répond au doigt, avant tout verdict (carte
+   * « Retour visuel au clic sur une pièce »). L'onde au point de clic disait
+   * « le jeu t'a entendu » ; rien ne disait « tu as touché CETTE pièce », et
+   * un débutant ne reçoit ni gerbe ni impact (`intensite` nulle).
+   *
+   * Identifiée par la MANCHE (référence de l'objet) et l'index : la manche
+   * suivante peut avoir une pièce au même index, elle ne doit pas sauter.
+   */
+  private touchee: { idx: number; round: object; t: number; x: number; y: number; r: number; couleur: string } | null = null;
 
   /**
    * Bac de particules préalloué. Le moteur ne fait aucune allocation par
@@ -534,6 +551,20 @@ export class SceneRenderer {
 
   flash(x: number, y: number, now: number): void {
     this.pulse = { x, y, t: now };
+  }
+
+  /**
+   * La pièce `e` de `round` vient d'être touchée : elle répond (dessin seul).
+   *
+   * ⚠️ L'ANNEAU EST DÉTACHÉ DE LA MANCHE. Une bonne réponse ferme la manche à
+   * l'instant du clic et la suivante prend sa place : la pièce touchée n'est
+   * plus jamais dessinée. Un retour accroché à elle ne paraissait donc que sur
+   * un clic intermédiaire ou fautif — jamais sur le clic qui réussit, le plus
+   * fréquent. Mesuré dans le tutoriel : zéro anneau après un bon clic. On garde
+   * donc sa position, sa taille et sa couleur, comme l'onde du point de clic.
+   */
+  touche(round: object, e: Entity, now: number): void {
+    this.touchee = { idx: e.idx, round, t: now, x: e.x, y: e.y, r: this.rayon(e), couleur: colorHex(e.color) };
   }
 
   /** Éclat de réussite à l'endroit du clic. */
@@ -1260,6 +1291,16 @@ export class SceneRenderer {
           scale *= 1 + 0.015 * Math.sin((now / 1000) * ((Math.PI * 2) / 2.6) + e.phase);
         }
         const r0 = this.rayon(e);
+        /*
+         * LA PIÈCE TOUCHÉE se gonfle et retombe (`TOUCHE_MS`), puis un anneau
+         * de sa couleur s'en détache. DESSIN SEULEMENT : `e.x`, `e.y`, `e.r`
+         * ne bougent pas, le hit-test est celui d'avant au pixel près. +12 %
+         * au sommet, sous la marge du doigt. Mouvement réduit : l'anneau
+         * reste, la pièce ne bouge pas.
+         */
+        const t = this.touchee;
+        const kT = t && t.round === round && t.idx === e.idx ? Math.max(0, now - t.t) / TOUCHE_MS : 1;
+        if (kT < 1 && !this.reduced) scale *= 1 + 0.12 * Math.sin(Math.PI * kT);
         const r = r0 * scale;
 
         dessinePiece(
@@ -1296,6 +1337,24 @@ export class SceneRenderer {
 
     this.stepParticles(dt);
     this.drawParticles();
+
+    // L'anneau de la pièce touchée — dessiné même si sa manche est déjà finie.
+    if (this.touchee) {
+      const t = this.touchee;
+      const k = Math.max(0, now - t.t) / TOUCHE_MS;
+      if (k >= 1) {
+        this.touchee = null;
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.85 * (1 - k);
+        ctx.strokeStyle = t.couleur;
+        ctx.lineWidth = Math.max(3, 3 / Math.max(0.01, this.scale));
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r * (1.18 + (this.reduced ? 0 : 0.32 * k)), 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
 
     if (this.pulse) {
       /*

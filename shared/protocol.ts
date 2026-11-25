@@ -221,6 +221,16 @@ export interface RoomSettings {
    * ancien n'envoie que `duo` ; `sanitizeSettings` en déduit alors `duo`.
    */
   mode?: ModeSalon;
+  /**
+   * LA DIFFICULTÉ DES CONSIGNES (`engine/difficulte.ts`) : un index de
+   * `DIFFICULTES` — 0 DOUCES, 1 TOUTES, 2 CORSÉES. FACULTATIF, absent vaut 1.
+   *
+   * Elle ne voyage que dans les réglages : le serveur l'applique en CHOISISSANT
+   * le tirage de chaque manche, que le client reçoit déjà (`round.tirage`).
+   * Un client qui ne la connaît pas reconstruit donc la bonne manche sans le
+   * savoir. Pas de `PROTOCOL_VERSION`, pas de version de consignes.
+   */
+  difficulte?: number;
 }
 
 export const DEFAULT_SETTINGS: RoomSettings = {
@@ -246,6 +256,8 @@ export const DEFAULT_SETTINGS: RoomSettings = {
 export const SPEED_CHOICES = [1.7, 1.3, 1, 0.8, 0.65] as const;
 export const LIVES_CHOICES = [1, 3, 5] as const;
 export const ROTATION_CHOICES = [4, 8, 16, 999] as const;
+/** Index de `DIFFICULTES` (`engine/difficulte.ts`) : DOUCES, TOUTES, CORSÉES. */
+export const DIFFICULTE_CHOICES = [0, 1, 2] as const;
 
 export function lireMode(r: Partial<RoomSettings>): ModeSalon {
   if (
@@ -270,6 +282,8 @@ export function sanitizeSettings(raw: unknown): RoomSettings {
     speed: pick(r.speed, SPEED_CHOICES, 1),
     lives: pick(r.lives, LIVES_CHOICES, 3),
     rotationEvery: pick(r.rotationEvery, ROTATION_CHOICES, 8),
+    // Absente ou TOUTES : le champ est omis, un salon d'hier reste à l'identique.
+    ...(pick(r.difficulte, DIFFICULTE_CHOICES, 1) !== 1 ? { difficulte: pick(r.difficulte, DIFFICULTE_CHOICES, 1) } : {}),
     mode,
     // Les modes ne se cumulent jamais : duo force le booléen à true, tout
     // le reste (classique, imposteur, coop) le force à false. Un client
@@ -465,6 +479,16 @@ export type ClientMsg =
    *  reconstruit lui-même avec la règle du joueur observé. */
   | { t: "watch"; playerId: string }
   | { t: "emote"; k: number }
+  /**
+   * L'INVITATION D'UN AMI (`server/invitation.ts`). `ami` annonce SON code
+   * d'ami — lu chez Vercel, le serveur de salons n'a pas de base ; non
+   * vérifié, et indépendant du compte (§6 n°12). `invite_ami` demande de
+   * remettre une invitation au salon courant à l'ami qui porte `code`.
+   * Un serveur d'avant les ignore : l'inviteur n'a pas de réponse et retombe
+   * sur le lien. `PROTOCOL_VERSION` inchangée, doctrine de `quick`.
+   */
+  | { t: "ami"; code: string }
+  | { t: "invite_ami"; code: string }
   /**
    * Position du pointeur, en coordonnées de CHAMP. FACULTATIF.
    *
@@ -721,6 +745,10 @@ export type ServerMsg =
       tenu?: boolean;
     }
   | { t: "emote"; playerId: string; k: number }
+  /** Un ami t'invite au salon `salon`. Un client d'avant l'ignore. */
+  | { t: "invitation"; de: string; glyph: Glyph; salon: string }
+  /** La réponse à `invite_ami` : remise, ou pourquoi pas. */
+  | { t: "invite_ami_res"; code: string; livre: boolean; pourquoi?: string }
   | { t: "chat"; playerId: string; name: string; text: string }
   /**
    * Instantané des curseurs coop. FACULTATIF.

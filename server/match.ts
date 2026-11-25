@@ -27,6 +27,7 @@ import {
 import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti, tirageSansDoublePiege } from "../src/engine/multiround";
+import { difficulteDuReglage, prefereConsigne } from "../src/engine/difficulte";
 import {
   acteDe,
   draftImposteur,
@@ -602,6 +603,8 @@ export class MatchLogic {
             this.roundIdx,
             pool,
             this.alive.filter((x) => sortants.has(x.id)).map((x) => rules.get(x.id)!),
+            // La difficulté du salon : une préférence de consigne, après les pièges.
+            prefereConsigne(difficulteDuReglage(this.settings.difficulte)),
           )
         : 0;
     this.shared = this.imposteur && this.regleCommune

@@ -26,7 +26,7 @@ import { MultiId } from "./screens/MultiId";
 import { MultiJoin } from "./screens/MultiJoin";
 import { MultiLobby } from "./screens/MultiLobby";
 import { MultiEnd } from "./screens/MultiEnd";
-import { Micro, Toast, Pastille } from "./chrome/Overlays";
+import { InvitationAmi, Micro, Toast, Pastille } from "./chrome/Overlays";
 
 /**
  * Le contenu de `#app`, dans l'ordre exact de l'ancien `index.html`.
@@ -72,6 +72,7 @@ export function Shell() {
       <MultiEnd />
       <Micro />
       <Toast />
+      <InvitationAmi />
       <Pastille />
     </>
   );

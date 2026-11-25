@@ -19,7 +19,7 @@ import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
 import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./engine/rules";
 import { PALIER, PALIER_CAMELEON, PALIER_MAX, pileCameleon, pileEscalade, pileA } from "./engine/escalade";
-import type { Action, OneRule, Outcome, Round } from "./engine/types";
+import type { Action, Entity, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as ESC from "./game/escalier";
@@ -80,6 +80,7 @@ import { echelleMaitrise, franchies, lisRun } from "./game/echelle";
 import { MANCHES_MAITRISE } from "./game/maitrise";
 import { familleDe, parFamille, tauxPiege } from "./game/famille";
 import { cleEntrainement, cleEscalade } from "./game/perfs";
+import * as REC from "./game/recompenses";
 import { estPresque, RELANCE_GARDE_MS, relancePossible, vueRelance } from "./render/relance";
 import { adversaires, cibleDuPied, depasses, ligneRival, prochainPalier } from "./game/rival";
 import type { Adversaire } from "./game/rival";
@@ -1262,6 +1263,7 @@ function finNiveau(
   rule: OneRule,
   carteNeuve: boolean,
   piecesQuetes: number,
+  combo = 0,
 ): void {
   hud.hideStamp();
   hud.setRule(null);
@@ -1297,7 +1299,9 @@ function finNiveau(
   $("niveauManches").textContent = `${end.score}/${d.manches}`;
   $("niveauPieges").textContent = String(end.trapsSurvived);
   const pieces = gain.pieces + piecesQuetes;
-  $("niveauPieces").textContent = T.nouvellesPieces(pieces);
+  const mult = REC.multiplicateurCombo(combo);
+  $("niveauPieces").textContent =
+    mult > 1 && gain.pieces > 0 ? `${T.nouvellesPieces(pieces)} · ${t("comboPieces")(mult)}` : T.nouvellesPieces(pieces);
   $("niveauPieces").parentElement!.classList.toggle("is-vide", pieces === 0);
 
   /*
@@ -5026,6 +5030,11 @@ function finishRun(): void {
   niveauDuDernierRun = niveauEnCours;
   /** Ce que le niveau du parcours a rapporté, s'il y en avait un. */
   let gainNiveau: PC.Gain | null = null;
+  /** Les pièces de PARTIE de ce run (manches jouées), plafond du jour compris. */
+  let piecesPartie = 0;
+  let partiePlafonnee = false;
+  /** Le COMBO du parcours après ce niveau (0 hors parcours). */
+  let comboNiveau = 0;
 
   /** L'état de la règle AVANT ce run — voir la note dans la mutation. */
   let avant: P.RuleRecord | undefined;
@@ -5034,6 +5043,21 @@ function finishRun(): void {
 
   const s = P.mutate((st) => {
     ensureDay(st, day);
+    /*
+     * « 0,25 PIÈCE PAR MANCHE JOUÉE » (kanban) — en tête de la mutation, avant
+     * tout retour anticipé (l'escalade en a un) : chaque mode y a droit.
+     * Jouées = tenues, plus la fatale. Plafond du jour : `game/recompenses.ts`.
+     */
+    const credit = REC.crediteParties(
+      st.bourse,
+      day,
+      0,
+      REC.QUARTS_PAR_MANCHE * REC.manchesJoueesSolo(end.score, end.cause !== "complete"),
+    );
+    st.bourse = credit.bourse;
+    st.coins += credit.pieces;
+    piecesPartie = credit.pieces;
+    partiePlafonnee = credit.plafonne;
     // La MÊME formule que `recordRun`, et une seule fois écrite : les deux
     // copies avaient chacune leur `pieges` à tenir à jour, et seule celle-ci
     // tourne vraiment.
@@ -5146,6 +5170,15 @@ function finishRun(): void {
         PC.etoilesDeLEssai(end.cleared, end.vies),
       );
       st.encountered[rule.id]!.etoiles = gainNiveau.cases;
+      /*
+       * LE COMBO (kanban) : des niveaux franchis d'affilée sans perdre de vie
+       * multiplient ce que celui-ci rapporte, jusqu'à ×2. Il ne multiplie que
+       * des étoiles NEUVES : rejouer un niveau déjà plein ne rapporte toujours
+       * rien, donc le combo ne fabrique pas de boucle sur le 1-1.
+       */
+      st.comboNiveaux = REC.comboApres(st.comboNiveaux, end.cleared, PC.VIES_NIVEAU - end.vies);
+      comboNiveau = st.comboNiveaux;
+      gainNiveau = { ...gainNiveau, pieces: REC.piecesAvecCombo(gainNiveau.pieces, comboNiveau) };
       st.coins += gainNiveau.pieces;
     } else {
       // `recent` calibre la quête de performance et la médiane de l'écran de
@@ -5302,7 +5335,7 @@ function finishRun(): void {
 
   // LE PARCOURS a son propre écran : des étoiles, une carte, une suite.
   if (niveauDuDernierRun && gainNiveau) {
-    finNiveau(niveauDuDernierRun, gainNiveau, end, rule, avant === undefined, gained);
+    finNiveau(niveauDuDernierRun, gainNiveau, end, rule, avant === undefined, gained + piecesPartie, comboNiveau);
     return;
   }
 
@@ -5444,8 +5477,18 @@ function finishRun(): void {
   $("marksLegende").textContent = leg.join("   ");
 
   const reward = $("reward");
-  reward.classList.toggle("hidden", gained <= 0);
-  reward.textContent = gained > 0 ? t("quetesValidees")(gained) : "";
+  /*
+   * Les pièces du run : les quêtes, puis la partie (manches jouées). Le
+   * plafond du jour se DIT quand il a mordu — sinon un joueur qui enchaîne
+   * croirait que le jeu a cessé de compter.
+   */
+  const lignesPieces = [
+    gained > 0 ? t("quetesValidees")(gained) : "",
+    piecesPartie > 0 ? t("piecesPartie")(piecesPartie) : "",
+    partiePlafonnee ? t("piecesPlafond") : "",
+  ].filter(Boolean);
+  reward.classList.toggle("hidden", lignesPieces.length === 0);
+  reward.textContent = lignesPieces.join(" · ");
 
   const box = $("rankResult");
   if (mode === "ranked") {
@@ -6019,6 +6062,21 @@ function vibrePiegeDejoue(): void {
   vibre([18, 40, 26]);
 }
 
+/**
+ * LA PIÈCE TOUCHÉE répond au doigt, avant le verdict : elle se gonfle, un
+ * anneau de sa couleur s'en détache (`scene.touche`) et, au doigt, une
+ * vibration de 8 ms. Rien ne s'il n'y a pas de pièce sous le doigt — l'onde
+ * du point de clic suffit à dire « le jeu t'a entendu ».
+ *
+ * Elle ne dit RIEN du verdict : une pièce interdite répond comme une autre.
+ * Répondre autrement trahirait le piège avant la mort (§6 n°5).
+ */
+function pieceTouchee(round: object, ent: Entity | null): void {
+  if (!ent) return;
+  scene.touche(round, ent, performance.now());
+  if (TOUCH_ONLY) vibre(8);
+}
+
 /** Une vibration, jamais une erreur : voir `vibrePiegeDejoue`. */
 function vibre(motif: number | number[]): void {
   try {
@@ -6182,6 +6240,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(tuto.manche.round.ents, x, y);
+    pieceTouchee(tuto.manche.round, ent);
     if (ent) scene.burst(x, y, colorHex(ent.color), 10, 190);
     tutoClic(ent ? ent.idx : null);
     return;
@@ -6191,6 +6250,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
+    pieceTouchee(session.round, ent);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
@@ -6204,6 +6264,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
+    pieceTouchee(round, ent);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };

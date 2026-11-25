@@ -1,4 +1,6 @@
 import { dayIndex } from "./daily.js";
+import { BOURSE_VIDE } from "./recompenses.js";
+import type { Bourse } from "./recompenses.js";
 import { langueDuNavigateur } from "../i18n.js";
 import { cleEntrainement } from "./perfs.js";
 import { DAILY_ESSAIS, PACE_DEFAULT } from "../engine/difficulty.js";
@@ -101,6 +103,13 @@ export interface Save {
   daily: { day: number; played: boolean; score: number; cleared: boolean; essais?: number };
   quests: { day: number; state: Record<string, number>; claimed: string[] };
   coins: number;
+  /**
+   * Les GAINS DE PARTIE (classement, manches jouées) : reliquat de quarts et
+   * plafond du jour. Voir `game/recompenses.ts`. Absent vaut vide.
+   */
+  bourse: Bourse;
+  /** Niveaux du parcours franchis d'affilée sans perdre de vie — le COMBO. */
+  comboNiveaux: number;
   /** LA BOUTIQUE — styles de pièces possédés et porté. Voir `game/boutique.ts`. */
   boutique: EtatBoutique;
   /** identité du classé : pseudo court et dernier classement connu */
@@ -275,6 +284,8 @@ const fresh = (): Save => ({
   daily: { day: -1, played: false, score: 0, cleared: false },
   quests: { day: -1, state: {}, claimed: [] },
   coins: 0,
+  bourse: { ...BOURSE_VIDE },
+  comboNiveaux: 0,
   boutique: { possedes: ["sticker"], porte: "sticker" },
   ranked: { name: "", rating: 1000, games: 0 },
   multi: { glyph: 0, matches: 0 },
@@ -426,6 +437,15 @@ export function normaliseSave(brut: unknown): Save {
       claimed: Array.isArray(qu.claimed) ? qu.claimed.filter((x): x is string => typeof x === "string") : [],
     },
     coins: nombre(brut.coins, d.coins),
+    bourse: (() => {
+      const b = estObjet(brut.bourse) ? brut.bourse : {};
+      return {
+        quarts: Math.min(3, Math.max(0, Math.floor(nombre(b.quarts, 0)))),
+        jour: nombre(b.jour, -1),
+        gagnes: Math.max(0, nombre(b.gagnes, 0)),
+      };
+    })(),
+    comboNiveaux: Math.max(0, Math.floor(nombre(brut.comboNiveaux, 0))),
     boutique: litBoutique(brut.boutique),
     ranked: {
       name: texte(rk.name, d.ranked.name),

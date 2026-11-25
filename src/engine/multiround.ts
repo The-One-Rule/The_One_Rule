@@ -218,17 +218,26 @@ export function tirageSansDoublePiege(
   idx: number,
   pool: Instruction[] | undefined,
   sortants: readonly OneRule[],
+  /**
+   * LA DIFFICULTÉ DU SALON (`engine/difficulte.ts`) : une préférence de
+   * classe de consigne. Elle passe APRÈS la règle des pièges — un tirage qui
+   * enchaîne deux pièges n'est jamais préféré à un tirage de la mauvaise
+   * classe. ABSENTE, la fonction rend exactement ce qu'elle rendait hier.
+   */
+  prefere?: (instructionId: string) => boolean,
 ): number {
-  if (sortants.length === 0) return 0;
+  if (sortants.length === 0 && !prefere) return 0;
   let meilleur = 0;
   let moins = Infinity;
   for (let t = 0; t < TIRAGES_MAX; t++) {
     const d = draftShared(seed, idx, pool, t);
     let n = 0;
     for (const r of sortants) if (r.forbids(d.want, d.ents)) n++;
-    if (n === 0) return t;
-    if (n < moins) {
-      moins = n;
+    // Deux pièges d'affilée pèsent plus que toute classe : la directive d'abord.
+    const cout = n * 2 + (prefere && !prefere(d.instructionId) ? 1 : 0);
+    if (cout === 0) return t;
+    if (cout < moins) {
+      moins = cout;
       meilleur = t;
     }
   }

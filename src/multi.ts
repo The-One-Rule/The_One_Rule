@@ -15,6 +15,7 @@ import {
   MAX_PLAYERS,
   RECONNECT_GRACE_MS,
   ROTATION_CHOICES,
+  DIFFICULTE_CHOICES,
   SPEED_CHOICES,
   lireMode,
 } from "../shared/protocol";
@@ -31,7 +32,10 @@ import { estRancune } from "./engine/rules/rancune";
 import { estInconnue, MANCHES_INCONNUE, sousLInconnue } from "./engine/rules/salon";
 import { MOTIFS_REGLE } from "./engine/motifs";
 import * as P from "./game/progress";
+import * as REC from "./game/recompenses";
 import { jetonPourSalon } from "./compte";
+import { cercle } from "./compte/amis";
+import type { LigneAmi } from "../shared/amis";
 import { signeAffiche } from "./compte/revendication";
 import { track } from "./analytics";
 import { cleanEnv } from "./env";
@@ -842,6 +846,20 @@ function renderSettings(settings: RoomSettings, isHost: boolean, locked: boolean
     disabled: fige,
   });
 
+  /*
+   * LA DIFFICULTÉ DES CONSIGNES. Jauge montante : DOUCES allume un cran,
+   * CORSÉES trois. Figée en imposteur et coop, comme la vitesse : ces modes
+   * ont leur propre tirage.
+   */
+  fill("optDifficulte", DIFFICULTE_CHOICES, settings.difficulte ?? 1, {
+    label: (n) => tr("nomsDifficulte")[n] ?? "",
+    aria: (n) => tr("ariaDifficulte")(tr("nomsDifficulte")[n] ?? ""),
+    icon: "bars",
+    level: (n) => n + 1,
+    steps: DIFFICULTE_CHOICES.length,
+    disabled: fige,
+  });
+  $("optDifficulte").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optSpeed").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optLives").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
   $("optRotation").closest(".settings__row")?.classList.toggle("is-fige", rythmeDuMode);
@@ -1834,6 +1852,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
   function paintLobby(): void {
     if (!roomCode) return;
+    peintAmisSalon();
     const startErr = $("multiStartErr");
     startErr.textContent = "";
     startErr.classList.add("hidden");
@@ -2178,8 +2197,12 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     hud.setMeta("");
   }
 
+  /** Manches où J'AI reçu un verdict ce match — « 0,25 pièce par manche jouée ». */
+  let manchesJoueesMoi = 0;
+
   function beginMatch(msg: Extract<ServerMsg, { t: "match_start" }>): void {
     if (!net) return;
+    manchesJoueesMoi = 0;
     /*
      * Un SPECTATEUR n'a pas de règle à lui — il n'a pas de siège.
      *
@@ -2399,6 +2422,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
 
     const mine = msg.outcomes[net.myId];
     match.authority = mine ?? null;
+    if (mine) manchesJoueesMoi++;
     const myDeathSfx = mine?.kind === "death";
 
     if (mine?.kind === "survive") {
@@ -2813,6 +2837,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     /* Lu avant `clearMatch()`, et reutilise plus bas par la ligne de rang. */
     const manchesTenues = match?.idx ?? 0;
     const etaitCoop = match?.modeCoop === true;
+    const etaitImposteur = match?.modeImposteur === true;
     const scoreCoop = msg.score ?? match?.score ?? 0;
     const tenuCoop = msg.tenu === true;
     const vaguesCoop = etaitCoop ? manchesTenues + 1 : 0;
@@ -2944,6 +2969,36 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
         ? (moi.exAequo ? tr("finExAequo") : tr("finTonRang"))(moi.rang, classes.length, manchesJouees)
         : "";
 
+    /*
+     * LES PIÈCES DU MATCH (kanban : « en multijoueur », « selon le classement
+     * final », « par manche jouée »). La place se lit sur le MÊME classement
+     * que la ligne de rang au-dessus — des ex æquo partagent leur rang, donc
+     * leur récompense. Le coop n'a pas de classement (un score de groupe),
+     * l'imposteur non plus (un vote) : ils ne touchent que leurs manches. Un
+     * spectateur ne touche rien. Plafond du jour : `game/recompenses.ts`.
+     */
+    const piecesEl = $("multiEndPieces");
+    piecesEl.textContent = "";
+    if (moi && manchesJoueesMoi > 0) {
+      const rangPieces = etaitCoop || etaitImposteur ? 0 : REC.piecesDeRang(moi.rang, classes.length);
+      let credit: ReturnType<typeof REC.crediteParties> | null = null;
+      P.mutate((st) => {
+        credit = REC.crediteParties(st.bourse, P.today(), rangPieces, REC.QUARTS_PAR_MANCHE * manchesJoueesMoi);
+        st.bourse = credit.bourse;
+        st.coins += credit.pieces;
+      });
+      const c = credit as ReturnType<typeof REC.crediteParties> | null;
+      if (c) {
+        piecesEl.textContent = [
+          c.pieces > 0 ? (rangPieces > 0 ? tr("piecesClassement")(c.pieces, moi.rang) : tr("piecesPartie")(c.pieces)) : "",
+          c.plafonne ? tr("piecesPlafond") : "",
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        if (c.pieces > 0) track("pieces_match", { pieces: c.pieces, rang: moi.rang, plafonne: c.plafonne });
+      }
+    }
+
     renderTitles(msg.players, msg.winnerId);
     renderPodium(msg.players, msg.winnerId);
     $("multiEndInviteHint").textContent = tr("lienInvitation");
@@ -2968,7 +3023,137 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     }
   }
 
+  /* ---------------------------------------------------------------- *
+   * INVITER UN AMI (kanban) — voir `server/invitation.ts`.
+   * ---------------------------------------------------------------- */
+
+  /** Mes amis, lus chez Vercel à la connexion. Vide sans compte (§6 n°12). */
+  let amisSalon: LigneAmi[] = [];
+  /** L'état du bouton de chaque ami, par code d'ami. */
+  const etatInvite = new Map<string, "envoi" | "ok" | "absent" | "occupe">();
+  /** Le salon où un ami m'invite, le temps du bandeau. */
+  let invitationRecue: string | null = null;
+
+  /**
+   * Annonce MON code d'ami au serveur de salons, une fois ma liste lue.
+   *
+   * Jamais attendu : la connexion n'attend pas le compte, et un échec (hors
+   * ligne, anonyme, déploiement sans comptes) laisse simplement la liste vide.
+   */
+  function annonceAmi(client: NetClient): void {
+    void (async () => {
+      const c = await cercle();
+      if (!c || net !== client) return;
+      amisSalon = c.amis.filter((a) => !a.moi);
+      client.send({ t: "ami", code: c.code });
+      peintAmisSalon();
+    })();
+  }
+
+  /** Le salon auquel se rapportent les états des boutons. */
+  let salonDesInvites = "";
+
+  function peintAmisSalon(): void {
+    // Un autre salon : les « INVITÉ » du précédent ne veulent plus rien dire.
+    if (salonDesInvites !== roomCode) {
+      etatInvite.clear();
+      salonDesInvites = roomCode;
+    }
+    const box = $("lobbyAmis");
+    const liste = $("lobbyAmisListe");
+    box.classList.toggle("hidden", amisSalon.length === 0 || !roomCode);
+    if (amisSalon.length === 0 || !roomCode) return;
+    liste.replaceChildren(
+      ...amisSalon.map((a) => {
+        const li = document.createElement("li");
+        li.className = "lobbyamis__ami";
+        const nom = document.createElement("span");
+        nom.className = "lobbyamis__nom";
+        nom.textContent = a.pseudo;
+        const etat = etatInvite.get(a.code);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn btn--ghost lobbyamis__btn";
+        btn.dataset.code = a.code;
+        btn.disabled = etat === "envoi" || etat === "ok";
+        btn.textContent =
+          etat === "ok"
+            ? tr("inviteEnvoyee")
+            : etat === "absent"
+              ? tr("inviteAbsent")
+              : etat === "occupe"
+                ? tr("inviteOccupe")
+                : tr("inviteAmi");
+        btn.addEventListener("click", () => {
+          if (!net?.connected) return;
+          sfx.ui();
+          etatInvite.set(a.code, "envoi");
+          net.send({ t: "invite_ami", code: a.code });
+          peintAmisSalon();
+          /*
+           * Un serveur d'avant ne répond pas : passé ce délai, on se rabat
+           * sur le lien, comme pour un ami absent.
+           */
+          setTimeout(() => {
+            if (etatInvite.get(a.code) !== "envoi") return;
+            etatInvite.set(a.code, "absent");
+            void copyInvite("multiLobbyCodeHint");
+            peintAmisSalon();
+          }, 4000);
+        });
+        li.append(nom, btn);
+        return li;
+      }),
+    );
+  }
+
+  function recoisInvitation(de: string, salon: string): void {
+    // Jamais par-dessus une manche, ni pour le salon où l'on est déjà.
+    if (isPlayingMulti() || salon === roomCode) return;
+    invitationRecue = salon;
+    $("invitamiTexte").textContent = tr("invitamiTexte")(de, salon);
+    $("invitationAmi").classList.remove("hidden");
+    sfx.ui();
+  }
+
+  function fermeInvitation(): void {
+    invitationRecue = null;
+    $("invitationAmi").classList.add("hidden");
+  }
+
+  $("btnInvitamiNon").addEventListener("click", fermeInvitation);
+  $("btnInvitamiOui").addEventListener("click", () => {
+    const salon = invitationRecue;
+    fermeInvitation();
+    if (!salon) return;
+    void (async () => {
+      const client = await ensureConnected({ anonyme: true });
+      if (!client) {
+        await openJoin(salon);
+        return;
+      }
+      // On QUITTE le salon où l'on attendait : on ne joue qu'à une table.
+      if (roomCode && roomCode !== salon) client.leave();
+      setJoinErr(null);
+      entreeSalon = "rejoint";
+      client.joinRoom(salon);
+    })();
+  });
+
   const onMsg = (msg: ServerMsg): void => {
+    if (msg.t === "invitation") {
+      recoisInvitation(String(msg.de ?? "").slice(0, 14), String(msg.salon ?? "").slice(0, 8));
+      return;
+    }
+    if (msg.t === "invite_ami_res") {
+      const avant = etatInvite.get(msg.code);
+      const issue = msg.livre ? "ok" : msg.pourquoi === "occupe" ? "occupe" : "absent";
+      etatInvite.set(msg.code, issue);
+      // Pas remise : le lien prend le relais, une seule fois par tentative.
+      if (issue !== "ok" && avant === "envoi") void copyInvite("multiLobbyCodeHint");
+      peintAmisSalon();
+      return;
+    }
     if (msg.t === "photos") {
       // Revalidées ici aussi : ce qui entre dans un `src` ne se fie à personne.
       for (const [id, brute] of Object.entries(msg.photos ?? {})) {
@@ -3451,6 +3636,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
       );
       // Une connexion neuve : le départ subi de la précédente est réglé.
       departSubi = false;
+      annonceAmi(net);
       return net;
     } catch {
       if (!errFromServer) {
@@ -4169,7 +4355,7 @@ export function initMulti(show: ShowFn, hud: Hud): MultiApi {
     const chip = (ev.target as HTMLElement).closest("button.opt") as HTMLButtonElement | null;
     if (!chip || chip.disabled || !net) return;
     const row = chip.closest(".settings__row") as HTMLElement | null;
-    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "mode" | undefined;
+    const key = row?.dataset.key as "speed" | "lives" | "rotationEvery" | "mode" | "difficulte" | undefined;
     if (!key) return;
     const value = Number(chip.dataset.value);
     if (!Number.isFinite(value)) return;

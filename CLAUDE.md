@@ -783,6 +783,62 @@ Deux façons propres de s'en passer, toutes deux en place :
 **Branche** `master`, travail en branches et PR. **Vérification** : la
 liste du §2, toute reprise par la CI.
 
+### Les cartes d'amélioration du kanban (25/11/2026) — branche `feat/cartes-equipe`, jamais vues par un joueur
+
+Directive de Pierre : « attaque-toi à ces cartes tour à tour ». Une carte, un
+commit. Ce qui ne se déduit pas du code :
+
+- **Retour au clic** (`scene.touche`) : la pièce touchée se gonfle et un
+  anneau de SA couleur s'en détache ; 8 ms de vibration au doigt. ⚠️ Accroché
+  à la pièce, l'anneau ne paraissait JAMAIS sur un bon clic — la manche se
+  ferme à l'instant du clic et la suivante prend sa place. Il garde donc la
+  position et la couleur au moment du toucher. Ne dit rien du verdict (n°5).
+- **Émotes** : la bulle se pose SUR la plaque, plus au-dessus. Mesuré au
+  bureau : elle mordait 796 px² sur la rangée du bas du terrain. Ce n'est pas
+  le retour de la RANGÉE d'émotes sous les plaques (le bug du 25/09) : les
+  boutons restent à côté des plaques.
+- **Pièces** (`game/recompenses.ts`) : place finale (50/25/10, ex æquo
+  partagés), 0,25 par manche jouée (quarts en reliquat, jamais de fraction à
+  l'écran), combo du parcours jusqu'à ×2 (étoiles NEUVES seulement). ⚠️
+  **Plafond de 150 pièces de partie par jour** — sans lui, deux onglets en
+  partie rapide vidaient la boutique dans l'après-midi. Les pièces restent
+  sur l'appareil : client crédité, trichable, sans enjeu tant qu'elles
+  n'achètent que du cosmétique (n°14).
+- **Inviter un ami** (`server/invitation.ts`) : le serveur de salons n'a pas
+  de base, le CLIENT annonce son code d'ami (`{ t: "ami" }`) une fois sa liste
+  lue chez Vercel. Remise seulement à un ami CONNECTÉ au serveur de salons et
+  pas en partie ; sinon le bouton se rabat sur le lien. ⚠️ **J'avais
+  conditionné l'annonce au compte** (`if (!client.compte)`) :
+  `invariants-compte.test.ts` l'a refusé, à raison (n°12). Corrigé dans un
+  commit à part. **Leçon : relancer TOUTE la suite avant un commit, pas
+  seulement les tests de la carte.**
+- **Difficulté** (`engine/difficulte.ts`) : réglage d'hôte CONSIGNES
+  DOUCES / TOUTES / CORSÉES, appliqué en CHOISISSANT le tirage (le mécanisme
+  de « jamais deux pièges d'affilée », qui reste prioritaire). Rien de neuf
+  sur le fil ; TOUTES tire les manches d'hier. Les classes sont une décision
+  de conception — à remesurer quand `report.mjs` ventilera les morts par
+  consigne.
+- **Styles** : `docs/STYLES.md` pour les créateurs, et
+  `tests/styles-contrat.test.ts` qui passe sur chaque style (corps coloré
+  ≤ 1,3 r, dessin ≤ 1,5 r, teinte calibrée, trame MOTIFS, nom et phrase). ⚠️
+  Le premier jet accusait les cinq styles : le faux canvas ignorait la
+  découpe (CRAIE) et les dégradés (BONBON). Les bornes sont celles du style
+  MAISON mesuré, pas un chiffre théorique.
+- **UI/UX** : `docs/audits/AUDIT-UI-COHERENCE.md` — 40 relevés, 0 défaut de
+  mise en page ; « SANS CODE » à 2,76:1 la nuit et deux titres hors échelle,
+  corrigés. ⚠️ Un inventaire de polices lu sur le CONTENEUR (un `<button>`)
+  annonçait de l'Arial là où le texte lu est en Fredoka : **mesurer
+  l'élément qui porte le texte**, pas son parent.
+- **Constats laissés ouverts** : les coins d'un carré dépassent le cercle de
+  clic (1,24 r pour 1,22 r, ≈ 0,3 px au téléphone) ; LANCER sous la ligne de
+  flottaison du salon couché ; 35 couleurs en dur dans `theme.css`.
+- `tests/architecture.test.ts` passe désormais sous Windows (chemins en
+  `/`). L'e2e reste sensible à la CHARGE : deux passages avec un serveur de
+  salons et Vite ouverts ont rendu [001] et [005], seul il rend 173/0.
+- ⚠️ **Le volet du navigateur, masqué, ne compose aucune image** (0
+  `requestAnimationFrame`) : toutes les mesures de ce lot sont faites par
+  `playwright-core` + le Chrome du système, scripts dans le scratchpad.
+
 ### Les consignes du kanban (25/11/2026) — branche `feat/consignes-equipe`, jamais vues par un joueur
 
 Directive de Pierre : « attaque-toi à toutes les consignes [du kanban] sauf la

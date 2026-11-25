@@ -1317,7 +1317,10 @@ body {
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 32px;
+  /* L'échelle des titres d'écran (`.rulename`) : 30 px au téléphone, 46 au
+     bureau. Elle était figée à 32 — un titre de plus à sa propre taille,
+     relevé par l'audit de cohérence (docs/audits/AUDIT-UI-COHERENCE.md). */
+  font-size: clamp(30px, 5.5vw, 46px);
   color: var(--encre);
 }
 
@@ -1943,6 +1946,63 @@ body {
   border: 2px solid var(--encre);
   border-radius: var(--r-s);
   color: var(--encre);
+}
+
+/*
+ * L'ÉMOTE SE POSE SUR LA PLAQUE, plus au-dessus d'elle (carte « Émotes : les
+ * afficher sous la scène de jeu »). Mesurée au bureau (1280 × 800, animation
+ * active) : la bulle posée au-dessus de la plaque occupait y 602 à 634 pour un
+ * terrain qui finit à 620 — 796 px² sur la rangée du bas, pendant 900 ms.
+ * Centrée sur la plaque, elle reste SOUS la scène (ou dans la gouttière en
+ * colonnes) dans tous les formats, et ne peut ni mordre le terrain (§6 n°10)
+ * ni sortir de l'écran. Elle couvre le nom le temps de l'animation : c'est le
+ * joueur qui parle, on sait de qui elle vient.
+ */
+.plate__emote {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--encre);
+  z-index: 3;
+}
+
+.plate__emote.is-on {
+  animation-name: emoteSurPlaque;
+}
+
+@keyframes emoteSurPlaque {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plate__emote.is-on {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
 }
 
 .plate--me {
@@ -3478,7 +3538,8 @@ body {
   margin: 0;
   font-family: var(--display);
   font-weight: 700;
-  font-size: 34px;
+  /* Même échelle que les autres titres d'écran (elle était figée à 34). */
+  font-size: clamp(30px, 5.5vw, 46px);
   line-height: 1;
   letter-spacing: -0.01em;
   color: var(--encre);
@@ -4170,6 +4231,14 @@ body {
 .panel--rapide {
   border-color: var(--signal);
   background: var(--lilas);
+}
+
+/* L'intitulé « SANS CODE » sur le fond lilas : le violet d'action tombait à
+   2,76:1 la nuit (#7c52ff sur #342a5c), sous le plancher de 3:1 du relevé
+   UI/UX. `--signal-pale` est le même violet, réglé pour se lire sur fond :
+   5,47:1 le jour, 5,96:1 la nuit. */
+.panel--rapide .eyebrow {
+  color: var(--signal-pale);
 }
 
 /* Le compte d'une table publique : on ne lance rien, on regarde partir. */
@@ -5661,4 +5730,93 @@ body {
    l'appui à sa place, vu en jouant à 390 × 844). */
 #app > .nav {
   z-index: 11;
+}
+
+/* ==================================================================
+   INVITER UN AMI (kanban) — la liste du salon, et le bandeau reçu.
+   ================================================================== */
+
+.lobbyamis {
+  margin-top: 12px;
+  text-align: left;
+}
+
+.lobbyamis.hidden {
+  display: none;
+}
+
+.lobbyamis__titre {
+  margin: 0 0 6px;
+  font-size: var(--t-intitule);
+  letter-spacing: 0.18em;
+  color: var(--encre);
+}
+
+.lobbyamis__liste {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lobbyamis__ami {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lobbyamis__nom {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--encre);
+}
+
+.lobbyamis__btn {
+  flex: 0 0 auto;
+  min-height: var(--tap);
+  font-size: var(--t-petit);
+}
+
+/* Le bandeau : en haut, hors flux, au-dessus de la navigation (z 11) et des
+   toasts (30), sous les pleins cadres suspendus (60). Il n'arrive jamais
+   pendant une manche : le serveur ne le remet pas à un joueur en partie. */
+.invitami {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(92vw, 440px);
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 4px 0 var(--ombre-c);
+  color: var(--encre);
+}
+
+.invitami.hidden {
+  display: none;
+}
+
+.invitami__texte {
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: center;
+}
+
+.invitami__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
