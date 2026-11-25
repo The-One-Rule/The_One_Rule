@@ -1935,6 +1935,63 @@ body {
   color: var(--encre);
 }
 
+/*
+ * L'ÉMOTE SE POSE SUR LA PLAQUE, plus au-dessus d'elle (carte « Émotes : les
+ * afficher sous la scène de jeu »). Mesurée au bureau (1280 × 800, animation
+ * active) : la bulle posée au-dessus de la plaque occupait y 602 à 634 pour un
+ * terrain qui finit à 620 — 796 px² sur la rangée du bas, pendant 900 ms.
+ * Centrée sur la plaque, elle reste SOUS la scène (ou dans la gouttière en
+ * colonnes) dans tous les formats, et ne peut ni mordre le terrain (§6 n°10)
+ * ni sortir de l'écran. Elle couvre le nom le temps de l'animation : c'est le
+ * joueur qui parle, on sait de qui elle vient.
+ */
+.plate__emote {
+  top: 50%;
+  bottom: auto;
+  transform: translate(-50%, -50%);
+  background: var(--surface);
+  border: 2px solid var(--encre);
+  border-radius: var(--r-s);
+  box-shadow: 0 3px 0 var(--ombre-c);
+  color: var(--encre);
+  z-index: 3;
+}
+
+.plate__emote.is-on {
+  animation-name: emoteSurPlaque;
+}
+
+@keyframes emoteSurPlaque {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  18% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  30% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plate__emote.is-on {
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
 .plate--me {
   background: var(--lilas);
   border-color: var(--encre);
