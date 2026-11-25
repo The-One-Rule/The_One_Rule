@@ -23,7 +23,7 @@ import { createServer } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { RawData } from "ws";
 import { formatMetrics } from "./metrics";
-import { MatchLogic, MULTI_RULES } from "./match";
+import { MatchLogic, MULTI_RULES, reglesAAnnoncer } from "./match";
 import { routeInvitation } from "./invitation";
 import { codeAmiValide } from "../shared/amis";
 import { MatchCoop, type ClicCoop, type ClotureCharge } from "./coop";
@@ -142,6 +142,11 @@ interface Client {
   codeAmi: string | null;
   /** L'instant de sa dernière invitation envoyée — borne le débit. */
   derniereInvite: number;
+  /**
+   * Le son est allumé chez ce joueur — annoncé au `hello`, absent vaut non.
+   * LE GONG n'entre au pool que si TOUS les sièges l'ont annoncé.
+   */
+  son: boolean;
   /** Il comprend `remplace` (voir le `hello`) — absent vaut non. */
   reprise: boolean;
   /**
@@ -542,6 +547,12 @@ function startMatch(room: Room): void {
     CONSIGNES_VERSION,
     ...ids.map((id) => room.clients.get(id)?.consignes ?? 1),
   );
+  /*
+   * LE GONG ne se joue qu'à l'oreille : il n'entre au pool que si TOUT LE
+   * MONDE a annoncé le son. Un seul siège muet (ou d'une version qui ne le
+   * dit pas) et la table s'en passe — sinon il serait inerte chez lui.
+   */
+  const son = ids.length > 0 && ids.every((id) => room.clients.get(id)?.son === true);
   room.match = new MatchLogic(
     seed,
     ids,
@@ -550,6 +561,7 @@ function startMatch(room: Room): void {
     clavier,
     room.settings.duo,
     consignes,
+    son,
   );
 
   const rules = room.match.reglesPubliques(0);
@@ -765,6 +777,9 @@ function closeRound(room: Room): void {
   if (!match || !room.roundOpen) return;
   room.roundOpen = false;
 
+  // Les règles de la manche qui se ferme, lues AVANT que `closeRound` ne
+  // déplace une rancune : c'est la seule façon de savoir qu'elle a bougé.
+  const reglesAvant = match.reglesPubliques(match.roundIdx);
   const { outcomes, matchOver, winnerId, interludeMs } = match.closeRound();
   const out: Record<string, RoundOutcome> = {};
   for (const [id, o] of outcomes) out[id] = o;
@@ -797,9 +812,16 @@ function closeRound(room: Room): void {
     players: publicPlayers(room),
     nextRoundAt,
   };
-  if (rotation) {
-    verdict.nextRules = match.reglesPubliques(prochaineIdx);
-  }
+  /*
+   * Les règles à venir partent aussi quand une RANCUNE a changé de cible.
+   *
+   * Pas de pause allongée pour elle : elle ne change que sur une vie perdue,
+   * donc l'interlude est déjà celui d'une vie perdue (2,4 s), et le client
+   * l'annonce en plein cadre comme une rotation. Un salon sans LA RANCUNE ne
+   * voit jamais la différence : ses règles ne bougent qu'aux rotations.
+   */
+  const annonce = over ? null : reglesAAnnoncer(reglesAvant, match.reglesPubliques(prochaineIdx), rotation);
+  if (annonce) verdict.nextRules = annonce;
   broadcast(room, verdict);
 
   if (over && match.imposteur) {
@@ -1018,6 +1040,7 @@ wss.on("connection", (ws, req) => {
     consignes: 1,
     codeAmi: null,
     derniereInvite: -Infinity,
+    son: false,
     reprise: false,
     compte: null,
     adresse: adresseDe(req.headers, req.socket.remoteAddress),
@@ -1072,6 +1095,7 @@ wss.on("connection", (ws, req) => {
           Number.isInteger(msg.consignes) && (msg.consignes as number) >= 1
             ? Math.min(msg.consignes as number, CONSIGNES_VERSION)
             : 1;
+        client.son = msg.son === true;
         client.glyph = parseGlyph(msg.glyph, client.id);
         client.reprise = msg.reprise === true;
 

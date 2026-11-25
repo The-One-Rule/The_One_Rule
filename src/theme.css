@@ -1669,6 +1669,16 @@ body {
   to { transform: rotate(4deg) scale(1.08); }
 }
 
+/* L'INSOUMIS (salon) : la consigne en rouge dit le contraire. L'encre est
+   posée par le HUD ; l'ondulation est le SECOND canal, pour un daltonien
+   d'abord — la couleur seule ne dirait rien. Aucune hauteur ajoutée : un
+   soulignement se peint dans la ligne, la bande garde sa taille (n°17). */
+#instr.is-insoumise {
+  text-decoration: underline wavy;
+  text-decoration-thickness: 0.07em;
+  text-underline-offset: 0.14em;
+}
+
 /* Le score saute à chaque manche tenue. */
 #fScore.a-monte {
   animation: tor-monte-score 320ms var(--e-punch);

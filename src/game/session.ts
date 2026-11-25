@@ -3,7 +3,7 @@ import { leverAttendu } from "../engine/resolve";
 import { INSTRUCTIONS_SOLO, TOUCH_INSTRUCTIONS_SOLO } from "../engine/instructions";
 import { buildRound } from "../engine/round";
 import { combineRules } from "../engine/rules/combine";
-import { pileA } from "../engine/escalade";
+import { pileA, regleCameleonA } from "../engine/escalade";
 import { resolveAction, resolveTimeout } from "../engine/resolve";
 import type { Action, Instruction, OneRule, Outcome, Rng, Round, RoundProgress } from "../engine/types";
 import type { LoggedInput } from "../engine/verify";
@@ -50,6 +50,12 @@ export class Session {
    * pont, et c'est ce qui a évité de toucher au moteur.
    */
   readonly pile: readonly OneRule[];
+  /**
+   * LE CAMÉLÉON (réglage de l'escalade) : la pile se lit UNE règle à la fois,
+   * la suivante REMPLACE la précédente toutes les 10 manches. Faux partout
+   * ailleurs — et sans lui, rien de ce qui suit ne change.
+   */
+  readonly cameleon: boolean;
   /** La composée du palier courant. Recalculée seulement quand le palier change. */
   private _rule!: OneRule;
   /** Règle qui vient d'être ajoutée, à annoncer une fois. Remise à null après. */
@@ -115,7 +121,12 @@ export class Session {
 
   /** Nombre de règles tenues à cette manche — c'est le score de l'escalade. */
   get paliers(): number {
-    return pileA(this.pile, this.level).length;
+    return this.cameleon ? this.pile.indexOf(this.tenues(this.level)[0]!) + 1 : pileA(this.pile, this.level).length;
+  }
+
+  /** Ce qui est tenu à une manche : la pile qui monte, ou la règle du caméléon. */
+  private tenues(level: number): OneRule[] {
+    return this.cameleon ? regleCameleonA(this.pile, level) : pileA(this.pile, level);
   }
 
   /**
@@ -133,7 +144,7 @@ export class Session {
    * VRAIES règles.
    */
   get reglesTenues(): readonly OneRule[] {
-    return pileA(this.pile, this.level);
+    return this.tenues(this.level);
   }
 
   constructor(opts: {
@@ -147,6 +158,8 @@ export class Session {
     pace?: number;
     /** ESCALADE : la pile complète, tirée d'avance. Voir engine/escalade.ts. */
     pile?: readonly OneRule[];
+    /** LE CAMÉLÉON : la pile se lit une règle à la fois. Voir `cameleon`. */
+    cameleon?: boolean;
     /**
      * NIVEAU DU PARCOURS : le nombre de manches à tenir, et la cadence de pièges.
      *
@@ -175,6 +188,7 @@ export class Session {
   }) {
     this.mode = opts.mode;
     this.pile = opts.pile?.length ? opts.pile : [opts.rule];
+    this.cameleon = opts.cameleon === true && opts.mode === "escalade";
     this.rng = opts.rng;
     this.seed = opts.seed;
     this.runStart = opts.now;
@@ -210,6 +224,12 @@ export class Session {
    * mode ordinaire ne paie donc rien de tout ça.
    */
   private majRegle(): OneRule | null {
+    if (this.cameleon) {
+      // Une règle qui en REMPLACE une autre s'annonce comme une règle ajoutée.
+      const avant = this._rule;
+      this._rule = this.tenues(this.level)[0]!;
+      return avant && avant !== this._rule ? this._rule : null;
+    }
     const avant = this._rule ? pileA(this.pile, this.level - 1).length : 0;
     const tenue = pileA(this.pile, this.level);
     this._rule = combineRules(tenue);

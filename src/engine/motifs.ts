@@ -53,6 +53,13 @@ export const MOTIFS = {
   zoneInterdite: "TU AS CLIQUÉ DANS LA ZONE INTERDITE",
   tropTot: "TU AS AGI TROP TÔT",
   espace: "TU AS RELÂCHÉ ESPACE",
+  rancune: "TU AS CLIQUÉ TA RANCUNE",
+  immobile: "TU AS CLIQUÉ UNE FORME QUI BOUGE",
+  voisin: "TU AS CLIQUÉ UNE VOISINE DU ROUGE",
+  foule: "TU AS CLIQUÉ LA COULEUR LA PLUS NOMBREUSE",
+  miroir: "LE MIROIR : C'ÉTAIT DE L'AUTRE CÔTÉ",
+  insoumis: "TU AS OBÉI À UNE CONSIGNE EN ROUGE",
+  gong: "LE GONG A SONNÉ — IL FALLAIT NE RIEN FAIRE",
 
   /* --- le départ : posé par le serveur, jamais par le moteur --- */
   parti: "PARTI",
@@ -88,6 +95,13 @@ export const MOTIFS_REGLE: readonly string[] = [
   MOTIFS.zoneInterdite,
   MOTIFS.tropTot,
   MOTIFS.espace,
+  MOTIFS.rancune,
+  MOTIFS.immobile,
+  MOTIFS.voisin,
+  MOTIFS.foule,
+  MOTIFS.miroir,
+  MOTIFS.insoumis,
+  MOTIFS.gong,
 ];
 
 /** Toutes les phrases, pour éprouver une table de traduction d'un coup. */

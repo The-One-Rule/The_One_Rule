@@ -295,7 +295,12 @@ les sièges l'annoncent, fige la décision au lancement et la transmet dans
 `mainGauche` est exclue dans les deux cas : tenir ESPACE en recevant la
 consigne par rotation reste injouable même au clavier. `voyelle` ne sort que du
 pool TACTILE : elle ne piège que sur des consignes clavier, donc là-bas elle
-serait inerte, c'est-à-dire un avantage gratuit.
+serait inerte, c'est-à-dire un avantage gratuit. **Un de plus en version 5**
+(`multiRulesFor(clavier, consignes)`) : LA RANCUNE, qui n'est PAS dans
+`ONE_RULES` — voir §12. Sans le second argument, le pool est celui d'hier.
+**Six de plus en version 6, sept avec le son** (`multiRulesFor(clavier,
+consignes, son)`) : les règles de salon du kanban (`rules/salon.ts`, §12).
+LE GONG n'entre que si TOUTE la table a annoncé `son` dans son `hello`.
 
 ⚠️ **LA BIJECTION EST MORTE, et elle était exploitée.** Le pool tactile faisait
 exactement 10 règles pour 10 sièges : à effectif plein, chaque règle tombait une
@@ -833,6 +838,157 @@ commit. Ce qui ne se déduit pas du code :
 - ⚠️ **Le volet du navigateur, masqué, ne compose aucune image** (0
   `requestAnimationFrame`) : toutes les mesures de ce lot sont faites par
   `playwright-core` + le Chrome du système, scripts dans le scratchpad.
+
+### Les consignes du kanban (25/11/2026) — branche `feat/consignes-equipe`, jamais vues par un joueur
+
+Directive de Pierre : « attaque-toi à toutes les consignes [du kanban] sauf la
+rancune et l'écho ». Huit cartes : sept sont devenues des RÈGLES de salon
+(`src/engine/rules/salon.ts`, pur), une un RÉGLAGE de LA PILE. La branche part
+de `feat/regle-rancune` (#46, qui tient `CONSIGNES_VERSION` à 5) fusionnée avec
+`master` : elle monte à **6** par-dessus sans se battre avec elle.
+
+- **Hors du solo, comme LA RANCUNE** : `ONE_RULES`, `VERSION_CONTENU`
+  (`bi44iq`, testé), le carnet, les cartes et le rejeu serveur n'en savent
+  rien. Les ouvrir au solo reste une décision de Pierre (records d'entraînement
+  remis à zéro, et chacune demanderait une carte illustrée).
+- ⚠️ **TROIS CARTES ONT ÉTÉ RECALIBRÉES PAR LA MESURE** (salon tactile v5,
+  300 matchs × 40 manches, par tranches de dix ; `tests/salon-regles.test.ts`
+  refait la mesure et exige ≤ 28 % à CHAQUE tranche) :
+  - L'IMMOBILE telle qu'écrite : 0,4 % de pièges avant la manche 10, 3 à 4 %
+    après — seule la consigne « CELUI QUI BOUGE » fait bouger une pièce. INERTE
+    (n°1). Chez son porteur, une pièce sur cinq bouge aussi, choisie par sa
+    `phase` (graine commune) et seulement si la scène ne fait bouger personne :
+    22 % stables. Décidé AVANT la déformation, par `forbids` comme par
+    `transform` : elle ne crée aucun piège que `forbids` ignorerait (testé).
+  - LA FOULE telle qu'écrite (« plus de 4 formes ») : 30 % puis **88 %** — le
+    nombre de pièces monte avec la manche, la règle devenait « ne fais jamais
+    rien ». Devenue « jamais la couleur la plus nombreuse » (strictement, au
+    moins deux) : 24 à 26 % à TOUTE manche. On compte toujours.
+  - LE VOISIN aux huit voisins : 23 → 44 %. Par un CÔTÉ, et le rouge lui-même
+    ne compte pas : 11 → 26 %. Cellules lues au REPOS (`ox`, `oy`), comme LES
+    ANGLES.
+  Repères sur la même mesure : LE SANG 25 %, LA ROUE 33 %.
+- **LE MIROIR** ne retourne que les oppositions SANS AMBIGUÏTÉ : gauche ↔
+  droite (`extremeSide`), plus gros ↔ plus petit d'une couleur
+  (`smallestOfColor`, exactement deux pièces), et ← ↔ → au clavier. « LA PLUS
+  GROSSE » ne se retourne pas : trois moyennes ex æquo, cible ambiguë. ⚠️
+  Coût assumé : il ne touche qu'**une manche sur dix** environ, et aucune avant
+  la manche 6 (`minLevel` de ces consignes). Toucher la pièce que le texte
+  nomme tue avec SON motif (`round.leurre`, jugé par la règle).
+- **L'INSOUMIS** : 30 % des consignes à UN clic s'écrivent en rouge (`inkColor`
+  `garance`) ; le contraire = toucher n'importe quoi SAUF la pièce nommée (une
+  étape `clickAny`, la pièce nommée tue par `judge`). « Ne rien faire » en
+  aurait fait un second piège visible. ⚠️ **Second canal** : soulignement
+  ondulé (`#instr.is-insoumise`, `theme.css`) pour tout le monde — la couleur
+  seule serait muette pour un daltonien. L'encre éteint le dessin de la
+  consigne (`pictogramme`), qui ne tranche rien.
+- **LE GONG** : une manche IMPAIRE sur deux chances environ (≈ 22 %), donc
+  jamais deux d'affilée par construction. Le piège naît de `transform`,
+  l'exception assumée au commentaire de `buildRound` ; client et serveur
+  appliquent la même déformation sur le même RNG. ⚠️ **Il contredit la doctrine
+  du son** (`audio/index.ts`) : il n'entre au pool que si tous les sièges ont
+  annoncé `hello.son` (absent = non, lu à l'entrée — couper le son APRÈS ne le
+  retire pas). Ce que le jeu ne peut PAS savoir : un téléphone en mode
+  silencieux. Jamais au solo ni au run du jour (joueurs sourds).
+- **L'INCONNUE** est un VOILE : `inconnue:sang` juge et piège comme LE SANG
+  (`regleCachee`), tirée par équipe de la graine parmi `piegeParConsigne`. Le
+  bandeau dit « L'INCONNUE » jusqu'au premier piège raté (verdict de mort sur
+  `MOTIFS_REGLE`) ou à la 5e manche (`MANCHES_INCONNUE`, `regleAffichee` de
+  `multi.ts`) — décision d'AFFICHAGE, rien de jugé n'en dépend. Les plaques des
+  autres ne la révèlent jamais.
+- **L'imposteur** ne tire que `piegeParConsigne` : ni RANCUNE, ni GONG, ni
+  INCONNUE (leur règle ne dirait pas la même chose à tous).
+- **LE CAMÉLÉON = un RÉGLAGE de LA PILE** (« LES RÈGLES : S'AJOUTENT /
+  CHANGENT », `#briefPile`, persisté `pileCameleon`), pas un mode : même graine,
+  même borne de 40 manches, même score en règles tenues — donc les mêmes
+  écrans. La file (`pileCameleon`) n'a QUE des règles qui piègent ; la règle
+  change toutes les **10** manches (`PALIER_CAMELEON`). ⚠️ Chaque changement
+  pose le plein cadre de l'échauffement, partie SUSPENDUE et décalée
+  (`Session.decale`) : la manche d'après tuerait sinon sur une règle pas encore
+  lue. Le rejeu ne voit pas la pause (testé), `claim.cameleon` rejoue la bonne
+  file (testé : sans le drapeau, le score diverge). Son record a sa clé
+  (`cleEscalade(true)`, régime `cameleon:1`) ; celle de LA PILE n'a pas bougé.
+- **Dents** : six mécanismes cassés un par un (part mobile nulle, miroir
+  inerte, insoumis sans jugement, gong à chaque manche, gong sans négociation du
+  son, voisin qui compte le rouge) — chacun fait tomber au moins un test.
+- ⚠️ `tests/architecture.test.ts` **tombe sous Windows, sur `master` aussi** :
+  il compare des chemins écrits avec `\`. Normalisés à la main, ses six tests
+  passent, `salon.ts` compris. La CI (Linux) n'est pas touchée.
+- **Vu dans le volet** (dev, 1024 et 375) : la barre « LES RÈGLES » du brief
+  (segments de 44 px, aucun débordement à 375) et le CAMÉLÉON joué jusqu'à la
+  manche 10 — LES ANGLES → LE GAUCHER, plein cadre, reprise. Le premier titre
+  « TA RÈGLE CHANGE · LE GAUCHER » se coupait seul à la ligne à 375 : le NOM
+  est passé en titre. Le soulignement ondulé est vérifié au style calculé, et
+  `#instr` garde 34,67 px avec ou sans (n°17).
+- **Non vu** : le gong entendu (l'e2e ne l'a pas tiré), l'INCONNUE qui se
+  révèle, une consigne insoumise en vrai salon. Déployer Fly ET Vercel
+  (négocié : rien ne casse dans l'intervalle, rien ne vit avant les deux).
+- ⚠️ **Le pilote `__tor.joue()` tue sous MAINTIENS si on le rappelle avant le
+  lever** : il pose un second appui (« TU AS LÂCHÉ TROP TÔT »). Une boucle qui
+  l'appelle toutes les 550 ms meurt ainsi — l'aide, pas le jeu (§11).
+
+### LA RANCUNE (25/11/2026) — branche `feat/regle-rancune`, jamais vue par un joueur
+
+Directive de Pierre : implémenter la tâche « Consigne LA RANCUNE : jamais la
+forme qui t'a coûté une vie ». C'est une RÈGLE unique, pas une consigne, et
+la seule dont l'interdit dépend de l'histoire du joueur
+(`src/engine/rules/rancune.ts`, pur). Les trois questions ouvertes de la
+tâche, tranchées :
+
+- **Départ** : une forme tirée de la graine, PAR ÉQUIPE (`formeDeDepart`) —
+  sinon inerte pendant une partie parfaite (n°1).
+- **Mort au temps** : la pièce que l'étape demandait. Ordre complet dans
+  `formeQuiACoute` : pièce touchée, puis cible de l'étape, puis cible d'origine
+  d'un piège, sinon rien (consigne clavier, « n'importe où »).
+- **Run du jour** : elle n'est PAS dans `ONE_RULES`. Salon seulement, là où
+  l'on a des vies. Solo, `VERSION_CONTENU`, carnet, cartes, rejeu : intacts.
+  L'ouvrir au solo est une DÉCISION de Pierre — un solo à une vie en ferait
+  LA ROUE sous un autre nom, et il lui faudrait une carte illustrée.
+
+Ce qui ne se lit pas dans le code :
+
+- ⚠️ **LE CLIENT NE DÉDUIT JAMAIS LA RANCUNE.** Le serveur la tient par équipe
+  (`Team.rancune`, même hors porteur : on hérite de son passé par rotation) et
+  la CIBLE VOYAGE DANS L'IDENTIFIANT : `rancune:rond`. `ruleById` le résout,
+  `nomDeRegle` le ramène à sa famille, les briefs se composent avec la forme.
+  Aucun champ de protocole neuf.
+- **Négociée** : `CONSIGNES_VERSION` 4 → **5** (`VERSION_RANCUNE`). Le pool de
+  consignes de la 5 est celui de la 4 (testé). Un siège ancien referme tout.
+  Jamais en imposteur (aucune vie ne s'y perd).
+- **`verdict.nextRules` part aussi quand une rancune change**, plus seulement
+  aux rotations ; le client n'annonce plus que si SA règle change, et dit « TA
+  RANCUNE CHANGE » sans barrer « LA RANCUNE » au-dessus d'elle-même.
+- ⚠️ **Trouvé en route, antérieur** : la kill-cam reconstruisait la manche
+  fatale avec les règles de la manche SUIVANTE (`nextRules` appliqué avant
+  elle). À une rotation, la victime voyait sa mort rejouée sous une autre
+  règle. Elle lit désormais les règles JUGÉES.
+- ⚠️ **Le pilote de l'e2e ignorait `nextRules`** et cherchait sa règle dans
+  `ONE_RULES` : sous LA RANCUNE il aurait joué l'ancienne cible, ou rien. Il
+  fait maintenant comme le vrai client. Scénario dédié, assertions [042] à
+  [047] : une faute commandée, la nouvelle cible dans le verdict, trois manches
+  jouées dessous sans faute.
+- ⚠️ **UN SCÉNARIO QUI RELANCE DES MATCHS DOIT VIDER SES VERDICTS.** Les index
+  de manche repartent de 0 : le scénario a d'abord lu, pour « la manche
+  fautive », le verdict de même index d'un match de relance. Tombé en CI au
+  4e lancement, et un passage local « cassé exprès » avait été pris à tort
+  pour la preuve des dents — c'était ce verdict périmé. Signature : deux
+  assertions à la MÊME milliseconde. Les dents de l'annonce sont désormais
+  dans `reglesAAnnoncer` (pure, `server/match.ts`), éprouvées par un test.
+- ⚠️ **Sur ce poste, en soirée, l'e2e local ment sur le temps.** Minuteries
+  étirées d'environ 8 fois (1 060 s pour [018]), trous de 17 min dans le
+  journal, même au premier plan et sous `caffeinate -i` — probablement le
+  sommeil des applications de macOS. Signe : `ps` montre le processus e2e
+  quasi inactif, charge basse. Dans ce cas, ne conclure d'aucun délai : la
+  CI tranche.
+- **Taux de pièges** : identique à sa règle de forme, manche par manche
+  (rond = LA ROUE, triangle = LA POINTE, carré entre les deux). ⚠️ Mesuré en
+  passant : en salon TACTILE v5, au tirage 0, LA ROUE et LA POINTE piègent
+  déjà **32-33 %** des manches (25-26 % au clavier) — au-dessus des 28 % que
+  le dépôt tient pour un plafond, qui sont une mesure SOLO. Le tirage
+  anti-double-piège du serveur en retire une partie ; non mesuré de bout en
+  bout. Constaté, pas corrigé.
+- Non vu à l'écran : l'annonce « TA RANCUNE CHANGE » et le bandeau qui change
+  de forme. Couverts par la logique et l'e2e des salons, pas par un navigateur.
 
 ### Prisma (25/11/2026) — branche `refonte/prisma`
 

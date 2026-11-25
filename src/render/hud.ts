@@ -109,6 +109,7 @@ export class Hud {
   private stampText = $("stampText");
 
   private lastText = "";
+  /** Nom ET identifiant de la dernière règle posée — voir `setRule`. */
   private lastRuleName = "";
   private lastLigne = "";
   private urgentShown = false;
@@ -193,8 +194,14 @@ export class Hud {
    */
   setRule(rule: OneRule | null, opts?: { vide?: boolean }): void {
     const nom = opts?.vide ? "" : rule ? nomDeRegle(rule.id, rule.name) : "—";
-    const change = nom !== this.lastRuleName && !!rule;
-    this.lastRuleName = nom;
+    /*
+     * Le NOM et l'IDENTIFIANT : LA RANCUNE garde son nom quand sa cible
+     * change (`rancune:rond` → `rancune:carre`), et c'est justement le
+     * changement qu'il ne faut pas laisser passer en silence.
+     */
+    const cle = opts?.vide ? "" : `${nom}|${rule?.id ?? ""}`;
+    const change = cle !== this.lastRuleName && !!rule;
+    this.lastRuleName = cle;
     this.bandRule.textContent = nom;
     /*
      * Le brief du bandeau, traduit ici et pas ailleurs.
@@ -410,7 +417,17 @@ export class Hud {
       this.instr.textContent = shown || "\u00a0";
       this.lastText = shown;
     }
-    ecrisClasse(this.instr, round.glyph && !hidden ? "is-glyph" : "");
+    /*
+     * L'INSOUMIS : l'encre rouge ET un soulignement ondulé. La couleur seule
+     * serait muette pour un daltonien — le second canal vaut pour tout le
+     * monde, comme les trames du mode MOTIFS. Écrit dans la même chaîne de
+     * classe que `is-glyph` : `ecrisClasse` remplace tout, une `bascule` à
+     * part serait effacée à l'image suivante.
+     */
+    const classes = [round.glyph && !hidden ? "is-glyph" : "", round.insoumise && !hidden ? "is-insoumise" : ""]
+      .filter(Boolean)
+      .join(" ");
+    ecrisClasse(this.instr, classes);
     this.instr.style.color = round.inkColor ? colorHex(round.inkColor) : "";
 
     /*

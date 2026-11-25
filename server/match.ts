@@ -9,6 +9,21 @@
  */
 
 import { ONE_RULES } from "../src/engine/rules";
+import {
+  estRancune,
+  formeDeDepart,
+  formeQuiACoute,
+  rancune,
+  VERSION_RANCUNE,
+} from "../src/engine/rules/rancune";
+import {
+  INCONNUE,
+  inconnue,
+  REGLE_GONG,
+  REGLES_SALON,
+  regleSousLInconnue,
+  VERSION_SALON,
+} from "../src/engine/rules/salon";
 import { MOTIFS, MOTIFS_REGLE } from "../src/engine/motifs";
 import { mulberry32, rShuffle } from "../src/engine/rng";
 import { applyRule, draftShared, poolMulti, tirageSansDoublePiege } from "../src/engine/multiround";
@@ -24,7 +39,7 @@ import {
 import type { IssueVote } from "../src/engine/imposteur";
 import { resolveAction, resolveTimeout } from "../src/engine/resolve";
 import type { SharedRound } from "../src/engine/multiround";
-import type { Action, OneRule, Round, RoundProgress } from "../src/engine/types";
+import type { Action, Entity, OneRule, Round, RoundProgress, ShapeId } from "../src/engine/types";
 import {
   DEFAULT_SETTINGS,
   EMPTY_STATS,
@@ -67,8 +82,61 @@ export const MULTI_RULES: OneRule[] = ONE_RULES.filter(
  * la décision n°1. Dès que la table entière a un clavier, elle redevient une
  * vraie contrainte et rentre au pool.
  */
-export const multiRulesFor = (clavier: boolean): OneRule[] =>
-  clavier ? ONE_RULES.filter((r) => !r.watchRelease) : MULTI_RULES;
+export const multiRulesFor = (clavier: boolean, consignes = 1, son = false): OneRule[] => {
+  const base = clavier ? ONE_RULES.filter((r) => !r.watchRelease) : MULTI_RULES;
+  /*
+   * LA RANCUNE n'entre qu'en version 5 et au-delà (`VERSION_RANCUNE`).
+   *
+   * ABSENT VAUT 1, comme pour les consignes : un client ancien ferait retomber
+   * la table sur le pool d'hier, que tout le monde sait lire. Le défaut du
+   * paramètre garde le pool d'avant mot pour mot — la table `regle` de la
+   * base et ses tests le lisent.
+   *
+   * La règle posée ici est un REPRÉSENTANT : `rulesAt` la remplace par la
+   * rancune de l'équipe qui la porte.
+   */
+  const avecRancune = consignes >= VERSION_RANCUNE ? [...base, rancune("rond")] : base;
+  /*
+   * Les règles de SALON (`salon.ts`) n'entrent qu'en version 6, et LE GONG
+   * seulement si TOUTE la table a annoncé le son (`hello.son`, absent = non) :
+   * sans son, il serait inerte, un avantage gratuit (n°1). Même doctrine que
+   * `clavier` pour LA VOYELLE.
+   */
+  if (consignes < VERSION_SALON) return avecRancune;
+  return [...avecRancune, ...REGLES_SALON, ...(son ? [REGLE_GONG] : [])];
+};
+
+/**
+ * Une règle qui piège PAR LA CONSIGNE — `forbids` dit d'avance si une manche
+ * la viole, et elle dit la même chose à tous ceux qui la portent.
+ *
+ * C'est ce que l'IMPOSTEUR exige de sa règle commune (il force ses pièges
+ * par `forbids`) et ce que L'INCONNUE peut cacher. Pas LA RANCUNE (une par
+ * équipe), pas LE GONG (ses pièges naissent de `transform`), pas L'INCONNUE
+ * elle-même.
+ */
+export const piegeParConsigne = (r: OneRule): boolean =>
+  r.traps && !estRancune(r.id) && r.id !== INCONNUE && r.id !== REGLE_GONG.id;
+
+/**
+ * Les règles à joindre au verdict (`verdict.nextRules`), ou null.
+ *
+ * Aux rotations, toujours : c'est l'annonce faite pendant la pause. Hors
+ * rotation, seulement si une règle publique a CHANGÉ entre la manche jugée et
+ * la suivante — c'est-à-dire une RANCUNE qui vient de changer de cible. Un
+ * salon sans LA RANCUNE ne voit jamais la différence.
+ *
+ * Pure, et sortie de `server/index.ts` pour être éprouvée sans horloge :
+ * l'e2e qui la couvre de bout en bout dépend de délais réels.
+ */
+export function reglesAAnnoncer(
+  avant: Readonly<Record<string, string>>,
+  apres: Record<string, string>,
+  rotation: boolean,
+): Record<string, string> | null {
+  if (rotation) return apres;
+  return Object.keys(apres).some((id) => apres[id] !== avant[id]) ? apres : null;
+}
 
 /**
  * Décalage de graine pour le tirage des règles.
@@ -107,6 +175,16 @@ export interface Team {
   id: number;
   /** LA réserve. En duo, une faute de l'un la vide pour les deux. */
   lives: number;
+  /**
+   * LA RANCUNE de l'équipe : la forme de sa dernière vie perdue, ou celle
+   * tirée de la graine avant la première (`formeDeDepart`).
+   *
+   * Tenue pour TOUTE équipe, qu'elle porte LA RANCUNE ou non : celle qui la
+   * reçoit par rotation hérite de son propre passé, pas d'une forme neuve.
+   * C'est le serveur qui la tient ; le client la lit dans l'identifiant de
+   * règle (`rancune:rond`), jamais il ne la déduit (n°3).
+   */
+  rancune: ShapeId;
   eliminated: boolean;
   /** Identifiants des joueurs, un en solo, deux en duo. */
   members: string[];
@@ -153,6 +231,8 @@ export interface PlayerRoundState {
   outcome: RoundOutcome | null;
   /** Premier geste de la manche (ms) — null si silence total. */
   firstInputMs: number | null;
+  /** La pièce touchée par le geste FATAL, s'il y en a eu un — LA RANCUNE. */
+  touchee?: Entity | null;
 }
 
 function emptySeatStats(): SeatStats {
@@ -192,6 +272,8 @@ export class MatchLogic {
    * COPIE — `MULTI_RULES` reste intact d'un match à l'autre.
    */
   private readonly pool: OneRule[];
+  /** Ce que L'INCONNUE peut cacher à cette table (`piegeParConsigne`). */
+  private readonly sousInconnue: OneRule[];
   /**
    * Le salon joue-t-il au clavier ?
    *
@@ -258,6 +340,8 @@ export class MatchLogic {
     duo = false,
     /** Version du jeu de consignes commune à la table. Défaut prudent : 1. */
     consignes = 1,
+    /** Tous les sièges ont le son allumé : LE GONG peut entrer. Défaut prudent. */
+    son = false,
   ) {
     this.seed = seed;
     this.settings = settings;
@@ -275,14 +359,20 @@ export class MatchLogic {
        * VOYELLE n'entre que si tout le monde a un clavier, sinon elle serait
        * inerte — décision n°1. `SANS_REGLE` n'est pas dans ce pool.
        */
-      const piegeuses = multiRulesFor(clavier).filter((r) => r.traps);
+      /*
+       * Jamais LA RANCUNE : l'imposteur ne retire aucune vie, donc elle ne
+       * changerait jamais — et la règle commune doit dire la même chose à
+       * tous, alors que chaque équipe a SA rancune.
+       */
+      const piegeuses = multiRulesFor(clavier, consignes, son).filter(piegeParConsigne);
       this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), piegeuses);
       this.regleCommune = this.pool[0]!;
       const rngImp = mulberry32(seed ^ SEL_IMPOSTEUR);
       this.imposteurId = playerIds[Math.floor(rngImp() * playerIds.length)] ?? null;
     } else {
-      this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier));
+      this.pool = rShuffle(mulberry32(seed ^ SEL_REGLES), multiRulesFor(clavier, consignes, son));
     }
+    this.sousInconnue = multiRulesFor(clavier, consignes, son).filter(piegeParConsigne);
 
     /*
      * Appariement : deux sièges consécutifs par équipe.
@@ -316,6 +406,7 @@ export class MatchLogic {
         lives: base + bonus,
         eliminated: false,
         members: membres,
+        rancune: formeDeDepart(seed, this.teams.length),
       });
     }
 
@@ -403,9 +494,20 @@ export class MatchLogic {
        * une contrainte que son partenaire n'aurait aucune raison de connaître.
        */
       const rule = this.pool[(s.team + shift) % this.pool.length]!;
-      out.set(s.id, rule);
+      // LA RANCUNE du pool n'est qu'un représentant : on porte la SIENNE.
+      out.set(s.id, this.incarne(rule, s.team));
     }
     return out;
+  }
+
+  /**
+   * Les REPRÉSENTANTS du pool deviennent la règle que porte l'équipe :
+   * LA RANCUNE prend sa cible, L'INCONNUE la règle qu'elle cache.
+   */
+  private incarne(rule: OneRule, equipe: number): OneRule {
+    if (estRancune(rule.id)) return rancune(this.teams[equipe]!.rancune);
+    if (rule.id === INCONNUE) return inconnue(regleSousLInconnue(this.seed, equipe, this.sousInconnue));
+    return rule;
   }
 
   /**
@@ -574,6 +676,7 @@ export class MatchLogic {
       st.outcome = { kind: "survive", trap: st.round.trap };
     } else if (res.outcome.kind === "death") {
       st.outcome = { kind: "death", reason: res.outcome.reason };
+      st.touchee = action.kind === "click" || action.kind === "lift" ? action.ent : null;
     }
     return st.outcome;
   }
@@ -700,7 +803,17 @@ export class MatchLogic {
          * Imposteur : une « mort » n'est qu'une ligne au journal. Personne
          * n'est éliminé, les vies ne bougent pas.
          */
-        if (!this.imposteur) this.perdUneVie(s);
+        if (!this.imposteur) {
+          this.perdUneVie(s);
+          /*
+           * LA RANCUNE : la forme qui vient de coûter cette vie devient celle
+           * de l'équipe. Avant `outcomes.set`, mais sans effet sur CETTE
+           * manche — elle est jugée — : la nouvelle cible part avec les règles
+           * de la suivante (`verdict.nextRules`, server/index.ts).
+           */
+          const forme = formeQuiACoute(st.round, st.progress, st.touchee ?? null);
+          if (forme) this.teamOf(s).rancune = forme;
+        }
         s.stats.streak = 0;
         /*
          * Mourir sur SA PROPRE regle n'est pas la meme faute que rater une
