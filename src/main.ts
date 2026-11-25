@@ -19,7 +19,7 @@ import { mulberry32 } from "./engine/rng";
 import { FIELD_H, FIELD_W } from "./engine/types";
 import { ONE_RULES, withoutHold, withoutInk, withoutLetters } from "./engine/rules";
 import { PALIER, PALIER_MAX, pileEscalade, pileA } from "./engine/escalade";
-import type { Action, OneRule, Outcome, Round } from "./engine/types";
+import type { Action, Entity, OneRule, Outcome, Round } from "./engine/types";
 
 import { dailySeed, dayIndex, ruleOfDay, tomorrowRule, trainingRule } from "./game/daily";
 import * as ESC from "./game/escalier";
@@ -5967,6 +5967,21 @@ function vibrePiegeDejoue(): void {
   vibre([18, 40, 26]);
 }
 
+/**
+ * LA PIÈCE TOUCHÉE répond au doigt, avant le verdict : elle se gonfle, un
+ * anneau de sa couleur s'en détache (`scene.touche`) et, au doigt, une
+ * vibration de 8 ms. Rien ne s'il n'y a pas de pièce sous le doigt — l'onde
+ * du point de clic suffit à dire « le jeu t'a entendu ».
+ *
+ * Elle ne dit RIEN du verdict : une pièce interdite répond comme une autre.
+ * Répondre autrement trahirait le piège avant la mort (§6 n°5).
+ */
+function pieceTouchee(round: object, ent: Entity | null): void {
+  if (!ent) return;
+  scene.touche(round, ent, performance.now());
+  if (TOUCH_ONLY) vibre(8);
+}
+
 /** Une vibration, jamais une erreur : voir `vibrePiegeDejoue`. */
 function vibre(motif: number | number[]): void {
   try {
@@ -6130,6 +6145,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(tuto.manche.round.ents, x, y);
+    pieceTouchee(tuto.manche.round, ent);
     if (ent) scene.burst(x, y, colorHex(ent.color), 10, 190);
     tutoClic(ent ? ent.idx : null);
     return;
@@ -6139,6 +6155,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(session.round.ents, x, y);
+    pieceTouchee(session.round, ent);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
@@ -6152,6 +6169,7 @@ $("cv").addEventListener("pointerdown", (ev) => {
     const { x, y } = scene.toField(e.clientX, e.clientY);
     scene.flash(x, y, performance.now());
     const ent = scene.hit(round.ents, x, y);
+    pieceTouchee(round, ent);
     lastClick = { x, y, color: ent ? colorHex(ent.color) : "#EFEAE0", r: ent ? scene.rayon(ent) : 34, t: performance.now() };
     captureDoigt(e);
     doigt = { x, y };
