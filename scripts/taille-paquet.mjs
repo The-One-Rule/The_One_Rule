@@ -28,7 +28,11 @@ const PLAFONDS_GZIP = {
   // ajoutés : +73,9 Ko mesurés à l'esbuild (115,7 → 189,6 Ko), en contrepartie
   // d'un index.html qui ne pèse plus ≈ 33 Ko gzip. Plafond relevé à 195 Ko.
   // À RE-MESURER au premier `vite build` : la mesure est faite hors Vite.
-  index: 195 * 1024,
+  // 25/11/2026, re-mesuré au `vite build` : 194,2 Ko sur master (règles de
+  // salon et caméléon compris), 196,4 avec les cartes d'amélioration du kanban
+  // (+2,2 Ko : pièces, invitation d'un ami, difficulté des consignes, retour
+  // au clic). Aucune dépendance ajoutée. Plafond relevé à 199 Ko.
+  index: 199 * 1024,
   // 41,3 → 36,6 Ko après le retrait des règles mortes (phase 4, point 27).
   style: 39 * 1024,
   qr: 9 * 1024,
