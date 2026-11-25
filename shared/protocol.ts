@@ -688,7 +688,8 @@ export type ServerMsg =
       nextRoundAt: number | null;
       /**
        * Attribution des règles de la manche SUIVANTE, présente uniquement
-       * quand une rotation s'y produit.
+       * quand une rotation s'y produit — ou quand une RANCUNE change de
+       * cible (`rancune:rond` → `rancune:carre`, consignes ≥ 5).
        *
        * Envoyée avec le verdict et non avec la manche : il faut pouvoir
        * annoncer le changement PENDANT la pause, avant que le joueur ait à

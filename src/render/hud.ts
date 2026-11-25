@@ -109,6 +109,7 @@ export class Hud {
   private stampText = $("stampText");
 
   private lastText = "";
+  /** Nom ET identifiant de la dernière règle posée — voir `setRule`. */
   private lastRuleName = "";
   private lastLigne = "";
   private urgentShown = false;
@@ -193,8 +194,14 @@ export class Hud {
    */
   setRule(rule: OneRule | null, opts?: { vide?: boolean }): void {
     const nom = opts?.vide ? "" : rule ? nomDeRegle(rule.id, rule.name) : "—";
-    const change = nom !== this.lastRuleName && !!rule;
-    this.lastRuleName = nom;
+    /*
+     * Le NOM et l'IDENTIFIANT : LA RANCUNE garde son nom quand sa cible
+     * change (`rancune:rond` → `rancune:carre`), et c'est justement le
+     * changement qu'il ne faut pas laisser passer en silence.
+     */
+    const cle = opts?.vide ? "" : `${nom}|${rule?.id ?? ""}`;
+    const change = cle !== this.lastRuleName && !!rule;
+    this.lastRuleName = cle;
     this.bandRule.textContent = nom;
     /*
      * Le brief du bandeau, traduit ici et pas ailleurs.

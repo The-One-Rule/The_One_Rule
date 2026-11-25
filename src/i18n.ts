@@ -23,6 +23,8 @@
 import { MOTIFS } from "./engine/motifs.js";
 import type { MotifId } from "./engine/motifs.js";
 import type { SeatStatus } from "./render/seat.js";
+import { familleDeRegle, formeDeRancune } from "./engine/rules/rancune.js";
+import type { ShapeId } from "./engine/types.js";
 
 import { PARCOURS, STATIQUE_PARCOURS } from "./i18n-parcours.js";
 import type { TextesParcours } from "./i18n-parcours.js";
@@ -733,6 +735,7 @@ type Dyn = {
   lienInvitation: string;
   /* --- ce qui s'écrit PENDANT la partie --- */
   regleChange: string;
+  rancuneChange: string;
   regleUnique: string;
   duel: string;
   elimineSous: (regle: string) => string;
@@ -1367,6 +1370,7 @@ const DYN: Record<Lang, Dyn> = {
     codeCopie: (c) => `CODE ${c} COPIÉ`,
     lienInvitation: "LIEN D'INVITATION · UN CLIC POUR COPIER",
     regleChange: "TA RÈGLE CHANGE",
+    rancuneChange: "TA RANCUNE CHANGE",
     regleUnique: "TA RÈGLE UNIQUE",
     duel: "DUEL",
     elimineSous: (r) => `ÉLIMINÉ · ${r}`,
@@ -1914,6 +1918,7 @@ const DYN: Record<Lang, Dyn> = {
     codeCopie: (c) => `CODE ${c} COPIED`,
     lienInvitation: "INVITE LINK · ONE CLICK TO COPY",
     regleChange: "YOUR RULE CHANGES",
+    rancuneChange: "YOUR GRUDGE CHANGES",
     regleUnique: "YOUR ONE RULE",
     duel: "DUEL",
     elimineSous: (r) => `OUT · ${r}`,
@@ -2812,6 +2817,7 @@ const NOMS: Record<Lang, Record<string, string>> = {
     jumeau: "LE JUMEAU",
     acceleration: "L'ACCÉLÉRATION",
     mainGauche: "LA MAIN GAUCHE",
+    rancune: "LA RANCUNE",
   },
   en: {
     sang: "THE BLOOD",
@@ -2830,6 +2836,7 @@ const NOMS: Record<Lang, Record<string, string>> = {
     jumeau: "THE TWIN",
     acceleration: "THE RUSH",
     mainGauche: "THE OFF HAND",
+    rancune: "THE GRUDGE",
   },
 };
 
@@ -2847,7 +2854,9 @@ const NOMS: Record<Lang, Record<string, string>> = {
  * interdit — pire qu'un mot dans la mauvaise langue.
  */
 export function nomDeRegle(id: string, secours: string): string {
-  const parts = id.split("+");
+  // LA RANCUNE porte sa cible dans son identifiant (`rancune:rond`) : le NOM
+  // est celui de la famille, la cible se lit dans le brief.
+  const parts = id.split("+").map(familleDeRegle);
   const traduits = parts.map((p) => NOMS[courante][p]);
   if (traduits.some((n) => n === undefined)) return secours;
   return traduits.join(" + ");
@@ -2865,6 +2874,8 @@ export const NOMS_REGLES = NOMS;
  */
 export function briefDeRegle(ruleId: string, secours: string): string {
   if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].brief;
+  const rancune = formeDeRancune(ruleId);
+  if (rancune) return RANCUNE_TXT[courante].long(rancune);
   return BRIEFS[courante][ruleId] ?? secours;
 }
 
@@ -2943,11 +2954,49 @@ const BRIEFS_COURTS: Record<Lang, Record<string, string>> = {
  */
 export function briefCourtDeRegle(ruleId: string, secours: string): string {
   if (debout && ruleId === "gaucher") return GAUCHER_DEBOUT[courante].court;
+  const rancune = formeDeRancune(ruleId);
+  if (rancune) return RANCUNE_TXT[courante].court(rancune);
   return BRIEFS_COURTS[courante][ruleId] ?? briefDeRegle(ruleId, secours);
 }
 
 /** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
 export const BRIEFS_COURTS_REGLES = BRIEFS_COURTS;
+
+/**
+ * LA RANCUNE — ses briefs se COMPOSENT, parce que sa cible change en partie.
+ *
+ * Le bandeau est la seule place où le joueur relit sa contrainte pendant la
+ * manche : il doit dire la forme, pas « la forme qui t'a coûté une vie »,
+ * qu'il faudrait se rappeler au pire moment. La forme est en CAPITALES dans
+ * le brief long, comme le mot qu'on cherche des yeux sur le terrain.
+ *
+ * Toutes les formes sont masculines en français (« de rond », « de carré »,
+ * « de triangle ») : un seul gabarit suffit. ⚠️ Une quatrième forme féminine
+ * le casserait — c'est ici qu'il faudrait l'accorder.
+ *
+ * Le brief court ne dépasse pas 31 caractères (« Rancune : jamais de
+ * triangle » en fait 28), la même borne que les autres.
+ */
+const FORMES_RANCUNE: Record<Lang, Record<ShapeId, string>> = {
+  fr: { carre: "carré", rond: "rond", triangle: "triangle" },
+  en: { carre: "square", rond: "circle", triangle: "triangle" },
+};
+
+const RANCUNE_TXT: Record<Lang, { long(f: ShapeId): string; court(f: ShapeId): string }> = {
+  fr: {
+    long: (f) =>
+      `Ne clique jamais un ${FORMES_RANCUNE.fr[f].toUpperCase()}. Chaque vie perdue change ta rancune : la forme qui te l'a coûtée devient l'interdite.`,
+    court: (f) => `Rancune : jamais de ${FORMES_RANCUNE.fr[f]}`,
+  },
+  en: {
+    long: (f) =>
+      `Never click a ${FORMES_RANCUNE.en[f].toUpperCase()}. Every life you lose changes your grudge: the shape that cost it becomes the forbidden one.`,
+    court: (f) => `Grudge: never a ${FORMES_RANCUNE.en[f]}`,
+  },
+};
+
+/** Exposé pour que les tests éprouvent les deux langues sans le DOM. */
+export const RANCUNE_TEXTES = RANCUNE_TXT;
 
 /* ------------------------------------------------------------------ *
  * L'ALLURE
@@ -3038,6 +3087,7 @@ const MOTIFS_EN: Record<MotifId, string> = {
   zoneInterdite: "YOU CLICKED THE FORBIDDEN ZONE",
   tropTot: "YOU ACTED TOO SOON",
   espace: "YOU RELEASED SPACE",
+  rancune: "YOU CLICKED YOUR GRUDGE",
   parti: "LEFT",
 };
 

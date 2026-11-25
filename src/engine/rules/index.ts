@@ -3,33 +3,14 @@ import { rChance, rInt } from "../rng.js";
 import { STEP_MS } from "../difficulty.js";
 import { INSTRUCTIONS } from "../instructions/index.js";
 import { COLOR_IDS, FIELD_H, FIELD_W } from "../types.js";
-import type { ColorId, Entity, OneRule, Want } from "../types.js";
+import type { ColorId, Entity, OneRule } from "../types.js";
 import { VOWELS } from "../instructions/index.js";
+import { targets } from "./cibles.js";
+import { regleRancuneDepuisId } from "./rancune.js";
 
 /* ------------------------------------------------------------------ *
  * Helpers partagés
  * ------------------------------------------------------------------ */
-
-/** Les entités qu'un `want` demande de cliquer. Vide pour les attentes clavier. */
-function targets(want: Want, ents: Entity[]): Entity[] {
-  switch (want.kind) {
-    case "click":
-      return ents[want.idx] ? [ents[want.idx]!] : [];
-    case "sequence":
-      return want.idxs.map((i) => ents[i]).filter((e): e is Entity => !!e);
-    case "hold":
-      return ents[want.idx] ? [ents[want.idx]!] : [];
-    /*
-     * GLISSER touche DEUX pièces : celle qu'on prend et celle où l'on pose.
-     * Une règle qui interdit l'une ou l'autre fait de la manche un piège —
-     * poser le carré sur du rouge, c'est toucher du rouge.
-     */
-    case "drag":
-      return [ents[want.from], ents[want.to]].filter((e): e is Entity => !!e);
-    default:
-      return [];
-  }
-}
 
 /** La plus grosse forme — uniquement si elle est strictement unique. */
 export function uniqueBiggest(ents: Entity[]): Entity | null {
@@ -435,4 +416,13 @@ export const ONE_RULES: OneRule[] = [
   LA_MAIN_GAUCHE,
 ];
 
-export const ruleById = (id: string): OneRule | undefined => ONE_RULES.find((r) => r.id === id);
+/**
+ * La règle d'un identifiant — celui du catalogue, ou celui qu'envoie le salon.
+ *
+ * LA RANCUNE n'est pas au catalogue (`ONE_RULES` porte le solo, le run du jour
+ * et `VERSION_CONTENU`) : elle ne vit qu'en salon, et son identifiant porte sa
+ * cible (`rancune:rond`). C'est le serveur qui la fixe ; le client la LIT,
+ * il ne la déduit jamais de l'historique (n°3).
+ */
+export const ruleById = (id: string): OneRule | undefined =>
+  ONE_RULES.find((r) => r.id === id) ?? regleRancuneDepuisId(id);

@@ -121,10 +121,12 @@ describe("le rejeu serveur", () => {
 
 describe("le multi en version 4", () => {
   it("la version 4 ferme « NE FAIS RIEN », la 3 le garde (un salon d'hier)", () => {
-    expect(CONSIGNES_VERSION).toBe(4);
+    // 5 = LA RANCUNE entre au pool de RÈGLES : les consignes ne bougent pas.
+    expect(CONSIGNES_VERSION).toBe(5);
     for (const clavier of [false, true]) {
       expect(poolMulti(clavier, 4).some((i) => CONSIGNES_RIEN.has(i.id))).toBe(false);
       expect(poolMulti(clavier, 3).some((i) => CONSIGNES_RIEN.has(i.id))).toBe(true);
+      expect(poolMulti(clavier, 5).map((i) => i.id)).toEqual(poolMulti(clavier, 4).map((i) => i.id));
     }
   });
 
